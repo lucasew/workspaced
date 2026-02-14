@@ -19,12 +19,12 @@ When adding new config fields to `pkg/config/config.go`:
 5. Add config section to `settings.toml`
 6. Templates access via `{{ .Foo.Field }}`
 
-**⚠️ IMPORTANTE - Merge Methods:**
-- LoadConfig() cria defaults hardcoded, depois carrega settings.toml e faz merge
-- Sem implementar `Merge()` e chamar no `GlobalConfig.Merge()`, o merge não acontece
-- Resultado: valores do settings.toml são ignorados, templates geram campos vazios
-- Sintoma: código compila OK, TOML é lido, mas `{{ .Field }}` retorna string vazia
-- Sempre implementar Merge() para structs nested no GlobalConfig!
+**⚠️ IMPORTANT - Merge Methods:**
+- LoadConfig() creates hardcoded defaults, then loads settings.toml and merges
+- Without implementing `Merge()` and calling it in `GlobalConfig.Merge()`, the merge doesn't happen
+- Result: values from settings.toml are ignored, templates generate empty fields
+- Symptom: code compiles OK, TOML is read, but `{{ .Field }}` returns empty string
+- Always implement Merge() for structs nested in GlobalConfig!
 
 ## CLI & Architecture
 - **Intention-based Structure**: Commands are grouped by user intent:
