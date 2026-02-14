@@ -7,8 +7,10 @@ import (
 	"workspaced/cmd/workspaced/dispatch"
 	"workspaced/cmd/workspaced/history"
 	"workspaced/cmd/workspaced/input"
+	"workspaced/cmd/workspaced/is"
 	"workspaced/cmd/workspaced/open"
 	"workspaced/cmd/workspaced/state"
+	"workspaced/cmd/workspaced/svc"
 	"workspaced/cmd/workspaced/system"
 	"workspaced/pkg/config"
 	"workspaced/pkg/driver/media"
@@ -46,6 +48,8 @@ func main() {
 	cmd.AddCommand(system.NewCommand())
 	cmd.AddCommand(state.NewCommand())
 	cmd.AddCommand(history.NewCommand())
+	cmd.AddCommand(is.GetCommand())
+	cmd.AddCommand(svc.NewCommand())
 
 	// Top-level aliases for daily ergonomic
 	stateCmd := state.NewCommand()

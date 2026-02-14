@@ -45,11 +45,10 @@ type LazyToolConfig struct {
 }
 
 type HostConfig struct {
-	MAC         string `toml:"mac" json:"mac"`
-	TailscaleIP string `toml:"tailscale_ip" json:"tailscale_ip"`
-	ZerotierIP  string `toml:"zerotier_ip" json:"zerotier_ip"`
-	Port        int    `toml:"port" json:"port"`
-	User        string `toml:"user" json:"user"`
+	IPs  []string `toml:"ips" json:"ips"`
+	MAC  string   `toml:"mac" json:"mac"`
+	Port int      `toml:"port" json:"port"`
+	User string   `toml:"user" json:"user"`
 }
 
 type BrowserConfig struct {
