@@ -11,9 +11,9 @@ import (
 	"workspaced/pkg/config"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/clipboard"
+	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/driver/wm"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/driver/notification"
 )
 
 func ResolveRect(ctx context.Context, targetType TargetType) (*wm.Rect, error) {

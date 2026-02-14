@@ -18,8 +18,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "clipboard_termux" }
-func (p *Provider) Name() string { return "Termux" }
+func (p *Provider) ID() string         { return "clipboard_termux" }
+func (p *Provider) Name() string       { return "Termux" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"workspaced/pkg/driver"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/screenshot"
 	api "workspaced/pkg/driver/wm"
-	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/executil"
 )
 
@@ -21,8 +21,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "screenshot_maim" }
-func (p *Provider) Name() string { return "Maim (X11)" }
+func (p *Provider) ID() string         { return "screenshot_maim" }
+func (p *Provider) Name() string       { return "Maim (X11)" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

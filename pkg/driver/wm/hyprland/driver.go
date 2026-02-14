@@ -6,8 +6,8 @@ import (
 	"fmt"
 	dapi "workspaced/pkg/api"
 	"workspaced/pkg/driver"
-	api "workspaced/pkg/driver/wm"
 	execdriver "workspaced/pkg/driver/exec"
+	api "workspaced/pkg/driver/wm"
 	"workspaced/pkg/executil"
 )
 
@@ -17,8 +17,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "wm_hyprland" }
-func (p *Provider) Name() string { return "Hyprland" }
+func (p *Provider) ID() string         { return "wm_hyprland" }
+func (p *Provider) Name() string       { return "Hyprland" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

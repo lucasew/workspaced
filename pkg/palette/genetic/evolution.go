@@ -25,9 +25,9 @@ func initPopulation(rng *rand.Rand, colors []api.LAB, count int, size int) []Ind
 		// Generate completely random colors in LAB space
 		for j := 0; j < count; j++ {
 			individual.colors[j] = api.LAB{
-				L: rng.Float64() * 100,        // Lightness: 0-100
-				A: rng.Float64()*200 - 100,    // Green-Red: -100 to +100
-				B: rng.Float64()*200 - 100,    // Blue-Yellow: -100 to +100
+				L: rng.Float64() * 100,     // Lightness: 0-100
+				A: rng.Float64()*200 - 100, // Green-Red: -100 to +100
+				B: rng.Float64()*200 - 100, // Blue-Yellow: -100 to +100
 			}
 		}
 

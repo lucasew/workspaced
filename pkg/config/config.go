@@ -103,7 +103,6 @@ type PaletteConfig struct {
 	Base17 string `toml:"base17,omitempty" json:"base17,omitempty"`
 }
 
-
 func (c *Config) Module(name string, target interface{}) error {
 	return c.UnmarshalKey("modules."+name, target)
 }

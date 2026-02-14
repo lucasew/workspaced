@@ -6,9 +6,9 @@ import (
 	"strings"
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/screen"
 	"workspaced/pkg/env"
-	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/executil"
 )
 
@@ -18,8 +18,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "screen_sway" }
-func (p *Provider) Name() string { return "Wayland (sway)" }
+func (p *Provider) ID() string         { return "screen_sway" }
+func (p *Provider) Name() string       { return "Wayland (sway)" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

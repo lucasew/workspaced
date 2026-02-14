@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/opener"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/opener"
 	"workspaced/pkg/executil"
 )
 
@@ -15,8 +15,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "opener_xdg" }
-func (p *Provider) Name() string { return "xdg-open" }
+func (p *Provider) ID() string         { return "opener_xdg" }
+func (p *Provider) Name() string       { return "xdg-open" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
