@@ -62,16 +62,26 @@ func runSelfInstall(force bool) error {
 		}
 	}
 
-	// 2. Setup PATH
-	fmt.Printf("\n🔧 Setting up PATH...\n")
-	if err := setupPath(home, installDir); err != nil {
+	// 2. Generate wrapper in ~/.local/bin/workspaced
+	fmt.Printf("\n🔧 Generating wrapper script...\n")
+	wrapperDir := filepath.Join(home, ".local", "bin")
+	wrapperPath := filepath.Join(wrapperDir, "workspaced")
+
+	if err := generateWrapper(wrapperPath, installPath); err != nil {
 		fmt.Printf("   ⚠️  Warning: %v\n", err)
-		fmt.Printf("   Please manually add to your PATH:\n")
-		fmt.Printf("   export PATH=\"%s:$PATH\"\n", installDir)
+		fmt.Printf("   Please manually create wrapper at %s\n", wrapperPath)
 	}
 
-	// 3. Success message
-	fmt.Printf("\n✅ Binary installation complete!\n\n")
+	// 3. Setup PATH
+	fmt.Printf("\n🔧 Setting up PATH...\n")
+	if err := setupPath(home, wrapperDir); err != nil {
+		fmt.Printf("   ⚠️  Warning: %v\n", err)
+		fmt.Printf("   Please manually add to your PATH:\n")
+		fmt.Printf("   export PATH=\"%s:$PATH\"\n", wrapperDir)
+	}
+
+	// 4. Success message
+	fmt.Printf("\n✅ Installation complete!\n\n")
 	fmt.Printf("Next steps:\n")
 	fmt.Printf("  1. Restart your shell or run: source ~/.bashrc\n")
 	fmt.Printf("  2. Verify installation: workspaced --version\n")
@@ -121,6 +131,22 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(destination, source)
 	return err
+}
+
+func generateWrapper(wrapperPath, targetPath string) error {
+	wrapperDir := filepath.Dir(wrapperPath)
+	if err := os.MkdirAll(wrapperDir, 0755); err != nil {
+		return fmt.Errorf("failed to create wrapper directory: %w", err)
+	}
+
+	wrapperContent := fmt.Sprintf("#!/bin/sh\nexec %s \"$@\"\n", targetPath)
+
+	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
+		return fmt.Errorf("failed to write wrapper: %w", err)
+	}
+
+	fmt.Printf("   ✓ Wrapper created at %s\n", wrapperPath)
+	return nil
 }
 
 func setupPath(home, installDir string) error {

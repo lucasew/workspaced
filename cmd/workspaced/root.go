@@ -11,6 +11,7 @@ import (
 	"workspaced/cmd/workspaced/is"
 	"workspaced/cmd/workspaced/open"
 	"workspaced/cmd/workspaced/selfinstall"
+	"workspaced/cmd/workspaced/selfupdate"
 	"workspaced/cmd/workspaced/state"
 	"workspaced/cmd/workspaced/svc"
 	"workspaced/cmd/workspaced/system"
@@ -55,6 +56,7 @@ func main() {
 
 	// Installation and setup
 	cmd.AddCommand(selfinstall.NewCommand())
+	cmd.AddCommand(selfupdate.NewCommand())
 	cmd.AddCommand(initcmd.NewCommand())
 
 	// Top-level aliases for daily ergonomic

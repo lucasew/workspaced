@@ -98,13 +98,54 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 		}
 	}
 
+	// Generate wrapper in ~/.local/bin/mise if it doesn't exist
+	if err := ensureMiseWrapper(misePath); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to create mise wrapper: %v\n", err)
+	}
+
 	return misePath, nil
 }
 
+// ensureMiseWrapper creates a wrapper script in ~/.local/bin/mise
+func ensureMiseWrapper(misePath string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	wrapperDir := filepath.Join(home, ".local", "bin")
+	wrapperPath := filepath.Join(wrapperDir, "mise")
+	workspacedBin := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
+
+	// Check if wrapper already exists and is correct
+	if content, err := os.ReadFile(wrapperPath); err == nil {
+		expectedContent := fmt.Sprintf("#!/bin/sh\nexec %s open mise \"$@\"\n", workspacedBin)
+		if string(content) == expectedContent {
+			return nil
+		}
+	}
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(wrapperDir, 0755); err != nil {
+		return fmt.Errorf("failed to create wrapper directory: %w", err)
+	}
+
+	// Generate wrapper script that calls workspaced open mise
+	wrapperContent := fmt.Sprintf("#!/bin/sh\nexec %s open mise \"$@\"\n", workspacedBin)
+
+	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
+		return fmt.Errorf("failed to write wrapper: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "✓ Created mise wrapper at %s\n", wrapperPath)
+	return nil
+}
+
 func miseCommand() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "mise [args...]",
 		Short: "Run mise (installs automatically if needed)",
+		DisableFlagParsing: true,
 		Long: `Run mise using a custom installation path.
 
 This command ensures mise is installed in a location that works on all platforms,
@@ -151,4 +192,5 @@ Examples:
 			return nil
 		},
 	}
+	return cmd
 }
