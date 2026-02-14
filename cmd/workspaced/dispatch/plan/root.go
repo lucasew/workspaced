@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/shell"
 	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -26,12 +27,12 @@ func GetCommand() *cobra.Command {
 			fmt.Println("==> Rebuilding and planning...")
 
 			// 2. Execute rebuild and dry-run apply
-			bashPath, err := execdriver.Which(ctx, "bash")
+			shellPath, err := shell.Path(ctx)
 			if err != nil {
-				return fmt.Errorf("bash not found: %w", err)
+				return fmt.Errorf("failed to get shell: %w", err)
 			}
 			shimPath := filepath.Join(root, "bin/shim/workspaced")
-			shimCmd := execdriver.MustRun(ctx, bashPath, append([]string{shimPath}, shimArgs...)...)
+			shimCmd := execdriver.MustRun(ctx, shellPath, append([]string{shimPath}, shimArgs...)...)
 			shimCmd.Env = append(os.Environ(), "WORKSPACED_REFRESH=1")
 			shimCmd.Stdout = os.Stdout
 			shimCmd.Stderr = os.Stderr
