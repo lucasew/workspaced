@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -32,10 +33,12 @@ func NewManager() (*Manager, error) {
 }
 
 func (m *Manager) Install(ctx context.Context, toolSpec string) error {
+	slog.Debug("installing tool", "spec", toolSpec)
 	providerID, pkgSpec, version, err := ParseToolSpec(toolSpec)
 	if err != nil {
 		return err
 	}
+	slog.Debug("parsed spec", "provider", providerID, "pkg", pkgSpec, "version", version)
 
 	p, err := GetProvider(providerID)
 	if err != nil {
@@ -49,6 +52,7 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 
 	// Resolve latest version if needed
 	if version == "latest" {
+		slog.Debug("resolving latest version", "pkg", pkgSpec)
 		versions, err := p.ListVersions(ctx, pkgConfig)
 		if err != nil {
 			return fmt.Errorf("failed to list versions: %w", err)
@@ -59,17 +63,21 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 		// Assuming ListVersions returns unsorted or sorted?
 		// GitHub provider returns in API order (usually desc time).
 		version = versions[0]
+		slog.Debug("resolved latest version", "version", version)
 	}
 
+	slog.Debug("fetching artifacts", "version", version)
 	artifacts, err := p.GetArtifacts(ctx, pkgConfig, version)
 	if err != nil {
 		return fmt.Errorf("failed to get artifacts: %w", err)
 	}
+	slog.Debug("found artifacts", "count", len(artifacts))
 
 	artifact := findArtifact(artifacts, runtime.GOOS, runtime.GOARCH)
 	if artifact == nil {
 		return fmt.Errorf("no artifact found for platform %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
+	slog.Debug("selected artifact", "url", artifact.URL, "os", artifact.OS, "arch", artifact.Arch)
 
 	toolDirName := SpecToDir(providerID, pkgSpec)
 	destPath := filepath.Join(m.toolsDir, toolDirName, version)
@@ -78,15 +86,18 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 		return err
 	}
 
+	slog.Debug("installing artifact", "dest", destPath)
 	if err := p.Install(ctx, *artifact, destPath); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
+	slog.Debug("installation successful")
 
 	// Shim generation
 	binaries, err := findBinaries(destPath)
 	if err != nil {
 		return fmt.Errorf("failed to find binaries: %w", err)
 	}
+	slog.Debug("found binaries", "count", len(binaries), "binaries", binaries)
 
 	if err := os.MkdirAll(m.shimsDir, 0755); err != nil {
 		return err
@@ -94,6 +105,7 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 
 	for _, bin := range binaries {
 		toolName := filepath.Base(bin)
+		slog.Debug("generating shim", "tool", toolName, "target", bin)
 		if err := GenerateShim(m.shimsDir, toolName); err != nil {
 			return fmt.Errorf("failed to generate shim for %s: %w", toolName, err)
 		}

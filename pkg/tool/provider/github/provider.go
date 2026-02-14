@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -52,6 +53,7 @@ type asset struct {
 
 func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig) ([]string, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", pkg.Repo)
+	slog.Debug("fetching versions", "url", url)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -80,6 +82,7 @@ func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig)
 	for _, r := range releases {
 		versions = append(versions, r.TagName)
 	}
+	slog.Debug("found versions", "count", len(versions))
 	return versions, nil
 }
 
@@ -88,6 +91,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 	if version == "latest" {
 		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", pkg.Repo)
 	}
+	slog.Debug("fetching release info", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -127,6 +131,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 			Hash: "", // Hash not available in standard release asset list usually
 		})
 	}
+	slog.Debug("found assets", "total_assets", len(r.Assets), "matched_artifacts", len(artifacts))
 
 	return artifacts, nil
 }
@@ -149,6 +154,7 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 	downloaded := false
 	if artifact.Hash != "" {
 		if fetcher, err := driver.Get[fetchurl.Driver](ctx); err == nil {
+			slog.Debug("downloading with fetchurl", "url", artifact.URL, "hash", artifact.Hash)
 			algo, hash := "", ""
 			if parts := strings.SplitN(artifact.Hash, ":", 2); len(parts) == 2 {
 				algo, hash = parts[0], parts[1]
@@ -164,11 +170,14 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 			}
 			if err := fetcher.Fetch(ctx, opts); err == nil {
 				downloaded = true
+			} else {
+				slog.Debug("fetchurl failed, falling back", "error", err)
 			}
 		}
 	}
 
 	if !downloaded {
+		slog.Debug("downloading directly", "url", artifact.URL)
 		// Fallback to direct download
 		// Reset file position
 		outFile.Seek(0, 0)
@@ -204,6 +213,7 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 	outFile.Close()
 
 	// Extract
+	slog.Debug("extracting", "file", downloadPath, "dest", destPath)
 	if err := extract(downloadPath, destPath); err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
@@ -248,6 +258,7 @@ func extract(src, dest string) error {
 
 	// Assume binary
 	binName := filepath.Base(src)
+	slog.Debug("assuming binary file", "name", binName)
 
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return err
