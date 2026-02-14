@@ -1,14 +1,18 @@
 package selfupdate
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strings"
+	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -72,6 +76,7 @@ func runSelfUpdate(cmd *cobra.Command) error {
 
 func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
 	ctx := cmd.Context()
+	_ = ctx // Keep context for potential future use
 
 	// Get the Go version used to build the current binary
 	goVersion := getGoVersion()
@@ -144,34 +149,76 @@ func getMisePath() (string, error) {
 	return misePath, nil
 }
 
+type githubAsset struct {
+	Name               string `json:"name"`
+	Digest             string `json:"digest"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+}
+
+type githubRelease struct {
+	TagName string        `json:"tag_name"`
+	Assets  []githubAsset `json:"assets"`
+}
+
 func downloadFromGitHub(installPath string) error {
+	ctx := context.Background()
+
 	// Determine platform and architecture
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-
-	// Construct release URL
-	// Format: workspaced-{os}-{arch} (using Go's arch names: amd64, arm64, etc.)
 	releaseFileName := fmt.Sprintf("workspaced-%s-%s", goos, goarch)
-	releaseURL := fmt.Sprintf("https://github.com/lucasew/workspaced/releases/latest/download/%s", releaseFileName)
 
-	fmt.Printf("   Downloading from: %s\n", releaseURL)
+	// Fetch release info from GitHub API
+	apiURL := "https://api.github.com/repos/lucasew/workspaced/releases/latest"
+	fmt.Printf("   Fetching release info from GitHub API...\n")
 
-	resp, err := http.Get(releaseURL)
+	resp, err := http.Get(apiURL)
 	if err != nil {
-		return fmt.Errorf("failed to download release: %w", err)
+		return fmt.Errorf("failed to fetch release info: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download release: HTTP %d\n\nNote: GitHub releases may not be available yet.\nPlease use source build method instead.", resp.StatusCode)
+		return fmt.Errorf("failed to fetch release info: HTTP %d\n\nNote: GitHub releases may not be available yet.\nPlease use source build method instead.", resp.StatusCode)
 	}
+
+	var release githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return fmt.Errorf("failed to parse release info: %w", err)
+	}
+
+	// Find the matching asset
+	var asset *githubAsset
+	for i := range release.Assets {
+		if release.Assets[i].Name == releaseFileName {
+			asset = &release.Assets[i]
+			break
+		}
+	}
+
+	if asset == nil {
+		return fmt.Errorf("asset not found: %s\n\nAvailable assets: %v", releaseFileName, getAssetNames(release.Assets))
+	}
+
+	// Extract hash from digest (format: "sha256:HASH")
+	var hash, algo string
+	if asset.Digest != "" {
+		parts := strings.SplitN(asset.Digest, ":", 2)
+		if len(parts) == 2 {
+			algo = parts[0]
+			hash = parts[1]
+			fmt.Printf("   Found %s checksum: %s\n", algo, hash[:16]+"...")
+		}
+	}
+
+	fmt.Printf("   Downloading %s (%s)...\n", asset.Name, release.TagName)
 
 	// Create install directory
 	if err := os.MkdirAll(filepath.Dir(installPath), 0755); err != nil {
 		return fmt.Errorf("failed to create install directory: %w", err)
 	}
 
-	// Download to temporary file first
+	// Download to temporary file with hash verification
 	tmpFile := installPath + ".tmp"
 	out, err := os.Create(tmpFile)
 	if err != nil {
@@ -179,9 +226,20 @@ func downloadFromGitHub(installPath string) error {
 	}
 	defer out.Close()
 
-	if _, err := io.Copy(out, resp.Body); err != nil {
+	// Use fetchurl driver for verified download
+	fetcher, err := driver.Get[fetchurl.Driver](ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get fetchurl driver: %w", err)
+	}
+
+	if err := fetcher.Fetch(ctx, fetchurl.FetchOptions{
+		URLs: []string{asset.BrowserDownloadURL},
+		Algo: algo,
+		Hash: hash,
+		Out:  out,
+	}); err != nil {
 		os.Remove(tmpFile)
-		return fmt.Errorf("failed to write binary: %w", err)
+		return fmt.Errorf("failed to download binary: %w", err)
 	}
 
 	// Close file before rename
@@ -199,6 +257,14 @@ func downloadFromGitHub(installPath string) error {
 		return fmt.Errorf("failed to install binary: %w", err)
 	}
 
-	fmt.Printf("   ✓ Downloaded and installed successfully\n")
+	fmt.Printf("   ✓ Downloaded and installed successfully (hash verified)\n")
 	return nil
+}
+
+func getAssetNames(assets []githubAsset) []string {
+	names := make([]string, len(assets))
+	for i, a := range assets {
+		names[i] = a.Name
+	}
+	return names
 }

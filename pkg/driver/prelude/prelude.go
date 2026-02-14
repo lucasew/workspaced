@@ -13,6 +13,7 @@ import (
 	_ "workspaced/pkg/driver/dialog/zenity"
 	_ "workspaced/pkg/driver/exec/native"
 	_ "workspaced/pkg/driver/exec/termux"
+	_ "workspaced/pkg/driver/fetchurl/fetchurl"
 	_ "workspaced/pkg/driver/media/dbus"
 	_ "workspaced/pkg/driver/notification/dbus"
 	_ "workspaced/pkg/driver/notification/notify_send"
