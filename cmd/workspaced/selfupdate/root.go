@@ -149,17 +149,9 @@ func downloadFromGitHub(installPath string) error {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
-	// Map Go arch to common naming
-	arch := goarch
-	if goarch == "amd64" {
-		arch = "x86_64"
-	} else if goarch == "arm64" {
-		arch = "aarch64"
-	}
-
-	// Construct release URL (assuming GitHub releases follow a pattern)
-	// Format: workspaced-{os}-{arch}
-	releaseFileName := fmt.Sprintf("workspaced-%s-%s", goos, arch)
+	// Construct release URL
+	// Format: workspaced-{os}-{arch} (using Go's arch names: amd64, arm64, etc.)
+	releaseFileName := fmt.Sprintf("workspaced-%s-%s", goos, goarch)
 	releaseURL := fmt.Sprintf("https://github.com/lucasew/workspaced/releases/latest/download/%s", releaseFileName)
 
 	fmt.Printf("   Downloading from: %s\n", releaseURL)
