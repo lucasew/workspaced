@@ -14,6 +14,8 @@ import (
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/fetchurl"
+	"workspaced/pkg/driver/httpclient"
+	_ "workspaced/pkg/driver/httpclient/native"
 	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -173,7 +175,12 @@ func downloadFromGitHub(installPath string) error {
 	apiURL := "https://api.github.com/repos/lucasew/workspaced/releases/latest"
 	slog.Info("fetching release info from GitHub API", "url", apiURL)
 
-	resp, err := http.Get(apiURL)
+	httpClient, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	resp, err := httpClient.Client().Get(apiURL)
 	if err != nil {
 		return fmt.Errorf("failed to fetch release info: %w", err)
 	}
