@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/opener"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/opener"
 )
 
 func init() {
@@ -15,8 +15,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "opener_termux" }
-func (p *Provider) Name() string { return "termux-open" }
+func (p *Provider) ID() string         { return "opener_termux" }
+func (p *Provider) Name() string       { return "termux-open" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

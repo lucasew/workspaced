@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"workspaced/pkg/env"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/env"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/nix"
-	"workspaced/pkg/driver/notification"
 
 	"github.com/spf13/cobra"
 )

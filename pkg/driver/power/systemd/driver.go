@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/power"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/power"
 )
 
 func init() {
@@ -14,8 +14,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "power_systemd" }
-func (p *Provider) Name() string { return "Systemd" }
+func (p *Provider) ID() string         { return "power_systemd" }
+func (p *Provider) Name() string       { return "Systemd" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

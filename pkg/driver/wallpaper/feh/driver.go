@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/wallpaper"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/wallpaper"
 )
 
 func init() {
@@ -15,8 +15,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "x11_feh" }
-func (p *Provider) Name() string { return "X11 (feh)" }
+func (p *Provider) ID() string         { return "x11_feh" }
+func (p *Provider) Name() string       { return "X11 (feh)" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

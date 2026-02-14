@@ -19,8 +19,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "tray_dbus" }
-func (p *Provider) Name() string { return "DBus" }
+func (p *Provider) ID() string         { return "tray_dbus" }
+func (p *Provider) Name() string       { return "DBus" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

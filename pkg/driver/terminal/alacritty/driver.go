@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/terminal"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/terminal"
 )
 
 func init() {
@@ -14,8 +14,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "terminal_alacritty" }
-func (p *Provider) Name() string { return "Alacritty" }
+func (p *Provider) ID() string         { return "terminal_alacritty" }
+func (p *Provider) Name() string       { return "Alacritty" }
 func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

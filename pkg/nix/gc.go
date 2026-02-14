@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"workspaced/pkg/sudo"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/sudo"
 	"workspaced/pkg/types"
 )
 

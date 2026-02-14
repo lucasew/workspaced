@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/terminal"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/terminal"
 )
 
 func init() {

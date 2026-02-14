@@ -3,8 +3,8 @@ package audio
 import (
 	"context"
 	"workspaced/pkg/driver"
-	"workspaced/pkg/logging"
 	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/logging"
 )
 
 // ShowStatus retrieves the current volume and mute status of the default sink

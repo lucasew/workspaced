@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/nix"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/executil"
+	"workspaced/pkg/nix"
 
 	"github.com/spf13/cobra"
 )
