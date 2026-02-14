@@ -105,5 +105,5 @@ jobs:
         run: |
           gh release create "$TAG" \
             --title "$TITLE" \
-            --generate-notes
+            --generate-notes \
             build/*
