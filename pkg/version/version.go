@@ -1,6 +1,18 @@
 package version
 
-import "runtime/debug"
+import (
+	_ "embed"
+	"runtime/debug"
+	"strings"
+)
+
+//go:embed version.txt
+var versionTxt string
+
+// Version returns the workspaced version from version.txt
+func Version() string {
+	return strings.TrimSpace(versionTxt)
+}
 
 // BuildID returns the build ID from buildinfo
 func BuildID() string {
@@ -22,7 +34,7 @@ func BuildID() string {
 	return "dev"
 }
 
-// GetBuildID is an alias for BuildID (deprecated)
+// GetBuildID returns a build identifier combining version and commit hash
 func GetBuildID() string {
-	return BuildID()
+	return Version() + "-" + BuildID()
 }
