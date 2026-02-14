@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,13 +65,13 @@ func runSelfUpdate(cmd *cobra.Command) error {
 	// Check each location and build from first that exists
 	for _, srcPath := range sourcePaths {
 		if _, err := os.Stat(srcPath); err == nil {
-			fmt.Printf("📦 Building from source at %s...\n", srcPath)
+			slog.Info("building from source", "path", srcPath)
 			return buildFromSource(cmd, srcPath, installPath)
 		}
 	}
 
 	// No source found, download from GitHub
-	fmt.Printf("📦 Downloading latest release from GitHub...\n")
+	slog.Info("downloading latest release from GitHub")
 	return downloadFromGitHub(installPath)
 }
 
@@ -108,12 +109,12 @@ func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
-	fmt.Printf("   Running: mise exec %s -- go build -o %s ./cmd/workspaced\n", goSpec, installPath)
+	slog.Info("running build", "go_version", goSpec, "output", installPath)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	fmt.Printf("   ✓ Built and installed successfully\n")
+	slog.Info("built and installed successfully", "path", installPath)
 	return nil
 }
 
@@ -170,7 +171,7 @@ func downloadFromGitHub(installPath string) error {
 
 	// Fetch release info from GitHub API
 	apiURL := "https://api.github.com/repos/lucasew/workspaced/releases/latest"
-	fmt.Printf("   Fetching release info from GitHub API...\n")
+	slog.Info("fetching release info from GitHub API", "url", apiURL)
 
 	resp, err := http.Get(apiURL)
 	if err != nil {
@@ -207,11 +208,19 @@ func downloadFromGitHub(installPath string) error {
 		if len(parts) == 2 {
 			algo = parts[0]
 			hash = parts[1]
-			fmt.Printf("   Found %s checksum: %s\n", algo, hash[:16]+"...")
+			slog.Info("found checksum", "algo", algo, "hash", hash[:16]+"...")
 		}
 	}
 
-	fmt.Printf("   Downloading %s (%s)...\n", asset.Name, release.TagName)
+	// Check for mirror servers
+	mirrorServers := os.Getenv("FETCHURL_SERVERS")
+	if mirrorServers != "" {
+		slog.Info("using mirror servers", "servers", mirrorServers)
+	} else {
+		slog.Info("no mirrors configured", "hint", "set FETCHURL_SERVERS to use mirrors")
+	}
+
+	slog.Info("downloading asset", "name", asset.Name, "version", release.TagName, "url", asset.BrowserDownloadURL)
 
 	// Create install directory
 	if err := os.MkdirAll(filepath.Dir(installPath), 0755); err != nil {
@@ -257,7 +266,7 @@ func downloadFromGitHub(installPath string) error {
 		return fmt.Errorf("failed to install binary: %w", err)
 	}
 
-	fmt.Printf("   ✓ Downloaded and installed successfully (hash verified)\n")
+	slog.Info("downloaded and installed successfully", "path", installPath, "hash_verified", hash != "")
 	return nil
 }
 
