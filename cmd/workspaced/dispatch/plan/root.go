@@ -1,12 +1,8 @@
 package plan
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/shell"
-	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
 )
@@ -14,33 +10,15 @@ import (
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "plan",
-		Short: "Rebuild and show what would be applied",
+		Short: "Show what would be applied (dry-run)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			root, err := env.GetDotfilesRoot()
-			if err != nil {
-				return fmt.Errorf("failed to get dotfiles root: %w", err)
-			}
 
-			// 1. Determine command to run
-			shimArgs := []string{"dispatch", "apply", "--dry-run"}
-			fmt.Println("==> Rebuilding and planning...")
-
-			// 2. Execute rebuild and dry-run apply
-			shellPath, err := shell.Path(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to get shell: %w", err)
-			}
-			shimPath := filepath.Join(root, "bin/shim/workspaced")
-			shimCmd := execdriver.MustRun(ctx, shellPath, append([]string{shimPath}, shimArgs...)...)
-			shimCmd.Env = append(os.Environ(), "WORKSPACED_REFRESH=1")
-			shimCmd.Stdout = os.Stdout
-			shimCmd.Stderr = os.Stderr
-			if err := shimCmd.Run(); err != nil {
-				return fmt.Errorf("command failed: %w", err)
-			}
-
-			return nil
+			// Run dry-run apply
+			applyCmd := execdriver.MustRun(ctx, "workspaced", "dispatch", "apply", "--dry-run")
+			applyCmd.Stdout = os.Stdout
+			applyCmd.Stderr = os.Stderr
+			return applyCmd.Run()
 		},
 	}
 
