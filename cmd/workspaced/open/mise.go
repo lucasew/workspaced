@@ -143,8 +143,8 @@ func ensureMiseWrapper(misePath string) error {
 
 func miseCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mise [args...]",
-		Short: "Run mise (installs automatically if needed)",
+		Use:                "mise [args...]",
+		Short:              "Run mise (installs automatically if needed)",
 		DisableFlagParsing: true,
 		Long: `Run mise using a custom installation path.
 
