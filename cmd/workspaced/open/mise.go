@@ -1,7 +1,10 @@
 package open
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	execdriver "workspaced/pkg/driver/exec"
@@ -39,19 +42,42 @@ func installMise(ctx *cobra.Command) error {
 
 	fmt.Fprintf(os.Stderr, "Installing mise to %s...\n", misePath)
 
-	// Download and run the installer
-	installCmd, err := execdriver.Run(ctx.Context(), "sh", "-c",
-		fmt.Sprintf("curl -fsSL https://mise.run | MISE_INSTALL_PATH=%s sh", misePath))
+	// Download installer script using Go's HTTP client (no curl/wget needed!)
+	fmt.Fprintf(os.Stderr, "Downloading installer from https://mise.run...\n")
+	resp, err := http.Get("https://mise.run")
+	if err != nil {
+		return fmt.Errorf("failed to download installer: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
+	}
+
+	scriptBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read installer script: %w", err)
+	}
+
+	// Run the installer script via sh
+	installCmd, err := execdriver.Run(ctx.Context(), "sh", "-s")
 	if err != nil {
 		return fmt.Errorf("failed to create install command: %w", err)
 	}
 
-	installCmd.Stdin = os.Stdin
+	// Pipe the script to sh's stdin
+	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
 	installCmd.Stdout = os.Stderr
 	installCmd.Stderr = os.Stderr
+	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", misePath))
 
 	if err := installCmd.Run(); err != nil {
 		return fmt.Errorf("failed to install mise: %w", err)
+	}
+
+	// Verify installation
+	if _, err := os.Stat(misePath); os.IsNotExist(err) {
+		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
 	}
 
 	fmt.Fprintf(os.Stderr, "✓ mise installed successfully\n")
