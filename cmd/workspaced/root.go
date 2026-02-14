@@ -15,6 +15,7 @@ import (
 	"workspaced/cmd/workspaced/state"
 	"workspaced/cmd/workspaced/svc"
 	"workspaced/cmd/workspaced/system"
+	toolcmd "workspaced/cmd/workspaced/tool"
 	"workspaced/pkg/config"
 	"workspaced/pkg/driver/media"
 	"workspaced/pkg/shellgen"
@@ -34,7 +35,7 @@ func main() {
 	cmd := &cobra.Command{
 		Use:     "workspaced",
 		Short:   "workspaced - declarative user environment manager",
-		Version: version.BuildID(),
+		Version: version.GetBuildID(),
 		PersistentPreRun: func(c *cobra.Command, args []string) {
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -53,6 +54,7 @@ func main() {
 	cmd.AddCommand(history.NewCommand())
 	cmd.AddCommand(is.GetCommand())
 	cmd.AddCommand(svc.NewCommand())
+	cmd.AddCommand(toolcmd.NewCommand())
 
 	// Installation and setup
 	cmd.AddCommand(selfinstall.NewCommand())
