@@ -1,5 +1,4 @@
-[example]
-enable = false
+enable = true
 greeting = "Hello from workspaced!"
 show_hostname = true
 show_ips = true

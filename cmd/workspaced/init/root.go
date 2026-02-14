@@ -2,6 +2,7 @@ package init
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net"
@@ -114,7 +115,11 @@ func generateConfig(configPath string) error {
 	// Parse and execute template
 	tmpl, err := template.New("settings").Funcs(template.FuncMap{
 		"toJSON": func(v interface{}) string {
-			return fmt.Sprintf("%#v", v)
+			b, err := json.Marshal(v)
+			if err != nil {
+				return "[]"
+			}
+			return string(b)
 		},
 	}).Parse(string(tmplContent))
 	if err != nil {
