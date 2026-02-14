@@ -48,6 +48,7 @@ type release struct {
 
 type asset struct {
 	Name               string `json:"name"`
+	Digest             string `json:"digest"`
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
@@ -124,11 +125,22 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 			continue
 		}
 
+		// Extract hash from digest (format: "sha256:HASH")
+		hash := ""
+		if a.Digest != "" {
+			parts := strings.SplitN(a.Digest, ":", 2)
+			if len(parts) == 2 {
+				// Store as "algo:hash" format for fetchurl compatibility
+				hash = a.Digest
+				slog.Debug("found checksum", "asset", a.Name, "algo", parts[0], "hash", parts[1][:16]+"...")
+			}
+		}
+
 		artifacts = append(artifacts, provider.Artifact{
 			OS:   osName,
 			Arch: arch,
 			URL:  a.BrowserDownloadURL,
-			Hash: "", // Hash not available in standard release asset list usually
+			Hash: hash,
 		})
 	}
 	slog.Debug("found assets", "total_assets", len(r.Assets), "matched_artifacts", len(artifacts))

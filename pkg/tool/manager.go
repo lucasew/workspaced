@@ -79,8 +79,12 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 	}
 	slog.Debug("selected artifact", "url", artifact.URL, "os", artifact.OS, "arch", artifact.Arch)
 
+	// Normalize version by removing 'v' prefix for storage
+	normalizedVersion := normalizeVersion(version)
+	slog.Debug("normalized version", "original", version, "normalized", normalizedVersion)
+
 	toolDirName := SpecToDir(providerID, pkgSpec)
-	destPath := filepath.Join(m.toolsDir, toolDirName, version)
+	destPath := filepath.Join(m.toolsDir, toolDirName, normalizedVersion)
 
 	if err := os.MkdirAll(destPath, 0755); err != nil {
 		return err
@@ -226,4 +230,12 @@ func scanDirForBinaries(dir string) ([]string, error) {
 		}
 	}
 	return binaries, nil
+}
+
+// normalizeVersion removes the 'v' prefix from versions for consistent storage
+func normalizeVersion(version string) string {
+	if strings.HasPrefix(version, "v") {
+		return version[1:]
+	}
+	return version
 }
