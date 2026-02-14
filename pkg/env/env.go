@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	_ "workspaced/pkg/driver/env/native" // Register native provider
 	envdriver "workspaced/pkg/driver/env"
+	_ "workspaced/pkg/driver/env/native" // Register native provider
 )
 
 // EssentialPaths defines the list of directories that must be present in the PATH
