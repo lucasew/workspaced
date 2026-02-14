@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"workspaced/cmd/workspaced/daemon"
 	"workspaced/cmd/workspaced/dispatch"
 	"workspaced/cmd/workspaced/history"
@@ -15,15 +20,35 @@ import (
 	"workspaced/cmd/workspaced/state"
 	"workspaced/cmd/workspaced/svc"
 	"workspaced/cmd/workspaced/system"
+	toolcmd "workspaced/cmd/workspaced/tool"
 	"workspaced/pkg/config"
 	"workspaced/pkg/driver/media"
 	"workspaced/pkg/shellgen"
+	pkgtool "workspaced/pkg/tool"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
 )
 
 func main() {
+	// Shim detection logic
+	if exe, err := os.Executable(); err == nil {
+		base := filepath.Base(os.Args[0])
+		exeBase := filepath.Base(exe)
+		if base != exeBase && base != "workspaced" {
+			ctx := context.Background()
+			if err := pkgtool.RunShim(ctx, base, os.Args[1:]); err != nil {
+				var exitErr *exec.ExitError
+				if errors.As(err, &exitErr) {
+					os.Exit(exitErr.ExitCode())
+				}
+				fmt.Fprintf(os.Stderr, "Error running tool %s: %v\n", base, err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
+	}
+
 	// Load config early to set driver weights
 	if _, err := config.Load(); err != nil {
 		slog.Debug("failed to load config", "error", err)
@@ -53,6 +78,7 @@ func main() {
 	cmd.AddCommand(history.NewCommand())
 	cmd.AddCommand(is.GetCommand())
 	cmd.AddCommand(svc.NewCommand())
+	cmd.AddCommand(toolcmd.NewCommand())
 
 	// Installation and setup
 	cmd.AddCommand(selfinstall.NewCommand())
