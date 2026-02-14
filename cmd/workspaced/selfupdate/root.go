@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +21,10 @@ func NewCommand() *cobra.Command {
 		Long: `Update workspaced binary to the latest version.
 
 This command automatically detects the update strategy:
-  1. If $DOTFILES/nix/pkgs/workspaced/ exists → rebuild from source using mise
+  1. If source exists → rebuild using mise
+     Checked locations:
+     - ~/.config/workspaced/src/
+     - <dotfiles_root>/workspaced/ (from GetDotfilesRoot)
   2. Otherwise → download latest release from GitHub
 
 The binary is updated at ~/.local/share/workspaced/bin/workspaced`,
@@ -33,26 +37,35 @@ The binary is updated at ~/.local/share/workspaced/bin/workspaced`,
 }
 
 func runSelfUpdate(cmd *cobra.Command) error {
-	home, err := os.UserHomeDir()
+	// Get install path from env driver
+	dataDir, err := env.GetUserDataDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return fmt.Errorf("failed to get data directory: %w", err)
+	}
+	installPath := filepath.Join(dataDir, "bin", "workspaced")
+
+	// Try to find source code in common locations
+	var sourcePaths []string
+
+	// 1. ~/.config/workspaced/src/
+	if configDir, err := env.GetConfigDir(); err == nil {
+		sourcePaths = append(sourcePaths, filepath.Join(configDir, "src"))
 	}
 
-	installPath := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
-
-	// Strategy 1: Try to rebuild from source
-	dotfiles := os.Getenv("DOTFILES")
-	if dotfiles == "" {
-		dotfiles = filepath.Join(home, ".dotfiles")
+	// 2. $DOTFILES/workspaced/
+	if dotfilesRoot, err := env.GetDotfilesRoot(); err == nil {
+		sourcePaths = append(sourcePaths, filepath.Join(dotfilesRoot, "workspaced"))
 	}
 
-	workspacedSrc := filepath.Join(dotfiles, "nix", "pkgs", "workspaced")
-	if _, err := os.Stat(workspacedSrc); err == nil {
-		fmt.Printf("📦 Building from source at %s...\n", workspacedSrc)
-		return buildFromSource(cmd, workspacedSrc, installPath)
+	// Check each location and build from first that exists
+	for _, srcPath := range sourcePaths {
+		if _, err := os.Stat(srcPath); err == nil {
+			fmt.Printf("📦 Building from source at %s...\n", srcPath)
+			return buildFromSource(cmd, srcPath, installPath)
+		}
 	}
 
-	// Strategy 2: Download from GitHub releases
+	// No source found, download from GitHub
 	fmt.Printf("📦 Downloading latest release from GitHub...\n")
 	return downloadFromGitHub(installPath)
 }
