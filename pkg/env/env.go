@@ -1,28 +1,27 @@
 package env
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"workspaced/pkg/api"
+
+	_ "workspaced/pkg/driver/env/native" // Register native provider
+	envdriver "workspaced/pkg/driver/env"
 )
 
 // EssentialPaths defines the list of directories that must be present in the PATH
-// for the application to function correctly on NixOS.
-// These typically include locations for wrapped binaries and current system software.
-var EssentialPaths = []string{"/run/wrappers/bin", "/run/current-system/sw/bin"}
+// Deprecated: Use envdriver.GetEssentialPaths(ctx) instead
+var EssentialPaths []string
 
 func init() {
-	if home, err := os.UserHomeDir(); err == nil {
-		EssentialPaths = append(EssentialPaths, filepath.Join(home, ".nix-profile/bin"))
-	}
-	if root, err := GetDotfilesRoot(); err == nil && root != "" {
-		EssentialPaths = append(EssentialPaths, filepath.Join(root, "bin/shim"))
-	}
-	if dataDir, err := GetUserDataDir(); err == nil && dataDir != "" {
-		EssentialPaths = append(EssentialPaths, filepath.Join(dataDir, "shim/global"))
-	}
+	ctx := context.Background()
+
+	// Get essential paths from driver
+	EssentialPaths = envdriver.GetEssentialPaths(ctx)
+
+	// Apply to current process PATH
 	newPath := strings.Split(os.Getenv("PATH"), ":")
 
 	for _, path := range EssentialPaths {
@@ -36,68 +35,34 @@ func init() {
 }
 
 // GetDotfilesRoot locates the root directory of the dotfiles repository.
-// It checks standard locations (~/.dotfiles, /etc/.dotfiles).
+// Deprecated: Use envdriver.GetDotfilesRoot(ctx) instead
 func GetDotfilesRoot() (string, error) {
-	home, err := os.UserHomeDir()
-	if err == nil {
-		path := filepath.Join(home, ".dotfiles")
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return path, nil
-		}
-	}
-	// Fallback to /etc/.dotfiles
-	path := "/etc/.dotfiles"
-	if info, err := os.Stat(path); err == nil && info.IsDir() {
-		return path, nil
-	}
-	return "", api.ErrDotfilesRootNotFound
+	return envdriver.GetDotfilesRoot(context.Background())
 }
 
 // GetHostname returns the current system hostname.
+// Deprecated: Use envdriver.GetHostname(ctx) instead
 func GetHostname() string {
-	hostname, _ := os.Hostname()
+	hostname, _ := envdriver.GetHostname(context.Background())
 	return hostname
 }
 
 // GetUserDataDir returns the path to the user data directory for workspaced (~/.local/share/workspaced)
+// Deprecated: Use envdriver.GetUserDataDir(ctx) instead
 func GetUserDataDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	path := filepath.Join(home, ".local/share/workspaced")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return "", err
-	}
-	return path, nil
+	return envdriver.GetUserDataDir(context.Background())
 }
 
 // GetConfigDir returns the path to the user config directory for workspaced (~/.config/workspaced)
+// Deprecated: Use envdriver.GetConfigDir(ctx) instead
 func GetConfigDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(home, ".config/workspaced")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", err
-	}
-	return dir, nil
-}
-
-// IsRiverwood checks if the current host is "riverwood".
-func IsRiverwood() bool {
-	return GetHostname() == "riverwood"
-}
-
-// IsWhiterun checks if the current host is "whiterun".
-func IsWhiterun() bool {
-	return GetHostname() == "whiterun"
+	return envdriver.GetConfigDir(context.Background())
 }
 
 // IsPhone checks if the environment suggests we are running on a phone (Termux).
+// Deprecated: Use envdriver.IsPhone(ctx) instead
 func IsPhone() bool {
-	return os.Getenv("TERMUX_VERSION") != ""
+	return envdriver.IsPhone(context.Background())
 }
 
 // IsInStore checks if the dotfiles root is located inside the Nix store.
@@ -110,9 +75,9 @@ func IsInStore() bool {
 }
 
 // IsNixOS checks if the system is NixOS by verifying the existence of /etc/NIXOS.
+// Deprecated: Use envdriver.IsNixOS(ctx) instead
 func IsNixOS() bool {
-	_, err := os.Stat("/etc/NIXOS")
-	return err == nil
+	return envdriver.IsNixOS(context.Background())
 }
 
 // ExpandPath expands the tilde (~) to the user's home directory
@@ -125,6 +90,7 @@ func ExpandPath(path string) string {
 	return os.ExpandEnv(path)
 }
 
+// NormalizeURL normalizes a URL by adding protocol if missing.
 func NormalizeURL(url string) string {
 	if strings.HasPrefix(url, "file://") || strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		return url

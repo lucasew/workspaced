@@ -34,8 +34,9 @@ func RunFullBackup(ctx context.Context) error {
 		HasProgress: true,
 	}
 
+	hostname := env.GetHostname()
 	totalSteps := 2 // Git sync + Final report
-	if env.IsRiverwood() {
+	if hostname == "riverwood" {
 		totalSteps++
 	}
 	if env.IsPhone() {
@@ -54,7 +55,7 @@ func RunFullBackup(ctx context.Context) error {
 	updateProgress("Sincronizando repositórios Git...")
 	_ = git.QuickSync(ctx)
 
-	if env.IsRiverwood() {
+	if hostname == "riverwood" {
 		updateProgress("Sincronizando CANTGIT...")
 		logger.Info("host identified as riverwood, syncing CANTGIT")
 		home, _ := os.UserHomeDir()

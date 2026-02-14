@@ -72,12 +72,16 @@ func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
 		return fmt.Errorf("mise required to build from source: %w", err)
 	}
 
-	// Build using mise exec with the specific Go version
-	outputPath := filepath.Join(srcDir, "bin", "workspaced")
+	// Create install directory
+	if err := os.MkdirAll(filepath.Dir(installPath), 0755); err != nil {
+		return fmt.Errorf("failed to create install directory: %w", err)
+	}
+
+	// Build directly to install path (go build is already atomic)
 	goSpec := fmt.Sprintf("go@%s", goVersion)
 
 	// Use execdriver like workspaced open mise does
-	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--", "go", "build", "-o", outputPath, "./cmd/workspaced")
+	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--", "go", "build", "-o", installPath, "./cmd/workspaced")
 	if err != nil {
 		return fmt.Errorf("failed to create build command: %w", err)
 	}
@@ -86,36 +90,9 @@ func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
-	fmt.Printf("   Running: mise exec %s -- go build -o bin/workspaced ./cmd/workspaced\n", goSpec)
+	fmt.Printf("   Running: mise exec %s -- go build -o %s ./cmd/workspaced\n", goSpec, installPath)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
-	}
-
-	// Copy the built binary to install path
-	builtBinary := filepath.Join(srcDir, "bin", "workspaced")
-	if _, err := os.Stat(builtBinary); err != nil {
-		return fmt.Errorf("built binary not found at %s: %w", builtBinary, err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(installPath), 0755); err != nil {
-		return fmt.Errorf("failed to create install directory: %w", err)
-	}
-
-	// Copy to temp file first to avoid "text file busy" error
-	tmpPath := installPath + ".new"
-	if err := copyFile(builtBinary, tmpPath); err != nil {
-		return fmt.Errorf("failed to copy binary: %w", err)
-	}
-
-	if err := os.Chmod(tmpPath, 0755); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("failed to set permissions: %w", err)
-	}
-
-	// Rename atomically
-	if err := os.Rename(tmpPath, installPath); err != nil {
-		os.Remove(tmpPath)
-		return fmt.Errorf("failed to install binary: %w", err)
 	}
 
 	fmt.Printf("   ✓ Built and installed successfully\n")
@@ -219,21 +196,4 @@ func downloadFromGitHub(installPath string) error {
 
 	fmt.Printf("   ✓ Downloaded and installed successfully\n")
 	return nil
-}
-
-func copyFile(src, dst string) error {
-	source, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer source.Close()
-
-	destination, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer destination.Close()
-
-	_, err = io.Copy(destination, source)
-	return err
 }

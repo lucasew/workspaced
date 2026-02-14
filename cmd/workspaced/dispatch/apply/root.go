@@ -167,9 +167,9 @@ func GetCommand() *cobra.Command {
 					logger.Info("dry-run: skipping nixos-rebuild")
 				} else {
 					flake := ""
-					if env.IsRiverwood() {
+					hostname := env.GetHostname()
+					if hostname == "riverwood" {
 						logger.Info("performing remote build for riverwood")
-						hostname := env.GetHostname()
 						ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)
 						nixResult, err := nix.RemoteBuild(ctx, ref, "whiterun", true)
 						if err != nil {
