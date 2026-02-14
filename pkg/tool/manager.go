@@ -26,33 +26,34 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
-func (m *Manager) Install(ctx context.Context, toolSpec string) error {
-	slog.Debug("installing tool", "spec", toolSpec)
-	providerID, pkgSpec, version, err := ParseToolSpec(toolSpec)
+func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
+	slog.Debug("installing tool", "input", toolSpecStr)
+	spec, err := ParseToolSpec(toolSpecStr)
 	if err != nil {
 		return err
 	}
-	slog.Debug("parsed spec", "provider", providerID, "pkg", pkgSpec, "version", version)
+	slog.Debug("parsed spec", "spec", spec)
 
-	p, err := GetProvider(providerID)
+	p, err := GetProvider(spec.Provider)
 	if err != nil {
 		return err
 	}
 
-	pkgConfig, err := p.ParsePackage(pkgSpec)
+	pkgConfig, err := p.ParsePackage(spec.Package)
 	if err != nil {
 		return err
 	}
 
 	// Resolve latest version if needed
+	version := spec.Version
 	if version == "latest" {
-		slog.Debug("resolving latest version", "pkg", pkgSpec)
+		slog.Debug("resolving latest version", "pkg", spec.Package)
 		versions, err := p.ListVersions(ctx, pkgConfig)
 		if err != nil {
 			return fmt.Errorf("failed to list versions: %w", err)
 		}
 		if len(versions) == 0 {
-			return fmt.Errorf("no versions found for package %s", pkgSpec)
+			return fmt.Errorf("no versions found for package %s", spec.Package)
 		}
 		// Assuming ListVersions returns unsorted or sorted?
 		// GitHub provider returns in API order (usually desc time).
@@ -77,8 +78,7 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 	normalizedVersion := normalizeVersion(version)
 	slog.Debug("normalized version", "original", version, "normalized", normalizedVersion)
 
-	toolDirName := SpecToDir(providerID, pkgSpec)
-	destPath := filepath.Join(m.toolsDir, toolDirName, normalizedVersion)
+	destPath := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
 	if err := os.MkdirAll(destPath, 0755); err != nil {
 		return err
@@ -88,7 +88,7 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 	if err := p.Install(ctx, *artifact, destPath); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
-	slog.Info("tool installed successfully", "provider", providerID, "pkg", pkgSpec, "version", normalizedVersion, "path", destPath)
+	slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
 
 	// TODO: Shell integration will handle PATH management
 	// Shim generation removed - see shell hooks for dynamic PATH injection

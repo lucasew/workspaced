@@ -13,7 +13,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(
 		newInstallCommand(),
 		newListCommand(),
-		newExecCommand(),
+		newWithCommand(),
 	)
 	return cmd
 }
