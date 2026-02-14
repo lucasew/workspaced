@@ -29,7 +29,7 @@ func main() {
 	cmd := &cobra.Command{
 		Use:     "workspaced",
 		Short:   "workspaced - declarative user environment manager",
-		Version: version.BuildID,
+		Version: version.BuildID(),
 		PersistentPreRun: func(c *cobra.Command, args []string) {
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
