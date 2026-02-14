@@ -14,7 +14,6 @@ import (
 
 type Manager struct {
 	toolsDir string
-	shimsDir string
 }
 
 func NewManager() (*Manager, error) {
@@ -22,13 +21,8 @@ func NewManager() (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	shimsDir, err := GetShimsDir()
-	if err != nil {
-		return nil, err
-	}
 	return &Manager{
 		toolsDir: toolsDir,
-		shimsDir: shimsDir,
 	}, nil
 }
 
@@ -94,26 +88,10 @@ func (m *Manager) Install(ctx context.Context, toolSpec string) error {
 	if err := p.Install(ctx, *artifact, destPath); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
-	slog.Debug("installation successful")
+	slog.Info("tool installed successfully", "provider", providerID, "pkg", pkgSpec, "version", normalizedVersion, "path", destPath)
 
-	// Shim generation
-	binaries, err := findBinaries(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to find binaries: %w", err)
-	}
-	slog.Debug("found binaries", "count", len(binaries), "binaries", binaries)
-
-	if err := os.MkdirAll(m.shimsDir, 0755); err != nil {
-		return err
-	}
-
-	for _, bin := range binaries {
-		toolName := filepath.Base(bin)
-		slog.Debug("generating shim", "tool", toolName, "target", bin)
-		if err := GenerateShim(m.shimsDir, toolName); err != nil {
-			return fmt.Errorf("failed to generate shim for %s: %w", toolName, err)
-		}
-	}
+	// TODO: Shell integration will handle PATH management
+	// Shim generation removed - see shell hooks for dynamic PATH injection
 
 	return nil
 }

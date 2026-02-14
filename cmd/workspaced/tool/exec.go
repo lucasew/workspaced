@@ -9,8 +9,7 @@ import (
 func newExecCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:                "exec <tool> [args...]",
-		Short:              "Execute a tool",
-		Hidden:             true,
+		Short:              "Execute a managed tool",
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -18,7 +17,7 @@ func newExecCommand() *cobra.Command {
 			}
 			toolName := args[0]
 			toolArgs := args[1:]
-			return tool.RunShim(cmd.Context(), toolName, toolArgs)
+			return tool.RunTool(cmd.Context(), toolName, toolArgs)
 		},
 	}
 }
