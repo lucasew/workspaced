@@ -14,8 +14,10 @@ func newInstallCommand() *cobra.Command {
 Tool spec format:
   provider:package@version  (full spec)
   provider:package          (uses latest version)
-  package@version           (uses github provider)
-  package                   (uses github provider and latest version)`,
+  package@version           (uses registry provider - not yet implemented)
+  package                   (uses registry provider and latest version - not yet implemented)
+
+Note: Currently you must specify the provider explicitly (e.g., github:package@version)`,
 		Example: `  workspaced tool install github:denoland/deno@1.40.0
   workspaced tool install denoland/deno@latest
   workspaced tool install deno

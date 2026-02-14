@@ -28,20 +28,20 @@ func (ts ToolSpec) Dir() string {
 // Formats supported:
 //   - provider:package@version -> full spec
 //   - provider:package         -> defaults version to "latest"
-//   - package@version          -> defaults provider to "github"
-//   - package                  -> defaults provider to "github" and version to "latest"
+//   - package@version          -> defaults provider to "registry" (not yet implemented - use explicit provider)
+//   - package                  -> defaults provider to "registry" and version to "latest"
 //
 // Examples:
 //   - "github:denoland/deno@1.40.0" -> ToolSpec{Provider: "github", Package: "denoland/deno", Version: "1.40.0"}
 //   - "github:denoland/deno"        -> ToolSpec{Provider: "github", Package: "denoland/deno", Version: "latest"}
-//   - "deno@1.40.0"                 -> ToolSpec{Provider: "github", Package: "deno", Version: "1.40.0"}
-//   - "deno"                        -> ToolSpec{Provider: "github", Package: "deno", Version: "latest"}
+//   - "deno@1.40.0"                 -> ToolSpec{Provider: "registry", Package: "deno", Version: "1.40.0"} (will fail - not implemented)
+//   - "deno"                        -> ToolSpec{Provider: "registry", Package: "deno", Version: "latest"} (will fail - not implemented)
 func ParseToolSpec(spec string) (ToolSpec, error) {
 	if spec == "" {
 		return ToolSpec{}, fmt.Errorf("tool spec cannot be empty")
 	}
 
-	const defaultProvider = "github"
+	const defaultProvider = "registry" // Placeholder for future registry implementation
 	const defaultVersion = "latest"
 
 	// Check if provider is specified (contains ':')

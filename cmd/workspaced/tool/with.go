@@ -23,8 +23,10 @@ If the tool is not installed, it will be installed automatically.
 Tool spec format:
   provider:package@version  (full spec)
   provider:package          (uses latest version)
-  package@version           (uses github provider)
-  package                   (uses github provider and latest version)
+  package@version           (uses registry provider - not yet implemented)
+  package                   (uses registry provider and latest version - not yet implemented)
+
+Note: Currently you must specify the provider explicitly (e.g., github:package@version)
 
 Examples:
   workspaced tool with github:denoland/deno@1.40.0 -- deno run app.ts
@@ -46,6 +48,11 @@ func runWith(ctx context.Context, args []string) error {
 	toolSpecStr := args[0]
 	cmdArgs := args[1:] // Everything after spec is the command
 
+	// Validate we have a command to execute
+	if len(cmdArgs) == 0 {
+		return fmt.Errorf("missing command to execute\n\nUsage: workspaced tool with <tool-spec> -- <command> [args...]")
+	}
+
 	// Parse tool spec: provider:package@version
 	spec, err := tool.ParseToolSpec(toolSpecStr)
 	if err != nil {
@@ -65,6 +72,30 @@ func runWith(ctx context.Context, args []string) error {
 	command.Stderr = os.Stderr
 
 	return command.Run()
+}
+
+func findInstalledVersions(toolsDir string, spec tool.ToolSpec) ([]string, error) {
+	pkgDir := filepath.Join(toolsDir, spec.Dir())
+
+	entries, err := os.ReadDir(pkgDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var versions []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			versions = append(versions, entry.Name())
+		}
+	}
+
+	if len(versions) == 0 {
+		return nil, fmt.Errorf("no installed versions found")
+	}
+
+	// Sort versions (latest first) - reuse logic from resolution package
+	// For now, just return as-is (first entry from readdir)
+	return versions, nil
 }
 
 func resolveLatestVersion(ctx context.Context, spec tool.ToolSpec) (string, error) {
@@ -97,16 +128,24 @@ func resolveOrInstallTool(ctx context.Context, spec tool.ToolSpec, cmdName strin
 		return "", err
 	}
 
-	// If version is "latest", resolve to actual version first
+	// If version is "latest", check installed versions first before doing API call
 	actualVersion := spec.Version
 	if spec.Version == "latest" {
-		resolved, err := resolveLatestVersion(ctx, spec)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve latest version: %w", err)
+		// Try to find any installed version locally first
+		installed, err := findInstalledVersions(toolsDir, spec)
+		if err == nil && len(installed) > 0 {
+			// Use latest installed version (sorted desc)
+			actualVersion = installed[0]
+			spec.Version = actualVersion
+		} else {
+			// No local version found, resolve from provider
+			resolved, err := resolveLatestVersion(ctx, spec)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve latest version: %w", err)
+			}
+			actualVersion = resolved
+			spec.Version = actualVersion
 		}
-		actualVersion = resolved
-		// Update spec with resolved version
-		spec.Version = actualVersion
 	}
 
 	// Try to resolve the binary first

@@ -62,10 +62,10 @@ func TestParseToolSpec(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:  "omit provider uses github default",
+			name:  "omit provider uses registry default",
 			input: "denoland/deno@1.40.0",
 			want: ToolSpec{
-				Provider: "github",
+				Provider: "registry",
 				Package:  "denoland/deno",
 				Version:  "1.40.0",
 			},
@@ -75,7 +75,7 @@ func TestParseToolSpec(t *testing.T) {
 			name:  "omit both provider and version",
 			input: "deno",
 			want: ToolSpec{
-				Provider: "github",
+				Provider: "registry",
 				Package:  "deno",
 				Version:  "latest",
 			},
@@ -85,7 +85,7 @@ func TestParseToolSpec(t *testing.T) {
 			name:  "omit provider with version",
 			input: "ripgrep@14.0.0",
 			want: ToolSpec{
-				Provider: "github",
+				Provider: "registry",
 				Package:  "ripgrep",
 				Version:  "14.0.0",
 			},
@@ -99,9 +99,9 @@ func TestParseToolSpec(t *testing.T) {
 		},
 		{
 			name:  "only provider colon creates empty package",
-			input: "github:",
+			input: "registry:",
 			want: ToolSpec{
-				Provider: "github",
+				Provider: "registry",
 				Package:  "",
 				Version:  "latest",
 			},
