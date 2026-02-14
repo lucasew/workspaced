@@ -26,4 +26,3 @@ func GetProvider(id string) (provider.Provider, error) {
 	}
 	return p, nil
 }
-
