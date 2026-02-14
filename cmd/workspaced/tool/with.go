@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
+	"workspaced/pkg/semver"
 	"workspaced/pkg/tool"
 
 	"github.com/spf13/cobra"
@@ -82,10 +84,10 @@ func findInstalledVersions(toolsDir string, spec tool.ToolSpec) ([]string, error
 		return nil, err
 	}
 
-	var versions []string
+	var versions semver.SemVers
 	for _, entry := range entries {
 		if entry.IsDir() {
-			versions = append(versions, entry.Name())
+			versions = append(versions, semver.Parse(entry.Name()))
 		}
 	}
 
@@ -93,9 +95,16 @@ func findInstalledVersions(toolsDir string, spec tool.ToolSpec) ([]string, error
 		return nil, fmt.Errorf("no installed versions found")
 	}
 
-	// Sort versions (latest first) - reuse logic from resolution package
-	// For now, just return as-is (first entry from readdir)
-	return versions, nil
+	// Sort descending (latest first)
+	sort.Sort(sort.Reverse(versions))
+
+	// Convert back to strings
+	var result []string
+	for _, v := range versions {
+		result = append(result, v.String())
+	}
+
+	return result, nil
 }
 
 func resolveLatestVersion(ctx context.Context, spec tool.ToolSpec) (string, error) {
