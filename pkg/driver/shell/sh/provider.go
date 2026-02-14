@@ -24,8 +24,8 @@ func (p *Provider) DefaultWeight() int {
 	// If $SHELL points to sh (or dash, ash, etc), increase to 75
 	userShell := os.Getenv("SHELL")
 	if strings.HasSuffix(userShell, "/sh") ||
-	   strings.Contains(userShell, "dash") ||
-	   strings.Contains(userShell, "ash") {
+		strings.Contains(userShell, "dash") ||
+		strings.Contains(userShell, "ash") {
 		return 75
 	}
 	return 50
@@ -53,8 +53,8 @@ func (d *Driver) Name() string {
 func (d *Driver) DefaultWeight() int {
 	userShell := os.Getenv("SHELL")
 	if strings.HasSuffix(userShell, "/sh") ||
-	   strings.Contains(userShell, "dash") ||
-	   strings.Contains(userShell, "ash") {
+		strings.Contains(userShell, "dash") ||
+		strings.Contains(userShell, "ash") {
 		return 75
 	}
 	return 50
