@@ -76,10 +76,6 @@ jobs:
       env:
         TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       run: |
-        echo "::group::Build container"
-        docker build -t "$TAG:latest" .
-        echo "::endgroup::"
-
         mkdir build -p && ls && pwd
 
         echo "# Built targets" >> $GITHUB_STEP_SUMMARY
