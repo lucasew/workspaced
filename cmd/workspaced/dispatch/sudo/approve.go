@@ -2,7 +2,7 @@ package sudo
 
 import (
 	"os"
-	"os/exec"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/sudo"
 
@@ -29,7 +29,10 @@ func init() {
 				// Always remove after attempting to run
 				defer func() { _ = sudo.Remove(slug) }()
 
-				ec := exec.Command("sudo", append([]string{"-E", sc.Command}, sc.Args...)...)
+				ec, err := execdriver.Run(ctx, "sudo", append([]string{"-E", sc.Command}, sc.Args...)...)
+				if err != nil {
+					return err
+				}
 				ec.Stdout = os.Stdout
 				ec.Stderr = os.Stderr
 				ec.Stdin = os.Stdin

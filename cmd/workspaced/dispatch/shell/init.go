@@ -1,14 +1,15 @@
 package shell
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/version"
 
@@ -260,8 +261,16 @@ func executeSourceFiles(sourceFiles map[string]string) (map[string]string, error
 		go func(k, p string) {
 			defer wg.Done()
 
-			// Execute the source file with bash
-			cmd := exec.Command("bash", p)
+			// Execute the source file with bash using execdriver
+			cmd, err := execdriver.Run(context.Background(), "bash", p)
+			if err != nil {
+				results <- sourceResult{
+					key:    k,
+					output: "",
+					err:    err,
+				}
+				return
+			}
 			cmd.Env = os.Environ()
 			output, err := cmd.Output()
 

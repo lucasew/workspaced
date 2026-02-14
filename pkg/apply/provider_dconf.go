@@ -5,10 +5,10 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/config"
 	"workspaced/pkg/source"
 )
@@ -110,7 +110,11 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 }
 
 func applyDconf(iniFile string) error {
-	cmd := exec.Command("dconf", "load", "/")
+	cmd, err := execdriver.Run(context.Background(), "dconf", "load", "/")
+	if err != nil {
+		return err
+	}
+
 	file, err := os.Open(iniFile)
 	if err != nil {
 		return err
