@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "enable": {
+      "type": "boolean",
+      "description": "Enable the example module"
+    },
+    "greeting": {
+      "type": "string",
+      "description": "Custom greeting message"
+    },
+    "show_hostname": {
+      "type": "boolean",
+      "description": "Show current hostname in output"
+    },
+    "show_ips": {
+      "type": "boolean",
+      "description": "Show local IP addresses in output"
+    }
+  },
+  "required": ["enable"]
+}

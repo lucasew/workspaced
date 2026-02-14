@@ -6,9 +6,11 @@ import (
 	"workspaced/cmd/workspaced/daemon"
 	"workspaced/cmd/workspaced/dispatch"
 	"workspaced/cmd/workspaced/history"
+	initcmd "workspaced/cmd/workspaced/init"
 	"workspaced/cmd/workspaced/input"
 	"workspaced/cmd/workspaced/is"
 	"workspaced/cmd/workspaced/open"
+	"workspaced/cmd/workspaced/selfinstall"
 	"workspaced/cmd/workspaced/state"
 	"workspaced/cmd/workspaced/svc"
 	"workspaced/cmd/workspaced/system"
@@ -50,6 +52,10 @@ func main() {
 	cmd.AddCommand(history.NewCommand())
 	cmd.AddCommand(is.GetCommand())
 	cmd.AddCommand(svc.NewCommand())
+
+	// Installation and setup
+	cmd.AddCommand(selfinstall.NewCommand())
+	cmd.AddCommand(initcmd.NewCommand())
 
 	// Top-level aliases for daily ergonomic
 	stateCmd := state.NewCommand()
