@@ -1,4 +1,4 @@
-package native
+package termux
 
 import (
 	"context"
@@ -21,12 +21,14 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "httpclient_native" }
-func (p *Provider) Name() string       { return "Native HTTP Client" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string         { return "httpclient_termux" }
+func (p *Provider) Name() string       { return "Termux HTTP Client" }
+func (p *Provider) DefaultWeight() int { return 60 } // Higher than native
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
-	// Always compatible
+	if os.Getenv("TERMUX_VERSION") == "" {
+		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
+	}
 	return nil
 }
 
@@ -41,25 +43,44 @@ type Driver struct {
 
 func (d *Driver) Client() *http.Client {
 	d.once.Do(func() {
-		// Create custom dialer that prefers IPv4 and has proper timeouts
+		// Use Android's DNS resolver (8.8.8.8 as fallback)
+		resolver := &net.Resolver{
+			PreferGo: true,
+			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+				// Try to read Android's DNS from properties
+				// Fallback to Google DNS
+				dnsServer := "8.8.8.8:53"
+
+				// Try common Android DNS locations
+				if dns := getAndroidDNS(); dns != "" {
+					dnsServer = dns + ":53"
+				}
+
+				dialer := &net.Dialer{
+					Timeout: 5 * time.Second,
+				}
+				return dialer.DialContext(ctx, "udp", dnsServer)
+			},
+		}
+
+		// Custom dialer with our resolver
 		dialer := &net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-			// Prefer IPv4 over IPv6 to avoid Termux DNS issues
-			FallbackDelay: 300 * time.Millisecond,
+			Resolver:  resolver,
 		}
 
 		d.client = &http.Client{
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// Try IPv4 first
+					// Force IPv4
 					if network == "tcp" {
 						network = "tcp4"
 					}
 					return dialer.DialContext(ctx, network, addr)
 				},
 				TLSClientConfig: &tls.Config{
-					RootCAs: loadSystemCerts(),
+					RootCAs: loadTermuxCerts(),
 				},
 				ForceAttemptHTTP2:     true,
 				MaxIdleConns:          100,
@@ -73,35 +94,30 @@ func (d *Driver) Client() *http.Client {
 	return d.client
 }
 
-// loadSystemCerts attempts to load system CA certificates from multiple locations
-func loadSystemCerts() *x509.CertPool {
-	// Try to load system cert pool first (works on most platforms)
-	if pool, err := x509.SystemCertPool(); err == nil && pool != nil {
-		return pool
+func getAndroidDNS() string {
+	// Try to read from getprop (Android property)
+	// Common DNS properties: net.dns1, net.dns2
+	dnsServers := []string{
+		"8.8.8.8",     // Google DNS (fallback)
+		"1.1.1.1",     // Cloudflare DNS (fallback)
 	}
 
-	// Fallback: create new pool and try common certificate locations
+	// Try reading from system properties if available
+	if dns := os.Getenv("DNS_SERVER"); dns != "" {
+		return dns
+	}
+
+	return dnsServers[0]
+}
+
+func loadTermuxCerts() *x509.CertPool {
 	pool := x509.NewCertPool()
 
-	// Common certificate file locations (in priority order)
+	// Termux-specific certificate locations
 	certFiles := []string{
-		// Standard Linux locations
-		"/etc/ssl/certs/ca-certificates.crt",
-		"/etc/pki/tls/certs/ca-bundle.crt",
-		"/etc/ssl/ca-bundle.pem",
-		"/etc/pki/tls/cacert.pem",
-		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
-		// Termux locations
 		"/data/data/com.termux/files/usr/etc/tls/cert.pem",
+		"/data/data/com.termux/files/usr/etc/tls/certs/ca-certificates.crt",
 		"/system/etc/security/cacerts",
-	}
-
-	// Also check environment variables
-	if certFile := os.Getenv("SSL_CERT_FILE"); certFile != "" {
-		certFiles = append([]string{certFile}, certFiles...)
-	}
-	if certDir := os.Getenv("SSL_CERT_DIR"); certDir != "" {
-		certFiles = append([]string{filepath.Join(certDir, "ca-certificates.crt")}, certFiles...)
 	}
 
 	// Try to load from each location
@@ -113,7 +129,7 @@ func loadSystemCerts() *x509.CertPool {
 		}
 	}
 
-	// Try loading from directory (for Android/Termux)
+	// Try loading from directory (for Android)
 	certDirs := []string{
 		"/system/etc/security/cacerts",
 		"/data/data/com.termux/files/usr/etc/tls/certs",
@@ -124,23 +140,24 @@ func loadSystemCerts() *x509.CertPool {
 		if err != nil {
 			continue
 		}
+		loaded := 0
 		for _, entry := range entries {
 			if entry.IsDir() {
 				continue
 			}
 			certPath := filepath.Join(certDir, entry.Name())
 			if certs, err := os.ReadFile(certPath); err == nil {
-				pool.AppendCertsFromPEM(certs)
+				if pool.AppendCertsFromPEM(certs) {
+					loaded++
+				}
 			}
 		}
-		// If we loaded any certs from this directory, return
-		if len(pool.Subjects()) > 0 {
+		if loaded > 0 {
 			return pool
 		}
 	}
 
-	// Last resort: return the pool even if empty
-	// The TLS library may still work with built-in roots
-	fmt.Fprintf(os.Stderr, "Warning: Could not load system CA certificates from any known location\n")
+	// Last resort: return empty pool
+	fmt.Fprintf(os.Stderr, "Warning: Could not load any CA certificates for Termux\n")
 	return pool
 }
