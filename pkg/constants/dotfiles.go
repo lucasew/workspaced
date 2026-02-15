@@ -5,6 +5,6 @@ package constants
 // Supports ~ for home directory and $VAR for environment variables.
 var DotfilesCandidates = []string{
 	"/workspaces/.codespaces/.persistedshare/dotfiles", // GitHub Codespaces
-	"~/.dotfiles",                                       // User dotfiles
-	"/etc/.dotfiles",                                    // System-wide dotfiles
+	"~/.dotfiles",    // User dotfiles
+	"/etc/.dotfiles", // System-wide dotfiles
 }
