@@ -98,8 +98,8 @@ func getAndroidDNS() string {
 	// Try to read from getprop (Android property)
 	// Common DNS properties: net.dns1, net.dns2
 	dnsServers := []string{
-		"8.8.8.8",     // Google DNS (fallback)
-		"1.1.1.1",     // Cloudflare DNS (fallback)
+		"8.8.8.8", // Google DNS (fallback)
+		"1.1.1.1", // Cloudflare DNS (fallback)
 	}
 
 	// Try reading from system properties if available
