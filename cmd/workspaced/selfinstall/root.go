@@ -74,9 +74,14 @@ func runSelfInstall(ctx context.Context) error {
 
 	slog.Info("binary installed", "path", installPath)
 
-	// Create shim
+	// Create workspaced shim
 	if err := createWorkspacedShim(ctx, toolsDir); err != nil {
 		return fmt.Errorf("failed to create shim: %w", err)
+	}
+
+	// Create mise shim (if mise exists)
+	if err := createMiseShim(ctx); err != nil {
+		slog.Warn("failed to create mise shim", "error", err)
 	}
 
 	slog.Info("workspaced installed successfully", "version", currentVersion)
@@ -111,6 +116,40 @@ func createWorkspacedShim(ctx context.Context, toolsDir string) error {
 	}
 
 	slog.Info("created shim", "path", shimPath, "target", workspacedPath)
+	return nil
+}
+
+func createMiseShim(ctx context.Context) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	// Check if mise exists
+	dataDir, err := tool.GetToolsDir()
+	if err != nil {
+		return err
+	}
+
+	misePath := filepath.Join(filepath.Dir(dataDir), "bin", "mise")
+	if _, err := os.Stat(misePath); err != nil {
+		// Mise not installed, skip
+		return nil
+	}
+
+	localBin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(localBin, 0755); err != nil {
+		return err
+	}
+
+	shimPath := filepath.Join(localBin, "mise")
+
+	// Create shim pointing to mise binary
+	if err := shim.Generate(ctx, shimPath, []string{misePath}); err != nil {
+		return err
+	}
+
+	slog.Info("created mise shim", "path", shimPath, "target", misePath)
 	return nil
 }
 
