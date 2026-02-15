@@ -19,11 +19,14 @@ import (
 	_ "workspaced/pkg/driver/prelude"
 	shimdriver "workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
+	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() *cobra.Command {
+	var force bool
+
 	cmd := &cobra.Command{
 		Use:   "self-update",
 		Short: "Update workspaced binary",
@@ -38,14 +41,15 @@ This command automatically detects the update strategy:
 
 The binary is updated at ~/.local/share/workspaced/bin/workspaced`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfUpdate(c)
+			return runSelfUpdate(c, force)
 		},
 	}
 
+	cmd.Flags().BoolVar(&force, "force", false, "Force update even if version matches")
 	return cmd
 }
 
-func runSelfUpdate(cmd *cobra.Command) error {
+func runSelfUpdate(cmd *cobra.Command, force bool) error {
 	// Get install path from env driver
 	dataDir, err := env.GetUserDataDir()
 	if err != nil {
@@ -70,18 +74,35 @@ func runSelfUpdate(cmd *cobra.Command) error {
 	for _, srcPath := range sourcePaths {
 		if _, err := os.Stat(srcPath); err == nil {
 			slog.Info("building from source", "path", srcPath)
-			return buildFromSource(cmd, srcPath, installPath)
+			return buildFromSource(cmd, srcPath, installPath, force)
 		}
 	}
 
 	// No source found, download from GitHub
 	slog.Info("downloading latest release from GitHub")
-	return downloadFromGitHub(installPath)
+	return downloadFromGitHub(installPath, force)
 }
 
-func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
+func buildFromSource(cmd *cobra.Command, srcDir, installPath string, force bool) error {
 	ctx := cmd.Context()
 	_ = ctx // Keep context for potential future use
+
+	// Check if source version matches current version (unless --force is used)
+	if !force {
+		sourceVersion, err := readSourceVersion(srcDir)
+		if err != nil {
+			slog.Warn("could not read source version", "error", err)
+		} else {
+			currentVersion := version.Version()
+			if sourceVersion == currentVersion {
+				slog.Info("already at latest version", "version", currentVersion)
+				return nil
+			}
+			slog.Info("version mismatch, rebuilding", "current", currentVersion, "source", sourceVersion)
+		}
+	} else {
+		slog.Info("forcing rebuild (--force flag)")
+	}
 
 	// Get the Go version used to build the current binary
 	goVersion := getGoVersion()
@@ -128,6 +149,15 @@ func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
 	return nil
 }
 
+func readSourceVersion(srcDir string) (string, error) {
+	versionFile := filepath.Join(srcDir, "pkg", "version", "version.txt")
+	data, err := os.ReadFile(versionFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read version.txt: %w", err)
+	}
+	return strings.TrimSpace(string(data)), nil
+}
+
 func getGoVersion() string {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
@@ -171,7 +201,7 @@ type githubRelease struct {
 	Assets  []githubAsset `json:"assets"`
 }
 
-func downloadFromGitHub(installPath string) error {
+func downloadFromGitHub(installPath string, force bool) error {
 	ctx := context.Background()
 
 	// Determine platform and architecture
@@ -201,6 +231,19 @@ func downloadFromGitHub(installPath string) error {
 	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return fmt.Errorf("failed to parse release info: %w", err)
+	}
+
+	// Check if we're already at the latest version (unless --force is used)
+	if !force {
+		currentVersion := version.Version()
+		releaseVersion := strings.TrimPrefix(release.TagName, "v")
+		if currentVersion == releaseVersion {
+			slog.Info("already at latest version", "version", currentVersion)
+			return nil
+		}
+		slog.Info("version mismatch, downloading", "current", currentVersion, "latest", releaseVersion)
+	} else {
+		slog.Info("forcing download (--force flag)")
 	}
 
 	// Find the matching asset
