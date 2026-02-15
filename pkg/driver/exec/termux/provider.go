@@ -102,10 +102,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	// Find proot binary
 	prootPath, err := d.Which(ctx, "proot")
 	if err != nil {
-		slog.Warn("proot not found, running without proot", "error", err)
-		cmd := exec.CommandContext(ctx, fullPath, args...)
-		cmd.Env = setupTermuxEnv(prefix)
-		return cmd
+		panic(err)
 	}
 
 	// Build proot arguments (mimicking termux-chroot)
@@ -160,6 +157,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	prootArgs = append(prootArgs, "--cwd=.")
 
 	// Append command arguments
+	prootArgs = append(prootArgs, fullPath)
 	prootArgs = append(prootArgs, args...)
 
 	slog.Debug("using proot for command execution", "proot", prootPath)
