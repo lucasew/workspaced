@@ -30,16 +30,20 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return err
 }
 
-func (p *Provider) New(ctx context.Context) (shimdriver.Driver, error) {
-	// Prefer $SHELL if it's bash, otherwise use which bash
+func GetShell(ctx context.Context) string {
 	bashPath := os.Getenv("SHELL")
 	if bashPath == "" || !strings.Contains(bashPath, "bash") {
 		var err error
 		bashPath, err = execdriver.Which(ctx, "bash")
 		if err != nil {
-			return nil, fmt.Errorf("bash not found: %w", err)
+			panic(fmt.Errorf("bash not found: %w", err))
 		}
 	}
+	return bashPath
+}
+
+func (p *Provider) New(ctx context.Context) (shimdriver.Driver, error) {
+	bashPath := GetShell(ctx)
 	return &Driver{bashPath: bashPath}, nil
 }
 

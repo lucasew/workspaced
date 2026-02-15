@@ -2,6 +2,7 @@ package open
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/driver/shim/bash"
 
 	"github.com/spf13/cobra"
 )
@@ -106,7 +108,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 	}
 
 	// Generate wrapper in ~/.local/bin/mise if it doesn't exist
-	if err := ensureMiseWrapper(misePath); err != nil {
+	if err := ensureMiseWrapper(ctx.Context(), misePath); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to create mise wrapper: %v\n", err)
 	}
 
@@ -114,7 +116,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 }
 
 // ensureMiseWrapper creates a wrapper script in ~/.local/bin/mise
-func ensureMiseWrapper(misePath string) error {
+func ensureMiseWrapper(ctx context.Context, misePath string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
@@ -139,7 +141,7 @@ func ensureMiseWrapper(misePath string) error {
 
 	// Check if wrapper already exists and is correct
 	if content, err := os.ReadFile(wrapperPath); err == nil {
-		expectedContent := fmt.Sprintf("#!/bin/sh\nexec %s open mise \"$@\"\n", workspacedBin)
+		expectedContent := fmt.Sprintf("#!%s\nexec %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 		if string(content) == expectedContent {
 			return nil
 		}
@@ -151,7 +153,7 @@ func ensureMiseWrapper(misePath string) error {
 	}
 
 	// Generate wrapper script that calls workspaced open mise
-	wrapperContent := fmt.Sprintf("#!/bin/sh\nexec %s open mise \"$@\"\n", workspacedBin)
+	wrapperContent := fmt.Sprintf("#!%s\nexec %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 
 	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
 		return fmt.Errorf("failed to write wrapper: %w", err)

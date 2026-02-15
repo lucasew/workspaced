@@ -1,11 +1,13 @@
 package selfinstall
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"workspaced/pkg/driver/shim/bash"
 
 	"github.com/spf13/cobra"
 )
@@ -28,7 +30,7 @@ After installation, restart your shell or run:
 To initialize your dotfiles after installation:
   workspaced init`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfInstall(force)
+			return runSelfInstall(c.Context(), force)
 		},
 	}
 
@@ -37,7 +39,7 @@ To initialize your dotfiles after installation:
 	return cmd
 }
 
-func runSelfInstall(force bool) error {
+func runSelfInstall(ctx context.Context, force bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
@@ -67,7 +69,7 @@ func runSelfInstall(force bool) error {
 	wrapperDir := filepath.Join(home, ".local", "bin")
 	wrapperPath := filepath.Join(wrapperDir, "workspaced")
 
-	if err := generateWrapper(wrapperPath, installPath); err != nil {
+	if err := generateWrapper(ctx, wrapperPath, installPath); err != nil {
 		fmt.Printf("   ⚠️  Warning: %v\n", err)
 		fmt.Printf("   Please manually create wrapper at %s\n", wrapperPath)
 	}
@@ -133,13 +135,13 @@ func copyFile(src, dst string) error {
 	return err
 }
 
-func generateWrapper(wrapperPath, targetPath string) error {
+func generateWrapper(ctx context.Context, wrapperPath, targetPath string) error {
 	wrapperDir := filepath.Dir(wrapperPath)
 	if err := os.MkdirAll(wrapperDir, 0755); err != nil {
 		return fmt.Errorf("failed to create wrapper directory: %w", err)
 	}
 
-	wrapperContent := fmt.Sprintf("#!/bin/sh\nexec %s \"$@\"\n", targetPath)
+	wrapperContent := fmt.Sprintf("#!%s\nexec %s \"$@\"\n", bash.GetShell(ctx), targetPath)
 
 	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
 		return fmt.Errorf("failed to write wrapper: %w", err)
