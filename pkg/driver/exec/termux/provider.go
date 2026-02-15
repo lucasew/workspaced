@@ -59,8 +59,18 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 	}
 
 	// Check if we're already inside proot (avoid nesting)
-	if os.Getenv("WORKSPACED_IN_PROOT") == "1" {
-		slog.Debug("already inside proot, running directly", "command", fullPath)
+	inProot := os.Getenv("WORKSPACED_IN_PROOT")
+	slog.Info("proot check", "WORKSPACED_IN_PROOT", inProot, "command", fullPath)
+	if inProot == "1" {
+		slog.Info("already inside proot, running directly", "command", fullPath)
+		cmd := exec.CommandContext(ctx, fullPath, args...)
+		cmd.Env = setupTermuxEnv(prefix)
+		return cmd
+	}
+
+	// Check if user explicitly disabled proot
+	if os.Getenv("WORKSPACED_NO_PROOT") == "1" {
+		slog.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullPath)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
 		cmd.Env = setupTermuxEnv(prefix)
 		return cmd
@@ -71,7 +81,7 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 	return d.runWithProot(ctx, fullPath, args, prefix)
 }
 
-// runWithProot wraps command execution in termux-chroot/proot
+// runWithProot wraps command execution in proot with termux-chroot-like setup
 func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []string, prefix string) *exec.Cmd {
 	// Setup resolv.conf and SSL certs for proot environment
 	if resolvPath, err := ensureResolvConf(); err != nil {
@@ -86,16 +96,67 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 		slog.Debug("SSL certificates configured", "path", certPath)
 	}
 
-	// Use termux-chroot
-	chrootPath, err := d.Which(ctx, "termux-chroot")
+	// Find proot binary
+	prootPath, err := d.Which(ctx, "proot")
 	if err != nil {
-		slog.Warn("termux-chroot not found, running without proot", "error", err)
+		slog.Warn("proot not found, running without proot", "error", err)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
 		cmd.Env = setupTermuxEnv(prefix)
 		return cmd
 	}
 
-	// Build command string for termux-chroot
+	// Build proot arguments (mimicking termux-chroot)
+	prootArgs := []string{
+		"--kill-on-exit",
+		"-b", "/system:/system",
+		"-b", "/vendor:/vendor",
+		"-b", "/data:/data",
+	}
+
+	// Bind /sbin and /root if they exist (for Magisk)
+	if _, err := os.Stat("/sbin"); err == nil {
+		prootArgs = append(prootArgs, "-b", "/sbin:/sbin")
+	}
+	if _, err := os.Stat("/root"); err == nil {
+		prootArgs = append(prootArgs, "-b", "/root:/root")
+	}
+
+	// Bind /apex if exists (Android 10+)
+	if _, err := os.Stat("/apex"); err == nil {
+		prootArgs = append(prootArgs, "-b", "/apex:/apex")
+	}
+
+	// Bind /linkerconfig if exists (Android 11+)
+	if _, err := os.Stat("/linkerconfig/ld.config.txt"); err == nil {
+		prootArgs = append(prootArgs, "-b", "/linkerconfig/ld.config.txt:/linkerconfig/ld.config.txt")
+	}
+
+	// Bind /property_contexts if exists
+	if _, err := os.Stat("/property_contexts"); err == nil {
+		prootArgs = append(prootArgs, "-b", "/property_contexts:/property_contexts")
+	}
+
+	// Bind /storage if exists
+	if _, err := os.Stat("/storage"); err == nil {
+		prootArgs = append(prootArgs, "-b", "/storage:/storage")
+	}
+
+	// Bind $PREFIX to /usr
+	prootArgs = append(prootArgs, "-b", prefix+":/usr")
+
+	// Bind Termux directories
+	for _, dir := range []string{"bin", "etc", "lib", "share", "tmp", "var"} {
+		prootArgs = append(prootArgs, "-b", filepath.Join(prefix, dir)+":/"+dir)
+	}
+
+	// Bind system directories
+	prootArgs = append(prootArgs, "-b", "/dev:/dev", "-b", "/proc:/proc")
+
+	// Set root and working directory
+	prootArgs = append(prootArgs, "-r", filepath.Dir(prefix))
+	prootArgs = append(prootArgs, "--cwd=.")
+
+	// Add command to execute via sh -c
 	cmdStr := fullPath
 	for _, arg := range args {
 		if strings.Contains(arg, " ") {
@@ -104,9 +165,10 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 			cmdStr += " " + arg
 		}
 	}
+	prootArgs = append(prootArgs, "sh", "-c", cmdStr)
 
-	slog.Debug("using termux-chroot for command execution", "command", cmdStr)
-	cmd := exec.CommandContext(ctx, chrootPath, cmdStr)
+	slog.Debug("using proot for command execution", "command", cmdStr, "proot", prootPath)
+	cmd := exec.CommandContext(ctx, prootPath, prootArgs...)
 
 	// Setup environment for proot
 	env := os.Environ()
@@ -117,11 +179,6 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 		if strings.HasPrefix(e, "LD_PRELOAD=") {
 			continue
 		}
-		// Update LD_LIBRARY_PATH for chroot
-		if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
-			filteredEnv = append(filteredEnv, "LD_LIBRARY_PATH=/lib:/usr/lib")
-			continue
-		}
 		filteredEnv = append(filteredEnv, e)
 	}
 
@@ -130,6 +187,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	// Set sentinel to prevent proot nesting
 	filteredEnv = append(filteredEnv, "WORKSPACED_IN_PROOT=1")
 
+	slog.Debug("setting proot environment", "sentinel", "WORKSPACED_IN_PROOT=1")
 	cmd.Env = filteredEnv
 	return cmd
 }
