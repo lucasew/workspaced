@@ -16,6 +16,8 @@ import (
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
 	_ "workspaced/pkg/driver/httpclient/native"
+	_ "workspaced/pkg/driver/prelude"
+	shimdriver "workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -117,6 +119,12 @@ func buildFromSource(cmd *cobra.Command, srcDir, installPath string) error {
 	}
 
 	slog.Info("built and installed successfully", "path", installPath)
+
+	// Create shims in ~/.local/bin
+	if err := createShims(ctx, installPath); err != nil {
+		slog.Warn("failed to create shims", "error", err)
+	}
+
 	return nil
 }
 
@@ -274,6 +282,12 @@ func downloadFromGitHub(installPath string) error {
 	}
 
 	slog.Info("downloaded and installed successfully", "path", installPath, "hash_verified", hash != "")
+
+	// Create shims in ~/.local/bin
+	if err := createShims(ctx, installPath); err != nil {
+		slog.Warn("failed to create shims", "error", err)
+	}
+
 	return nil
 }
 
@@ -283,4 +297,45 @@ func getAssetNames(assets []githubAsset) []string {
 		names[i] = a.Name
 	}
 	return names
+}
+
+func createShims(ctx context.Context, workspacedPath string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	localBin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(localBin, 0755); err != nil {
+		return fmt.Errorf("failed to create ~/.local/bin: %w", err)
+	}
+
+	dataDir, err := env.GetUserDataDir()
+	if err != nil {
+		return fmt.Errorf("failed to get data directory: %w", err)
+	}
+
+	shims := map[string][]string{
+		"workspaced": {workspacedPath},
+		"mise":       {filepath.Join(dataDir, "bin", "mise")},
+	}
+
+	for name, command := range shims {
+		shimPath := filepath.Join(localBin, name)
+
+		// Check if target binary exists
+		if _, err := os.Stat(command[0]); err != nil {
+			slog.Debug("skipping shim, binary not found", "name", name, "binary", command[0])
+			continue
+		}
+
+		if err := shimdriver.Generate(ctx, shimPath, command); err != nil {
+			slog.Warn("failed to create shim", "name", name, "error", err)
+			continue
+		}
+
+		slog.Info("created shim", "name", name, "path", shimPath)
+	}
+
+	return nil
 }

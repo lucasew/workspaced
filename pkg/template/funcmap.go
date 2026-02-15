@@ -8,6 +8,7 @@ import (
 	"text/template"
 	"workspaced/pkg/env"
 	envdriver "workspaced/pkg/driver/env"
+	shimdriver "workspaced/pkg/driver/shim"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/text"
@@ -104,6 +105,10 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 		},
 		"isPhone": func() bool {
 			return env.IsPhone()
+		},
+		// Shim helpers
+		"shim": func(command []string) (string, error) {
+			return shimdriver.GenerateContent(ctx, command)
 		},
 	}
 }

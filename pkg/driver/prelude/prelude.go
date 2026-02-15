@@ -32,6 +32,7 @@ import (
 	_ "workspaced/pkg/driver/screenshot/maim"
 	_ "workspaced/pkg/driver/shell/bash"
 	_ "workspaced/pkg/driver/shell/sh"
+	_ "workspaced/pkg/driver/shim/bash"
 	_ "workspaced/pkg/driver/terminal/alacritty"
 	_ "workspaced/pkg/driver/terminal/foot"
 	_ "workspaced/pkg/driver/terminal/kitty"
