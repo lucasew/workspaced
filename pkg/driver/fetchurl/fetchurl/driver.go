@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"strings"
 
 	"github.com/lucasew/fetchurl"
 	"workspaced/pkg/driver"
@@ -36,10 +34,9 @@ func (p *Provider) New(ctx context.Context) (fetchurldriver.Driver, error) {
 	}
 	// If httpclient driver not available, fetchurl will create default client
 
-	// Get mirror servers from environment or use defaults
-	servers := getServersFromEnv()
+	// fetchurl now reads mirror servers from FETCHURL_SERVERS env var automatically
 	return &Driver{
-		fetcher: fetchurl.NewFetcher(client, servers),
+		fetcher: fetchurl.NewFetcher(client),
 	}, nil
 }
 
@@ -63,21 +60,4 @@ func (d *Driver) Fetch(ctx context.Context, opts fetchurldriver.FetchOptions) er
 	}
 
 	return d.fetcher.Fetch(ctx, fetchOpts)
-}
-
-// getServersFromEnv reads FETCHURL_SERVERS environment variable
-// Expected format: comma-separated URLs
-// Example: FETCHURL_SERVERS=https://mirror1.example.com,https://mirror2.example.com
-func getServersFromEnv() []string {
-	env := os.Getenv("FETCHURL_SERVERS")
-	if env == "" {
-		return nil
-	}
-
-	servers := strings.Split(env, ",")
-	// Trim whitespace from each server URL
-	for i := range servers {
-		servers[i] = strings.TrimSpace(servers[i])
-	}
-	return servers
 }
