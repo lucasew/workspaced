@@ -15,6 +15,7 @@ import (
 	"strings"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/fetchurl"
+	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 )
@@ -64,7 +65,13 @@ func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig)
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	// Use httpclient driver (handles Termux DNS/certs)
+	httpClient, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	resp, err := httpClient.Client().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +110,13 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	// Use httpclient driver (handles Termux DNS/certs)
+	httpClient, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	resp, err := httpClient.Client().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +217,14 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
 
-		resp, err := http.DefaultClient.Do(req)
+		// Use httpclient driver (handles Termux DNS/certs)
+		httpClient, err := driver.Get[httpclient.Driver](ctx)
+		if err != nil {
+			outFile.Close()
+			return fmt.Errorf("failed to get http client: %w", err)
+		}
+
+		resp, err := httpClient.Client().Do(req)
 		if err != nil {
 			outFile.Close()
 			return err
@@ -228,6 +248,11 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 	slog.Debug("extracting", "file", downloadPath, "dest", destPath)
 	if err := extract(downloadPath, destPath); err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
+	}
+
+	// Strip single top-level directory if present
+	if err := stripTopLevelDir(destPath); err != nil {
+		slog.Warn("failed to strip top-level directory", "error", err)
 	}
 
 	return nil
@@ -345,6 +370,48 @@ func unzip(src, dest string) error {
 		}
 	}
 	return nil
+}
+
+// stripTopLevelDir checks if destPath contains only one directory,
+// and if so, moves its contents up one level.
+// This handles archives like "tool-v1.0.0/bin/tool" -> "bin/tool"
+func stripTopLevelDir(destPath string) error {
+	entries, err := os.ReadDir(destPath)
+	if err != nil {
+		return err
+	}
+
+	// Only strip if there's exactly one entry and it's a directory
+	if len(entries) != 1 || !entries[0].IsDir() {
+		return nil
+	}
+
+	singleDir := filepath.Join(destPath, entries[0].Name())
+	slog.Debug("stripping top-level directory", "dir", entries[0].Name())
+
+	// Move contents to temp location
+	tempDir := destPath + ".strip-tmp"
+	if err := os.Rename(singleDir, tempDir); err != nil {
+		return err
+	}
+
+	// Move contents of temp dir to destPath
+	tempEntries, err := os.ReadDir(tempDir)
+	if err != nil {
+		os.Rename(tempDir, singleDir) // Try to restore
+		return err
+	}
+
+	for _, entry := range tempEntries {
+		oldPath := filepath.Join(tempDir, entry.Name())
+		newPath := filepath.Join(destPath, entry.Name())
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return err
+		}
+	}
+
+	// Remove now-empty temp dir
+	return os.Remove(tempDir)
 }
 
 func untargz(src, dest string) error {
