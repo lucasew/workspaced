@@ -3,12 +3,14 @@ package fetchurl
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/lucasew/fetchurl"
 	"workspaced/pkg/driver"
 	fetchurldriver "workspaced/pkg/driver/fetchurl"
+	"workspaced/pkg/driver/httpclient"
 )
 
 func init() {
@@ -27,10 +29,17 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 }
 
 func (p *Provider) New(ctx context.Context) (fetchurldriver.Driver, error) {
+	// Get HTTP client from httpclient driver (with proper DNS/certs for Termux)
+	var client *http.Client
+	if httpDriver, err := driver.Get[httpclient.Driver](ctx); err == nil {
+		client = httpDriver.Client()
+	}
+	// If httpclient driver not available, fetchurl will create default client
+
 	// Get mirror servers from environment or use defaults
 	servers := getServersFromEnv()
 	return &Driver{
-		fetcher: fetchurl.NewFetcher(nil, servers),
+		fetcher: fetchurl.NewFetcher(client, servers),
 	}, nil
 }
 
