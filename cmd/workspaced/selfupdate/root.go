@@ -2,27 +2,27 @@ package selfupdate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
-	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/fetchurl"
-	"workspaced/pkg/driver/httpclient"
-	_ "workspaced/pkg/driver/httpclient/native"
-	_ "workspaced/pkg/driver/prelude"
-	shimdriver "workspaced/pkg/driver/shim"
+	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
+	"workspaced/pkg/tool"
+	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/resolution"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
 )
+
+// ============================================================================
+// Command
+// ============================================================================
 
 func NewCommand() *cobra.Command {
 	var force bool
@@ -30,130 +30,245 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "self-update",
 		Short: "Update workspaced binary",
-		Long: `Update workspaced binary to the latest version.
+		Long: `Update workspaced to the latest version.
 
-This command automatically detects the update strategy:
-  1. If source exists → rebuild using mise
-     Checked locations:
-     - ~/.config/workspaced/src/
-     - <dotfiles_root>/workspaced/ (from GetDotfilesRoot)
-  2. Otherwise → download latest release from GitHub
+Strategy:
+  1. If source code exists → rebuild from source (always)
+  2. Otherwise → download from GitHub using tool provider
 
-The binary is updated at ~/.local/share/workspaced/bin/workspaced`,
+The update is installed in ~/.local/share/workspaced/tools/ and the shim
+in ~/.local/bin/workspaced is updated automatically.`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfUpdate(c, force)
+			return runSelfUpdate(c.Context(), force)
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Force update even if version matches")
+	cmd.Flags().BoolVar(&force, "force", false, "Force update even if version matches (GitHub only)")
 	return cmd
 }
 
-func runSelfUpdate(cmd *cobra.Command, force bool) error {
-	// Get install path from env driver
-	dataDir, err := env.GetUserDataDir()
-	if err != nil {
-		return fmt.Errorf("failed to get data directory: %w", err)
-	}
-	installPath := filepath.Join(dataDir, "bin", "workspaced")
+// ============================================================================
+// Main update flow
+// ============================================================================
 
-	// Try to find source code in common locations
-	var sourcePaths []string
-
-	// 1. ~/.config/workspaced/src/
-	if configDir, err := env.GetConfigDir(); err == nil {
-		sourcePaths = append(sourcePaths, filepath.Join(configDir, "src"))
+func runSelfUpdate(ctx context.Context, force bool) error {
+	// Try source build first (dev mode - always rebuilds)
+	if srcPath, found := findSourcePath(); found {
+		slog.Info("building from source (always rebuilds)", "path", srcPath)
+		return buildAndInstallFromSource(ctx, srcPath)
 	}
 
-	// 2. $DOTFILES/workspaced/
-	if dotfilesRoot, err := env.GetDotfilesRoot(); err == nil {
-		sourcePaths = append(sourcePaths, filepath.Join(dotfilesRoot, "workspaced"))
-	}
-
-	// Check each location and build from first that exists
-	for _, srcPath := range sourcePaths {
-		if _, err := os.Stat(srcPath); err == nil {
-			slog.Info("building from source", "path", srcPath)
-			return buildFromSource(cmd, srcPath, installPath, force)
-		}
-	}
-
-	// No source found, download from GitHub
-	slog.Info("downloading latest release from GitHub")
-	return downloadFromGitHub(installPath, force)
+	// Fallback to GitHub provider (checks version unless --force)
+	return updateFromGitHub(ctx, force)
 }
 
-func buildFromSource(cmd *cobra.Command, srcDir, installPath string, force bool) error {
-	ctx := cmd.Context()
-	_ = ctx // Keep context for potential future use
+// ============================================================================
+// Source build strategy
+// ============================================================================
 
-	// Check if source version matches current version (unless --force is used)
-	if !force {
-		sourceVersion, err := readSourceVersion(srcDir)
-		if err != nil {
-			slog.Warn("could not read source version", "error", err)
-		} else {
-			currentVersion := version.Version()
-			if sourceVersion == currentVersion {
-				slog.Info("already at latest version", "version", currentVersion)
-				return nil
-			}
-			slog.Info("version mismatch, rebuilding", "current", currentVersion, "source", sourceVersion)
-		}
-	} else {
-		slog.Info("forcing rebuild (--force flag)")
+func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
+	toolsDir, err := tool.GetToolsDir()
+	if err != nil {
+		return err
 	}
 
-	// Get the Go version used to build the current binary
+	// Read version from source
+	sourceVersion, err := readVersionFile(filepath.Join(srcPath, "pkg/version/version.txt"))
+	if err != nil {
+		return err
+	}
+
+	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", sourceVersion)
+	installPath := filepath.Join(toolDir, "workspaced")
+
+	// Get build dependencies
 	goVersion := getGoVersion()
 	if goVersion == "" {
 		return fmt.Errorf("could not determine Go version from build info")
 	}
 
-	// Get mise path using the same approach as workspaced open mise
 	misePath, err := getMisePath()
 	if err != nil {
 		return fmt.Errorf("mise required to build from source: %w", err)
 	}
 
-	// Create install directory
-	if err := os.MkdirAll(filepath.Dir(installPath), 0755); err != nil {
-		return fmt.Errorf("failed to create install directory: %w", err)
+	// Prepare build directory
+	if err := os.MkdirAll(toolDir, 0755); err != nil {
+		return err
 	}
 
-	// Build directly to install path (go build is already atomic)
+	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
-
-	// Use execdriver like workspaced open mise does
-	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--", "go", "build", "-o", installPath, "./cmd/workspaced")
+	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
+		"go", "build", "-o", installPath, "./cmd/workspaced")
 	if err != nil {
-		return fmt.Errorf("failed to create build command: %w", err)
+		return err
 	}
 
-	buildCmd.Dir = srcDir
+	buildCmd.Dir = srcPath
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
-	slog.Info("running build", "go_version", goSpec, "output", installPath)
+	slog.Info("building from source", "version", sourceVersion, "go", goSpec)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
-	slog.Info("built and installed successfully", "path", installPath)
+	slog.Info("build completed", "path", installPath)
+	return createWorkspacedShim(ctx, toolsDir)
+}
 
-	// Create shims in ~/.local/bin
-	if err := createShims(ctx, installPath); err != nil {
-		slog.Warn("failed to create shims", "error", err)
+// ============================================================================
+// GitHub provider strategy
+// ============================================================================
+
+func updateFromGitHub(ctx context.Context, force bool) error {
+	// Get GitHub provider
+	githubProvider, err := tool.GetProvider("github")
+	if err != nil {
+		return err
 	}
 
+	pkg, err := githubProvider.ParsePackage("lucasew/workspaced")
+	if err != nil {
+		return err
+	}
+
+	// Get latest version
+	versions, err := githubProvider.ListVersions(ctx, pkg)
+	if err != nil {
+		return err
+	}
+
+	if len(versions) == 0 {
+		return fmt.Errorf("no versions found")
+	}
+
+	latestVersion := versions[0]
+	normalizedLatest := strings.TrimPrefix(latestVersion, "v")
+
+	// Check if update is needed (unless --force)
+	if !force {
+		currentVersion := version.Version()
+
+		if currentVersion == normalizedLatest {
+			slog.Info("already at latest version", "version", currentVersion)
+			return nil
+		}
+
+		slog.Info("updating", "current", currentVersion, "latest", normalizedLatest)
+	} else {
+		slog.Info("forcing update", "version", latestVersion)
+	}
+
+	// Get artifacts
+	artifacts, err := githubProvider.GetArtifacts(ctx, pkg, latestVersion)
+	if err != nil {
+		return err
+	}
+
+	// Find matching artifact for current platform
+	artifact := findMatchingArtifact(artifacts, runtime.GOOS, runtime.GOARCH)
+	if artifact == nil {
+		available := []string{}
+		for _, a := range artifacts {
+			available = append(available, fmt.Sprintf("%s/%s", a.OS, a.Arch))
+		}
+		return fmt.Errorf("no artifact found for %s/%s (available: %v)", runtime.GOOS, runtime.GOARCH, available)
+	}
+
+	// Install to tools directory
+	toolsDir, err := tool.GetToolsDir()
+	if err != nil {
+		return err
+	}
+
+	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", normalizedLatest)
+	if err := os.MkdirAll(toolDir, 0755); err != nil {
+		return err
+	}
+
+	slog.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
+	if err := githubProvider.Install(ctx, *artifact, toolDir); err != nil {
+		return fmt.Errorf("installation failed: %w", err)
+	}
+
+	slog.Info("download completed", "path", toolDir)
+	return createWorkspacedShim(ctx, toolsDir)
+}
+
+func findMatchingArtifact(artifacts []provider.Artifact, os, arch string) *provider.Artifact {
+	for i := range artifacts {
+		if artifacts[i].OS == os && artifacts[i].Arch == arch {
+			return &artifacts[i]
+		}
+	}
 	return nil
 }
 
-func readSourceVersion(srcDir string) (string, error) {
-	versionFile := filepath.Join(srcDir, "pkg", "version", "version.txt")
-	data, err := os.ReadFile(versionFile)
+// ============================================================================
+// Shim management
+// ============================================================================
+
+func createWorkspacedShim(ctx context.Context, toolsDir string) error {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to read version.txt: %w", err)
+		return err
+	}
+
+	localBin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(localBin, 0755); err != nil {
+		return err
+	}
+
+	shimPath := filepath.Join(localBin, "workspaced")
+
+	// Resolve workspaced via tool resolution
+	resolver := resolution.NewResolver(toolsDir)
+	workspacedPath, err := resolver.Resolve(ctx, "workspaced")
+	if err != nil {
+		return fmt.Errorf("failed to resolve workspaced: %w", err)
+	}
+
+	// Use shimdriver
+	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
+		return err
+	}
+
+	slog.Info("updated shim", "path", shimPath, "target", workspacedPath)
+	return nil
+}
+
+// ============================================================================
+// Helper functions
+// ============================================================================
+
+func findSourcePath() (string, bool) {
+	var candidates []string
+
+	// 1. ~/.config/workspaced/src/
+	if configDir, err := env.GetConfigDir(); err == nil {
+		candidates = append(candidates, filepath.Join(configDir, "src"))
+	}
+
+	// 2. $DOTFILES/workspaced/
+	if dotfilesRoot, err := env.GetDotfilesRoot(); err == nil {
+		candidates = append(candidates, filepath.Join(dotfilesRoot, "workspaced"))
+	}
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path, true
+		}
+	}
+
+	return "", false
+}
+
+func readVersionFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
 	}
 	return strings.TrimSpace(string(data)), nil
 }
@@ -164,7 +279,6 @@ func getGoVersion() string {
 		return ""
 	}
 
-	// GoVersion is like "go1.26.0", we need just "1.26.0"
 	version := info.GoVersion
 	if len(version) > 2 && version[0] == 'g' && version[1] == 'o' {
 		return version[2:]
@@ -188,189 +302,4 @@ func getMisePath() (string, error) {
 	}
 
 	return misePath, nil
-}
-
-type githubAsset struct {
-	Name               string `json:"name"`
-	Digest             string `json:"digest"`
-	BrowserDownloadURL string `json:"browser_download_url"`
-}
-
-type githubRelease struct {
-	TagName string        `json:"tag_name"`
-	Assets  []githubAsset `json:"assets"`
-}
-
-func downloadFromGitHub(installPath string, force bool) error {
-	ctx := context.Background()
-
-	// Determine platform and architecture
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-	releaseFileName := fmt.Sprintf("workspaced-%s-%s", goos, goarch)
-
-	// Fetch release info from GitHub API
-	apiURL := "https://api.github.com/repos/lucasew/workspaced/releases/latest"
-	slog.Info("fetching release info from GitHub API", "url", apiURL)
-
-	httpClient, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get http client: %w", err)
-	}
-
-	resp, err := httpClient.Client().Get(apiURL)
-	if err != nil {
-		return fmt.Errorf("failed to fetch release info: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to fetch release info: HTTP %d\n\nNote: GitHub releases may not be available yet.\nPlease use source build method instead.", resp.StatusCode)
-	}
-
-	var release githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return fmt.Errorf("failed to parse release info: %w", err)
-	}
-
-	// Check if we're already at the latest version (unless --force is used)
-	if !force {
-		currentVersion := version.Version()
-		releaseVersion := strings.TrimPrefix(release.TagName, "v")
-		if currentVersion == releaseVersion {
-			slog.Info("already at latest version", "version", currentVersion)
-			return nil
-		}
-		slog.Info("version mismatch, downloading", "current", currentVersion, "latest", releaseVersion)
-	} else {
-		slog.Info("forcing download (--force flag)")
-	}
-
-	// Find the matching asset
-	var asset *githubAsset
-	for i := range release.Assets {
-		if release.Assets[i].Name == releaseFileName {
-			asset = &release.Assets[i]
-			break
-		}
-	}
-
-	if asset == nil {
-		return fmt.Errorf("asset not found: %s\n\nAvailable assets: %v", releaseFileName, getAssetNames(release.Assets))
-	}
-
-	// Extract hash from digest (format: "sha256:HASH")
-	var hash, algo string
-	if asset.Digest != "" {
-		parts := strings.SplitN(asset.Digest, ":", 2)
-		if len(parts) == 2 {
-			algo = parts[0]
-			hash = parts[1]
-			slog.Info("found checksum", "algo", algo, "hash", hash[:16]+"...")
-		}
-	}
-
-	slog.Info("downloading asset", "name", asset.Name, "version", release.TagName, "url", asset.BrowserDownloadURL)
-
-	// Create install directory
-	if err := os.MkdirAll(filepath.Dir(installPath), 0755); err != nil {
-		return fmt.Errorf("failed to create install directory: %w", err)
-	}
-
-	// Download to temporary file with hash verification
-	tmpFile := installPath + ".tmp"
-	out, err := os.Create(tmpFile)
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
-	}
-	defer out.Close()
-
-	// Use fetchurl driver for verified download
-	fetcher, err := driver.Get[fetchurl.Driver](ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get fetchurl driver: %w", err)
-	}
-
-	if err := fetcher.Fetch(ctx, fetchurl.FetchOptions{
-		URLs: []string{asset.BrowserDownloadURL},
-		Algo: algo,
-		Hash: hash,
-		Out:  out,
-	}); err != nil {
-		os.Remove(tmpFile)
-		return fmt.Errorf("failed to download binary: %w", err)
-	}
-
-	// Close file before rename
-	out.Close()
-
-	// Set executable permissions
-	if err := os.Chmod(tmpFile, 0755); err != nil {
-		os.Remove(tmpFile)
-		return fmt.Errorf("failed to set permissions: %w", err)
-	}
-
-	// Rename to final location
-	if err := os.Rename(tmpFile, installPath); err != nil {
-		os.Remove(tmpFile)
-		return fmt.Errorf("failed to install binary: %w", err)
-	}
-
-	slog.Info("downloaded and installed successfully", "path", installPath, "hash_verified", hash != "")
-
-	// Create shims in ~/.local/bin
-	if err := createShims(ctx, installPath); err != nil {
-		slog.Warn("failed to create shims", "error", err)
-	}
-
-	return nil
-}
-
-func getAssetNames(assets []githubAsset) []string {
-	names := make([]string, len(assets))
-	for i, a := range assets {
-		names[i] = a.Name
-	}
-	return names
-}
-
-func createShims(ctx context.Context, workspacedPath string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	localBin := filepath.Join(home, ".local", "bin")
-	if err := os.MkdirAll(localBin, 0755); err != nil {
-		return fmt.Errorf("failed to create ~/.local/bin: %w", err)
-	}
-
-	dataDir, err := env.GetUserDataDir()
-	if err != nil {
-		return fmt.Errorf("failed to get data directory: %w", err)
-	}
-
-	shims := map[string][]string{
-		"workspaced": {workspacedPath},
-		"mise":       {filepath.Join(dataDir, "bin", "mise")},
-	}
-
-	for name, command := range shims {
-		shimPath := filepath.Join(localBin, name)
-
-		// Check if target binary exists
-		if _, err := os.Stat(command[0]); err != nil {
-			slog.Debug("skipping shim, binary not found", "name", name, "binary", command[0])
-			continue
-		}
-
-		if err := shimdriver.Generate(ctx, shimPath, command); err != nil {
-			slog.Warn("failed to create shim", "name", name, "error", err)
-			continue
-		}
-
-		slog.Info("created shim", "name", name, "path", shimPath)
-	}
-
-	return nil
 }

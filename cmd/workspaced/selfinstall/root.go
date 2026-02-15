@@ -4,117 +4,113 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
-	"workspaced/pkg/driver/shim/bash"
+	"workspaced/pkg/driver/shim"
+	"workspaced/pkg/tool"
+	"workspaced/pkg/tool/resolution"
+	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
 )
 
 func NewCommand() *cobra.Command {
-	var force bool
-
 	cmd := &cobra.Command{
 		Use:   "self-install",
-		Short: "Install workspaced binary to the system",
-		Long: `Install workspaced binary and setup PATH.
+		Short: "Install workspaced into tool system (bootstrap)",
+		Long: `Copies the current workspaced binary into the tool management system.
 
-This command will:
-  1. Copy the binary to ~/.local/share/workspaced/bin/workspaced
-  2. Add workspaced to your PATH (modifies shell config)
+This is typically used once during initial setup:
+  curl ... > workspaced && chmod +x workspaced
+  ./workspaced self-install
 
-After installation, restart your shell or run:
-  source ~/.bashrc  # or ~/.zshrc
+After this, use 'workspaced self-update' to update.
 
-To initialize your dotfiles after installation:
-  workspaced init`,
+The binary is installed in:
+  ~/.local/share/workspaced/tools/github-lucasew-workspaced/{version}/workspaced
+
+A shim is created in:
+  ~/.local/bin/workspaced`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfInstall(c.Context(), force)
+			return runSelfInstall(c.Context())
 		},
 	}
-
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force reinstall (overwrite existing)")
 
 	return cmd
 }
 
-func runSelfInstall(ctx context.Context, force bool) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	// 1. Install binary
-	fmt.Printf("📦 Installing workspaced binary...\n")
-	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
-	installPath := filepath.Join(installDir, "workspaced")
-
-	if !force {
-		if _, err := os.Stat(installPath); err == nil {
-			fmt.Printf("   ✓ Already installed at %s\n", installPath)
-		} else {
-			if err := installBinary(installPath); err != nil {
-				return err
-			}
-		}
-	} else {
-		if err := installBinary(installPath); err != nil {
-			return err
-		}
-	}
-
-	// 2. Generate wrapper in ~/.local/bin/workspaced
-	fmt.Printf("\n🔧 Generating wrapper script...\n")
-	wrapperDir := filepath.Join(home, ".local", "bin")
-	wrapperPath := filepath.Join(wrapperDir, "workspaced")
-
-	if err := generateWrapper(ctx, wrapperPath, installPath); err != nil {
-		fmt.Printf("   ⚠️  Warning: %v\n", err)
-		fmt.Printf("   Please manually create wrapper at %s\n", wrapperPath)
-	}
-
-	// 3. Setup PATH
-	fmt.Printf("\n🔧 Setting up PATH...\n")
-	if err := setupPath(home, wrapperDir); err != nil {
-		fmt.Printf("   ⚠️  Warning: %v\n", err)
-		fmt.Printf("   Please manually add to your PATH:\n")
-		fmt.Printf("   export PATH=\"%s:$PATH\"\n", wrapperDir)
-	}
-
-	// 4. Success message
-	fmt.Printf("\n✅ Installation complete!\n\n")
-	fmt.Printf("Next steps:\n")
-	fmt.Printf("  1. Restart your shell or run: source ~/.bashrc\n")
-	fmt.Printf("  2. Verify installation: workspaced --version\n")
-	fmt.Printf("  3. Initialize dotfiles: workspaced init\n")
-
-	return nil
-}
-
-func installBinary(installPath string) error {
-	installDir := filepath.Dir(installPath)
-	if err := os.MkdirAll(installDir, 0755); err != nil {
-		return fmt.Errorf("failed to create installation directory: %w", err)
-	}
-
+func runSelfInstall(ctx context.Context) error {
+	// Get current binary path
 	currentBinary, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("failed to get current executable path: %w", err)
+		return fmt.Errorf("failed to get current binary: %w", err)
 	}
 
-	fmt.Printf("   From: %s\n", currentBinary)
-	fmt.Printf("   To:   %s\n", installPath)
+	// Determine install location
+	toolsDir, err := tool.GetToolsDir()
+	if err != nil {
+		return err
+	}
+
+	currentVersion := version.Version()
+	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", currentVersion)
+	installPath := filepath.Join(toolDir, "workspaced")
+
+	// Copy binary
+	slog.Info("installing workspaced", "version", currentVersion, "path", toolDir)
+
+	if err := os.MkdirAll(toolDir, 0755); err != nil {
+		return err
+	}
 
 	if err := copyFile(currentBinary, installPath); err != nil {
 		return fmt.Errorf("failed to copy binary: %w", err)
 	}
 
 	if err := os.Chmod(installPath, 0755); err != nil {
-		return fmt.Errorf("failed to set executable permissions: %w", err)
+		return err
 	}
 
-	fmt.Printf("   ✓ Binary installed\n")
+	slog.Info("binary installed", "path", installPath)
+
+	// Create shim
+	if err := createWorkspacedShim(ctx, toolsDir); err != nil {
+		return fmt.Errorf("failed to create shim: %w", err)
+	}
+
+	slog.Info("workspaced installed successfully", "version", currentVersion)
+	slog.Info("add ~/.local/bin to your PATH if not already added")
+
+	return nil
+}
+
+func createWorkspacedShim(ctx context.Context, toolsDir string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	localBin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(localBin, 0755); err != nil {
+		return err
+	}
+
+	shimPath := filepath.Join(localBin, "workspaced")
+
+	// Resolve workspaced via tool resolution
+	resolver := resolution.NewResolver(toolsDir)
+	workspacedPath, err := resolver.Resolve(ctx, "workspaced")
+	if err != nil {
+		return fmt.Errorf("failed to resolve workspaced: %w", err)
+	}
+
+	// Use shimdriver
+	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
+		return err
+	}
+
+	slog.Info("created shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
 
@@ -125,72 +121,15 @@ func copyFile(src, dst string) error {
 	}
 	defer source.Close()
 
-	destination, err := os.Create(dst)
+	dest, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer destination.Close()
+	defer dest.Close()
 
-	_, err = io.Copy(destination, source)
-	return err
-}
-
-func generateWrapper(ctx context.Context, wrapperPath, targetPath string) error {
-	wrapperDir := filepath.Dir(wrapperPath)
-	if err := os.MkdirAll(wrapperDir, 0755); err != nil {
-		return fmt.Errorf("failed to create wrapper directory: %w", err)
+	if _, err := io.Copy(dest, source); err != nil {
+		return err
 	}
 
-	wrapperContent := fmt.Sprintf("#!%s\nexec %s \"$@\"\n", bash.GetShell(ctx), targetPath)
-
-	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
-		return fmt.Errorf("failed to write wrapper: %w", err)
-	}
-
-	fmt.Printf("   ✓ Wrapper created at %s\n", wrapperPath)
-	return nil
-}
-
-func setupPath(home, installDir string) error {
-	pathExport := fmt.Sprintf("\n# Added by workspaced self-install\nexport PATH=\"%s:$PATH\"\n", installDir)
-
-	shells := []string{
-		filepath.Join(home, ".bashrc"),
-		filepath.Join(home, ".zshrc"),
-		filepath.Join(home, ".profile"),
-	}
-
-	modified := false
-	for _, shellConfig := range shells {
-		if _, err := os.Stat(shellConfig); err == nil {
-			content, err := os.ReadFile(shellConfig)
-			if err != nil {
-				continue
-			}
-
-			if !strings.Contains(string(content), installDir) {
-				f, err := os.OpenFile(shellConfig, os.O_APPEND|os.O_WRONLY, 0644)
-				if err != nil {
-					continue
-				}
-				defer f.Close()
-
-				if _, err := f.WriteString(pathExport); err != nil {
-					continue
-				}
-
-				fmt.Printf("   ✓ Added to %s\n", shellConfig)
-				modified = true
-			} else {
-				fmt.Printf("   ✓ Already in %s\n", shellConfig)
-				modified = true
-			}
-		}
-	}
-
-	if !modified {
-		return fmt.Errorf("no shell config found")
-	}
-
-	return nil
+	return dest.Sync()
 }

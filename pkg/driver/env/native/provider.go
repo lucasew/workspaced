@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/api"
+	"workspaced/pkg/constants"
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 )
@@ -35,18 +36,15 @@ func (p *Provider) New(ctx context.Context) (envdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	home, err := os.UserHomeDir()
-	if err == nil {
-		path := filepath.Join(home, ".dotfiles")
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return path, nil
+	// Check each candidate path
+	for _, path := range constants.DotfilesCandidates {
+		// Expand ~ and environment variables
+		expanded := envdriver.ExpandPath(path)
+		if info, err := os.Stat(expanded); err == nil && info.IsDir() {
+			return expanded, nil
 		}
 	}
-	// Fallback to /etc/.dotfiles
-	path := "/etc/.dotfiles"
-	if info, err := os.Stat(path); err == nil && info.IsDir() {
-		return path, nil
-	}
+
 	return "", api.ErrDotfilesRootNotFound
 }
 

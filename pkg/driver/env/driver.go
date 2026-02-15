@@ -2,6 +2,8 @@ package env
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"workspaced/pkg/driver"
 )
 
@@ -113,4 +115,23 @@ func IsInStore(ctx context.Context) bool {
 		return false
 	}
 	return len(root) >= 10 && root[:10] == "/nix/store"
+}
+
+// ExpandPath expands ~ to home directory and environment variables in a path.
+// Examples:
+//   - "~/.config" -> "/home/user/.config"
+//   - "$HOME/bin" -> "/home/user/bin"
+//   - "~/file with spaces" -> "/home/user/file with spaces"
+func ExpandPath(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		if home, err := os.UserHomeDir(); err == nil {
+			if len(path) == 1 {
+				return home
+			}
+			if path[1] == '/' {
+				return filepath.Join(home, path[2:])
+			}
+		}
+	}
+	return os.ExpandEnv(path)
 }
