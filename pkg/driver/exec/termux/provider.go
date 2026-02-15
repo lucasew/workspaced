@@ -58,11 +58,14 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 		fullPath = name
 	}
 
+	fullArgs := []string{fullPath}
+	fullArgs = append(fullArgs, args...)
+
 	// Check if we're already inside proot (avoid nesting)
 	inProot := os.Getenv("WORKSPACED_IN_PROOT")
-	slog.Info("proot check", "WORKSPACED_IN_PROOT", inProot, "command", fullPath)
+	slog.Info("proot check", "WORKSPACED_IN_PROOT", inProot, "command", fullArgs)
 	if inProot == "1" {
-		slog.Info("already inside proot, running directly", "command", fullPath)
+		slog.Info("already inside proot, running directly", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
 		cmd.Env = setupTermuxEnv(prefix)
 		return cmd
@@ -70,14 +73,14 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 
 	// Check if user explicitly disabled proot
 	if os.Getenv("WORKSPACED_NO_PROOT") == "1" {
-		slog.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullPath)
+		slog.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
 		cmd.Env = setupTermuxEnv(prefix)
 		return cmd
 	}
 
 	// Default: use proot for DNS/SSL access
-	slog.Debug("using proot for command execution", "command", fullPath)
+	slog.Debug("using proot for command execution", "command", fullArgs)
 	return d.runWithProot(ctx, fullPath, args, prefix)
 }
 
@@ -156,18 +159,10 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	prootArgs = append(prootArgs, "-r", filepath.Dir(prefix))
 	prootArgs = append(prootArgs, "--cwd=.")
 
-	// Add command to execute via sh -c
-	cmdStr := fullPath
-	for _, arg := range args {
-		if strings.Contains(arg, " ") {
-			cmdStr += " \"" + arg + "\""
-		} else {
-			cmdStr += " " + arg
-		}
-	}
-	prootArgs = append(prootArgs, "sh", "-c", cmdStr)
+	// Append command arguments
+	prootArgs = append(prootArgs, args...)
 
-	slog.Debug("using proot for command execution", "command", cmdStr, "proot", prootPath)
+	slog.Debug("using proot for command execution", "proot", prootPath)
 	cmd := exec.CommandContext(ctx, prootPath, prootArgs...)
 
 	// Setup environment for proot
