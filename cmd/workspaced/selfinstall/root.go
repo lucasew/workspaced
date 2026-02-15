@@ -16,6 +16,8 @@ import (
 )
 
 func NewCommand() *cobra.Command {
+	var force bool
+
 	cmd := &cobra.Command{
 		Use:   "self-install",
 		Short: "Install workspaced into tool system (bootstrap)",
@@ -33,14 +35,15 @@ The binary is installed in:
 A shim is created in:
   ~/.local/bin/workspaced`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfInstall(c.Context())
+			return runSelfInstall(c.Context(), force)
 		},
 	}
 
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force reinstall (overwrite existing)")
 	return cmd
 }
 
-func runSelfInstall(ctx context.Context) error {
+func runSelfInstall(ctx context.Context, force bool) error {
 	// Get current binary path
 	currentBinary, err := os.Executable()
 	if err != nil {
@@ -57,8 +60,17 @@ func runSelfInstall(ctx context.Context) error {
 	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", currentVersion)
 	installPath := filepath.Join(toolDir, "workspaced")
 
+	// Check if already installed
+	if !force {
+		if _, err := os.Stat(installPath); err == nil {
+			slog.Info("already installed", "version", currentVersion, "path", installPath)
+			slog.Info("use --force to reinstall")
+			return nil
+		}
+	}
+
 	// Copy binary
-	slog.Info("installing workspaced", "version", currentVersion, "path", toolDir)
+	slog.Info("installing workspaced", "version", currentVersion, "path", toolDir, "force", force)
 
 	if err := os.MkdirAll(toolDir, 0755); err != nil {
 		return err
