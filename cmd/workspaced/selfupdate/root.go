@@ -1,15 +1,20 @@
 package selfupdate
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 	"workspaced/pkg/tool"
@@ -87,9 +92,10 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 		return fmt.Errorf("could not determine Go version from build info")
 	}
 
-	misePath, err := getMisePath()
+	// Ensure mise is installed (auto-install if needed)
+	misePath, err := ensureMise(ctx)
 	if err != nil {
-		return fmt.Errorf("mise required to build from source: %w", err)
+		return fmt.Errorf("failed to ensure mise: %w", err)
 	}
 
 	// Prepare build directory
@@ -286,20 +292,86 @@ func getGoVersion() string {
 	return version
 }
 
-func getMisePath() (string, error) {
+// ensureMise checks if mise exists and installs it if needed
+func ensureMise(ctx context.Context) (string, error) {
+	misePath := getMisePath()
+
+	// Check if mise already exists
+	if _, err := os.Stat(misePath); err == nil {
+		return misePath, nil
+	}
+
+	// Mise not found, install it
+	slog.Info("mise not found, installing", "path", misePath)
+	if err := installMise(ctx, misePath); err != nil {
+		return "", err
+	}
+
+	return misePath, nil
+}
+
+func getMisePath() string {
 	if path := os.Getenv("MISE_INSTALL_PATH"); path != "" {
-		return path, nil
+		return path
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		return ""
 	}
 
-	misePath := filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
+	return filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
+}
+
+func installMise(ctx context.Context, misePath string) error {
+	// Create directory
+	if err := os.MkdirAll(filepath.Dir(misePath), 0755); err != nil {
+		return fmt.Errorf("failed to create mise directory: %w", err)
+	}
+
+	slog.Info("downloading mise installer from https://mise.run")
+
+	// Download installer
+	httpClient, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	resp, err := httpClient.Client().Get("https://mise.run")
+	if err != nil {
+		return fmt.Errorf("failed to download installer: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
+	}
+
+	scriptBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read installer: %w", err)
+	}
+
+	// Run installer
+	installCmd, err := execdriver.Run(ctx, "bash", "-s")
+	if err != nil {
+		return fmt.Errorf("failed to create install command: %w", err)
+	}
+
+	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
+	installCmd.Stdout = os.Stderr
+	installCmd.Stderr = os.Stderr
+	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", misePath))
+
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install mise: %w", err)
+	}
+
+	// Verify installation
 	if _, err := os.Stat(misePath); err != nil {
-		return "", fmt.Errorf("mise not found at %s: %w", misePath, err)
+		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
 	}
 
-	return misePath, nil
+	slog.Info("mise installed successfully", "path", misePath)
+	return nil
 }
