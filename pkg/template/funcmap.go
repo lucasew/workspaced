@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 	"text/template"
-	"workspaced/pkg/env"
 	envdriver "workspaced/pkg/driver/env"
 	shimdriver "workspaced/pkg/driver/shim"
+	"workspaced/pkg/env"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/text"
@@ -107,7 +107,7 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return env.IsPhone()
 		},
 		// Shim helpers
-		"shim": func(command []string) (string, error) {
+		"shim": func(command ...string) (string, error) {
 			return shimdriver.GenerateContent(ctx, command)
 		},
 	}
