@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/driver/shim"
-	"workspaced/pkg/tool"
-	"workspaced/pkg/tool/resolution"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -50,59 +48,66 @@ func runSelfInstall(ctx context.Context, force bool) error {
 		return fmt.Errorf("failed to get current binary: %w", err)
 	}
 
-	// Determine install location
-	toolsDir, err := tool.GetToolsDir()
+	// Determine install location (fixed path, not versioned)
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
+	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
+	installPath := filepath.Join(installDir, "workspaced")
+
 	currentVersion := version.Version()
-	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", currentVersion)
-	installPath := filepath.Join(toolDir, "workspaced")
 
 	// Check if already installed
+	alreadyInstalled := false
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
-			slog.Info("already installed", "version", currentVersion, "path", installPath)
-			slog.Info("use --force to reinstall")
-			return nil
+			alreadyInstalled = true
+			slog.Info("already installed", "path", installPath)
 		}
 	}
 
-	// Copy binary
-	slog.Info("installing workspaced", "version", currentVersion, "path", toolDir, "force", force)
+	// Copy binary (unless already installed and not forcing)
+	if !alreadyInstalled {
+		slog.Info("installing workspaced", "version", currentVersion, "path", installPath, "force", force)
 
-	if err := os.MkdirAll(toolDir, 0755); err != nil {
-		return err
+		if err := os.MkdirAll(installDir, 0755); err != nil {
+			return fmt.Errorf("failed to create install directory: %w", err)
+		}
+
+		if err := copyFile(currentBinary, installPath); err != nil {
+			return fmt.Errorf("failed to copy binary: %w", err)
+		}
+
+		if err := os.Chmod(installPath, 0755); err != nil {
+			return fmt.Errorf("failed to set permissions: %w", err)
+		}
+
+		slog.Info("binary installed", "path", installPath)
 	}
 
-	if err := copyFile(currentBinary, installPath); err != nil {
-		return fmt.Errorf("failed to copy binary: %w", err)
-	}
+	// Always regenerate shims (even if binary already installed)
+	slog.Info("regenerating shims")
 
-	if err := os.Chmod(installPath, 0755); err != nil {
-		return err
-	}
-
-	slog.Info("binary installed", "path", installPath)
-
-	// Create workspaced shim
-	if err := createWorkspacedShim(ctx, toolsDir); err != nil {
+	if err := createWorkspacedShim(ctx, installPath); err != nil {
 		return fmt.Errorf("failed to create shim: %w", err)
 	}
 
-	// Create mise shim (if mise exists)
 	if err := createMiseShim(ctx); err != nil {
 		slog.Warn("failed to create mise shim", "error", err)
 	}
 
 	slog.Info("workspaced installed successfully", "version", currentVersion)
+	if alreadyInstalled {
+		slog.Info("shims regenerated (use --force to reinstall binary)")
+	}
 	slog.Info("add ~/.local/bin to your PATH if not already added")
 
 	return nil
 }
 
-func createWorkspacedShim(ctx context.Context, toolsDir string) error {
+func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -114,13 +119,6 @@ func createWorkspacedShim(ctx context.Context, toolsDir string) error {
 	}
 
 	shimPath := filepath.Join(localBin, "workspaced")
-
-	// Resolve workspaced via tool resolution
-	resolver := resolution.NewResolver(toolsDir)
-	workspacedPath, err := resolver.Resolve(ctx, "workspaced")
-	if err != nil {
-		return fmt.Errorf("failed to resolve workspaced: %w", err)
-	}
 
 	// Use shimdriver
 	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
@@ -137,17 +135,8 @@ func createMiseShim(ctx context.Context) error {
 		return err
 	}
 
-	// Check if mise exists
-	dataDir, err := tool.GetToolsDir()
-	if err != nil {
-		return err
-	}
-
-	misePath := filepath.Join(filepath.Dir(dataDir), "bin", "mise")
-	if _, err := os.Stat(misePath); err != nil {
-		// Mise not installed, skip
-		return nil
-	}
+	// Always create shim, even if mise not installed yet
+	misePath := filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
 
 	localBin := filepath.Join(home, ".local", "bin")
 	if err := os.MkdirAll(localBin, 0755); err != nil {

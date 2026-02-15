@@ -19,7 +19,6 @@ import (
 	"workspaced/pkg/env"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
-	"workspaced/pkg/tool/resolution"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -72,19 +71,20 @@ func runSelfUpdate(ctx context.Context, force bool) error {
 // ============================================================================
 
 func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
-	toolsDir, err := tool.GetToolsDir()
+	// Install to fixed location (not versioned)
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get home directory: %w", err)
 	}
+
+	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
+	installPath := filepath.Join(installDir, "workspaced")
 
 	// Read version from source
 	sourceVersion, err := readVersionFile(filepath.Join(srcPath, "pkg/version/version.txt"))
 	if err != nil {
 		return err
 	}
-
-	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", sourceVersion)
-	installPath := filepath.Join(toolDir, "workspaced")
 
 	// Get build dependencies
 	goVersion := getGoVersion()
@@ -99,7 +99,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	}
 
 	// Prepare build directory
-	if err := os.MkdirAll(toolDir, 0755); err != nil {
+	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return err
 	}
 
@@ -121,7 +121,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	}
 
 	slog.Info("build completed", "path", installPath)
-	return createWorkspacedShim(ctx, toolsDir)
+	return createWorkspacedShim(ctx, installPath)
 }
 
 // ============================================================================
@@ -183,24 +183,52 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		return fmt.Errorf("no artifact found for %s/%s (available: %v)", runtime.GOOS, runtime.GOARCH, available)
 	}
 
-	// Install to tools directory
-	toolsDir, err := tool.GetToolsDir()
+	// Install to fixed location (not versioned)
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	toolDir := filepath.Join(toolsDir, "github-lucasew-workspaced", normalizedLatest)
-	if err := os.MkdirAll(toolDir, 0755); err != nil {
+	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
+	tmpDir := filepath.Join(installDir, ".tmp-"+normalizedLatest)
+
+	// Create temp directory
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return err
 	}
+	defer os.RemoveAll(tmpDir)
 
 	slog.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
-	if err := githubProvider.Install(ctx, *artifact, toolDir); err != nil {
+	if err := githubProvider.Install(ctx, *artifact, tmpDir); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
-	slog.Info("download completed", "path", toolDir)
-	return createWorkspacedShim(ctx, toolsDir)
+	// Find the workspaced binary in tmpDir
+	workspacedBin := filepath.Join(tmpDir, "workspaced")
+	if _, err := os.Stat(workspacedBin); err != nil {
+		// Try bin/ subdirectory
+		workspacedBin = filepath.Join(tmpDir, "bin", "workspaced")
+		if _, err := os.Stat(workspacedBin); err != nil {
+			return fmt.Errorf("workspaced binary not found in downloaded archive")
+		}
+	}
+
+	// Move to final location
+	installPath := filepath.Join(installDir, "workspaced")
+	if err := os.MkdirAll(installDir, 0755); err != nil {
+		return err
+	}
+
+	if err := os.Rename(workspacedBin, installPath); err != nil {
+		return fmt.Errorf("failed to install binary: %w", err)
+	}
+
+	if err := os.Chmod(installPath, 0755); err != nil {
+		return fmt.Errorf("failed to set permissions: %w", err)
+	}
+
+	slog.Info("download completed", "path", installPath)
+	return createWorkspacedShim(ctx, installPath)
 }
 
 func findMatchingArtifact(artifacts []provider.Artifact, os, arch string) *provider.Artifact {
@@ -216,7 +244,7 @@ func findMatchingArtifact(artifacts []provider.Artifact, os, arch string) *provi
 // Shim management
 // ============================================================================
 
-func createWorkspacedShim(ctx context.Context, toolsDir string) error {
+func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -228,13 +256,6 @@ func createWorkspacedShim(ctx context.Context, toolsDir string) error {
 	}
 
 	shimPath := filepath.Join(localBin, "workspaced")
-
-	// Resolve workspaced via tool resolution
-	resolver := resolution.NewResolver(toolsDir)
-	workspacedPath, err := resolver.Resolve(ctx, "workspaced")
-	if err != nil {
-		return fmt.Errorf("failed to resolve workspaced: %w", err)
-	}
 
 	// Use shimdriver
 	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
