@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/lucasew/fetchurl"
 	"workspaced/pkg/driver"
 	fetchurldriver "workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
+
+	"github.com/lucasew/fetchurl"
 )
 
 func init() {
@@ -33,8 +34,6 @@ func (p *Provider) New(ctx context.Context) (fetchurldriver.Driver, error) {
 		client = httpDriver.Client()
 	}
 	// If httpclient driver not available, fetchurl will create default client
-
-	// fetchurl now reads mirror servers from FETCHURL_SERVERS env var automatically
 	return &Driver{
 		fetcher: fetchurl.NewFetcher(client),
 	}, nil

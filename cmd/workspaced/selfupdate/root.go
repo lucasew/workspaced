@@ -227,14 +227,6 @@ func downloadFromGitHub(installPath string) error {
 		}
 	}
 
-	// Check for mirror servers
-	mirrorServers := os.Getenv("FETCHURL_SERVERS")
-	if mirrorServers != "" {
-		slog.Info("using mirror servers", "servers", mirrorServers)
-	} else {
-		slog.Info("no mirrors configured", "hint", "set FETCHURL_SERVERS to use mirrors")
-	}
-
 	slog.Info("downloading asset", "name", asset.Name, "version", release.TagName, "url", asset.BrowserDownloadURL)
 
 	// Create install directory
