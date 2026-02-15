@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/httpclient"
 
 	"github.com/spf13/cobra"
 )
@@ -42,9 +44,14 @@ func installMise(ctx *cobra.Command) error {
 
 	fmt.Fprintf(os.Stderr, "Installing mise to %s...\n", misePath)
 
-	// Download installer script using Go's HTTP client (no curl/wget needed!)
+	// Download installer script using httpclient driver (handles Termux DNS/certs)
 	fmt.Fprintf(os.Stderr, "Downloading installer from https://mise.run...\n")
-	resp, err := http.Get("https://mise.run")
+	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	resp, err := httpDriver.Client().Get("https://mise.run")
 	if err != nil {
 		return fmt.Errorf("failed to download installer: %w", err)
 	}

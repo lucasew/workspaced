@@ -5,10 +5,11 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"workspaced/pkg/driver"
+	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 )
 
@@ -64,7 +65,13 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 		return path, nil
 	}
 
-	resp, err := http.Get(url)
+	// Use httpclient driver for proper DNS/certs handling
+	httpDriver, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := httpDriver.Client().Get(url)
 	if err != nil {
 		return "", err
 	}

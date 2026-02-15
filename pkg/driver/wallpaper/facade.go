@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net/http"
 	"os"
 	"path/filepath"
 	"workspaced/pkg/api"
 	"workspaced/pkg/config"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 )
 
@@ -67,7 +67,13 @@ func SetAPOD(ctx context.Context) error {
 	}
 
 	logger.Info("fetching NASA Astronomy Picture of the Day")
-	resp, err := http.Get(fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", apiKey))
+
+	httpDriver, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := httpDriver.Client().Get(fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", apiKey))
 	if err != nil {
 		return err
 	}
@@ -107,7 +113,7 @@ func SetAPOD(ctx context.Context) error {
 		}
 	}()
 
-	imgResp, err := http.Get(url)
+	imgResp, err := httpDriver.Client().Get(url)
 	if err != nil {
 		return err
 	}
