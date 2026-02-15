@@ -69,7 +69,7 @@ func installMise(ctx *cobra.Command) error {
 	}
 
 	// Run the installer script via sh
-	installCmd, err := execdriver.Run(ctx.Context(), "sh", "-s")
+	installCmd, err := execdriver.Run(ctx.Context(), bash.GetShell(ctx.Context()), "-s")
 	if err != nil {
 		return fmt.Errorf("failed to create install command: %w", err)
 	}
