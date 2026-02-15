@@ -3,9 +3,7 @@ package sync
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/shell"
 	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -33,30 +31,20 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("git pull failed: %w", err)
 			}
 
-			// 2. Determine command to run
-			var shimArgs []string
-			var actionMsg string
-			if rebuildOnly {
-				shimArgs = []string{"--version"}
-				actionMsg = "==> Rebuilding only..."
-			} else {
-				shimArgs = []string{"dispatch", "apply"}
-				actionMsg = "==> Rebuilding and applying..."
-			}
-
 			// 3. Execute rebuild (and optionally apply)
-			fmt.Println(actionMsg)
-			shellPath, err := shell.Path(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to get shell: %w", err)
-			}
-			shimPath := filepath.Join(root, "bin/shim/workspaced")
-			shimCmd := execdriver.MustRun(ctx, shellPath, append([]string{shimPath}, shimArgs...)...)
-			shimCmd.Env = append(os.Environ(), "WORKSPACED_REFRESH=1")
-			shimCmd.Stdout = os.Stdout
-			shimCmd.Stderr = os.Stderr
-			if err := shimCmd.Run(); err != nil {
+			c := execdriver.MustRun(ctx, "workspaced", "self-update")
+			c.Stdout = os.Stdout
+			c.Stderr = os.Stderr
+			if err := c.Run(); err != nil {
 				return fmt.Errorf("command failed: %w", err)
+			}
+			if !rebuildOnly {
+				c := execdriver.MustRun(ctx, "workspaced", "apply")
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
+				if err := c.Run(); err != nil {
+					return fmt.Errorf("command failed: %w", err)
+				}
 			}
 
 			return nil
