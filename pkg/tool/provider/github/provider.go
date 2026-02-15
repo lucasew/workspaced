@@ -12,7 +12,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"workspaced/pkg/constants"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
@@ -295,7 +297,11 @@ func extract(src, dest string) error {
 
 	// Assume binary
 	binName := filepath.Base(src)
-	slog.Debug("assuming binary file", "name", binName)
+
+	// Normalize binary name (remove platform suffixes)
+	// Example: "deno-linux-amd64" -> "deno"
+	normalizedName := normalizeBinaryName(binName)
+	slog.Debug("assuming binary file", "original", binName, "normalized", normalizedName)
 
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return err
@@ -307,7 +313,7 @@ func extract(src, dest string) error {
 	}
 	defer in.Close()
 
-	outPath := filepath.Join(dest, binName)
+	outPath := filepath.Join(dest, normalizedName)
 	out, err := os.Create(outPath)
 	if err != nil {
 		return err
@@ -319,6 +325,32 @@ func extract(src, dest string) error {
 	}
 
 	return os.Chmod(outPath, 0755)
+}
+
+var versionPattern = regexp.MustCompile(constants.BinaryVersionPattern)
+
+// normalizeBinaryName removes platform suffixes and version strings from binary names.
+// Examples:
+//   - "deno-linux-amd64" -> "deno"
+//   - "mise-v2.0.0-linux-x64" -> "mise"
+//   - "workspaced-darwin-arm64" -> "workspaced"
+//   - "tool-v1.2.3" -> "tool"
+//   - "app-1.0.0" -> "app"
+func normalizeBinaryName(name string) string {
+	result := name
+
+	// First, try suffix-based removal (platform suffixes)
+	for _, suffix := range constants.BinaryNameSuffixes {
+		if strings.HasSuffix(result, suffix) {
+			result = strings.TrimSuffix(result, suffix)
+			break
+		}
+	}
+
+	// Then, remove version patterns like "-v1.0.0" or "-1.0.0"
+	result = versionPattern.ReplaceAllString(result, "")
+
+	return result
 }
 
 func unzip(src, dest string) error {
