@@ -10,6 +10,7 @@ import (
 	"strings"
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
+	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/types"
 )
@@ -44,20 +45,10 @@ func (p *Provider) New(ctx context.Context) (execdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd {
-	// Fix DNS resolution for child processes in Termux
-	resolvPath, err := ensureResolvConf()
-	if err != nil {
-		slog.Warn("failed to setup resolv.conf", "error", err)
-	} else {
-		slog.Debug("resolv.conf configured", "path", resolvPath)
-	}
-
-	// Fix SSL certificates for child processes in Termux
-	certPath, err := ensureSSLCerts()
-	if err != nil {
-		slog.Warn("failed to setup SSL certificates", "error", err)
-	} else {
-		slog.Debug("SSL certificates configured", "path", certPath)
+	// Get Termux PREFIX
+	prefix := os.Getenv("PREFIX")
+	if prefix == "" {
+		prefix = "/data/data/com.termux/files/usr"
 	}
 
 	// Resolve the full path using custom Which to avoid SIGSYS on Android
@@ -67,20 +58,46 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 		fullPath = name
 	}
 
-	// Use termux-chroot (always available in Termux, wraps proot with proper binds)
+	// Check if we're already inside proot (avoid nesting)
+	if os.Getenv("WORKSPACED_IN_PROOT") == "1" {
+		slog.Debug("already inside proot, running directly", "command", fullPath)
+		cmd := exec.CommandContext(ctx, fullPath, args...)
+		cmd.Env = setupTermuxEnv(prefix)
+		return cmd
+	}
+
+	// Default: use proot for DNS/SSL access
+	slog.Debug("using proot for command execution", "command", fullPath)
+	return d.runWithProot(ctx, fullPath, args, prefix)
+}
+
+// runWithProot wraps command execution in termux-chroot/proot
+func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []string, prefix string) *exec.Cmd {
+	// Setup resolv.conf and SSL certs for proot environment
+	if resolvPath, err := ensureResolvConf(); err != nil {
+		slog.Warn("failed to setup resolv.conf", "error", err)
+	} else {
+		slog.Debug("resolv.conf configured", "path", resolvPath)
+	}
+
+	if certPath, err := ensureSSLCerts(); err != nil {
+		slog.Warn("failed to setup SSL certificates", "error", err)
+	} else {
+		slog.Debug("SSL certificates configured", "path", certPath)
+	}
+
+	// Use termux-chroot
 	chrootPath, err := d.Which(ctx, "termux-chroot")
 	if err != nil {
-		slog.Warn("termux-chroot not found (should be installed in Termux)", "error", err)
-		// Fallback to running without chroot if somehow not available
+		slog.Warn("termux-chroot not found, running without proot", "error", err)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
+		cmd.Env = setupTermuxEnv(prefix)
 		return cmd
 	}
 
 	// Build command string for termux-chroot
-	// termux-chroot expects: termux-chroot "command args..."
 	cmdStr := fullPath
 	for _, arg := range args {
-		// Quote arguments that contain spaces
 		if strings.Contains(arg, " ") {
 			cmdStr += " \"" + arg + "\""
 		} else {
@@ -90,7 +107,81 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 
 	slog.Debug("using termux-chroot for command execution", "command", cmdStr)
 	cmd := exec.CommandContext(ctx, chrootPath, cmdStr)
+
+	// Setup environment for proot
+	env := os.Environ()
+	filteredEnv := make([]string, 0, len(env))
+
+	for _, e := range env {
+		// Remove LD_PRELOAD to avoid termux-exec conflicts
+		if strings.HasPrefix(e, "LD_PRELOAD=") {
+			continue
+		}
+		// Update LD_LIBRARY_PATH for chroot
+		if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
+			filteredEnv = append(filteredEnv, "LD_LIBRARY_PATH=/lib:/usr/lib")
+			continue
+		}
+		filteredEnv = append(filteredEnv, e)
+	}
+
+	// Add required env vars
+	filteredEnv = append(filteredEnv, "LD_LIBRARY_PATH=/lib:/usr/lib")
+	// Set sentinel to prevent proot nesting
+	filteredEnv = append(filteredEnv, "WORKSPACED_IN_PROOT=1")
+
+	cmd.Env = filteredEnv
 	return cmd
+}
+
+// setupTermuxEnv creates environment variables for Termux binaries
+func setupTermuxEnv(prefix string) []string {
+	env := os.Environ()
+	envMap := make(map[string]string)
+
+	// Parse existing env
+	for _, e := range env {
+		parts := strings.SplitN(e, "=", 2)
+		if len(parts) == 2 {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+
+	// Remove LD_PRELOAD (causes issues with some binaries)
+	delete(envMap, "LD_PRELOAD")
+
+	// Setup SSL certificate paths (for Rust/Go binaries like mise)
+	certPem := filepath.Join(prefix, "etc", "tls", "cert.pem")
+	if _, err := os.Stat(certPem); err == nil {
+		envMap["SSL_CERT_FILE"] = certPem
+		envMap["SSL_CERT_DIR"] = filepath.Join(prefix, "etc", "tls")
+		envMap["CURL_CA_BUNDLE"] = certPem
+		envMap["REQUESTS_CA_BUNDLE"] = certPem
+	}
+
+	// Ensure PREFIX is set
+	if _, ok := envMap["PREFIX"]; !ok {
+		envMap["PREFIX"] = prefix
+	}
+
+	// Fix HOME for Termux (mise and other tools use this for shims)
+	// Use env driver to get correct home (handles chroot)
+	if actualHome, err := envdriver.GetHomeDir(context.Background()); err == nil {
+		envMap["HOME"] = actualHome
+
+		// Configure mise to use correct paths
+		envMap["MISE_DATA_DIR"] = filepath.Join(actualHome, ".local", "share", "mise")
+		envMap["MISE_CACHE_DIR"] = filepath.Join(actualHome, ".cache", "mise")
+		envMap["MISE_CONFIG_DIR"] = filepath.Join(actualHome, ".config", "mise")
+	}
+
+	// Convert back to []string
+	result := make([]string, 0, len(envMap))
+	for k, v := range envMap {
+		result = append(result, k+"="+v)
+	}
+
+	return result
 }
 
 // ensureResolvConf creates /etc/resolv.conf in Termux PREFIX if it doesn't exist or is broken

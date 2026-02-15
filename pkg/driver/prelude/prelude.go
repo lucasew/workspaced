@@ -11,6 +11,8 @@ import (
 	_ "workspaced/pkg/driver/dialog/terminal"
 	_ "workspaced/pkg/driver/dialog/wofi"
 	_ "workspaced/pkg/driver/dialog/zenity"
+	_ "workspaced/pkg/driver/env/native"
+	_ "workspaced/pkg/driver/env/termux"
 	_ "workspaced/pkg/driver/exec/native"
 	_ "workspaced/pkg/driver/exec/termux"
 	_ "workspaced/pkg/driver/fetchurl/fetchurl"

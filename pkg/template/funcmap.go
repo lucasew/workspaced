@@ -7,6 +7,7 @@ import (
 	"strings"
 	"text/template"
 	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/text"
@@ -23,6 +24,9 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 		},
 		"dotfiles": func() (string, error) {
 			return env.GetDotfilesRoot()
+		},
+		"home": func() (string, error) {
+			return envdriver.GetHomeDir(ctx)
 		},
 		"userDataDir": func() (string, error) {
 			return env.GetUserDataDir()

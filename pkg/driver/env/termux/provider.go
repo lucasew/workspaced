@@ -1,7 +1,8 @@
-package native
+package termux
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"workspaced/pkg/api"
@@ -9,22 +10,20 @@ import (
 	envdriver "workspaced/pkg/driver/env"
 )
 
+func init() {
+	driver.Register[envdriver.Driver](&Provider{})
+}
+
 type Provider struct{}
 
-func (p *Provider) ID() string {
-	return "env_native"
-}
-
-func (p *Provider) Name() string {
-	return "Native Environment"
-}
-
-func (p *Provider) DefaultWeight() int {
-	return driver.DefaultWeight
-}
+func (p *Provider) ID() string         { return "env_termux" }
+func (p *Provider) Name() string       { return "Termux Environment" }
+func (p *Provider) DefaultWeight() int { return 60 } // Higher than native
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
-	// Always compatible
+	if os.Getenv("TERMUX_VERSION") == "" {
+		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
+	}
 	return nil
 }
 
@@ -35,18 +34,16 @@ func (p *Provider) New(ctx context.Context) (envdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	home, err := os.UserHomeDir()
-	if err == nil {
-		path := filepath.Join(home, ".dotfiles")
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			return path, nil
-		}
+	home, err := d.GetHomeDir(ctx)
+	if err != nil {
+		return "", err
 	}
-	// Fallback to /etc/.dotfiles
-	path := "/etc/.dotfiles"
+
+	path := filepath.Join(home, ".dotfiles")
 	if info, err := os.Stat(path); err == nil && info.IsDir() {
 		return path, nil
 	}
+
 	return "", api.ErrDotfilesRootNotFound
 }
 
@@ -59,7 +56,7 @@ func (d *Driver) GetHostname(ctx context.Context) (string, error) {
 }
 
 func (d *Driver) GetUserDataDir(ctx context.Context) (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := d.GetHomeDir(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -71,7 +68,7 @@ func (d *Driver) GetUserDataDir(ctx context.Context) (string, error) {
 }
 
 func (d *Driver) GetConfigDir(ctx context.Context) (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := d.GetHomeDir(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -83,37 +80,47 @@ func (d *Driver) GetConfigDir(ctx context.Context) (string, error) {
 }
 
 func (d *Driver) GetHomeDir(ctx context.Context) (string, error) {
-	return os.UserHomeDir()
+	// In Termux, handle both chrooted and non-chrooted environments
+	home := os.Getenv("HOME")
+
+	// If HOME is /home (chrooted) or empty, use Termux default
+	if home == "" || home == "/home" {
+		prefix := os.Getenv("PREFIX")
+		if prefix == "" {
+			prefix = "/data/data/com.termux/files/usr"
+		}
+		// Home is one level up from PREFIX
+		home = filepath.Join(filepath.Dir(prefix), "home")
+	}
+
+	return home, nil
 }
 
 func (d *Driver) IsPhone(ctx context.Context) bool {
-	return os.Getenv("TERMUX_VERSION") != ""
+	return true // Termux always runs on Android phones
 }
 
 func (d *Driver) IsNixOS(ctx context.Context) bool {
-	_, err := os.Stat("/etc/NIXOS")
-	return err == nil
+	return false // Termux is not NixOS
 }
 
 func (d *Driver) GetEssentialPaths(ctx context.Context) []string {
-	paths := []string{"/run/wrappers/bin", "/run/current-system/sw/bin"}
+	prefix := os.Getenv("PREFIX")
+	if prefix == "" {
+		prefix = "/data/data/com.termux/files/usr"
+	}
 
-	if home, err := os.UserHomeDir(); err == nil {
-		paths = append(paths, filepath.Join(home, ".nix-profile/bin"))
+	paths := []string{
+		filepath.Join(prefix, "bin"),
+	}
+
+	if home, err := d.GetHomeDir(ctx); err == nil {
 		paths = append(paths, filepath.Join(home, ".local/bin"))
 	}
 
-	if root, err := d.GetDotfilesRoot(ctx); err == nil && root != "" {
-		paths = append(paths, filepath.Join(root, "bin/shim"))
-	}
-
-	if dataDir, err := d.GetUserDataDir(ctx); err == nil && dataDir != "" {
+	if dataDir, err := d.GetUserDataDir(ctx); err == nil {
 		paths = append(paths, filepath.Join(dataDir, "shim/global"))
 	}
 
 	return paths
-}
-
-func init() {
-	driver.Register[envdriver.Driver](&Provider{})
 }

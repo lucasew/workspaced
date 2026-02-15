@@ -122,7 +122,20 @@ func ensureMiseWrapper(misePath string) error {
 
 	wrapperDir := filepath.Join(home, ".local", "bin")
 	wrapperPath := filepath.Join(wrapperDir, "mise")
+
+	// Use absolute path to workspaced binary (works in and out of chroot)
+	// In Termux, resolve to actual path not chrooted path
 	workspacedBin := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
+
+	// If we're in Termux and home is /home (chrooted), use actual Termux path
+	if os.Getenv("TERMUX_VERSION") != "" && home == "/home" {
+		// We're in a chroot, use actual Termux home
+		actualHome := os.Getenv("HOME")
+		if actualHome == "" || actualHome == "/home" {
+			actualHome = "/data/data/com.termux/files/home"
+		}
+		workspacedBin = filepath.Join(actualHome, ".local", "share", "workspaced", "bin", "workspaced")
+	}
 
 	// Check if wrapper already exists and is correct
 	if content, err := os.ReadFile(wrapperPath); err == nil {
