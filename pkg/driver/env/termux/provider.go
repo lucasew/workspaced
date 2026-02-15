@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/api"
+	"workspaced/pkg/constants"
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 )
@@ -34,14 +35,14 @@ func (p *Provider) New(ctx context.Context) (envdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	home, err := d.GetHomeDir(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	path := filepath.Join(home, ".dotfiles")
-	if info, err := os.Stat(path); err == nil && info.IsDir() {
-		return path, nil
+	// Use unified candidate list from constants
+	// Note: Termux uses its own home directory handling via GetHomeDir
+	for _, path := range constants.DotfilesCandidates {
+		// Expand ~ using Termux-aware home directory
+		expanded := envdriver.ExpandPath(path)
+		if info, err := os.Stat(expanded); err == nil && info.IsDir() {
+			return expanded, nil
+		}
 	}
 
 	return "", api.ErrDotfilesRootNotFound

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/version"
@@ -216,20 +217,18 @@ Uses caching for performance - regenerates only when source files change.`,
 }
 
 func findDotfilesRoot() (string, error) {
-	// Try common locations
-	home := os.Getenv("HOME")
-	locations := []string{
-		filepath.Join(home, ".dotfiles"),
-		"/etc/.dotfiles",
+	// Use unified dotfiles detection
+	root, err := envdriver.GetDotfilesRoot(context.Background())
+	if err != nil {
+		return "", fmt.Errorf("dotfiles root not found: %w", err)
 	}
 
-	for _, loc := range locations {
-		if info, err := os.Stat(filepath.Join(loc, "bin", "prelude")); err == nil && info.IsDir() {
-			return loc, nil
-		}
+	// Verify it has bin/prelude (shell init specific requirement)
+	if info, err := os.Stat(filepath.Join(root, "bin", "prelude")); err == nil && info.IsDir() {
+		return root, nil
 	}
 
-	return "", fmt.Errorf("dotfiles root not found")
+	return "", fmt.Errorf("dotfiles root found at %s but missing bin/prelude", root)
 }
 
 func getCacheDir() string {

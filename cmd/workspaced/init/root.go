@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+	"workspaced/pkg/constants"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
@@ -51,7 +53,11 @@ func runInit(force bool) error {
 	// 1. Detect dotfiles root
 	dotfilesRoot, err := env.GetDotfilesRoot()
 	if err != nil || dotfilesRoot == "" {
-		dotfilesRoot = filepath.Join(home, ".dotfiles")
+		// Use first candidate from constants (typically ~/.dotfiles)
+		dotfilesRoot = envdriver.ExpandPath(constants.DotfilesCandidates[0])
+		if dotfilesRoot == "" {
+			dotfilesRoot = filepath.Join(home, ".dotfiles") // Absolute fallback
+		}
 		fmt.Printf("📁 Creating dotfiles directory: %s\n", dotfilesRoot)
 		if err := os.MkdirAll(dotfilesRoot, 0755); err != nil {
 			return fmt.Errorf("failed to create dotfiles directory: %w", err)
