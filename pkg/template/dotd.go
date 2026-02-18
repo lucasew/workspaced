@@ -10,7 +10,7 @@ import (
 )
 
 // ProcessDotD processa um diretório .d.tmpl (concatenação de arquivos)
-func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data interface{}) ([]byte, error) {
+func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]byte, error) {
 	// Check if directory exists
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, nil // Empty content if directory doesn't exist

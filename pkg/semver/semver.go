@@ -80,10 +80,7 @@ func (v SemVer) Compare(other SemVer) int {
 	}
 
 	// Compare numeric parts
-	maxLen := len(v.Parts)
-	if len(other.Parts) > maxLen {
-		maxLen = len(other.Parts)
-	}
+	maxLen := max(len(other.Parts), len(v.Parts))
 
 	for i := 0; i < maxLen; i++ {
 		vPart := 0

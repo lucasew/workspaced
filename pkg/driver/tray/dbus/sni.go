@@ -142,7 +142,7 @@ func (s *StatusNotifierItem) Export(conn *dbus.Conn, path dbus.ObjectPath) error
 	}
 
 	// Export properties
-	propsMap := map[string]interface{}{
+	propsMap := map[string]any{
 		"Category":            "ApplicationStatus",
 		"Id":                  "workspaced", // Should come from config?
 		"Title":               s.driver.state.Title,

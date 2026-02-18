@@ -3,6 +3,7 @@ package dbus
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/notification"
@@ -32,13 +33,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 		return fmt.Errorf("%w: failed to list dbus names: %v", driver.ErrIncompatible, err)
 	}
 
-	found := false
-	for _, name := range names {
-		if name == "org.freedesktop.Notifications" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(names, "org.freedesktop.Notifications")
 
 	if !found {
 		// Try to see if it can be started

@@ -198,10 +198,7 @@ func cropToContentSquare(img image.Image) image.Image {
 
 	w := maxX - minX + 1
 	h := maxY - minY + 1
-	size := w
-	if h > w {
-		size = h
-	}
+	size := max(h, w)
 
 	dst := image.NewNRGBA(image.Rect(0, 0, size, size))
 	// No need to fill with transparency as NewNRGBA is initialized with zeros (transparent)

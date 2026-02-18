@@ -113,14 +113,14 @@ func generateConfig(configPath string) error {
 
 	localIPs := getLocalIPs()
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Hostname": hostname,
 		"LocalIPs": localIPs,
 	}
 
 	// Parse and execute template
 	tmpl, err := template.New("settings").Funcs(template.FuncMap{
-		"toJSON": func(v interface{}) string {
+		"toJSON": func(v any) string {
 			b, err := json.Marshal(v)
 			if err != nil {
 				return "[]"

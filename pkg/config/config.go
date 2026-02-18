@@ -15,7 +15,7 @@ import (
 
 type Config struct {
 	*GlobalConfig
-	raw map[string]interface{}
+	raw map[string]any
 }
 
 type GlobalConfig struct {
@@ -102,13 +102,13 @@ type PaletteConfig struct {
 	Base17 string `toml:"base17,omitempty" json:"base17,omitempty"`
 }
 
-func (c *Config) Module(name string, target interface{}) error {
+func (c *Config) Module(name string, target any) error {
 	return c.UnmarshalKey("modules."+name, target)
 }
 
-func (c *Config) UnmarshalKey(key string, val interface{}) error {
+func (c *Config) UnmarshalKey(key string, val any) error {
 	parts := strings.Split(key, ".")
-	var current interface{} = c.raw
+	var current any = c.raw
 	for _, part := range parts {
 		if mRaw, ok := current.(map[string]any); ok {
 			v, ok := mRaw[part]
@@ -116,7 +116,7 @@ func (c *Config) UnmarshalKey(key string, val interface{}) error {
 				return fmt.Errorf("key %q not found in config", key)
 			}
 			current = v
-		} else if mRaw, ok := current.(map[string]interface{}); ok {
+		} else if mRaw, ok := current.(map[string]any); ok {
 			v, ok := mRaw[part]
 			if !ok {
 				return fmt.Errorf("key %q not found in config", key)
@@ -143,7 +143,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	structToMap := func(s interface{}) map[string]any {
+	structToMap := func(s any) map[string]any {
 		data, _ := json.Marshal(s)
 		var res map[string]any
 		json.Unmarshal(data, &res)

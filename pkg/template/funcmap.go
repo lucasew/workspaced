@@ -54,7 +54,7 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return strings.ReplaceAll(s, old, new)
 		},
 		// Array/slice functions
-		"list": func(items ...interface{}) []interface{} {
+		"list": func(items ...any) []any {
 			return items
 		},
 		"last": func(arr []string) string {
@@ -64,13 +64,13 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return arr[len(arr)-1]
 		},
 		// Logic helpers
-		"default": func(def interface{}, val interface{}) interface{} {
+		"default": func(def any, val any) any {
 			if val == nil || val == "" {
 				return def
 			}
 			return val
 		},
-		"ternary": func(condition bool, trueVal, falseVal interface{}) interface{} {
+		"ternary": func(condition bool, trueVal, falseVal any) any {
 			if condition {
 				return trueVal
 			}

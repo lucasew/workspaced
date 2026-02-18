@@ -360,8 +360,8 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 	path := os.Getenv("PATH")
 	if env, ok := ctx.Value(types.EnvKey).([]string); ok {
 		for _, e := range env {
-			if strings.HasPrefix(e, "PATH=") {
-				path = strings.TrimPrefix(e, "PATH=")
+			if after, ok0 := strings.CutPrefix(e, "PATH="); ok0 {
+				path = after
 				break
 			}
 		}

@@ -61,7 +61,7 @@ func maxDeltaE(colors []api.LAB) float64 {
 	}
 
 	maxDist := 0.0
-	for i := 0; i < len(colors); i++ {
+	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
 			dist := api.DeltaE(colors[i], colors[j])
 			if dist > maxDist {
@@ -79,7 +79,7 @@ func minDeltaE(colors []api.LAB) float64 {
 	}
 
 	minDist := math.MaxFloat64
-	for i := 0; i < len(colors); i++ {
+	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
 			dist := api.DeltaE(colors[i], colors[j])
 			if dist < minDist {
@@ -186,7 +186,7 @@ func calculateContrastScore(colors []api.LAB) float64 {
 func calculateDuplicatePenalty(colors []api.LAB) float64 {
 	penalty := 0.0
 
-	for i := 0; i < len(colors); i++ {
+	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
 			diff := api.DeltaE(colors[i], colors[j])
 
@@ -254,7 +254,7 @@ func scorePop(population []Individual, imageColors []api.LAB, polarity api.Polar
 	}
 
 	// Sort by fitness (descending - higher is better)
-	for i := 0; i < len(scored); i++ {
+	for i := range scored {
 		for j := i + 1; j < len(scored); j++ {
 			if scored[j].fitness > scored[i].fitness {
 				scored[i], scored[j] = scored[j], scored[i]

@@ -176,7 +176,7 @@ func getRemoteStatus(ctx context.Context, cfg *config.GlobalConfig) (string, err
 
 	// Filter out lines with asterisks from quota output
 	var quotaLines []string
-	for _, line := range strings.Split(string(quotaOut), "\n") {
+	for line := range strings.SplitSeq(string(quotaOut), "\n") {
 		if !strings.Contains(line, "*") && line != "" {
 			quotaLines = append(quotaLines, line)
 		}

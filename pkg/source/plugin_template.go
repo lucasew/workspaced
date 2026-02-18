@@ -13,11 +13,11 @@ import (
 // TemplateExpanderPlugin renderiza templates e expande multi-file
 type TemplateExpanderPlugin struct {
 	engine *template.Engine
-	data   interface{}
+	data   any
 }
 
 // NewTemplateExpanderPlugin cria plugin de expansão de templates
-func NewTemplateExpanderPlugin(engine *template.Engine, data interface{}) *TemplateExpanderPlugin {
+func NewTemplateExpanderPlugin(engine *template.Engine, data any) *TemplateExpanderPlugin {
 	return &TemplateExpanderPlugin{
 		engine: engine,
 		data:   data,

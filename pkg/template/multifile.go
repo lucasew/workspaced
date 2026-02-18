@@ -35,12 +35,12 @@ func ParseMultiFile(rendered []byte) ([]MultiFile, bool) {
 		}
 
 		// Parse header: filename:mode>>>
-		headerEnd := strings.Index(part, ">>>")
-		if headerEnd == -1 {
+		before, after, ok := strings.Cut(part, ">>>")
+		if !ok {
 			continue
 		}
-		header := part[:headerEnd]
-		rest := part[headerEnd+3:]
+		header := before
+		rest := after
 
 		// Split header
 		headerParts := strings.SplitN(header, ":", 2)

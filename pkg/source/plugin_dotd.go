@@ -11,11 +11,11 @@ import (
 // DotDProcessorPlugin processa diretórios .d.tmpl (concatenação)
 type DotDProcessorPlugin struct {
 	engine *template.Engine
-	data   interface{}
+	data   any
 }
 
 // NewDotDProcessorPlugin cria plugin de processamento .d.tmpl
-func NewDotDProcessorPlugin(engine *template.Engine, data interface{}) *DotDProcessorPlugin {
+func NewDotDProcessorPlugin(engine *template.Engine, data any) *DotDProcessorPlugin {
 	return &DotDProcessorPlugin{
 		engine: engine,
 		data:   data,

@@ -149,7 +149,7 @@ func (d *Driver) GetMetadata(ctx context.Context) (*media.Metadata, error) {
 		switch val := v.Value().(type) {
 		case []string:
 			res.Artist = strings.Join(val, ", ")
-		case []interface{}:
+		case []any:
 			var artists []string
 			for _, a := range val {
 				if s, ok := a.(string); ok {

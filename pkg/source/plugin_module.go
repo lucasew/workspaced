@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"workspaced/pkg/config"
 	"workspaced/pkg/logging"
 
@@ -73,11 +74,11 @@ func (p *ModuleScannerPlugin) validateConfig(ctx context.Context, modName string
 	}
 
 	if !result.Valid() {
-		var errs string
+		var errs strings.Builder
 		for _, desc := range result.Errors() {
-			errs += fmt.Sprintf("- %s\n", desc)
+			errs.WriteString(fmt.Sprintf("- %s\n", desc))
 		}
-		return fmt.Errorf("config validation failed for module %q:\n%s", modName, errs)
+		return fmt.Errorf("config validation failed for module %q:\n%s", modName, errs.String())
 	}
 
 	logger.Debug("module config valid", "module", modName)

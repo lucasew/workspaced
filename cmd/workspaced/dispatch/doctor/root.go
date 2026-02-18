@@ -119,7 +119,7 @@ func getProviderTypeName(t any) string {
 	}
 
 	// If it's a pointer, get the underlying type
-	if rt.Kind() == reflect.Ptr {
+	if rt.Kind() == reflect.Pointer {
 		rt = rt.Elem()
 	}
 

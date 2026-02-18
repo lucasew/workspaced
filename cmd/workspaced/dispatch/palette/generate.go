@@ -100,7 +100,7 @@ func parsePolarityFlag(s string) (api.Polarity, error) {
 // printPaletteTOML outputs palette in TOML format
 func printPaletteTOML(pal *config.PaletteConfig) error {
 	// Create a map for TOML encoding
-	paletteMap := map[string]interface{}{
+	paletteMap := map[string]any{
 		"palette": pal,
 	}
 

@@ -12,7 +12,7 @@ type TemplateFile struct {
 	BasicFile
 	SourceFile File
 	Engine     *template.Engine
-	Data       interface{}
+	Data       any
 	Context    context.Context
 }
 

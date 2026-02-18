@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"workspaced/pkg/api"
@@ -241,13 +242,7 @@ func Rebuild(ctx context.Context, action string, flake string) error {
 
 	// Check if we are on a known node
 	supportedNodes := []string{"riverwood", "whiterun", "ravenrock", "atomicpi", "recovery"}
-	isSupported := false
-	for _, node := range supportedNodes {
-		if hostname == node {
-			isSupported = true
-			break
-		}
-	}
+	isSupported := slices.Contains(supportedNodes, hostname)
 
 	if !isSupported {
 		return fmt.Errorf("%w: %s", api.ErrHostNotFound, hostname)

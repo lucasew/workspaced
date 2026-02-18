@@ -50,7 +50,7 @@ func getConfigValue(cfg *config.Config, key string) (any, error) {
 		return cfg, nil
 	}
 
-	var result interface{}
+	var result any
 	if err := cfg.UnmarshalKey(key, &result); err != nil {
 		return nil, err
 	}

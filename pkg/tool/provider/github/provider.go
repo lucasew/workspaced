@@ -341,8 +341,8 @@ func normalizeBinaryName(name string) string {
 
 	// First, try suffix-based removal (platform suffixes)
 	for _, suffix := range constants.BinaryNameSuffixes {
-		if strings.HasSuffix(result, suffix) {
-			result = strings.TrimSuffix(result, suffix)
+		if before, ok := strings.CutSuffix(result, suffix); ok {
+			result = before
 			break
 		}
 	}

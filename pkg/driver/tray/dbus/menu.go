@@ -97,7 +97,7 @@ func (m *DBusMenu) Export(conn *dbus.Conn, path dbus.ObjectPath) error {
 	}
 
 	// Export properties
-	propsMap := map[string]interface{}{
+	propsMap := map[string]any{
 		"Version":       uint32(3),
 		"TextDirection": "ltr",
 		"Status":        "normal",

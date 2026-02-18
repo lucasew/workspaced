@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"workspaced/pkg/config"
 
 	"github.com/spf13/cobra"
@@ -74,11 +75,9 @@ func init() {
 
 				for nodeName, hostCfg := range cfg.Hosts {
 					for _, configIP := range hostCfg.IPs {
-						for _, localIP := range localIPs {
-							if configIP == localIP {
-								// Found match by IP
-								return nil
-							}
+						if slices.Contains(localIPs, configIP) {
+							// Found match by IP
+							return nil
 						}
 					}
 					// Check hostname as fallback

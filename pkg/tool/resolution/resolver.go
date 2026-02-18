@@ -193,10 +193,7 @@ func sortVersions(versions []string) {
 func compareVersions(v1, v2 string) int {
 	p1 := parseVersion(v1)
 	p2 := parseVersion(v2)
-	l := len(p1)
-	if len(p2) < l {
-		l = len(p2)
-	}
+	l := min(len(p2), len(p1))
 	for k := 0; k < l; k++ {
 		if p1[k] < p2[k] {
 			return -1

@@ -17,13 +17,13 @@ const (
 func initPopulation(rng *rand.Rand, colors []api.LAB, count int, size int) []Individual {
 	population := make([]Individual, size)
 
-	for i := 0; i < size; i++ {
+	for i := range size {
 		individual := Individual{
 			colors: make([]api.LAB, count),
 		}
 
 		// Generate completely random colors in LAB space
-		for j := 0; j < count; j++ {
+		for j := range count {
 			individual.colors[j] = api.LAB{
 				L: rng.Float64() * 100,     // Lightness: 0-100
 				A: rng.Float64()*200 - 100, // Green-Red: -100 to +100
@@ -40,10 +40,7 @@ func initPopulation(rng *rand.Rand, colors []api.LAB, count int, size int) []Ind
 // crossover combines two parent individuals using alternating zip
 // Based on Stylix Ai/Evolutionary.hs alternatingZip
 func crossover(p1, p2 Individual) Individual {
-	size := len(p1.colors)
-	if len(p2.colors) < size {
-		size = len(p2.colors)
-	}
+	size := min(len(p2.colors), len(p1.colors))
 
 	offspring := Individual{
 		colors: make([]api.LAB, size),

@@ -47,8 +47,8 @@ Examples:
 				// Find and modify PATH
 				pathModified := false
 				for i, envVar := range env {
-					if strings.HasPrefix(envVar, "PATH=") {
-						currentPath := strings.TrimPrefix(envVar, "PATH=")
+					if after, ok := strings.CutPrefix(envVar, "PATH="); ok {
+						currentPath := after
 
 						// Prepend new paths
 						newPaths := make([]string, 0, len(pathDirs)+1)

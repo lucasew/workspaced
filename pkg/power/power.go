@@ -34,7 +34,7 @@ func Wake(ctx context.Context, host string) error {
 
 	// WoL magic packet: 6 bytes of 0xFF followed by 16 repetitions of the MAC address
 	packet := make([]byte, 6+16*6)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		packet[i] = 0xFF
 	}
 	for i := 1; i <= 16; i++ {

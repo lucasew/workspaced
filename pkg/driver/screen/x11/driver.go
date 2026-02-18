@@ -27,8 +27,8 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	display := os.Getenv("DISPLAY")
 	if env, ok := ctx.Value(types.EnvKey).([]string); ok {
 		for _, e := range env {
-			if strings.HasPrefix(e, "DISPLAY=") {
-				display = strings.TrimPrefix(e, "DISPLAY=")
+			if after, ok0 := strings.CutPrefix(e, "DISPLAY="); ok0 {
+				display = after
 				break
 			}
 		}

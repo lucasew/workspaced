@@ -31,7 +31,7 @@ func NewEngine(ctx context.Context, opts ...Option) *Engine {
 }
 
 // WithCustomFunc adiciona uma função customizada ao FuncMap
-func WithCustomFunc(name string, fn interface{}) Option {
+func WithCustomFunc(name string, fn any) Option {
 	return func(e *Engine) {
 		e.funcMap[name] = fn
 	}
@@ -45,7 +45,7 @@ func WithFuncMap(funcMap template.FuncMap) Option {
 }
 
 // Render renderiza um template string com os dados fornecidos
-func (e *Engine) Render(ctx context.Context, tmpl string, data interface{}) ([]byte, error) {
+func (e *Engine) Render(ctx context.Context, tmpl string, data any) ([]byte, error) {
 	t, err := template.New("template").Funcs(e.funcMap).Parse(tmpl)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template: %w", err)
@@ -63,7 +63,7 @@ func (e *Engine) Render(ctx context.Context, tmpl string, data interface{}) ([]b
 }
 
 // RenderFile renderiza um arquivo de template
-func (e *Engine) RenderFile(ctx context.Context, path string, data interface{}) ([]byte, error) {
+func (e *Engine) RenderFile(ctx context.Context, path string, data any) ([]byte, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read template file: %w", err)
@@ -73,7 +73,7 @@ func (e *Engine) RenderFile(ctx context.Context, path string, data interface{}) 
 }
 
 // RenderMultiFile renderiza e retorna múltiplos arquivos
-func (e *Engine) RenderMultiFile(ctx context.Context, tmpl string, data interface{}) ([]MultiFile, error) {
+func (e *Engine) RenderMultiFile(ctx context.Context, tmpl string, data any) ([]MultiFile, error) {
 	rendered, err := e.Render(ctx, tmpl, data)
 	if err != nil {
 		return nil, err
