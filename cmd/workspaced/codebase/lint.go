@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"workspaced/pkg/provider/lint"
-	"workspaced/pkg/provider/lint/golangci"
+	_ "workspaced/pkg/provider/prelude"
 
 	"github.com/spf13/cobra"
 )
@@ -20,14 +20,8 @@ func newLintCommand() *cobra.Command {
 				path = args[0]
 			}
 
-			// Setup engine with all available linters
-			engine := lint.NewEngine(
-				golangci.New(),
-				// Add more linters here as they are implemented
-			)
-
-			// Run analysis
-			report, err := engine.RunAll(cmd.Context(), path)
+			// Run analysis using all registered linters
+			report, err := lint.RunAll(cmd.Context(), path)
 			if err != nil {
 				return err
 			}

@@ -17,29 +17,23 @@ type Linter interface {
 	Run(ctx context.Context, dir string) (*sarif.Run, error)
 }
 
-// Engine aggregates multiple Linters and runs them against a directory.
-type Engine struct {
-	linters []Linter
+// Register adds a linter to the global provider registry.
+// This is typically called in init() functions of provider packages.
+func Register(l Linter) {
+	provider.Register[Linter](l)
 }
 
-// NewEngine creates a new linter engine with the given linters.
-func NewEngine(linters ...Linter) *Engine {
-	return &Engine{linters: linters}
-}
-
-// Register adds a new linter to the engine.
-func (e *Engine) Register(l Linter) {
-	e.linters = append(e.linters, l)
-}
-
-// RunAll executes all applicable linters and aggregates their results into a single SARIF report.
-func (e *Engine) RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
+// RunAll executes all globally registered linters against a directory and aggregates results.
+func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	report, err := sarif.New(sarif.Version210)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, l := range e.linters {
+	// Retrieve all registered Linter implementations
+	linters := provider.List[Linter]()
+
+	for _, l := range linters {
 		// 1. Check if the linter applies
 		applies, err := l.Detect(ctx, dir)
 		if err != nil {

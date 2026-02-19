@@ -21,6 +21,10 @@ func New() lint.Linter {
 	return &Provider{}
 }
 
+func init() {
+	lint.Register(New())
+}
+
 func (p *Provider) Name() string {
 	return "golangci-lint"
 }
