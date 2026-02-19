@@ -41,19 +41,24 @@ Preciso configurar um arquivo em ~/
 ## 📋 Tipos (Referência Rápida)
 
 ### 1️⃣ Arquivo Estático
+
 ```
 config/.gitconfig
 ```
+
 → `~/.gitconfig` (symlink)
 
 ### 2️⃣ Template Simples
+
 ```bash
 # config/.bashrc.tmpl
 source {{ dotfiles }}/bin/source_me
 ```
+
 → `~/.bashrc` (renderizado)
 
 ### 3️⃣ Multi-File
+
 ```go
 # config/apps.tmpl
 {{- range .Apps }}
@@ -63,23 +68,28 @@ Name={{ .name }}
 {{- endfile }}
 {{- end }}
 ```
+
 → `~/apps/app1.desktop`, `~/apps/app2.desktop`
 
 ### 4️⃣ Index (sem subpasta)
+
 ```go
 # config/_index.tmpl
 {{- file "app1.desktop" }}...{{- endfile }}
 {{- file "app2.desktop" }}...{{- endfile }}
 ```
+
 → `~/app1.desktop`, `~/app2.desktop`
 
 ### 5️⃣ Concatenação (.d.tmpl/)
+
 ```
 config/.bashrc.d.tmpl/
 ├─ 10-env.sh
 ├─ 20-aliases.sh.tmpl
 └─ 30-functions.sh
 ```
+
 → `~/.bashrc` (tudo junto, ordem alfabética)
 
 ---
@@ -87,6 +97,7 @@ config/.bashrc.d.tmpl/
 ## 🔧 Funções Essenciais
 
 ### Controle
+
 ```go
 {{ skip }}                          # Não gera este arquivo
 {{ file "nome" "0755" }}            # Inicia arquivo (mode opcional)
@@ -94,24 +105,28 @@ config/.bashrc.d.tmpl/
 ```
 
 ### Condições
+
 ```go
 {{- if cond }}...{{- end }}
 {{- if not isPhone }}{{ skip }}{{ end }}
 ```
 
 ### Loops
+
 ```go
 {{- range .Items }}...{{- end }}
 {{- range $key, $val := .Map }}...{{- end }}
 ```
 
 ### Paths
+
 ```go
 {{ dotfiles }}                      # ~/.dotfiles
 {{ userDataDir }}                   # ~/.local/share/workspaced
 ```
 
 ### Strings
+
 ```go
 {{ split "a:b" ":" }}               # ["a", "b"]
 {{ join .Array "," }}               # "a,b,c"
@@ -121,12 +136,14 @@ config/.bashrc.d.tmpl/
 ```
 
 ### Listas
+
 ```go
 {{ list "a" "b" }}                  # ["a", "b"]
 {{ default "fallback" .Value }}     # .Value ou fallback se vazio
 ```
 
 ### Sistema
+
 ```go
 {{ readDir "/path" }}               # lista arquivos
 {{ isPhone }}                       # true em Android
@@ -139,6 +156,7 @@ config/.bashrc.d.tmpl/
 ## ⚡ Exemplos Práticos
 
 ### Desktop File
+
 ```
 # config/.local/share/applications/backup.desktop.tmpl
 [Desktop Entry]
@@ -148,6 +166,7 @@ Terminal=true
 ```
 
 ### Webapps (múltiplos)
+
 ```go
 # config/.local/share/applications/_index.tmpl
 {{- range $name, $wa := .Webapps }}
@@ -161,6 +180,7 @@ Icon={{ favicon $wa.URL }}
 ```
 
 ### Bashrc Modular
+
 ```
 config/.bashrc.d.tmpl/
   ├─ 10-env.sh              # export EDITOR=vim
@@ -169,6 +189,7 @@ config/.bashrc.d.tmpl/
 ```
 
 ### Skip Condicional
+
 ```go
 # config/.shortcuts/_index.tmpl
 {{- if not isPhone }}{{ skip }}{{ end -}}
@@ -184,13 +205,13 @@ config/.bashrc.d.tmpl/
 
 ## ⚠️ Armadilhas
 
-| ❌ Errado | ✅ Correto | Por quê |
-|-----------|------------|---------|
-| `{{ file "x" }}` | `{{- file "x" }}` | `-` remove espaços |
-| `foo.tmpl` multi-file | `_index.tmpl` | `foo` vira pasta extra |
-| `.bashrc.d/` concatena | `.bashrc.d.tmpl/` | `.d/` faz symlinks |
-| `{{ file "script" }}` | `{{ file "script" "0755" }}` | Scripts precisam +x |
-| `{{ skip }}` no meio | `{{- if cond }}{{ skip }}{{- end }}` no início | Parser quebra |
+| ❌ Errado              | ✅ Correto                                     | Por quê                |
+| ---------------------- | ---------------------------------------------- | ---------------------- |
+| `{{ file "x" }}`       | `{{- file "x" }}`                              | `-` remove espaços     |
+| `foo.tmpl` multi-file  | `_index.tmpl`                                  | `foo` vira pasta extra |
+| `.bashrc.d/` concatena | `.bashrc.d.tmpl/`                              | `.d/` faz symlinks     |
+| `{{ file "script" }}`  | `{{ file "script" "0755" }}`                   | Scripts precisam +x    |
+| `{{ skip }}` no meio   | `{{- if cond }}{{ skip }}{{- end }}` no início | Parser quebra          |
 
 ---
 

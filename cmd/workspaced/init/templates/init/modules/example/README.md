@@ -1,6 +1,7 @@
 # Example Module
 
 This is an example workspaced module demonstrating how to:
+
 - Use conditionals in templates
 - Access system information (hostname, IPs)
 - Detect environment (phone vs desktop)
@@ -27,6 +28,7 @@ show_ips = true
 The template demonstrates:
 
 ### Variables
+
 ```go
 {{ .Example.Greeting }}       // Module config
 {{ .Hostname }}               // System hostname
@@ -34,6 +36,7 @@ The template demonstrates:
 ```
 
 ### Conditionals
+
 ```go
 {{- if .IsPhone }}
   // Termux-specific config
@@ -43,6 +46,7 @@ The template demonstrates:
 ```
 
 ### Loops
+
 ```go
 {{- range .Hosts }}
   Host {{ .Name }}: {{ .IP }}
@@ -50,6 +54,7 @@ The template demonstrates:
 ```
 
 ### Functions
+
 ```go
 {{ .List | toJSON }}          // Convert to JSON
 {{ index .Array 0 }}          // Access array element

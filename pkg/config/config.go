@@ -143,13 +143,21 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	structToMap := func(s any) map[string]any {
-		data, _ := json.Marshal(s)
+	structToMap := func(s any) (map[string]any, error) {
+		data, err := json.Marshal(s)
+		if err != nil {
+			return nil, err
+		}
 		var res map[string]any
-		json.Unmarshal(data, &res)
-		return res
+		if err := json.Unmarshal(data, &res); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
-	rawMerged := structToMap(gCfg)
+	rawMerged, err := structToMap(gCfg)
+	if err != nil {
+		return nil, err
+	}
 	userConfigs := []string{}
 	if dotfiles != "" {
 		userConfigs = append(userConfigs, filepath.Join(dotfiles, "settings.toml"))
@@ -220,10 +228,14 @@ func Load() (*Config, error) {
 						}
 					}
 					wrapped := map[string]any{"modules": map[string]any{name: currentDefaults}}
-					MergeStrict(defaultsRaw, wrapped, false)
+					if err := MergeStrict(defaultsRaw, wrapped, false); err != nil {
+						return nil, err
+					}
 					if driversDefaults != nil {
 						wrappedDrivers := map[string]any{"drivers": driversDefaults}
-						MergeStrict(defaultsRaw, wrappedDrivers, false)
+						if err := MergeStrict(defaultsRaw, wrappedDrivers, false); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}
@@ -231,7 +243,9 @@ func Load() (*Config, error) {
 		if err := validateDependencies(enabledModules, moduleMeta); err != nil {
 			return nil, err
 		}
-		MergeStrict(rawMerged, defaultsRaw, true)
+		if err := MergeStrict(rawMerged, defaultsRaw, true); err != nil {
+			return nil, err
+		}
 	}
 	for _, path := range userConfigs {
 		if _, err := os.Stat(path); err == nil {
@@ -244,8 +258,13 @@ func Load() (*Config, error) {
 		}
 	}
 	finalGCfg := &GlobalConfig{}
-	data, _ := json.Marshal(rawMerged)
-	json.Unmarshal(data, finalGCfg)
+	data, err := json.Marshal(rawMerged)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, finalGCfg); err != nil {
+		return nil, err
+	}
 	finalGCfg.Desktop.Wallpaper.Dir = env.ExpandPath(finalGCfg.Desktop.Wallpaper.Dir)
 	finalGCfg.Desktop.Wallpaper.Default = env.ExpandPath(finalGCfg.Desktop.Wallpaper.Default)
 	finalGCfg.Screenshot.Dir = env.ExpandPath(finalGCfg.Screenshot.Dir)

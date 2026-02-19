@@ -1,17 +1,22 @@
 # Workspaced Development
 
 ## Overview
+
 User configs/dotfiles in `config/`. Settings in `settings.toml`. Templates use `{{ .Field }}` syntax.
+
 - **⚠️ CRITICAL**: See `TEMPLATES.md` for complete template system documentation (5 types: static, simple, multi-file, index, .d.tmpl)
 
 ## Common Commands
+
 - **Apply**: `workspaced apply` (builds Go code and applies configs)
 - **Plan**: `workspaced plan` (dry-run, shows what would change)
 - **Doctor**: `workspaced doctor` (check driver status)
   - Use `--verbose` flag to see full interface/provider paths
 
 ## Adding New Config Fields
+
 When adding new config fields to `pkg/config/config.go`:
+
 1. Add field to `GlobalConfig` struct with `toml:"field_name"` tag
 2. Create corresponding struct (e.g., `FooConfig`) with fields and tags
 3. **CRITICAL**: Add `Merge()` method to new struct (see `PaletteConfig.Merge()` as example)
@@ -20,6 +25,7 @@ When adding new config fields to `pkg/config/config.go`:
 6. Templates access via `{{ .Foo.Field }}`
 
 **⚠️ IMPORTANT - Merge Methods:**
+
 - LoadConfig() creates hardcoded defaults, then loads settings.toml and merges
 - Without implementing `Merge()` and calling it in `GlobalConfig.Merge()`, the merge doesn't happen
 - Result: values from settings.toml are ignored, templates generate empty fields
@@ -27,6 +33,7 @@ When adding new config fields to `pkg/config/config.go`:
 - Always implement Merge() for structs nested in GlobalConfig!
 
 ## CLI & Architecture
+
 - **Intention-based Structure**: Commands are grouped by user intent:
   - `input`: User interaction (`text`, `confirm`, `choose`, `menu`).
   - `open`: Resource launching (`webapp`, `terminal`, generic URLs/files).
@@ -42,6 +49,7 @@ When adding new config fields to `pkg/config/config.go`:
 - **Top-level Aliases**: `sync`, `apply`, `plan`, and `open` are mirrored at root for ergonomics.
 
 ## Driver System
+
 - Drivers provide platform-specific implementations for various features (audio, clipboard, notifications, etc.)
 - Each driver implements a provider interface with:
   - `ID()`: Unique slug (e.g., "audio_pulse")

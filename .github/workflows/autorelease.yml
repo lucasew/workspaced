@@ -21,12 +21,9 @@ on:
           - major
   schedule:
     - cron: "0 2 * * 6" # saturday 2am
+
 jobs:
   autorelease:
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}
-      USERNAME: ${{ github.actor }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -35,89 +32,85 @@ jobs:
       id-token: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup git config
         run: |
-          git config user.name actions-bot
-          git config user.email actions-bot@users.noreply.github.com
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - uses: jdx/mise-action@6d1e696aa24c1aa1bcc1adea0212707c71ab78a8 # v3
+      - name: Install tools
+        uses: jdx/mise-action@v5
 
-      - name: Go get
-        run: go get ./...
+      - name: Install dependencies
+        run: mise run install
 
-      - name: Go fmt
-        run: go fmt ./...
+      - name: Codegen
+        run: mise run codegen
 
-      - name: Create Pull Request if there is new stuff from updaters
-        if: github.event_name != 'pull_request'
-        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8
-        id: pr_create
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code || echo "changes=true" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request if changes detected
+        if: steps.git-check.outputs.changes == 'true' && github.event_name != 'pull_request'
+        uses: peter-evans/create-pull-request@v6
         with:
-          commit-message: Updater script changes
+          commit-message: "chore: update generated code"
           branch: updater-bot
           delete-branch: true
-          title: "Updater: stuff changed"
-          body: |
-            Changes caused from update scripts
+          title: "Updater: generated code changed"
+          body: "Changes caused by codegen."
 
-      - name: Stop if a pull request was created
-        if: github.event_name != 'pull_request'
-        env:
-          PR_NUMBER: ${{ steps.pr_create.outputs.pull-request-number }}
+      - name: Stop if PR created
+        if: steps.git-check.outputs.changes == 'true' && github.event_name != 'pull_request'
         run: |
-          if [[ ! -z "$PR_NUMBER" ]]; then
-            echo "The update scripts changed something and a PR was created. Giving up deploy." >> $GITHUB_STEP_SUMMARY
+          echo "Changes detected and PR created. Stopping workflow."
+          exit 0
+
+      - name: CI
+        run: mise run ci
+
+      - name: Release Preparation (Dispatch)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.new_version != ''
+        run: |
+          # Bump version using make_release but do not tag/push yet
+          # make_release expects to be able to commit and push
+          # Ensure we are on the branch
+          git checkout main
+
+          NO_TAG=1 ./make_release "${{ github.event.inputs.new_version }}"
+          VERSION=$(cat pkg/version/version.txt)
+          echo "NEW_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Bumped version to $VERSION"
+
+      - name: Build Artifacts
+        if: (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && github.event_name != 'pull_request'
+        run: mise run build:all
+
+      - name: Create Release
+        if: (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG_NAME="${{ env.NEW_VERSION }}"
+          else
+            TAG_NAME="${{ github.ref_name }}"
+          fi
+
+          if [[ -z "$TAG_NAME" ]]; then
+            echo "No tag name found for release. Skipping."
             exit 1
           fi
 
-      - name: Build binaries
-        env:
-          TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        run: |
-          mkdir build -p && ls && pwd
+          echo "Creating release for tag: $TAG_NAME"
 
-          echo "# Built targets" >> $GITHUB_STEP_SUMMARY
-          export CGO_ENABLED=0
-          go tool dist list | grep -vE 'wasm|aix|plan9|android|ios|illumos|solaris|dragonfly' | while IFS=/ read -r GOOS GOARCH; do
-            echo "::group::Build $GOOS/$GOARCH"
-            GOOS=$GOOS GOARCH=$GOARCH go build -v -o build/workspaced-$GOOS-$GOARCH ./cmd/workspaced && (echo "- $GOOS/$GOARCH" >> $GITHUB_STEP_SUMMARY) || true
-            echo "::endgroup::"
-          done
-
-      - name: Make release if everything looks right
-        if: github.event_name != 'pull_request'
-        env:
-          NEW_VERSION: ${{ github.event.inputs.new_version }}
-        run: |
-          if [[ ! -z "$NEW_VERSION" ]]; then
-            NO_TAG=1 ./make_release "$NEW_VERSION"
-            echo "New version: $(cat pkg/version/version.txt)" >> $GITHUB_STEP_SUMMARY
-            echo "RELEASE_VERSION=$(cat pkg/version/version.txt)" >> $GITHUB_ENV
-          fi
-
-      - name: Build binaries
-        env:
-          TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        run: |
-          mkdir build -p && ls && pwd
-
-          echo "# Built targets" >> $GITHUB_STEP_SUMMARY
-          export CGO_ENABLED=0
-          go tool dist list | grep -vE 'wasm|aix|plan9|android|ios|illumos|solaris|dragonfly' | while IFS=/ read -r GOOS GOARCH; do
-            echo "::group::Build $GOOS/$GOARCH"
-            GOOS=$GOOS GOARCH=$GOARCH go build -v -o build/workspaced-$GOOS-$GOARCH ./cmd/workspaced && (echo "- $GOOS/$GOARCH" >> $GITHUB_STEP_SUMMARY) || true
-            echo "::endgroup::"
-          done
-
-      - name: Create relase
-        if: env.RELEASE_VERSION != '' && github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ env.RELEASE_VERSION }}
-          TITLE: Release ${{ env.RELEASE_VERSION }}
-        run: |
-          gh release create "$TAG" \
-            --title "$TITLE" \
+          gh release create "$TAG_NAME" \
+            --title "Release $TAG_NAME" \
             --generate-notes \
             build/*

@@ -124,17 +124,20 @@ func loadSystemCerts() *x509.CertPool {
 		if err != nil {
 			continue
 		}
+		addedAny := false
 		for _, entry := range entries {
 			if entry.IsDir() {
 				continue
 			}
 			certPath := filepath.Join(certDir, entry.Name())
 			if certs, err := os.ReadFile(certPath); err == nil {
-				pool.AppendCertsFromPEM(certs)
+				if pool.AppendCertsFromPEM(certs) {
+					addedAny = true
+				}
 			}
 		}
 		// If we loaded any certs from this directory, return
-		if len(pool.Subjects()) > 0 {
+		if addedAny {
 			return pool
 		}
 	}
