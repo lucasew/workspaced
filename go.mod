@@ -9,15 +9,13 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
+	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/spf13/cobra v1.10.2
 	github.com/xeipuuv/gojsonschema v1.2.0
 	modernc.org/sqlite v1.44.3
 )
 
-require (
-	github.com/owenrumney/go-sarif/v2 v2.3.3 // indirect
-	github.com/shogo82148/go-sfv v0.3.3 // indirect
-)
+require github.com/shogo82148/go-sfv v0.3.3 // indirect
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

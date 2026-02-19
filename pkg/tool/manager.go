@@ -145,6 +145,12 @@ func findArtifact(artifacts []provider.Artifact, osName, arch string) *provider.
 	var candidates []provider.Artifact
 	for _, a := range artifacts {
 		if a.OS == osName && a.Arch == arch {
+			if strings.HasSuffix(a.URL, ".deb") {
+				continue
+			}
+			if strings.HasSuffix(a.URL, ".rpm") {
+				continue
+			}
 			candidates = append(candidates, a)
 		}
 	}
