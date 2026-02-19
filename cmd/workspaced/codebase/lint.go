@@ -2,7 +2,9 @@ package codebase
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"text/tabwriter"
 
 	"workspaced/pkg/provider/lint"
 	_ "workspaced/pkg/provider/prelude"
@@ -11,7 +13,9 @@ import (
 )
 
 func newLintCommand() *cobra.Command {
-	return &cobra.Command{
+	var format string
+
+	cmd := &cobra.Command{
 		Use:   "lint [path]",
 		Short: "Run linters on the specified path (defaults to current directory)",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -26,10 +30,66 @@ func newLintCommand() *cobra.Command {
 				return err
 			}
 
-			// Output JSON to stdout
-			encoder := json.NewEncoder(os.Stdout)
-			encoder.SetIndent("", "  ")
-			return encoder.Encode(report)
+			if format == "sarif" {
+				encoder := json.NewEncoder(os.Stdout)
+				encoder.SetIndent("", "  ")
+				return encoder.Encode(report)
+			} else if format == "table" {
+				w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+				fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE")
+
+				for _, run := range report.Runs {
+					toolName := run.Tool.Driver.Name
+
+					if run.Tool.Driver.Name != "" {
+						toolName = run.Tool.Driver.Name
+					} else if run.Tool.Driver.InformationURI != nil {
+						toolName = *run.Tool.Driver.InformationURI
+					}
+
+					for _, res := range run.Results {
+						file := ""
+						line := 0
+						msg := ""
+
+						if res.Message.Text != nil {
+							msg = *res.Message.Text
+						}
+
+						if len(res.Locations) > 0 {
+							loc := res.Locations[0].PhysicalLocation
+							if loc != nil {
+								if loc.ArtifactLocation != nil && loc.ArtifactLocation.URI != nil {
+									file = *loc.ArtifactLocation.URI
+								}
+								if loc.Region != nil && loc.Region.StartLine != nil {
+									line = *loc.Region.StartLine
+								}
+							}
+						}
+
+						fileLine := file
+						if line > 0 {
+							fileLine = fmt.Sprintf("%s:%d", file, line)
+						}
+
+						level := "unknown"
+						if res.Level != nil {
+							level = *res.Level
+						}
+
+						fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", toolName, level, fileLine, msg)
+					}
+				}
+				w.Flush()
+				return nil
+			} else {
+				return fmt.Errorf("unknown format: %s (supported: table, sarif)", format)
+			}
 		},
 	}
+
+	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (table, sarif)")
+
+	return cmd
 }
