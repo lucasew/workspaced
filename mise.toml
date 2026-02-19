@@ -1,6 +1,5 @@
 # Warning: Do not unify this file with others. Keep tool definitions localized.
 [tools]
-go = "1.24.0"
 golangci-lint = "1.64.8"
 sqlc = "1.28.0"
 actionlint = "1.7.7"
