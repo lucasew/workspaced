@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"workspaced/pkg/config"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
@@ -109,4 +110,19 @@ func SyncRepo(ctx context.Context, path string) error {
 	}
 
 	return nil
+}
+
+// GetRoot returns the root directory of the git repository containing path.
+func GetRoot(ctx context.Context, path string) (string, error) {
+	// Ensure path exists
+	if _, err := os.Stat(path); err != nil {
+		return "", err
+	}
+
+	cmd := execdriver.MustRun(ctx, "git", "-C", path, "rev-parse", "--show-toplevel")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get git root: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }

@@ -11,6 +11,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(newLintCommand())
+	cmd.AddCommand(newFormatCommand())
 
 	return cmd
 }
