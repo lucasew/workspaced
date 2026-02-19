@@ -2,6 +2,7 @@ package codebase
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"workspaced/pkg/git"
@@ -16,7 +17,10 @@ func newFormatCommand() *cobra.Command {
 		Use:   "format [path]",
 		Short: "Format code in the repository (runs at git root)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := "."
+			path, err := os.Getwd()
+			if err != nil {
+				return err
+			}
 			if len(args) > 0 {
 				path = args[0]
 			}

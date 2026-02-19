@@ -21,7 +21,10 @@ func newLintCommand() *cobra.Command {
 		Use:   "lint [path]",
 		Short: "Run linters on the specified path (defaults to current directory)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := "."
+			path, err := os.Getwd()
+			if err != nil {
+				return err
+			}
 			if len(args) > 0 {
 				path = args[0]
 			}
