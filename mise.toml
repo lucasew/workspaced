@@ -6,7 +6,7 @@ actionlint = "1.7.7"
 prettier = "3.5.2"
 
 [tasks]
-"lint:golangci-lint" = "golangci-lint run"
+"lint:golangci-lint" = "golangci-lint run --timeout 5m"
 "lint:actionlint" = "actionlint"
 "lint:prettier" = "prettier --check '**/*.{md,yml,yaml,json}'"
 lint = { depends = ["lint:*"] }
