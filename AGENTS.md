@@ -42,6 +42,7 @@ When adding new config fields to `pkg/config/config.go`:
 - **Lazy Processing**: `source.File` interface delays content reading/rendering until strictly needed.
 - **Strict Config**: No lists in module configs. Deep merge with zero substitution policy between different modules.
 - **Top-level Aliases**: `sync`, `apply`, `plan`, and `open` are mirrored at root for ergonomics.
+- **Tool providers**: Instead of scoping on tools, scope on registries. Ex: `uv` and `pip` shouldn't be backends, `pypi` and `pyx` should.
 
 ## Driver System
 - Drivers provide platform-specific implementations for various features (audio, clipboard, notifications, etc.)
