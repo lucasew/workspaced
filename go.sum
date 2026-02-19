@@ -43,6 +43,8 @@ github.com/lucasew/fetchurl v0.0.0-20260206184908-e1c9ef7d50d0 h1:cYZWFjnlfvZIcp
 github.com/lucasew/fetchurl v0.0.0-20260206184908-e1c9ef7d50d0/go.mod h1:B4cS7LwAQL9vzmB0+8S9JC3yvMFzqnZORWWvhqK+fRA=
 github.com/lucasew/fetchurl v0.0.0-20260214230008-c6c027f52d08 h1:3VJM5S8VmVWdfQZFI+HWTcMTTFtkW0scOgPhUUKgutc=
 github.com/lucasew/fetchurl v0.0.0-20260214230008-c6c027f52d08/go.mod h1:B4cS7LwAQL9vzmB0+8S9JC3yvMFzqnZORWWvhqK+fRA=
+github.com/lucasew/fetchurl v0.0.0-20260218184218-c5fa8de49b15 h1:lacIXrorPsQfQc+KDCDAgrQj/cDnFWMajrX+jnDMl6k=
+github.com/lucasew/fetchurl v0.0.0-20260218184218-c5fa8de49b15/go.mod h1:B4cS7LwAQL9vzmB0+8S9JC3yvMFzqnZORWWvhqK+fRA=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-runewidth v0.0.9/go.mod h1:H031xJmbD/WCDINGzjvQ9THkh0rPKHF+m2gUSrubnMI=
