@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"text/tabwriter"
 
 	"workspaced/pkg/provider/lint"
@@ -28,6 +29,32 @@ func newLintCommand() *cobra.Command {
 			report, err := lint.RunAll(cmd.Context(), path)
 			if err != nil {
 				return err
+			}
+
+			// Check for CI environment variables to save SARIF report
+			sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
+			for _, envVar := range sarifEnvVars {
+				if outputDir := os.Getenv(envVar); outputDir != "" {
+					// Ensure directory exists
+					if err := os.MkdirAll(outputDir, 0755); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to create SARIF output directory %s: %v\n", outputDir, err)
+						continue
+					}
+
+					sarifPath := filepath.Join(outputDir, "lint.sarif")
+					file, err := os.Create(sarifPath)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to create SARIF report file %s: %v\n", sarifPath, err)
+						continue
+					}
+
+					encoder := json.NewEncoder(file)
+					encoder.SetIndent("", "  ")
+					if err := encoder.Encode(report); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: failed to write SARIF report to %s: %v\n", sarifPath, err)
+					}
+					file.Close()
+				}
 			}
 
 			if format == "sarif" {
