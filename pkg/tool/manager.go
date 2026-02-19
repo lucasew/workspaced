@@ -160,56 +160,6 @@ func findArtifact(artifacts []provider.Artifact, osName, arch string) *provider.
 	return &candidates[0]
 }
 
-func findBinaries(dir string) ([]string, error) {
-	var binaries []string
-
-	// Check root
-	rootBins, err := scanDirForBinaries(dir)
-	if err != nil {
-		return nil, err
-	}
-	binaries = append(binaries, rootBins...)
-
-	// Check bin/ subdirectory
-	binDir := filepath.Join(dir, "bin")
-	if info, err := os.Stat(binDir); err == nil && info.IsDir() {
-		subBins, err := scanDirForBinaries(binDir)
-		if err != nil {
-			return nil, err
-		}
-		binaries = append(binaries, subBins...)
-	}
-
-	return binaries, nil
-}
-
-func scanDirForBinaries(dir string) ([]string, error) {
-	var binaries []string
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-
-		// Check executable bit
-		if info.Mode()&0111 != 0 {
-			binaries = append(binaries, filepath.Join(dir, e.Name()))
-		} else if runtime.GOOS == "windows" && strings.HasSuffix(strings.ToLower(e.Name()), ".exe") {
-			binaries = append(binaries, filepath.Join(dir, e.Name()))
-		}
-	}
-	return binaries, nil
-}
-
 // normalizeVersion removes the 'v' prefix from versions for consistent storage
 func normalizeVersion(version string) string {
 	if strings.HasPrefix(version, "v") {

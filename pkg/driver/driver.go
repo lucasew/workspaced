@@ -101,24 +101,6 @@ func getInterfaceName(t reflect.Type) string {
 	return t.String()
 }
 
-// getFriendlyInterfaceName returns a user-friendly interface name for display
-func getFriendlyInterfaceName(t reflect.Type) string {
-	name := t.Name()
-	pkg := t.PkgPath()
-
-	// Extract parent package name from path (e.g., "driver" from "workspaced/pkg/driver")
-	parts := strings.Split(pkg, "/")
-	if len(parts) > 0 {
-		parentPkg := parts[len(parts)-1]
-		// If the type is in a subpackage like "dialog", include it
-		if parentPkg != "driver" && name != parentPkg {
-			return parentPkg + "." + strings.ToLower(name)
-		}
-	}
-
-	return strings.ToLower(name)
-}
-
 func Get[T any](ctx context.Context) (T, error) {
 	mu.RLock()
 	var t reflect.Type = reflect.TypeFor[T]()

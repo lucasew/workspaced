@@ -13,18 +13,24 @@ func TestFindBinary(t *testing.T) {
 	// Helper to create file
 	createFile := func(path string, mode os.FileMode) {
 		dir := filepath.Dir(path)
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 		f, err := os.Create(path)
 		if err != nil {
 			t.Fatal(err)
 		}
 		f.Close()
-		os.Chmod(path, mode)
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	t.Run("Exact match workspaced", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "exact")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 		createFile(filepath.Join(dir, "workspaced"), 0755)
 
 		found, err := findBinary(dir)
@@ -38,7 +44,9 @@ func TestFindBinary(t *testing.T) {
 
 	t.Run("Exact match workspaced.exe", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "exact_exe")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 		createFile(filepath.Join(dir, "workspaced.exe"), 0755)
 
 		found, err := findBinary(dir)
@@ -52,7 +60,9 @@ func TestFindBinary(t *testing.T) {
 
 	t.Run("Match in bin/", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "in_bin")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 		createFile(filepath.Join(dir, "bin", "workspaced"), 0755)
 
 		found, err := findBinary(dir)
@@ -66,7 +76,9 @@ func TestFindBinary(t *testing.T) {
 
 	t.Run("Fallback scan single binary", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "fallback_single")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 
 		binName := "workspaced-custom"
 		if runtime.GOOS == "windows" {
@@ -88,7 +100,9 @@ func TestFindBinary(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Run("Fallback scan executable bit", func(t *testing.T) {
 			dir := filepath.Join(tmpDir, "fallback_exec")
-			os.MkdirAll(dir, 0755)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				t.Fatal(err)
+			}
 
 			createFile(filepath.Join(dir, "not_exec"), 0644)
 			createFile(filepath.Join(dir, "is_exec"), 0755) // +x
@@ -104,7 +118,9 @@ func TestFindBinary(t *testing.T) {
 	} else {
 		t.Run("Fallback scan exe extension", func(t *testing.T) {
 			dir := filepath.Join(tmpDir, "fallback_exe_ext")
-			os.MkdirAll(dir, 0755)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				t.Fatal(err)
+			}
 
 			createFile(filepath.Join(dir, "not_exe"), 0755)
 			createFile(filepath.Join(dir, "is_exe.exe"), 0755)
@@ -121,7 +137,9 @@ func TestFindBinary(t *testing.T) {
 
 	t.Run("No binary found", func(t *testing.T) {
 		dir := filepath.Join(tmpDir, "none")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
 		createFile(filepath.Join(dir, "README.md"), 0644)
 
 		_, err := findBinary(dir)

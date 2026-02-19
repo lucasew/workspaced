@@ -207,8 +207,14 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 		slog.Debug("downloading directly", "url", artifact.URL)
 		// Fallback to direct download
 		// Reset file position
-		outFile.Seek(0, 0)
-		outFile.Truncate(0)
+		if _, err := outFile.Seek(0, 0); err != nil {
+			outFile.Close()
+			return fmt.Errorf("failed to seek file: %w", err)
+		}
+		if err := outFile.Truncate(0); err != nil {
+			outFile.Close()
+			return fmt.Errorf("failed to truncate file: %w", err)
+		}
 
 		req, err := http.NewRequestWithContext(ctx, "GET", artifact.URL, nil)
 		if err != nil {
@@ -368,7 +374,9 @@ func unzip(src, dest string) error {
 		}
 
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, os.ModePerm)
+			if err := os.MkdirAll(fpath, os.ModePerm); err != nil {
+				return err
+			}
 			continue
 		}
 
@@ -398,7 +406,9 @@ func unzip(src, dest string) error {
 
 		// Restore permissions (especially execute bit)
 		if f.Mode()&0111 != 0 {
-			os.Chmod(fpath, f.Mode())
+			if err := os.Chmod(fpath, f.Mode()); err != nil {
+				return fmt.Errorf("failed to set permissions: %w", err)
+			}
 		}
 	}
 	return nil
@@ -430,7 +440,9 @@ func stripTopLevelDir(destPath string) error {
 	// Move contents of temp dir to destPath
 	tempEntries, err := os.ReadDir(tempDir)
 	if err != nil {
-		os.Rename(tempDir, singleDir) // Try to restore
+		if err := os.Rename(tempDir, singleDir); err != nil { // Try to restore
+			slog.Error("failed to restore directory structure", "error", err)
+		}
 		return err
 	}
 
@@ -497,7 +509,9 @@ func untargz(src, dest string) error {
 
 			// Explicitly restore permissions (including execute bit)
 			if header.Mode&0111 != 0 {
-				os.Chmod(target, os.FileMode(header.Mode))
+				if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
+					return fmt.Errorf("failed to set permissions: %w", err)
+				}
 			}
 		}
 	}
