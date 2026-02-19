@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	pkgexec "workspaced/pkg/driver/exec"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
 
@@ -15,7 +14,7 @@ import (
 )
 
 // Provider implements the lint.Linter interface for Go projects.
-// It executes 'golangci-lint' using the configured exec driver and parses its SARIF output.
+// It executes 'golangci-lint' using the workspaced tool system.
 type Provider struct{}
 
 // New creates a new GolangCI-Lint provider.
@@ -32,23 +31,22 @@ func (p *Provider) Name() string {
 }
 
 func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
-	// Applies if go.mod exists AND mise is available
+	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
 		return false, nil
 	}
-
-	_, err := pkgexec.Which(ctx, "mise")
-	return err == nil, nil
+	return true, nil
 }
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
-	// Execute via mise: mise exec -- golangci-lint run --out-format=sarif --issues-exit-code=0
-	// We use --issues-exit-code=0 so that lint issues don't cause the command to fail with exit code 1.
-	// Only configuration errors or execution failures will return non-zero exit codes.
-	cmd, err := tool.RunTool(ctx, "github:golangci/golangci-lint", "golangci-lint", "run", "--output.sarif.path=stdout", "--issues-exit-code=0")
+	// Use tool.EnsureAndRun to execute golangci-lint.
+	// This automatically handles installation and version resolution.
+	cmd, err := tool.EnsureAndRun(ctx, "github:golangci/golangci-lint@latest", "golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
 	if err != nil {
+		slog.Error("failed to setup golangci-lint", "err", err)
 		return nil, err
 	}
+
 	cmd.Dir = dir
 
 	var stdout, stderr bytes.Buffer
@@ -56,19 +54,16 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		// Since we used --issues-exit-code=0, any error here is a real execution failure
 		slog.Error("golangci-lint execution failed", "err", err, "stderr", stderr.String())
 		return nil, err
 	}
 
 	// Parse SARIF output
-
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
 		return nil, err
 	}
 
-	// golangci-lint produces one run per execution
 	if len(report.Runs) > 0 {
 		return report.Runs[0], nil
 	}
