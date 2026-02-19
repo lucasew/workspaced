@@ -1,5 +1,7 @@
 # Workspaced Development
 
+This file consolidates project conventions and guidelines.
+
 ## Overview
 User configs/dotfiles in `config/`. Settings in `settings.toml`. Templates use `{{ .Field }}` syntax.
 - **⚠️ CRITICAL**: See `TEMPLATES.md` for complete template system documentation (5 types: static, simple, multi-file, index, .d.tmpl)
