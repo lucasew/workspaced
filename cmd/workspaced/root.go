@@ -3,6 +3,7 @@ package main
 import (
 	"log/slog"
 	"os"
+	"workspaced/cmd/workspaced/codebase"
 	"workspaced/cmd/workspaced/daemon"
 	"workspaced/cmd/workspaced/dispatch"
 	"workspaced/cmd/workspaced/history"
@@ -55,6 +56,7 @@ func main() {
 	cmd.AddCommand(is.GetCommand())
 	cmd.AddCommand(svc.NewCommand())
 	cmd.AddCommand(toolcmd.NewCommand())
+	cmd.AddCommand(codebase.NewCommand())
 
 	// Installation and setup
 	cmd.AddCommand(selfinstall.NewCommand())

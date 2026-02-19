@@ -14,7 +14,10 @@ require (
 	modernc.org/sqlite v1.44.3
 )
 
-require github.com/shogo82148/go-sfv v0.3.3 // indirect
+require (
+	github.com/owenrumney/go-sarif/v2 v2.3.3 // indirect
+	github.com/shogo82148/go-sfv v0.3.3 // indirect
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
