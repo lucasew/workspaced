@@ -204,17 +204,17 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	}
 
 	// Find the workspaced binary in tmpDir
-	workspacedBin := filepath.Join(tmpDir, "workspaced")
-	if _, err := os.Stat(workspacedBin); err != nil {
-		// Try bin/ subdirectory
-		workspacedBin = filepath.Join(tmpDir, "bin", "workspaced")
-		if _, err := os.Stat(workspacedBin); err != nil {
-			return fmt.Errorf("workspaced binary not found in downloaded archive")
-		}
+	workspacedBin, err := findBinary(tmpDir)
+	if err != nil {
+		return fmt.Errorf("workspaced binary not found in downloaded archive: %w", err)
 	}
 
 	// Move to final location
-	installPath := filepath.Join(installDir, "workspaced")
+	targetName := "workspaced"
+	if runtime.GOOS == "windows" {
+		targetName = "workspaced.exe"
+	}
+	installPath := filepath.Join(installDir, targetName)
 	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return err
 	}
@@ -238,6 +238,81 @@ func findMatchingArtifact(artifacts []provider.Artifact, os, arch string) *provi
 		}
 	}
 	return nil
+}
+
+func findBinary(dir string) (string, error) {
+	// 1. Check standard names (strict first)
+	targets := []string{"workspaced", "workspaced.exe"}
+	for _, t := range targets {
+		path := filepath.Join(dir, t)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+		// Check bin/ subdirectory
+		path = filepath.Join(dir, "bin", t)
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+
+	// 2. Scan for any executable-looking file
+	// This fallback handles cases where:
+	// - Binary has a suffix (e.g. workspaced-linux-amd64) and extraction didn't rename it
+	// - Binary name is different from expected
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", err
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Ignore common non-binary files
+		if strings.HasPrefix(name, ".") ||
+			strings.HasSuffix(name, ".sha256") ||
+			strings.HasSuffix(name, ".md") ||
+			strings.HasSuffix(name, ".txt") ||
+			name == "LICENSE" {
+			continue
+		}
+
+		// On Unix, check executable bit
+		if runtime.GOOS != "windows" {
+			info, err := e.Info()
+			if err == nil && info.Mode()&0111 != 0 {
+				return filepath.Join(dir, name), nil
+			}
+		} else {
+			// On Windows, check extension
+			if strings.HasSuffix(strings.ToLower(name), ".exe") {
+				return filepath.Join(dir, name), nil
+			}
+		}
+	}
+
+	// 3. Last resort: if there is only one file and it's not excluded above, pick it
+	// This covers Linux binaries that might not have +x set yet (though they should)
+	var candidates []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			name := e.Name()
+			if !strings.HasPrefix(name, ".") &&
+				!strings.HasSuffix(name, ".sha256") &&
+				!strings.HasSuffix(name, ".md") &&
+				!strings.HasSuffix(name, ".txt") &&
+				name != "LICENSE" {
+				candidates = append(candidates, filepath.Join(dir, name))
+			}
+		}
+	}
+
+	if len(candidates) == 1 {
+		return candidates[0], nil
+	}
+
+	return "", fmt.Errorf("no binary found in %s", dir)
 }
 
 // ============================================================================
