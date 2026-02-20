@@ -15,6 +15,6 @@ func NewCommand() *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 
 }

@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "wallpaper",
 		Short: "Wallpaper management",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

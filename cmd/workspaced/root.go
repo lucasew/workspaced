@@ -53,7 +53,7 @@ func main() {
 	cmd.AddCommand(system.NewCommand())
 	cmd.AddCommand(state.NewCommand())
 	cmd.AddCommand(history.NewCommand())
-	cmd.AddCommand(is.GetCommand())
+	cmd.AddCommand(is.NewCommand())
 	cmd.AddCommand(svc.NewCommand())
 	cmd.AddCommand(toolcmd.NewCommand())
 	cmd.AddCommand(codebase.NewCommand())

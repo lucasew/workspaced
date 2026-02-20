@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "power",
 		Short: "Power management commands",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

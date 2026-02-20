@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "brightness",
 		Short: "Control screen brightness",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

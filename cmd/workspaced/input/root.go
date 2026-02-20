@@ -78,5 +78,5 @@ func NewCommand() *cobra.Command {
 		},
 	})
 
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

@@ -14,5 +14,5 @@ func GetCommand() *cobra.Command {
 		Short: "Workspace management commands",
 	}
 	cmd.PersistentFlags().Bool("move", false, "Move container to workspace")
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

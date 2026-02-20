@@ -8,10 +8,10 @@ import (
 
 var Registry registry.CommandRegistry
 
-func GetCommand() *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "is",
 		Short: "Environment detection commands",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

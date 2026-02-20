@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "nix",
 		Short: "Nix operations",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

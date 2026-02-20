@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "screen",
 		Short: "Screen and power management",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

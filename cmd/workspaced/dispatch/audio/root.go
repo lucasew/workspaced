@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "audio",
 		Short: "Control audio volume",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

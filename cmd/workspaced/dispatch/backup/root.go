@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "backup",
 		Short: "Data backup and synchronization",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

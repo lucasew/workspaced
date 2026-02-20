@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "media",
 		Short: "Control media playback",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

@@ -19,10 +19,10 @@ func (r *CommandRegistry) Register(f RegisterFunc) {
 	r.builders = append(r.builders, f)
 }
 
-// GetCommand applies all registered builder functions to the base command.
+// FillCommands applies all registered builder functions to the base command.
 // It iterates through all registered functions, allowing them to attach their
 // respective subcommands to the 'base' command.
-func (r *CommandRegistry) GetCommand(base *cobra.Command) *cobra.Command {
+func (r *CommandRegistry) FillCommands(base *cobra.Command) *cobra.Command {
 	for _, build := range r.builders {
 		build(base)
 	}

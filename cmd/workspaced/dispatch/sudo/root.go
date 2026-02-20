@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "sudo",
 		Short: "Manage pending privileged commands",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

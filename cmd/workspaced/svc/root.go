@@ -14,5 +14,5 @@ func NewCommand() *cobra.Command {
 		Short: "Background services",
 	}
 
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

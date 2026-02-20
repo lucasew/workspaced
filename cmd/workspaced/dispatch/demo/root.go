@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "demo",
 		Short: "Demo commands",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }

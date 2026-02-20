@@ -13,5 +13,5 @@ func GetCommand() *cobra.Command {
 		Use:   "screenshot",
 		Short: "Screen capture management",
 	}
-	return Registry.GetCommand(cmd)
+	return Registry.FillCommands(cmd)
 }
