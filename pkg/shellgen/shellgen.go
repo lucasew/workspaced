@@ -91,7 +91,7 @@ func Generate() (string, error) {
 
 	var output strings.Builder
 	for _, key := range keys {
-		output.WriteString(fmt.Sprintf("# Generated: %s\n", key))
+		fmt.Fprintf(&output, "# Generated: %s\n", key)
 		output.WriteString(resultMap[key])
 		if !strings.HasSuffix(resultMap[key], "\n") {
 			output.WriteString("\n")

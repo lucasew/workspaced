@@ -64,7 +64,7 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 
 	for _, path := range paths {
 		settings := rawDconf[path]
-		sb.WriteString(fmt.Sprintf("[%s]\n", path))
+		fmt.Fprintf(&sb, "[%s]\n", path)
 
 		keys := make([]string, 0, len(settings))
 		for key := range settings {
@@ -74,7 +74,7 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 
 		for _, key := range keys {
 			value := settings[key]
-			sb.WriteString(fmt.Sprintf("%s=%s\n", key, formatDconfValue(value)))
+			fmt.Fprintf(&sb, "%s=%s\n", key, formatDconfValue(value))
 		}
 		sb.WriteString("\n")
 	}

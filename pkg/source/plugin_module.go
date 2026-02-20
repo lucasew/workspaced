@@ -76,7 +76,7 @@ func (p *ModuleScannerPlugin) validateConfig(ctx context.Context, modName string
 	if !result.Valid() {
 		var errs strings.Builder
 		for _, desc := range result.Errors() {
-			errs.WriteString(fmt.Sprintf("- %s\n", desc))
+			fmt.Fprintf(&errs, "- %s\n", desc)
 		}
 		return fmt.Errorf("config validation failed for module %q:\n%s", modName, errs.String())
 	}
