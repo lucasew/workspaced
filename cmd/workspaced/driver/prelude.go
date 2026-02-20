@@ -4,6 +4,7 @@ package driver
 import (
 	pkg_audio "workspaced/cmd/workspaced/driver/audio"
 	pkg_brightness "workspaced/cmd/workspaced/driver/brightness"
+	pkg_doctor "workspaced/cmd/workspaced/driver/doctor"
 	pkg_input "workspaced/cmd/workspaced/driver/input"
 	pkg_media "workspaced/cmd/workspaced/driver/media"
 	pkg_notification "workspaced/cmd/workspaced/driver/notification"
@@ -19,6 +20,7 @@ import (
 func init() {
 	Registry.FromGetter(pkg_audio.GetCommand)
 	Registry.FromGetter(pkg_brightness.GetCommand)
+	Registry.FromGetter(pkg_doctor.GetCommand)
 	Registry.FromGetter(pkg_input.GetCommand)
 	Registry.FromGetter(pkg_media.GetCommand)
 	Registry.FromGetter(pkg_notification.GetCommand)

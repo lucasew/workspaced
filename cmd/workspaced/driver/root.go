@@ -13,5 +13,6 @@ func GetCommand() *cobra.Command {
 		Use:   "driver",
 		Short: "Commands to interact with drivers",
 	}
+	Registry.FillCommands(cmd)
 	return cmd
 }
