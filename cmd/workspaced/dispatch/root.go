@@ -14,7 +14,7 @@ import (
 	"workspaced/cmd/workspaced/dispatch/backup"
 	"workspaced/cmd/workspaced/dispatch/brightness"
 	"workspaced/cmd/workspaced/dispatch/config"
-	"workspaced/cmd/workspaced/dispatch/doctor"
+
 	"workspaced/cmd/workspaced/dispatch/history"
 	"workspaced/cmd/workspaced/dispatch/nix"
 	"workspaced/cmd/workspaced/dispatch/notification"
@@ -121,7 +121,6 @@ func GetCommand() *cobra.Command {
 	cmd.AddCommand(backup.GetCommand())
 	cmd.AddCommand(brightness.GetCommand())
 	cmd.AddCommand(config.GetCommand())
-	cmd.AddCommand(doctor.Command)
 	cmd.AddCommand(history.GetCommand())
 
 	cmd.AddCommand(nix.GetCommand())

@@ -6,6 +6,7 @@ import (
 	"workspaced/cmd/workspaced/codebase"
 	"workspaced/cmd/workspaced/daemon"
 	"workspaced/cmd/workspaced/dispatch"
+	"workspaced/cmd/workspaced/doctor"
 	"workspaced/cmd/workspaced/history"
 	initcmd "workspaced/cmd/workspaced/init"
 	"workspaced/cmd/workspaced/input"
@@ -56,6 +57,7 @@ func main() {
 	cmd.AddCommand(svc.GetCommand())
 	cmd.AddCommand(toolcmd.GetCommand())
 	cmd.AddCommand(codebase.GetCommand())
+	cmd.AddCommand(doctor.GetCommand())
 
 	// Installation and setup
 	cmd.AddCommand(selfinstall.GetCommand())
