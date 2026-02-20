@@ -36,9 +36,6 @@ func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
 		return false, nil
 	}
-	if exec.IsBinaryAvailable(ctx, "govulncheck") {
-		return true, nil
-	}
 	if exec.IsBinaryAvailable(ctx, "go") {
 		return true, nil
 	}
@@ -46,9 +43,6 @@ func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
 }
 
 func (p *Provider) getCommand(ctx context.Context, dir string) (*stdexec.Cmd, error) {
-	if exec.IsBinaryAvailable(ctx, "govulncheck") {
-		return exec.Run(ctx, "govulncheck", "--format", "sarif", "./...")
-	}
 	if exec.IsBinaryAvailable(ctx, "go") {
 		return exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@latest", "--format", "sarif", "./...")
 	}
