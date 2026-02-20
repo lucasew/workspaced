@@ -1,4 +1,4 @@
-package home
+package driver
 
 import (
 	"workspaced/pkg/registry"
@@ -10,9 +10,8 @@ var Registry registry.CommandRegistry
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "home",
-		Short: "Dotfiles and system state management",
+		Use:   "driver",
+		Short: "Commands to interact with drivers",
 	}
-	Registry.FillCommands(cmd)
 	return cmd
 }

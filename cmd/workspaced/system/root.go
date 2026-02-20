@@ -1,24 +1,14 @@
 package system
 
 import (
-	"workspaced/cmd/workspaced/system/screenshot"
-	"workspaced/cmd/workspaced/system/workspace"
-
 	"github.com/spf13/cobra"
 )
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "system",
-		Short: "System and hardware management commands",
+		Short: "To be defined. System apply tools.",
 	}
-
-	cmd.AddCommand(newAudioCommand())
-	cmd.AddCommand(newBrightnessCommand())
-	cmd.AddCommand(newPowerCommand())
-	cmd.AddCommand(newScreenCommand())
-	cmd.AddCommand(screenshot.GetCommand())
-	cmd.AddCommand(workspace.GetCommand())
-
 	return cmd
+
 }

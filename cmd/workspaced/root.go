@@ -3,27 +3,16 @@ package main
 import (
 	"log/slog"
 	"os"
-	"workspaced/cmd/workspaced/codebase"
-	"workspaced/cmd/workspaced/daemon"
 
-	"workspaced/cmd/workspaced/doctor"
-
-	initcmd "workspaced/cmd/workspaced/init"
-	"workspaced/cmd/workspaced/input"
-	"workspaced/cmd/workspaced/is"
-	"workspaced/cmd/workspaced/open"
-	"workspaced/cmd/workspaced/selfinstall"
-	"workspaced/cmd/workspaced/selfupdate"
-
-	"workspaced/cmd/workspaced/svc"
-	"workspaced/cmd/workspaced/system"
-	toolcmd "workspaced/cmd/workspaced/tool"
 	"workspaced/pkg/config"
+	"workspaced/pkg/registry"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
 )
+
+var Registry registry.CommandRegistry
 
 func main() {
 	// Load config early to set driver weights
@@ -46,25 +35,7 @@ func main() {
 
 	// Global flags
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug logging")
-
-	// Main Command Groups
-	cmd.AddCommand(input.GetCommand())
-	cmd.AddCommand(open.GetCommand())
-	cmd.AddCommand(system.GetCommand())
-
-	cmd.AddCommand(is.GetCommand())
-	cmd.AddCommand(svc.GetCommand())
-	cmd.AddCommand(toolcmd.GetCommand())
-	cmd.AddCommand(codebase.GetCommand())
-	cmd.AddCommand(doctor.GetCommand())
-
-	// Installation and setup
-	cmd.AddCommand(selfinstall.GetCommand())
-	cmd.AddCommand(selfupdate.GetCommand())
-	cmd.AddCommand(initcmd.GetCommand())
-
-	// Daemon and Internal
-	cmd.AddCommand(daemon.Command)
+	Registry.FillCommands(cmd)
 
 	// Set root command for shell completion generation
 	shellgen.SetRootCommand(cmd)

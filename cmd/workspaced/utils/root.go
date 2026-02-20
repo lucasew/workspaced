@@ -10,15 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"workspaced/cmd/workspaced/open"
-	"workspaced/cmd/workspaced/system/screenshot"
-	"workspaced/cmd/workspaced/system/workspace"
-	"workspaced/cmd/workspaced/utils/backup"
-	"workspaced/cmd/workspaced/utils/history"
-	"workspaced/cmd/workspaced/utils/palette"
-	"workspaced/cmd/workspaced/utils/shell"
-	"workspaced/cmd/workspaced/utils/template"
 	"workspaced/pkg/executil"
+	"workspaced/pkg/registry"
 	"workspaced/pkg/types"
 
 	_ "workspaced/pkg/driver/prelude"
@@ -28,21 +21,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Registry registry.CommandRegistry
+
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:              "dispatch",
 		Short:            "Dispatch workspace commands",
 		TraverseChildren: true,
 	}
-
-	cmd.AddCommand(backup.GetCommand())
-	cmd.AddCommand(history.GetCommand())
-	cmd.AddCommand(open.GetCommand())
-	cmd.AddCommand(palette.GetCommand())
-	cmd.AddCommand(screenshot.GetCommand())
-	cmd.AddCommand(shell.GetCommand())
-	cmd.AddCommand(template.GetCommand())
-	cmd.AddCommand(workspace.GetCommand())
+	Registry.FillCommands(cmd)
 
 	return cmd
 }
