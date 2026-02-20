@@ -6,12 +6,15 @@ import (
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "codebase",
-		Short: "Tools for analyzing and managing codebases",
+		Use:                "codebase",
+		Short:              "Tools for analyzing and managing codebases",
+		DisableFlagParsing: true,
+		SilenceUsage:       true,
 	}
 
 	cmd.AddCommand(newLintCommand())
 	cmd.AddCommand(newFormatCommand())
+	cmd.AddCommand(newCiStatusCommand())
 
 	return cmd
 }
