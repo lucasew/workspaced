@@ -109,11 +109,12 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	var cmd *os_exec.Cmd
 	var err error
 
-	if exec.IsBinaryAvailable(ctx, "node") {
+	switch {
+	case exec.IsBinaryAvailable(ctx, "node"):
 		cmd, err = exec.Run(ctx, binPath, "-f", "json", ".")
-	} else if exec.IsBinaryAvailable(ctx, "bun") {
+	case exec.IsBinaryAvailable(ctx, "bun"):
 		cmd, err = exec.Run(ctx, "bun", "run", "--bun", binPath, "-f", "json", ".")
-	} else {
+	default:
 		return nil, ErrBinaryNotFound
 	}
 
