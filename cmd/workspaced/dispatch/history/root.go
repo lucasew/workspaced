@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -212,11 +213,11 @@ func GetCommand() *cobra.Command {
 			}
 
 			if len(events) == 0 {
-				fmt.Println("No events to ingest")
+				slog.Info("no events to ingest")
 				return nil
 			}
 
-			fmt.Printf("Ingesting %d events...\n", len(events))
+			slog.Info("ingesting events", "count", len(events))
 			return database.BatchRecordHistory(c.Context(), events)
 		},
 	})

@@ -3,6 +3,7 @@ package svc
 import (
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/battery"
@@ -38,7 +39,7 @@ func init() {
 							continue
 						}
 						if status == battery.Discharging {
-							fmt.Print("\aAi!")
+							fmt.Fprint(os.Stderr, "\aAi!")
 						}
 					}
 				}

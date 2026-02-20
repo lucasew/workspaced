@@ -63,7 +63,7 @@ func (d *Driver) Choose(ctx context.Context, opts dialog.ChooseOptions) (*dialog
 }
 
 func (d *Driver) Prompt(ctx context.Context, prompt string) (string, error) {
-	fmt.Printf("%s: ", prompt)
+	fmt.Fprintf(os.Stderr, "%s: ", prompt)
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {
 		return strings.TrimSpace(scanner.Text()), nil
@@ -72,7 +72,7 @@ func (d *Driver) Prompt(ctx context.Context, prompt string) (string, error) {
 }
 
 func (d *Driver) Confirm(ctx context.Context, message string) (bool, error) {
-	fmt.Printf("%s [y/N]: ", message)
+	fmt.Fprintf(os.Stderr, "%s [y/N]: ", message)
 	scanner := bufio.NewScanner(os.Stdin)
 	if scanner.Scan() {
 		text := strings.ToLower(strings.TrimSpace(scanner.Text()))

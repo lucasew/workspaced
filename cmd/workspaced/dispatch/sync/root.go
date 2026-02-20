@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
@@ -23,7 +24,7 @@ func GetCommand() *cobra.Command {
 			}
 
 			// 1. Git pull
-			fmt.Println("==> Pulling dotfiles changes...")
+			slog.Info("pulling dotfiles changes")
 			pullCmd := execdriver.MustRun(ctx, "git", "-C", root, "pull")
 			pullCmd.Stdout = os.Stdout
 			pullCmd.Stderr = os.Stderr

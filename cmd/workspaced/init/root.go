@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -58,12 +59,12 @@ func runInit(force bool) error {
 		if dotfilesRoot == "" {
 			dotfilesRoot = filepath.Join(home, ".dotfiles") // Absolute fallback
 		}
-		fmt.Printf("📁 Creating dotfiles directory: %s\n", dotfilesRoot)
+		slog.Info("creating dotfiles directory", "path", dotfilesRoot)
 		if err := os.MkdirAll(dotfilesRoot, 0755); err != nil {
 			return fmt.Errorf("failed to create dotfiles directory: %w", err)
 		}
 	} else {
-		fmt.Printf("📁 Using dotfiles directory: %s\n", dotfilesRoot)
+		slog.Info("using dotfiles directory", "path", dotfilesRoot)
 	}
 
 	// 2. Generate config from template
@@ -74,26 +75,26 @@ func runInit(force bool) error {
 		}
 	}
 
-	fmt.Printf("\n📝 Generating config from template...\n")
+	slog.Info("generating config from template")
 	if err := generateConfig(configPath); err != nil {
 		return fmt.Errorf("failed to generate config: %w", err)
 	}
-	fmt.Printf("   ✓ Config created: %s\n", configPath)
+	slog.Info("config created", "path", configPath)
 
 	// 3. Copy modules
-	fmt.Printf("\n📦 Installing example module...\n")
+	slog.Info("installing example module")
 	modulesDir := filepath.Join(dotfilesRoot, "modules")
 	if err := copyEmbeddedModules(modulesDir); err != nil {
 		return fmt.Errorf("failed to copy modules: %w", err)
 	}
-	fmt.Printf("   ✓ Modules installed: %s\n", modulesDir)
+	slog.Info("modules installed", "path", modulesDir)
 
 	// 4. Success message
-	fmt.Printf("\n✅ Initialization complete!\n\n")
-	fmt.Printf("Next steps:\n")
-	fmt.Printf("  1. Edit config: %s\n", configPath)
-	fmt.Printf("  2. Review example module: %s\n", filepath.Join(modulesDir, "example"))
-	fmt.Printf("  3. Apply config: workspaced apply\n")
+	slog.Info("initialization complete")
+	fmt.Fprintf(os.Stderr, "Next steps:\n")
+	fmt.Fprintf(os.Stderr, "  1. Edit config: %s\n", configPath)
+	fmt.Fprintf(os.Stderr, "  2. Review example module: %s\n", filepath.Join(modulesDir, "example"))
+	fmt.Fprintf(os.Stderr, "  3. Apply config: workspaced apply\n")
 
 	return nil
 }

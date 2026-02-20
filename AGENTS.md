@@ -54,3 +54,10 @@ When adding new config fields to `pkg/config/config.go`:
   - `New()`: Create instance
 - Use `workspaced doctor` to see all drivers and their status
 - Configure driver weights in `settings.toml` under `[driver.weights]`
+
+## Logging & Output
+- **Stdout vs Stderr**:
+  - **Stdout**: Reserved strictly for machine-readable output (JSON, tables, piped data) or the primary result of a command (e.g. `history search`).
+  - **Stderr**: All other output including logs, status messages, progress bars, interactive prompts, and instructions.
+- **slog**: Use `log/slog` for all structured logging (info, warn, error). Avoid `fmt.Printf` for logs.
+- **Human-facing Output**: For instructions or prompts that are not logs, use `fmt.Fprint(os.Stderr, ...)`.
