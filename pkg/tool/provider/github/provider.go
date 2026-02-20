@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -299,6 +300,8 @@ func extract(src, dest string) error {
 		return unzip(src, dest)
 	} else if strings.HasSuffix(src, ".tar.gz") || strings.HasSuffix(src, ".tgz") {
 		return untargz(src, dest)
+	} else if strings.HasSuffix(src, ".tar.xz") || strings.HasSuffix(src, ".txz") {
+		return untarxz(src, dest)
 	}
 
 	// Assume binary
@@ -410,6 +413,19 @@ func unzip(src, dest string) error {
 				return fmt.Errorf("failed to set permissions: %w", err)
 			}
 		}
+	}
+	return nil
+}
+
+func untarxz(src, dest string) error {
+	// Ensure destination directory exists
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return err
+	}
+
+	cmd := exec.Command("tar", "-xf", src, "-C", dest)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("tar xf failed: %s: %w", string(output), err)
 	}
 	return nil
 }

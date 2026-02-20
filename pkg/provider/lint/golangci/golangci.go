@@ -41,7 +41,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute golangci-lint.
 	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRun(ctx, "github:golangci/golangci-lint@latest", "golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
+	cmd, err := tool.EnsureAndRun(ctx, "github:golangci/golangci-lint@v1.64.6", "golangci-lint", "run", "--out-format=sarif", "--issues-exit-code=0")
 	if err != nil {
 		slog.Error("failed to setup golangci-lint", "err", err)
 		return nil, err
