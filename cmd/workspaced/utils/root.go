@@ -25,8 +25,8 @@ var Registry registry.CommandRegistry
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:              "dispatch",
-		Short:            "Dispatch workspace commands",
+		Use:              "utils",
+		Short:            "Miscelaneous commands that are not necessarily related to a driver",
 		TraverseChildren: true,
 	}
 	Registry.FillCommands(cmd)
