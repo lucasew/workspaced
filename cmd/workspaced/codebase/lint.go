@@ -14,37 +14,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newLintCommand() *cobra.Command {
-	var format string
+func init() {
+	Registry.Register(func(c *cobra.Command) {
+		var format string
 
-	cmd := &cobra.Command{
-		Use:   "lint [path]",
-		Short: "Run linters on the specified path (defaults to current directory)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := os.Getwd()
-			if err != nil {
-				return err
-			}
-			if len(args) > 0 {
-				path = args[0]
-			}
+		cmd := &cobra.Command{
+			Use:   "lint [path]",
+			Short: "Run linters on the specified path (defaults to current directory)",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				path, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				if len(args) > 0 {
+					path = args[0]
+				}
 
-			// Run analysis using all registered linters
-			report, err := lint.RunAll(cmd.Context(), path)
-			if err != nil {
-				return err
-			}
+				// Run analysis using all registered linters
+				report, err := lint.RunAll(cmd.Context(), path)
+				if err != nil {
+					return err
+				}
 
-			// Check for CI environment variables to save SARIF report
-			saveSarifToCI(report)
+				// Check for CI environment variables to save SARIF report
+				saveSarifToCI(report)
 
-			return printReport(report, format)
-		},
-	}
+				return printReport(report, format)
+			},
+		}
 
-	cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (table, sarif)")
+		cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (table, sarif)")
 
-	return cmd
+		c.AddCommand(cmd)
+	})
 }
 
 func saveSarifToCI(report *sarif.Report) {

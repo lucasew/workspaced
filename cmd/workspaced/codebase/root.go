@@ -1,8 +1,12 @@
 package codebase
 
 import (
+	"workspaced/pkg/registry"
+
 	"github.com/spf13/cobra"
 )
+
+var Registry registry.CommandRegistry
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
@@ -11,10 +15,6 @@ func NewCommand() *cobra.Command {
 		DisableFlagParsing: true,
 		SilenceUsage:       true,
 	}
+	return Registry.GetCommand(cmd)
 
-	cmd.AddCommand(newLintCommand())
-	cmd.AddCommand(newFormatCommand())
-	cmd.AddCommand(newCiStatusCommand())
-
-	return cmd
 }
