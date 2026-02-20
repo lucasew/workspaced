@@ -18,7 +18,6 @@ import (
 	"workspaced/cmd/workspaced/system"
 	toolcmd "workspaced/cmd/workspaced/tool"
 	"workspaced/pkg/config"
-	"workspaced/pkg/driver/media"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/version"
 
@@ -48,66 +47,27 @@ func main() {
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug logging")
 
 	// Main Command Groups
-	cmd.AddCommand(input.NewCommand())
-	cmd.AddCommand(open.NewCommand())
-	cmd.AddCommand(system.NewCommand())
-	cmd.AddCommand(state.NewCommand())
-	cmd.AddCommand(history.NewCommand())
-	cmd.AddCommand(is.NewCommand())
-	cmd.AddCommand(svc.NewCommand())
-	cmd.AddCommand(toolcmd.NewCommand())
-	cmd.AddCommand(codebase.NewCommand())
+	cmd.AddCommand(input.GetCommand())
+	cmd.AddCommand(open.GetCommand())
+	cmd.AddCommand(system.GetCommand())
+	cmd.AddCommand(state.GetCommand())
+	cmd.AddCommand(history.GetCommand())
+	cmd.AddCommand(is.GetCommand())
+	cmd.AddCommand(svc.GetCommand())
+	cmd.AddCommand(toolcmd.GetCommand())
+	cmd.AddCommand(codebase.GetCommand())
 
 	// Installation and setup
-	cmd.AddCommand(selfinstall.NewCommand())
-	cmd.AddCommand(selfupdate.NewCommand())
-	cmd.AddCommand(initcmd.NewCommand())
+	cmd.AddCommand(selfinstall.GetCommand())
+	cmd.AddCommand(selfupdate.GetCommand())
+	cmd.AddCommand(initcmd.GetCommand())
 
-	// Top-level aliases for daily ergonomic
-	stateCmd := state.NewCommand()
-	for _, c := range stateCmd.Commands() {
-		if c.Name() == "apply" || c.Name() == "plan" || c.Name() == "sync" || c.Name() == "doctor" {
-			cmd.AddCommand(c)
-		}
-	}
-	historyCmd := history.NewCommand()
-	for _, c := range historyCmd.Commands() {
-		if c.Name() == "search" {
-			cmd.AddCommand(c)
-		}
-	}
+	cmd.AddCommand(state.GetCommand())
+	cmd.AddCommand(history.GetCommand())
 
 	// Daemon and Internal
 	cmd.AddCommand(daemon.Command)
-	cmd.AddCommand(dispatch.NewCommand()) // Keep hidden or for internal use
-
-	// Media shortcuts (still very common)
-	mediaCmd := &cobra.Command{
-		Use:   "media",
-		Short: "Media player control",
-	}
-	mediaCmd.AddCommand(&cobra.Command{
-		Use:   "next",
-		Short: "Next track",
-		RunE: func(c *cobra.Command, args []string) error {
-			return media.RunAction(c.Context(), "next")
-		},
-	})
-	mediaCmd.AddCommand(&cobra.Command{
-		Use:   "previous",
-		Short: "Previous track",
-		RunE: func(c *cobra.Command, args []string) error {
-			return media.RunAction(c.Context(), "previous")
-		},
-	})
-	mediaCmd.AddCommand(&cobra.Command{
-		Use:   "play-pause",
-		Short: "Toggle play/pause",
-		RunE: func(c *cobra.Command, args []string) error {
-			return media.RunAction(c.Context(), "play-pause")
-		},
-	})
-	cmd.AddCommand(mediaCmd)
+	cmd.AddCommand(dispatch.GetCommand()) // Keep hidden or for internal use
 
 	// Set root command for shell completion generation
 	shellgen.SetRootCommand(cmd)

@@ -8,7 +8,7 @@ import (
 
 var Registry registry.CommandRegistry
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "svc",
 		Short: "Background services",

@@ -19,7 +19,7 @@ import (
 //go:embed templates
 var templatesFS embed.FS
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{

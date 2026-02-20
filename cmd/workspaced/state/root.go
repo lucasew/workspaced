@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "state",
 		Short: "Dotfiles and system state management",

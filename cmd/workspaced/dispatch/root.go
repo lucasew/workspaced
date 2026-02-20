@@ -41,7 +41,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:              "dispatch",
 		Short:            "Dispatch workspace commands",
@@ -143,7 +143,7 @@ func NewCommand() *cobra.Command {
 }
 
 func FindCommand(name string, args []string) (*cobra.Command, []string, error) {
-	return NewCommand().Find(append([]string{name}, args...))
+	return GetCommand().Find(append([]string{name}, args...))
 }
 
 func getSocketPath() string {

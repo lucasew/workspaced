@@ -28,7 +28,7 @@ import (
 // Command
 // ============================================================================
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	var force bool
 
 	cmd := &cobra.Command{

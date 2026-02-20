@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "system",
 		Short: "System and hardware management commands",

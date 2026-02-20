@@ -10,7 +10,7 @@ import (
 
 var Registry registry.CommandRegistry
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "input",
 		Short: "Interactive user input commands",

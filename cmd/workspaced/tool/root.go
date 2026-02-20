@@ -1,11 +1,12 @@
 package tool
 
 import (
-	"github.com/spf13/cobra"
 	_ "workspaced/pkg/tool/prelude"
+
+	"github.com/spf13/cobra"
 )
 
-func NewCommand() *cobra.Command {
+func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tool",
 		Short: "Manage development tools",
