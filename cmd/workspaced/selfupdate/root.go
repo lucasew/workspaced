@@ -24,10 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ============================================================================
-// Command
-// ============================================================================
-
 func GetCommand() *cobra.Command {
 	var force bool
 
@@ -106,7 +102,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
 	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
-		"go", "build", "-o", installPath, "./cmd/workspaced")
+		"go", "build", "-v", "-o", installPath, "./cmd/workspaced")
 	if err != nil {
 		return err
 	}

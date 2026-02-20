@@ -11,8 +11,7 @@ import (
 )
 
 func GetCommand() *cobra.Command {
-
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "sync",
 		Short: "Pull dotfiles changes and apply them",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -22,7 +21,6 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
 
-			// 1. Git pull
 			slog.Info("==> Pulling dotfiles changes...")
 			pullCmd := execdriver.MustRun(ctx, "git", "-C", root, "pull")
 			pullCmd.Stdout = os.Stdout
@@ -31,7 +29,6 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("git pull failed: %w", err)
 			}
 
-			// 3. Execute rebuild (and optionally apply)
 			c := execdriver.MustRun(ctx, "workspaced", "self-update")
 			c.Stdout = os.Stdout
 			c.Stderr = os.Stderr
@@ -42,5 +39,4 @@ func GetCommand() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
 }
