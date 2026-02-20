@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -15,6 +16,9 @@ import (
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
+
+// ErrBinaryNotFound is returned when neither node nor bun are found in PATH.
+var ErrBinaryNotFound = errors.New("neither node nor bun found in PATH")
 
 // Provider implements the lint.Linter interface for ESLint.
 type Provider struct{}
@@ -32,35 +36,41 @@ func (p *Provider) Name() string {
 	return "eslint"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(_ context.Context, dir string) (bool, error) {
 	path := filepath.Join(dir, "node_modules", ".bin", "eslint")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return false, nil
 	}
+
 	return true, nil
 }
 
-type EslintMessage struct {
-	RuleId    string `json:"ruleId"`
+type Message struct {
+	RuleID    string `json:"ruleId"`
 	Severity  int    `json:"severity"`
 	Message   string `json:"message"`
 	Line      int    `json:"line"`
 	Column    int    `json:"column"`
 	NodeType  string `json:"nodeType"`
-	MessageId string `json:"messageId"`
+	MessageID string `json:"messageId"`
 	EndLine   int    `json:"endLine"`
 	EndColumn int    `json:"endColumn"`
 }
 
-type EslintResult struct {
-	FilePath string          `json:"filePath"`
-	Messages []EslintMessage `json:"messages"`
+type Result struct {
+	FilePath string    `json:"filePath"`
+	Messages []Message `json:"messages"`
 }
 
+const (
+	SeverityWarning = 1
+	SeverityError   = 2
+)
+
 func parseAndConvert(output []byte) (*sarif.Run, error) {
-	var results []EslintResult
+	var results []Result
 	if err := json.Unmarshal(output, &results); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal eslint output: %w", err)
 	}
 
 	run := sarif.NewRun(*sarif.NewTool(sarif.NewDriver("eslint")))
@@ -68,11 +78,11 @@ func parseAndConvert(output []byte) (*sarif.Run, error) {
 	for _, result := range results {
 		for _, msg := range result.Messages {
 			level := "warning"
-			if msg.Severity == 2 {
+			if msg.Severity == SeverityError {
 				level = "error"
 			}
 
-			sarifResult := sarif.NewRuleResult(msg.RuleId).
+			sarifResult := sarif.NewRuleResult(msg.RuleID).
 				WithMessage(sarif.NewTextMessage(msg.Message)).
 				WithLevel(level).
 				WithLocations([]*sarif.Location{
@@ -104,11 +114,11 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	} else if exec.IsBinaryAvailable(ctx, "bun") {
 		cmd, err = exec.Run(ctx, "bun", "run", "--bun", binPath, "-f", "json", ".")
 	} else {
-		return nil, fmt.Errorf("neither node nor bun found in PATH")
+		return nil, ErrBinaryNotFound
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare eslint command: %w", err)
 	}
 
 	cmd.Dir = dir
@@ -117,12 +127,11 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		var exitErr *os_exec.ExitError
 		// ESLint returns exit code 1 if errors found, which is fine if output is valid JSON.
-		// If exit code is not 0 or 1, or if stderr has critical errors, we might want to log it.
-		// But let's try parsing JSON first.
-		if _, ok := err.(*os_exec.ExitError); !ok {
+		if !errors.As(err, &exitErr) {
 			// Not an exit error (e.g. not found), return error.
-			return nil, err
+			return nil, fmt.Errorf("eslint execution failed: %w", err)
 		}
 	}
 

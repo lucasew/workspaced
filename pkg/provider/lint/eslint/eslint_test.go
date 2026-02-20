@@ -6,12 +6,12 @@ import (
 )
 
 func TestParseAndConvert(t *testing.T) {
-	input := []EslintResult{
+	input := []Result{
 		{
 			FilePath: "/path/to/file.js",
-			Messages: []EslintMessage{
+			Messages: []Message{
 				{
-					RuleId:    "no-unused-vars",
+					RuleID:    "no-unused-vars",
 					Severity:  2,
 					Message:   "Unused variable",
 					Line:      1,
@@ -20,7 +20,7 @@ func TestParseAndConvert(t *testing.T) {
 					EndColumn: 10,
 				},
 				{
-					RuleId:    "no-console",
+					RuleID:    "no-console",
 					Severity:  1,
 					Message:   "Unexpected console statement",
 					Line:      10,

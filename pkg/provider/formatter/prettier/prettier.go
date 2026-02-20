@@ -2,6 +2,7 @@ package prettier
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,9 @@ import (
 	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/provider/formatter"
 )
+
+// ErrBinaryNotFound is returned when neither node nor bun are found in PATH.
+var ErrBinaryNotFound = errors.New("neither node nor bun found in PATH")
 
 // Provider implements the formatter.Formatter interface for Prettier.
 // It executes 'prettier --write .' in the target directory.
@@ -27,12 +31,13 @@ func (p *Provider) Name() string {
 	return "prettier"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(_ context.Context, dir string) (bool, error) {
 	// Applies if node_modules/.bin/prettier exists
 	path := filepath.Join(dir, "node_modules", ".bin", "prettier")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return false, nil
 	}
+
 	return true, nil
 }
 
@@ -42,11 +47,13 @@ func (p *Provider) Format(ctx context.Context, dir string) error {
 	if exec.IsBinaryAvailable(ctx, "node") {
 		cmd, err := exec.Run(ctx, binPath, "--write", ".")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to prepare prettier command: %w", err)
 		}
+
 		cmd.Dir = dir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+
 		return cmd.Run()
 	}
 
@@ -55,13 +62,15 @@ func (p *Provider) Format(ctx context.Context, dir string) error {
 		// "bun run --bun" forces bun runtime for the script
 		cmd, err := exec.Run(ctx, "bun", "run", "--bun", binPath, "--write", ".")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to prepare prettier command with bun: %w", err)
 		}
+
 		cmd.Dir = dir
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+
 		return cmd.Run()
 	}
 
-	return fmt.Errorf("neither node nor bun found in PATH, cannot run prettier")
+	return ErrBinaryNotFound
 }
