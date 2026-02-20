@@ -44,7 +44,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
 
 func (p *Provider) getCommand(ctx context.Context, dir string) (*stdexec.Cmd, error) {
 	if exec.IsBinaryAvailable(ctx, "go") {
-		return exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@latest", "--format", "sarif", "./...")
+		return exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")
 	}
 	return nil, nil
 }
