@@ -22,6 +22,8 @@ func init() {
 				for i := 1; i <= 10; i++ {
 					percent := i * 10
 					n.Message = fmt.Sprintf("Passo %d de 10...", i)
+					n.HasProgress = true
+					n.ID = 69
 					n.Progress = float64(percent) / 100.0
 					if err := notification.Notify(ctx, n); err != nil {
 						fmt.Printf("Error sending notification: %v\n", err)
