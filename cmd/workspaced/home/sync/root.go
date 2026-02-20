@@ -11,7 +11,6 @@ import (
 )
 
 func GetCommand() *cobra.Command {
-	var rebuildOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -39,19 +38,9 @@ func GetCommand() *cobra.Command {
 			if err := c.Run(); err != nil {
 				return fmt.Errorf("command failed: %w", err)
 			}
-			if !rebuildOnly {
-				c := execdriver.MustRun(ctx, "workspaced", "home", "apply")
-				c.Stdout = os.Stdout
-				c.Stderr = os.Stderr
-				if err := c.Run(); err != nil {
-					return fmt.Errorf("command failed: %w", err)
-				}
-			}
 
 			return nil
 		},
 	}
-
-	cmd.Flags().BoolVar(&rebuildOnly, "rebuild-only", false, "Only rebuild, skip apply")
 	return cmd
 }
