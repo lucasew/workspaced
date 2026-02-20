@@ -19,6 +19,12 @@ func (r *CommandRegistry) Register(f RegisterFunc) {
 	r.builders = append(r.builders, f)
 }
 
+func (r *CommandRegistry) FromGetter(cmd func() *cobra.Command) {
+	r.Register(func(c *cobra.Command) {
+		c.AddCommand(cmd())
+	})
+}
+
 // FillCommands applies all registered builder functions to the base command.
 // It iterates through all registered functions, allowing them to attach their
 // respective subcommands to the 'base' command.
