@@ -1,17 +1,17 @@
-package state
+package home
 
 import (
-	"workspaced/cmd/workspaced/dispatch/apply"
-	"workspaced/cmd/workspaced/dispatch/config"
-	"workspaced/cmd/workspaced/dispatch/plan"
-	"workspaced/cmd/workspaced/dispatch/sync"
+	"workspaced/cmd/workspaced/home/apply"
+	"workspaced/cmd/workspaced/home/config"
+	"workspaced/cmd/workspaced/home/plan"
+	"workspaced/cmd/workspaced/home/sync"
 
 	"github.com/spf13/cobra"
 )
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "state",
+		Use:   "home",
 		Short: "Dotfiles and system state management",
 	}
 

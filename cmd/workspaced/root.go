@@ -14,7 +14,7 @@ import (
 	"workspaced/cmd/workspaced/open"
 	"workspaced/cmd/workspaced/selfinstall"
 	"workspaced/cmd/workspaced/selfupdate"
-	"workspaced/cmd/workspaced/state"
+
 	"workspaced/cmd/workspaced/svc"
 	"workspaced/cmd/workspaced/system"
 	toolcmd "workspaced/cmd/workspaced/tool"
@@ -51,7 +51,6 @@ func main() {
 	cmd.AddCommand(input.GetCommand())
 	cmd.AddCommand(open.GetCommand())
 	cmd.AddCommand(system.GetCommand())
-	cmd.AddCommand(state.GetCommand())
 	cmd.AddCommand(history.GetCommand())
 	cmd.AddCommand(is.GetCommand())
 	cmd.AddCommand(svc.GetCommand())
@@ -64,7 +63,6 @@ func main() {
 	cmd.AddCommand(selfupdate.GetCommand())
 	cmd.AddCommand(initcmd.GetCommand())
 
-	cmd.AddCommand(state.GetCommand())
 	cmd.AddCommand(history.GetCommand())
 
 	// Daemon and Internal

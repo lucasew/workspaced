@@ -9,23 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-	"workspaced/cmd/workspaced/dispatch/apply"
+
 	"workspaced/cmd/workspaced/dispatch/audio"
 	"workspaced/cmd/workspaced/dispatch/backup"
 	"workspaced/cmd/workspaced/dispatch/brightness"
-	"workspaced/cmd/workspaced/dispatch/config"
-
 	"workspaced/cmd/workspaced/dispatch/history"
 	"workspaced/cmd/workspaced/dispatch/nix"
 	"workspaced/cmd/workspaced/dispatch/notification"
 	"workspaced/cmd/workspaced/dispatch/open"
 	"workspaced/cmd/workspaced/dispatch/palette"
-	"workspaced/cmd/workspaced/dispatch/plan"
 	"workspaced/cmd/workspaced/dispatch/power"
 	"workspaced/cmd/workspaced/dispatch/screen"
 	"workspaced/cmd/workspaced/dispatch/shell"
 	"workspaced/cmd/workspaced/dispatch/sudo"
-	"workspaced/cmd/workspaced/dispatch/sync"
 	"workspaced/cmd/workspaced/dispatch/template"
 	"workspaced/cmd/workspaced/dispatch/wallpaper"
 	"workspaced/cmd/workspaced/system/screenshot"
@@ -116,24 +112,23 @@ func GetCommand() *cobra.Command {
 		return nil
 	}
 
-	cmd.AddCommand(apply.GetCommand())
 	cmd.AddCommand(audio.GetCommand())
 	cmd.AddCommand(backup.GetCommand())
 	cmd.AddCommand(brightness.GetCommand())
-	cmd.AddCommand(config.GetCommand())
+
 	cmd.AddCommand(history.GetCommand())
 
 	cmd.AddCommand(nix.GetCommand())
 	cmd.AddCommand(notification.GetCommand())
 	cmd.AddCommand(open.GetCommand())
 	cmd.AddCommand(palette.GetCommand())
-	cmd.AddCommand(plan.GetCommand())
+
 	cmd.AddCommand(power.GetCommand())
 	cmd.AddCommand(screen.GetCommand())
 	cmd.AddCommand(screenshot.GetCommand())
 	cmd.AddCommand(shell.GetCommand())
 	cmd.AddCommand(sudo.GetCommand())
-	cmd.AddCommand(sync.GetCommand())
+
 	cmd.AddCommand(template.GetCommand())
 	cmd.AddCommand(wallpaper.GetCommand())
 	cmd.AddCommand(workspace.GetCommand())
