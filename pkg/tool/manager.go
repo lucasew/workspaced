@@ -168,9 +168,7 @@ func findArtifact(artifacts []provider.Artifact, osName, arch string) *provider.
 
 // normalizeVersion removes the 'v' prefix from versions for consistent storage
 func normalizeVersion(version string) string {
-	if strings.HasPrefix(version, "v") {
-		version = version[1:]
-	}
+	version = strings.TrimPrefix(version, "v")
 	// Replace slashes with dashes to avoid nested directories
 	return strings.ReplaceAll(version, "/", "-")
 }

@@ -14,11 +14,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newWithCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "with <tool-spec> -- <command> [args...]",
-		Short: "Execute a command with a specific tool version",
-		Long: `Execute a command with a specific tool version.
+func init() {
+	Registry.FromGetter(
+		func() *cobra.Command {
+			return &cobra.Command{
+				Use:   "with <tool-spec> -- <command> [args...]",
+				Short: "Execute a command with a specific tool version",
+				Long: `Execute a command with a specific tool version.
 
 If the tool is not installed, it will be installed automatically.
 
@@ -35,11 +37,12 @@ Examples:
   workspaced tool with denoland/deno -- deno --version
   workspaced tool with deno@1.40.0 -- deno run app.ts
   workspaced tool with ripgrep -- rg pattern`,
-		Args: cobra.MinimumNArgs(2), // Need at least: tool-spec and command
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runWith(cmd.Context(), args)
-		},
-	}
+				Args: cobra.MinimumNArgs(2), // Need at least: tool-spec and command
+				RunE: func(cmd *cobra.Command, args []string) error {
+					return runWith(cmd.Context(), args)
+				},
+			}
+		})
 }
 
 func runWith(ctx context.Context, args []string) error {
