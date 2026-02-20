@@ -5,9 +5,9 @@ import (
 	"os"
 	"workspaced/cmd/workspaced/codebase"
 	"workspaced/cmd/workspaced/daemon"
-	"workspaced/cmd/workspaced/dispatch"
+
 	"workspaced/cmd/workspaced/doctor"
-	"workspaced/cmd/workspaced/history"
+
 	initcmd "workspaced/cmd/workspaced/init"
 	"workspaced/cmd/workspaced/input"
 	"workspaced/cmd/workspaced/is"
@@ -51,7 +51,7 @@ func main() {
 	cmd.AddCommand(input.GetCommand())
 	cmd.AddCommand(open.GetCommand())
 	cmd.AddCommand(system.GetCommand())
-	cmd.AddCommand(history.GetCommand())
+
 	cmd.AddCommand(is.GetCommand())
 	cmd.AddCommand(svc.GetCommand())
 	cmd.AddCommand(toolcmd.GetCommand())
@@ -63,11 +63,8 @@ func main() {
 	cmd.AddCommand(selfupdate.GetCommand())
 	cmd.AddCommand(initcmd.GetCommand())
 
-	cmd.AddCommand(history.GetCommand())
-
 	// Daemon and Internal
 	cmd.AddCommand(daemon.Command)
-	cmd.AddCommand(dispatch.GetCommand()) // Keep hidden or for internal use
 
 	// Set root command for shell completion generation
 	shellgen.SetRootCommand(cmd)

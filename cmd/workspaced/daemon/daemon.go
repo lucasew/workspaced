@@ -16,7 +16,7 @@ import (
 	"image"
 	_ "image/png"
 	"io"
-	"workspaced/cmd/workspaced/dispatch"
+	"workspaced/cmd/workspaced/utils"
 	"workspaced/pkg/config"
 	"workspaced/pkg/db"
 	"workspaced/pkg/driver/media"
@@ -386,7 +386,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 }
 
 func ExecuteViaCobra(ctx context.Context, req types.Request, stdout, stderr io.Writer) (string, error) {
-	targetCmd, targetArgs, err := dispatch.FindCommand(req.Command, req.Args)
+	targetCmd, targetArgs, err := utils.FindCommand(req.Command, req.Args)
 	if err != nil {
 		return "", err
 	}

@@ -1,4 +1,4 @@
-package dispatch
+package utils
 
 import (
 	"context"
@@ -10,23 +10,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"workspaced/cmd/workspaced/dispatch/audio"
-	"workspaced/cmd/workspaced/dispatch/backup"
-	"workspaced/cmd/workspaced/dispatch/brightness"
-	"workspaced/cmd/workspaced/dispatch/history"
-	"workspaced/cmd/workspaced/dispatch/nix"
-	"workspaced/cmd/workspaced/dispatch/notification"
-	"workspaced/cmd/workspaced/dispatch/open"
-	"workspaced/cmd/workspaced/dispatch/palette"
-	"workspaced/cmd/workspaced/dispatch/power"
-	"workspaced/cmd/workspaced/dispatch/screen"
-	"workspaced/cmd/workspaced/dispatch/shell"
-	"workspaced/cmd/workspaced/dispatch/sudo"
-	"workspaced/cmd/workspaced/dispatch/template"
-	"workspaced/cmd/workspaced/dispatch/wallpaper"
+	"workspaced/cmd/workspaced/open"
 	"workspaced/cmd/workspaced/system/screenshot"
 	"workspaced/cmd/workspaced/system/workspace"
-	libconfig "workspaced/pkg/config"
+	"workspaced/cmd/workspaced/utils/backup"
+	"workspaced/cmd/workspaced/utils/history"
+	"workspaced/cmd/workspaced/utils/palette"
+	"workspaced/cmd/workspaced/utils/shell"
+	"workspaced/cmd/workspaced/utils/template"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/types"
 
@@ -44,93 +35,13 @@ func GetCommand() *cobra.Command {
 		TraverseChildren: true,
 	}
 
-	cmd.PersistentPreRunE = func(c *cobra.Command, args []string) error {
-		// Load config to initialize driver weights and other global states
-		if _, err := libconfig.Load(); err != nil {
-			slog.Debug("failed to load config in dispatch", "error", err)
-		}
-
-		ctx := c.Context()
-		isDaemon := false
-
-		val := ctx.Value(types.DaemonModeKey)
-		if os.Getenv("WORKSPACED_DAEMON") == "1" {
-			isDaemon = true
-		}
-		if val == true {
-			isDaemon = true
-		}
-
-		if isDaemon {
-			return nil
-		}
-
-		var remoteCmd string
-		var remoteArgs []string
-
-		for i, arg := range os.Args {
-			if arg == "dispatch" && i+1 < len(os.Args) {
-				remoteCmd = os.Args[i+1]
-				remoteArgs = os.Args[i+2:]
-				break
-			}
-		}
-
-		if remoteCmd == "" {
-			return nil
-		}
-
-		if remoteCmd == "sudo" && len(remoteArgs) > 0 {
-			switch remoteArgs[0] {
-			case "approve", "reject", "add":
-				return nil
-			}
-		}
-
-		if remoteCmd == "history" && len(remoteArgs) > 0 {
-			switch remoteArgs[0] {
-			case "search", "list", "ingest":
-				return nil
-			}
-		}
-
-		if remoteCmd == "sync" || remoteCmd == "config" || remoteCmd == "is" || remoteCmd == "shell" {
-			return nil
-		}
-
-		output, connected, err := TryRemoteRaw(remoteCmd, remoteArgs)
-		if connected {
-			if output != "" {
-				fmt.Print(output)
-			}
-			if err != nil {
-				return err
-			}
-			os.Exit(0)
-		}
-
-		return nil
-	}
-
-	cmd.AddCommand(audio.GetCommand())
 	cmd.AddCommand(backup.GetCommand())
-	cmd.AddCommand(brightness.GetCommand())
-
 	cmd.AddCommand(history.GetCommand())
-
-	cmd.AddCommand(nix.GetCommand())
-	cmd.AddCommand(notification.GetCommand())
 	cmd.AddCommand(open.GetCommand())
 	cmd.AddCommand(palette.GetCommand())
-
-	cmd.AddCommand(power.GetCommand())
-	cmd.AddCommand(screen.GetCommand())
 	cmd.AddCommand(screenshot.GetCommand())
 	cmd.AddCommand(shell.GetCommand())
-	cmd.AddCommand(sudo.GetCommand())
-
 	cmd.AddCommand(template.GetCommand())
-	cmd.AddCommand(wallpaper.GetCommand())
 	cmd.AddCommand(workspace.GetCommand())
 
 	return cmd
