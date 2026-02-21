@@ -1,11 +1,19 @@
 package codebase
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"text/tabwriter"
+	"time"
 
 	"workspaced/pkg/provider/lint"
 	_ "workspaced/pkg/provider/prelude"
@@ -39,6 +47,11 @@ func init() {
 				// Check for CI environment variables to save SARIF report
 				saveSarifToCI(report)
 
+				// Upload SARIF report to GitHub if running in GitHub Actions
+				if os.Getenv("GITHUB_ACTIONS") == "true" {
+					uploadSarifToGithub(report)
+				}
+
 				return printReport(report, format)
 			},
 		}
@@ -55,21 +68,21 @@ func saveSarifToCI(report *sarif.Report) {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to create SARIF output directory %s: %v\n", outputDir, err)
+				slog.Warn("failed to create SARIF output directory", "dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			file, err := os.Create(sarifPath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to create SARIF report file %s: %v\n", sarifPath, err)
+				slog.Warn("failed to create SARIF report file", "path", sarifPath, "error", err)
 				continue
 			}
 
 			encoder := json.NewEncoder(file)
 			encoder.SetIndent("", "  ")
 			if err := encoder.Encode(report); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to write SARIF report to %s: %v\n", sarifPath, err)
+				slog.Warn("failed to write SARIF report", "path", sarifPath, "error", err)
 			}
 			file.Close()
 		}
@@ -138,4 +151,100 @@ func printTable(report *sarif.Report) error {
 	}
 	w.Flush()
 	return nil
+}
+
+func uploadSarifToGithub(report *sarif.Report) {
+	repo := os.Getenv("GITHUB_REPOSITORY")
+	token := os.Getenv("GITHUB_TOKEN")
+	sha := os.Getenv("GITHUB_SHA")
+	ref := os.Getenv("GITHUB_REF")
+	workflowRunIDStr := os.Getenv("GITHUB_RUN_ID")
+	workflowRunAttemptStr := os.Getenv("GITHUB_RUN_ATTEMPT")
+	workspace := os.Getenv("GITHUB_WORKSPACE")
+
+	if repo == "" || token == "" || sha == "" || ref == "" {
+		slog.Warn("skipping SARIF upload: missing required environment variables (GITHUB_REPOSITORY, GITHUB_TOKEN, GITHUB_SHA, GITHUB_REF)")
+		return
+	}
+
+	workflowRunID, _ := strconv.Atoi(workflowRunIDStr)
+	workflowRunAttempt, _ := strconv.Atoi(workflowRunAttemptStr)
+
+	// Serialize SARIF report
+	var sarifBuf bytes.Buffer
+	if err := json.NewEncoder(&sarifBuf).Encode(report); err != nil {
+		slog.Error("failed to encode SARIF report for upload", "error", err)
+		return
+	}
+
+	// Gzip and Base64 encode
+	var gzipBuf bytes.Buffer
+	gz := gzip.NewWriter(&gzipBuf)
+	if _, err := gz.Write(sarifBuf.Bytes()); err != nil {
+		slog.Error("failed to gzip SARIF report", "error", err)
+		return
+	}
+	if err := gz.Close(); err != nil {
+		slog.Error("failed to close gzip writer", "error", err)
+		return
+	}
+	encodedSarif := base64.StdEncoding.EncodeToString(gzipBuf.Bytes())
+
+	toolNames := []string{}
+	for _, run := range report.Runs {
+		if run.Tool.Driver != nil {
+			toolNames = append(toolNames, run.Tool.Driver.Name)
+		}
+	}
+
+	// Construct payload
+	payload := map[string]interface{}{
+		"commit_oid":           sha,
+		"ref":                  ref,
+		"analysis_key":         "workspaced-codebase-lint",
+		"analysis_name":        "workspaced codebase lint",
+		"sarif":                encodedSarif,
+		"workflow_run_id":      workflowRunID,
+		"workflow_run_attempt": workflowRunAttempt,
+		"checkout_uri":         "file://" + workspace,
+		"started_at":           time.Now().Format(time.RFC3339),
+		"tool_names":           toolNames,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		slog.Error("failed to marshal payload for SARIF upload", "error", err)
+		return
+	}
+
+	apiURL := os.Getenv("GITHUB_API_URL")
+	if apiURL == "" {
+		apiURL = "https://api.github.com"
+	}
+	url := fmt.Sprintf("%s/repos/%s/code-scanning/sarifs", apiURL, repo)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		slog.Error("failed to create request for SARIF upload", "error", err)
+		return
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Error("failed to upload SARIF report", "error", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		slog.Info("successfully uploaded SARIF report to GitHub Code Scanning")
+	} else {
+		body, _ := io.ReadAll(resp.Body)
+		slog.Warn("failed to upload SARIF report", "status", resp.Status, "body", string(body))
+	}
 }
