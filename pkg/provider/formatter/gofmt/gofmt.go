@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/formatter"
 )
 
@@ -26,12 +27,12 @@ func (p *Provider) Name() string {
 	return "gofmt"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
-	return true, nil
+	return nil
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {

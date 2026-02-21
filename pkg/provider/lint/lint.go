@@ -2,6 +2,7 @@ package lint
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"workspaced/pkg/provider"
@@ -35,14 +36,15 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	linters := provider.List[Linter]()
 
 	for _, l := range linters {
-		// 1. Check if the linter applies
-		applies, err := l.Detect(ctx, dir)
+		// 1. Check if the linter applies.
+		err := l.Detect(ctx, dir)
+		if errors.Is(err, provider.ErrNotApplicable) {
+			slog.Debug("linter doesnt apply", "linter", l.Name())
+			continue
+		}
 		if err != nil {
 			slog.Debug("cant check if linter applies, skipping", "linter", l.Name(), "error", err)
 			continue
-		}
-		if !applies {
-			slog.Debug("linter doesnt apply", "linter", l.Name())
 		}
 
 		// 2. Run the linter

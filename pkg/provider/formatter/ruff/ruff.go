@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/formatter"
 	"workspaced/pkg/tool"
 )
@@ -25,12 +26,12 @@ func (p *Provider) Name() string {
 	return "ruff"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if uv.lock exists
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
-	return true, nil
+	return nil
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {

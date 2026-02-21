@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/formatter"
 )
 
@@ -31,14 +32,14 @@ func (p *Provider) Name() string {
 	return "prettier"
 }
 
-func (p *Provider) Detect(_ context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(_ context.Context, dir string) error {
 	// Applies if node_modules/.bin/prettier exists
 	path := filepath.Join(dir, "node_modules", ".bin", "prettier")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
 
-	return true, nil
+	return nil
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {

@@ -33,12 +33,9 @@ func TestRun(t *testing.T) {
 	ctx := context.Background()
 
 	// Verify detection
-	ok, err := p.Detect(ctx, dir)
+	err := p.Detect(ctx, dir)
 	if err != nil {
 		t.Fatalf("Detect failed: %v", err)
-	}
-	if !ok {
-		t.Fatal("Provider should detect uv.lock")
 	}
 
 	// Run lint
