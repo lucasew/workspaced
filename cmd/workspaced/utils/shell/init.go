@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -31,7 +32,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			startTime := time.Now()
 			defer func() {
 				if profile {
-					fmt.Fprintf(os.Stderr, "\n⏱️  Total time: %v\n", time.Since(startTime))
+					slog.Info("shell init total time", "duration", time.Since(startTime))
 				}
 			}()
 			shell := "bash"
@@ -60,14 +61,14 @@ Uses caching for performance - regenerates only when source files change.`,
 			if !force {
 				if content, err := os.ReadFile(cacheFile); err == nil {
 					if profile {
-						fmt.Fprintf(os.Stderr, "✓ Cache hit: %s\n", cacheFile)
+						slog.Info("shell init cache hit", "cache_file", cacheFile)
 					}
 					fmt.Print(string(content))
 					return nil
 				}
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "⚠️  Cache miss, generating...\n")
+				slog.Info("shell init cache miss, generating")
 			}
 
 			// Read all prelude files in parallel
@@ -77,7 +78,7 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to list prelude files: %w", err)
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "  Glob files: %v (%d files)\n", time.Since(t1), len(allFiles))
+				slog.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
 			}
 
 			// Separate .source.sh files from regular .sh files
@@ -145,7 +146,7 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to execute source files: %w", err)
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "  Execute .source.sh files: %v (%d files)\n", time.Since(t2), len(sourceFiles))
+				slog.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
 			}
 
 			// Build output in order
@@ -161,7 +162,7 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to generate inline shell initialization: %w", err)
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "  Generate inline shell initialization: %v\n", time.Since(t3))
+				slog.Info("shell init generated inline code", "duration", time.Since(t3))
 			}
 			output.WriteString(inlineCode)
 
@@ -202,7 +203,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			// Save to cache
 			if err := os.WriteFile(cacheFile, []byte(result), 0644); err != nil {
 				// Non-fatal, continue
-				fmt.Fprintf(os.Stderr, "Warning: failed to write cache: %v\n", err)
+				slog.Warn("failed to write shell init cache", "cache_file", cacheFile, "error", err)
 			}
 
 			fmt.Print(result)
@@ -291,7 +292,7 @@ func executeSourceFiles(sourceFiles map[string]string) (map[string]string, error
 	for result := range results {
 		if result.err != nil {
 			// Log warning but don't fail - just skip this source file
-			fmt.Fprintf(os.Stderr, "Warning: failed to execute %s.source.sh: %v\n", result.key, result.err)
+			slog.Warn("failed to execute .source.sh", "source", result.key+".source.sh", "error", result.err)
 			continue
 		}
 		outputMap[result.key] = result.output

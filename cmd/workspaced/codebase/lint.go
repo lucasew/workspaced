@@ -3,6 +3,7 @@ package codebase
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -55,21 +56,21 @@ func saveSarifToCI(report *sarif.Report) {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to create SARIF output directory %s: %v\n", outputDir, err)
+				slog.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			file, err := os.Create(sarifPath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to create SARIF report file %s: %v\n", sarifPath, err)
+				slog.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
 				continue
 			}
 
 			encoder := json.NewEncoder(file)
 			encoder.SetIndent("", "  ")
 			if err := encoder.Encode(report); err != nil {
-				fmt.Fprintf(os.Stderr, "Warning: failed to write SARIF report to %s: %v\n", sarifPath, err)
+				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
 			file.Close()
 		}

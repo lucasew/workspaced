@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,10 +45,10 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("failed to create mise directory: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Installing mise to %s...\n", misePath)
+	slog.Info("installing mise", "path", misePath)
 
 	// Download installer script using httpclient driver (handles Termux DNS/certs)
-	fmt.Fprintf(os.Stderr, "Downloading installer from https://mise.run...\n")
+	slog.Info("downloading mise installer", "url", "https://mise.run")
 	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get http client: %w", err)
@@ -89,7 +90,7 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
 	}
 
-	fmt.Fprintf(os.Stderr, "✓ mise installed successfully\n")
+	slog.Info("mise installed successfully", "path", misePath)
 	return nil
 }
 
@@ -109,7 +110,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 
 	// Generate wrapper in ~/.local/bin/mise if it doesn't exist
 	if err := ensureMiseWrapper(ctx.Context(), misePath); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to create mise wrapper: %v\n", err)
+		slog.Warn("failed to create mise wrapper", "error", err)
 	}
 
 	return misePath, nil
@@ -159,7 +160,7 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 		return fmt.Errorf("failed to write wrapper: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "✓ Created mise wrapper at %s\n", wrapperPath)
+	slog.Info("created mise wrapper", "path", wrapperPath)
 	return nil
 }
 
