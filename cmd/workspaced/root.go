@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"workspaced/pkg/config"
+	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/registry"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/version"

@@ -11,8 +11,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-
-	libfetchurl "github.com/lucasew/fetchurl"
+	"workspaced/pkg/driver"
+	fetchurldriver "workspaced/pkg/driver/fetchurl"
+	httpclientdriver "workspaced/pkg/driver/httpclient"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {
@@ -34,12 +35,15 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	archivePath := filepath.Join(destDir, ".source.tar.gz")
 
 	if expectedHash != "" {
-		fetcher := libfetchurl.NewFetcher(githubHTTPClient)
+		fetcher, err := driver.Get[fetchurldriver.Driver](ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get fetchurl driver: %w", err)
+		}
 		out, err := os.Create(archivePath)
 		if err != nil {
 			return "", err
 		}
-		err = fetcher.Fetch(ctx, libfetchurl.FetchOptions{
+		err = fetcher.Fetch(ctx, fetchurldriver.FetchOptions{
 			URLs: []string{url},
 			Algo: "sha256",
 			Hash: expectedHash,
@@ -66,7 +70,11 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	resp, err := githubHTTPClient.Do(req)
+	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get http client driver: %w", err)
+	}
+	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
 		return "", err
 	}

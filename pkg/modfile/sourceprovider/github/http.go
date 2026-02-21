@@ -5,21 +5,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
+	"workspaced/pkg/driver"
+	httpclientdriver "workspaced/pkg/driver/httpclient"
 )
 
-var githubHTTPClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
-
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
+	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get http client driver: %w", err)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "workspaced")
-	resp, err := githubHTTPClient.Do(req)
+	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
 		return err
 	}
