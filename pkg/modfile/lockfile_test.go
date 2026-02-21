@@ -19,9 +19,7 @@ func TestBuildLockEntriesSkipsCoreAndLocal(t *testing.T) {
 		},
 	}
 	modFile := &ModFile{
-		Modules: map[string]string{
-			"icons": "core:base16-icons-linux",
-		},
+		Sources: map[string]SourceConfig{},
 	}
 
 	got, err := BuildLockEntries(cfg, modFile, "/tmp/modules")
@@ -55,6 +53,9 @@ func TestWriteSumFile(t *testing.T) {
 	path := filepath.Join(dir, "workspaced.sum.toml")
 
 	err := WriteSumFile(path, &SumFile{
+		Sources: map[string]LockedSource{
+			"papirus": {Provider: "local", Path: "/tmp/papirus"},
+		},
 		Modules: map[string]LockedModule{
 			"zeta": {Source: "github:acme/zeta"},
 			"alfa": {Source: "github:acme/alfa", Version: "v2"},
@@ -70,6 +71,9 @@ func TestWriteSumFile(t *testing.T) {
 	}
 	content := string(b)
 
+	if !strings.Contains(content, "[sources.papirus]") {
+		t.Fatalf("missing sources lock section: %s", content)
+	}
 	alfaPos := strings.Index(content, "[modules.alfa]")
 	zetaPos := strings.Index(content, "[modules.zeta]")
 	if alfaPos < 0 || zetaPos < 0 || alfaPos >= zetaPos {
@@ -77,5 +81,24 @@ func TestWriteSumFile(t *testing.T) {
 	}
 	if !strings.Contains(content, `version = "v2"`) {
 		t.Fatalf("missing version in content: %s", content)
+	}
+}
+
+func TestBuildSourceLockEntries(t *testing.T) {
+	t.Parallel()
+
+	mod := &ModFile{
+		Sources: map[string]SourceConfig{
+			"papirus": {Provider: "local", Path: "/tmp/papirus"},
+		},
+	}
+
+	got := BuildSourceLockEntries(mod)
+	entry, ok := got["papirus"]
+	if !ok {
+		t.Fatal("expected papirus source lock")
+	}
+	if entry.Provider != "local" || entry.Path != "/tmp/papirus" {
+		t.Fatalf("unexpected source lock: %#v", entry)
 	}
 }

@@ -18,7 +18,6 @@ type SourceConfig struct {
 
 type ModFile struct {
 	Sources map[string]SourceConfig `toml:"sources"`
-	Modules map[string]string       `toml:"modules"`
 }
 
 type ResolvedModuleSource struct {
@@ -34,7 +33,6 @@ var coreModuleDefaults = map[string]string{
 func LoadModFile(path string) (*ModFile, error) {
 	out := &ModFile{
 		Sources: map[string]SourceConfig{},
-		Modules: map[string]string{},
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return out, nil
@@ -45,17 +43,11 @@ func LoadModFile(path string) (*ModFile, error) {
 	if out.Sources == nil {
 		out.Sources = map[string]SourceConfig{}
 	}
-	if out.Modules == nil {
-		out.Modules = map[string]string{}
-	}
 	return out, nil
 }
 
 func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {
 	spec := strings.TrimSpace(explicitFrom)
-	if spec == "" && m != nil {
-		spec = strings.TrimSpace(m.Modules[moduleName])
-	}
 	if spec == "" {
 		if coreRef, ok := coreModuleDefaults[moduleName]; ok {
 			spec = "core:" + coreRef
@@ -86,6 +78,9 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	src, ok := m.Sources[left]
 	if !ok {
 		return ResolvedModuleSource{}, fmt.Errorf("unknown source alias %q for module %q", left, moduleName)
+	}
+	if err := validateSourceLock(left, src, sumFile); err != nil {
+		return ResolvedModuleSource{}, err
 	}
 	provider := strings.TrimSpace(src.Provider)
 	if provider == "" {
@@ -173,6 +168,27 @@ func validateNonVersionedProvider(source ResolvedModuleSource) error {
 	}
 	if source.Provider == "local" || source.Provider == "core" {
 		return fmt.Errorf("provider %q does not support version pins", source.Provider)
+	}
+	return nil
+}
+
+func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error {
+	if sumFile == nil {
+		return nil
+	}
+	lock, ok := sumFile.Sources[alias]
+	if !ok {
+		return nil
+	}
+	provider := strings.TrimSpace(src.Provider)
+	if provider == "" {
+		provider = alias
+	}
+	if strings.TrimSpace(lock.Provider) != provider ||
+		strings.TrimSpace(lock.Path) != strings.TrimSpace(src.Path) ||
+		strings.TrimSpace(lock.Repo) != strings.TrimSpace(src.Repo) ||
+		strings.TrimSpace(lock.URL) != strings.TrimSpace(src.URL) {
+		return fmt.Errorf("source %q lock mismatch: run `workspaced mod lock`", alias)
 	}
 	return nil
 }

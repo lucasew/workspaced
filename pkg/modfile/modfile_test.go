@@ -9,9 +9,7 @@ func TestResolveModuleSourceWithLockVersion(t *testing.T) {
 	t.Parallel()
 
 	mod := &ModFile{
-		Modules: map[string]string{
-			"foo": "github:owner/repo/path",
-		},
+		Sources: map[string]SourceConfig{},
 	}
 	sum := &SumFile{
 		Modules: map[string]LockedModule{
@@ -22,7 +20,7 @@ func TestResolveModuleSourceWithLockVersion(t *testing.T) {
 		},
 	}
 
-	got, err := mod.ResolveModuleSource("foo", "", "/tmp/modules", sum)
+	got, err := mod.ResolveModuleSource("foo", "github:owner/repo/path", "/tmp/modules", sum)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -41,9 +39,7 @@ func TestResolveModuleSourceLockMismatch(t *testing.T) {
 	t.Parallel()
 
 	mod := &ModFile{
-		Modules: map[string]string{
-			"foo": "github:owner/repo/path",
-		},
+		Sources: map[string]SourceConfig{},
 	}
 	sum := &SumFile{
 		Modules: map[string]LockedModule{
@@ -54,7 +50,7 @@ func TestResolveModuleSourceLockMismatch(t *testing.T) {
 		},
 	}
 
-	_, err := mod.ResolveModuleSource("foo", "", "/tmp/modules", sum)
+	_, err := mod.ResolveModuleSource("foo", "github:owner/repo/path", "/tmp/modules", sum)
 	if err == nil {
 		t.Fatal("expected lock mismatch error")
 	}
@@ -70,12 +66,9 @@ func TestResolveModuleSourceLocalAlias(t *testing.T) {
 				Path:     "shared-modules",
 			},
 		},
-		Modules: map[string]string{
-			"foo": "repo:base16-vim",
-		},
 	}
 
-	got, err := mod.ResolveModuleSource("foo", "", "/home/user/dotfiles/modules", nil)
+	got, err := mod.ResolveModuleSource("foo", "repo:base16-vim", "/home/user/dotfiles/modules", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,13 +82,8 @@ func TestResolveModuleSourceLocalAlias(t *testing.T) {
 func TestResolveModuleSourceCoreRejectsVersion(t *testing.T) {
 	t.Parallel()
 
-	mod := &ModFile{
-		Modules: map[string]string{
-			"icons": "core:base16-icons-linux@v1",
-		},
-	}
-
-	_, err := mod.ResolveModuleSource("icons", "", "/tmp/modules", nil)
+	mod := &ModFile{Sources: map[string]SourceConfig{}}
+	_, err := mod.ResolveModuleSource("icons", "core:base16-icons-linux@v1", "/tmp/modules", nil)
 	if err == nil {
 		t.Fatal("expected version validation error")
 	}
@@ -104,9 +92,7 @@ func TestResolveModuleSourceCoreRejectsVersion(t *testing.T) {
 func TestResolveModuleSourceCoreDefaultWithoutModEntry(t *testing.T) {
 	t.Parallel()
 
-	mod := &ModFile{
-		Modules: map[string]string{},
-	}
+	mod := &ModFile{Sources: map[string]SourceConfig{}}
 
 	got, err := mod.ResolveModuleSource("icons", "", "/tmp/modules", nil)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 	"workspaced/pkg/config"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
@@ -81,6 +82,21 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 			sourceSpec += "@" + moduleSource.Version
 		}
 		logger.Info("loading module", "module", modName, "from", sourceSpec)
+
+		// core:base16-icons-linux keeps module source in "from=core:...",
+		// while input_dir can be provided as a source ref (e.g. "papirus:Papirus").
+		if providerID == "core" && ref == "base16-icons-linux" {
+			if inputRef, ok := modCfg["input_dir"].(string); ok && strings.TrimSpace(inputRef) != "" {
+				resolvedInputDir, resolved, err := modFile.TryResolveSourceRefToPath(inputRef, p.baseDir)
+				if err != nil {
+					return nil, fmt.Errorf("module %q input %q: %w", modName, inputRef, err)
+				}
+				if resolved {
+					modCfg["input_dir"] = resolvedInputDir
+				}
+			}
+		}
+
 		resolvedFiles, err := provider.Resolve(ctx, module.ResolveRequest{
 			ModuleName:     modName,
 			Ref:            ref,

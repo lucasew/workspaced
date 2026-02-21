@@ -15,10 +15,6 @@ func TestWriteModFile(t *testing.T) {
 		Sources: map[string]SourceConfig{
 			"remote": {Provider: "github", Repo: "lucasew/workspaced-modules"},
 		},
-		Modules: map[string]string{
-			"zeta": "remote:path/zeta",
-			"alfa": "core:base16-icons-linux",
-		},
 	})
 	if err != nil {
 		t.Fatalf("write mod file: %v", err)
@@ -32,10 +28,7 @@ func TestWriteModFile(t *testing.T) {
 	if !strings.Contains(s, "[sources.remote]") {
 		t.Fatalf("missing source section: %s", s)
 	}
-	if !strings.Contains(s, "[modules]") {
-		t.Fatalf("missing modules section: %s", s)
-	}
-	if strings.Index(s, `alfa = "core:base16-icons-linux"`) > strings.Index(s, `zeta = "remote:path/zeta"`) {
-		t.Fatalf("modules are not sorted: %s", s)
+	if strings.Contains(s, "[modules]") {
+		t.Fatalf("unexpected modules section: %s", s)
 	}
 }

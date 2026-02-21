@@ -12,7 +12,6 @@ func EnsureModAndSumFiles(root string) (string, string, error) {
 	if _, err := os.Stat(modPath); os.IsNotExist(err) {
 		if err := WriteModFile(modPath, &ModFile{
 			Sources: map[string]SourceConfig{},
-			Modules: map[string]string{},
 		}); err != nil {
 			return "", "", err
 		}
@@ -20,6 +19,7 @@ func EnsureModAndSumFiles(root string) (string, string, error) {
 
 	if _, err := os.Stat(sumPath); os.IsNotExist(err) {
 		if err := WriteSumFile(sumPath, &SumFile{
+			Sources: map[string]LockedSource{},
 			Modules: map[string]LockedModule{},
 		}); err != nil {
 			return "", "", err

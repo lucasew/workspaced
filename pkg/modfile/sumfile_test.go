@@ -25,6 +25,25 @@ version = "v1.0.0"
 	}
 }
 
+func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sumPath := filepath.Join(dir, "workspaced.sum.toml")
+	content := `
+[sources.papirus]
+path = "/tmp/papirus"
+`
+	if err := os.WriteFile(sumPath, []byte(content), 0644); err != nil {
+		t.Fatalf("write sum: %v", err)
+	}
+
+	_, err := LoadSumFile(sumPath)
+	if err == nil {
+		t.Fatal("expected provider required error")
+	}
+}
+
 func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	t.Parallel()
 

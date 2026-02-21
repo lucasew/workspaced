@@ -19,6 +19,30 @@ func IsLockableProvider(provider string) bool {
 	}
 }
 
+func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
+	out := map[string]LockedSource{}
+	if modFile == nil {
+		return out
+	}
+	for name, src := range modFile.Sources {
+		out[name] = LockedSource{
+			Provider: strings.TrimSpace(src.Provider),
+			Path:     strings.TrimSpace(src.Path),
+			Repo:     strings.TrimSpace(src.Repo),
+			URL:      strings.TrimSpace(src.URL),
+		}
+		if out[name].Provider == "" {
+			out[name] = LockedSource{
+				Provider: strings.TrimSpace(name),
+				Path:     out[name].Path,
+				Repo:     out[name].Repo,
+				URL:      out[name].URL,
+			}
+		}
+	}
+	return out
+}
+
 func BuildLockEntries(cfg *config.GlobalConfig, modFile *ModFile, modulesBaseDir string) (map[string]LockedModule, error) {
 	out := map[string]LockedModule{}
 	if cfg == nil {
@@ -65,7 +89,10 @@ func BuildLockEntries(cfg *config.GlobalConfig, modFile *ModFile, modulesBaseDir
 
 func WriteSumFile(path string, sum *SumFile) error {
 	if sum == nil {
-		sum = &SumFile{Modules: map[string]LockedModule{}}
+		sum = &SumFile{Sources: map[string]LockedSource{}, Modules: map[string]LockedModule{}}
+	}
+	if sum.Sources == nil {
+		sum.Sources = map[string]LockedSource{}
 	}
 	if sum.Modules == nil {
 		sum.Modules = map[string]LockedModule{}
@@ -87,13 +114,59 @@ func WriteSumFile(path string, sum *SumFile) error {
 	}
 	sort.Strings(names)
 
+	sourceNames := make([]string, 0, len(sum.Sources))
+	for name := range sum.Sources {
+		sourceNames = append(sourceNames, name)
+	}
+	sort.Strings(sourceNames)
+
+	for i, name := range sourceNames {
+		entry := sum.Sources[name]
+		if strings.TrimSpace(entry.Provider) == "" {
+			_ = f.Close()
+			return fmt.Errorf("invalid lock entry for source %q: provider is required", name)
+		}
+		if i > 0 {
+			if _, err := fmt.Fprintf(f, "\n"); err != nil {
+				_ = f.Close()
+				return err
+			}
+		}
+		if _, err := fmt.Fprintf(f, "[sources.%s]\n", name); err != nil {
+			_ = f.Close()
+			return err
+		}
+		if _, err := fmt.Fprintf(f, "provider = %s\n", strconv.Quote(strings.TrimSpace(entry.Provider))); err != nil {
+			_ = f.Close()
+			return err
+		}
+		if strings.TrimSpace(entry.Path) != "" {
+			if _, err := fmt.Fprintf(f, "path = %s\n", strconv.Quote(strings.TrimSpace(entry.Path))); err != nil {
+				_ = f.Close()
+				return err
+			}
+		}
+		if strings.TrimSpace(entry.Repo) != "" {
+			if _, err := fmt.Fprintf(f, "repo = %s\n", strconv.Quote(strings.TrimSpace(entry.Repo))); err != nil {
+				_ = f.Close()
+				return err
+			}
+		}
+		if strings.TrimSpace(entry.URL) != "" {
+			if _, err := fmt.Fprintf(f, "url = %s\n", strconv.Quote(strings.TrimSpace(entry.URL))); err != nil {
+				_ = f.Close()
+				return err
+			}
+		}
+	}
+
 	for i, name := range names {
 		entry := sum.Modules[name]
 		if strings.TrimSpace(entry.Source) == "" {
 			_ = f.Close()
 			return fmt.Errorf("invalid lock entry for module %q: source is required", name)
 		}
-		if i > 0 {
+		if i > 0 || len(sourceNames) > 0 {
 			if _, err := fmt.Fprintf(f, "\n"); err != nil {
 				_ = f.Close()
 				return err
