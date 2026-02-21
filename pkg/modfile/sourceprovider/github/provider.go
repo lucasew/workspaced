@@ -94,14 +94,14 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 
 func sourceCacheKey(src modfile.SourceConfig) string {
 	if u := strings.TrimSpace(src.URL); u != "" {
-		return "v3:url:" + u
+		return "v4:url:" + u
 	}
 	repo := normalizeGitHubRepo(src.Repo)
 	ref := strings.TrimSpace(src.Ref)
 	if ref == "" {
 		ref = "HEAD"
 	}
-	return "v3:repo:" + repo + "@" + ref
+	return "v4:repo:" + repo + "@" + ref
 }
 
 func normalizeGitHubRepo(in string) string {
@@ -149,12 +149,11 @@ func dedupeStrings(in []string) []string {
 }
 
 func downloadAndExtractTarball(ctx context.Context, src modfile.SourceConfig, destDir string) (sourceMeta, error) {
-	candidates := tarballURLCandidates(src)
-	if pinned, err := resolvePinnedTarballURL(ctx, src); err == nil && strings.TrimSpace(pinned) != "" {
-		candidates = []string{pinned}
-	} else if err != nil {
-		slog.Warn("failed to resolve github ref to commit, using fallback candidates", "error", err)
+	pinned, err := resolvePinnedTarballURL(ctx, src)
+	if err != nil {
+		return sourceMeta{}, err
 	}
+	candidates := []string{pinned}
 	if len(candidates) == 0 {
 		return sourceMeta{}, fmt.Errorf("github source requires repo or url")
 	}
