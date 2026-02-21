@@ -31,6 +31,7 @@ import (
 )
 
 var sizeDirPrefixRe = regexp.MustCompile(`^\d+x\d+$`)
+var fastPNGEncoder = png.Encoder{CompressionLevel: png.BestSpeed}
 
 func init() {
 	Registry.FromGetter(GetGenerateCommand)
@@ -48,7 +49,7 @@ func GetGenerateCommand() *cobra.Command {
 		noRaster       bool
 		updateCache    bool
 		defaultContext string
-		jobs           int
+		jobsRaw        string
 	)
 
 	cmd := &cobra.Command{
@@ -104,21 +105,22 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 			if !noRaster {
 				maxSize = sizes[len(sizes)-1]
 			}
+			jobs, err := resolveJobs(jobsRaw)
+			if err != nil {
+				return err
+			}
+
 			bar := progressbar.NewOptions(
 				len(paths),
 				progressbar.OptionSetWriter(os.Stderr),
 				progressbar.OptionSetWidth(30),
 				progressbar.OptionShowCount(),
 				progressbar.OptionSetDescription(fmt.Sprintf("icons(%d jobs)", jobs)),
-				progressbar.OptionThrottle(80*time.Millisecond),
+				progressbar.OptionThrottle(200*time.Millisecond),
 				progressbar.OptionOnCompletion(func() {
 					fmt.Fprintln(os.Stderr)
 				}),
 			)
-
-			if jobs < 1 {
-				jobs = 1
-			}
 
 			dirsUsed := map[string]bool{}
 			var dirsUsedMu sync.Mutex
@@ -140,6 +142,8 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 				cancel()
 			}
 			processOne := func(path string) error {
+				localDirs := map[string]bool{}
+
 				rel, err := filepath.Rel(in, path)
 				if err != nil {
 					return err
@@ -167,9 +171,7 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 				if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
 					return err
 				}
-				dirsUsedMu.Lock()
-				dirsUsed[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
-				dirsUsedMu.Unlock()
+				localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
 
 				if !noRaster {
 					ratio := extractSVGAspectRatio(svgContent)
@@ -198,7 +200,7 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 						if err != nil {
 							return err
 						}
-						if err := png.Encode(f, final); err != nil {
+						if err := fastPNGEncoder.Encode(f, final); err != nil {
 							f.Close()
 							return err
 						}
@@ -206,15 +208,48 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 							return err
 						}
 
-						dirsUsedMu.Lock()
-						dirsUsed[filepath.ToSlash(sizeDir)] = true
-						dirsUsedMu.Unlock()
+						localDirs[filepath.ToSlash(sizeDir)] = true
 					}
 				}
 
+				dirsUsedMu.Lock()
+				for d := range localDirs {
+					dirsUsed[d] = true
+				}
+				dirsUsedMu.Unlock()
+
 				atomic.AddInt64(&written, 1)
-				return bar.Add(1)
+				return nil
 			}
+
+			progressStop := make(chan struct{})
+			var progressWG sync.WaitGroup
+			progressWG.Add(1)
+			go func() {
+				defer progressWG.Done()
+				ticker := time.NewTicker(200 * time.Millisecond)
+				defer ticker.Stop()
+				last := 0
+				flush := func() {
+					cur := int(atomic.LoadInt64(&written))
+					if cur > last {
+						_ = bar.Add(cur - last)
+						last = cur
+					}
+				}
+				for {
+					select {
+					case <-ticker.C:
+						flush()
+					case <-progressStop:
+						flush()
+						return
+					case <-workerCtx.Done():
+						flush()
+						return
+					}
+				}
+			}()
 
 			var wg sync.WaitGroup
 			for i := 0; i < jobs; i++ {
@@ -248,6 +283,8 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 			}
 			close(tasks)
 			wg.Wait()
+			close(progressStop)
+			progressWG.Wait()
 			select {
 			case err := <-errCh:
 				return err
@@ -283,7 +320,7 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 	cmd.Flags().BoolVar(&clean, "clean", false, "Delete output directory before generation")
 	cmd.Flags().BoolVar(&noRaster, "no-raster", false, "Only write scalable SVG icons")
 	cmd.Flags().BoolVar(&updateCache, "update-cache", true, "Run gtk-update-icon-cache after generation (if available)")
-	cmd.Flags().IntVar(&jobs, "jobs", runtime.NumCPU(), "Number of SVG processing workers")
+	cmd.Flags().StringVar(&jobsRaw, "jobs", "auto", "Number of SVG processing workers (integer or 'auto')")
 	return cmd
 }
 
@@ -362,6 +399,25 @@ func parseSizes(raw string) ([]int, error) {
 	}
 	sort.Ints(out)
 	return out, nil
+}
+
+func resolveJobs(raw string) (int, error) {
+	s := strings.TrimSpace(strings.ToLower(raw))
+	if s == "" || s == "auto" {
+		n := runtime.NumCPU() * 2
+		if n > 8 {
+			n = 8
+		}
+		if n < 1 {
+			n = 1
+		}
+		return n, nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 {
+		return 0, fmt.Errorf("invalid --jobs %q (use integer >= 1 or 'auto')", raw)
+	}
+	return n, nil
 }
 
 func loadBase16Colors() (map[string]string, error) {
