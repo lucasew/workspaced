@@ -23,6 +23,9 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
 	}
+	if _, err := execdriver.Which(ctx, "systemd-run"); err != nil {
+		return fmt.Errorf("%w: systemd-run not found", driver.ErrIncompatible)
+	}
 	if _, err := execdriver.Which(ctx, "swaybg"); err != nil {
 		return fmt.Errorf("%w: swaybg not found", driver.ErrIncompatible)
 	}

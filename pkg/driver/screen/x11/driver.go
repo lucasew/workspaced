@@ -37,6 +37,12 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if display == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
 	}
+	if _, err := execdriver.Which(ctx, "xset"); err != nil {
+		return fmt.Errorf("%w: xset not found", driver.ErrIncompatible)
+	}
+	if _, err := execdriver.Which(ctx, "xrandr"); err != nil {
+		return fmt.Errorf("%w: xrandr not found", driver.ErrIncompatible)
+	}
 	return nil
 }
 

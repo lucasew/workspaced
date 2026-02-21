@@ -22,6 +22,9 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "loginctl") {
 		return fmt.Errorf("%w: loginctl not found", driver.ErrIncompatible)
 	}
+	if !execdriver.IsBinaryAvailable(ctx, "systemctl") {
+		return fmt.Errorf("%w: systemctl not found", driver.ErrIncompatible)
+	}
 	return nil
 }
 

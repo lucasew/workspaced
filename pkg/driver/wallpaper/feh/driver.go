@@ -23,6 +23,9 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("DISPLAY") == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
 	}
+	if _, err := execdriver.Which(ctx, "systemd-run"); err != nil {
+		return fmt.Errorf("%w: systemd-run not found", driver.ErrIncompatible)
+	}
 	if _, err := execdriver.Which(ctx, "feh"); err != nil {
 		return fmt.Errorf("%w: feh not found", driver.ErrIncompatible)
 	}
