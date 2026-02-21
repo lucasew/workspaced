@@ -236,7 +236,7 @@ Boas práticas para o fingerprint:
 ## 🧪 Testar
 
 ```bash
-workspaced apply --dry-run
+workspaced home apply --dry-run
 ```
 
 ---
