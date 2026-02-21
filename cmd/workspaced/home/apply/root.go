@@ -12,7 +12,6 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/nix"
 	"workspaced/pkg/source"
 	"workspaced/pkg/template"
 
@@ -32,6 +31,7 @@ func GetCommand() *cobra.Command {
 			if len(args) > 0 {
 				action = args[0]
 			}
+			_ = action
 
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 
@@ -158,29 +158,6 @@ func GetCommand() *cobra.Command {
 					}
 				}
 				cmd.Printf("\nSummary: %d created, %d updated, %d deleted\n", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
-			}
-
-			// NixOS rebuild (se aplicável)
-			if env.IsNixOS() {
-				logger.Info("running NixOS rebuild", "action", action)
-				if dryRun {
-					logger.Info("dry-run: skipping nixos-rebuild")
-				} else {
-					flake := ""
-					hostname := env.GetHostname()
-					if hostname == "riverwood" {
-						logger.Info("performing remote build for riverwood")
-						ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)
-						nixResult, err := nix.RemoteBuild(ctx, ref, "whiterun", true)
-						if err != nil {
-							return fmt.Errorf("remote build failed: %w", err)
-						}
-						flake = nixResult
-					}
-					if err := nix.Rebuild(ctx, action, flake); err != nil {
-						return err
-					}
-				}
 			}
 
 			return nil
