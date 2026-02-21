@@ -9,13 +9,18 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
+	github.com/lucasew/fetchurl v0.0.0-20260218184218-c5fa8de49b15
 	github.com/owenrumney/go-sarif/v2 v2.3.3
+	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/spf13/cobra v1.10.2
 	github.com/xeipuuv/gojsonschema v1.2.0
 	modernc.org/sqlite v1.44.3
 )
 
-require github.com/shogo82148/go-sfv v0.3.3 // indirect
+require (
+	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
+	github.com/shogo82148/go-sfv v0.3.3 // indirect
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -25,7 +30,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ktr0731/go-ansisgr v0.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/lucasew/fetchurl v0.0.0-20260218184218-c5fa8de49b15
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect

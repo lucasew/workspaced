@@ -2,6 +2,7 @@ package icons
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"image"
 	"image/color"
@@ -11,16 +12,21 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"text/template"
+	"time"
 
 	"workspaced/pkg/config"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
 	"workspaced/pkg/env"
 
+	"github.com/schollz/progressbar/v3"
 	"github.com/spf13/cobra"
 )
 
@@ -42,6 +48,7 @@ func GetGenerateCommand() *cobra.Command {
 		noRaster       bool
 		updateCache    bool
 		defaultContext string
+		jobs           int
 	)
 
 	cmd := &cobra.Command{
@@ -84,6 +91,11 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 			if err != nil {
 				return err
 			}
+			originalCount := len(paths)
+			paths, dedupedCount, err := dedupeIconInputs(in, paths)
+			if err != nil {
+				return err
+			}
 			if len(paths) == 0 {
 				return fmt.Errorf("no .svg or .svg.tmpl files found in %s", in)
 			}
@@ -92,11 +104,42 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 			if !noRaster {
 				maxSize = sizes[len(sizes)-1]
 			}
+			bar := progressbar.NewOptions(
+				len(paths),
+				progressbar.OptionSetWriter(os.Stderr),
+				progressbar.OptionSetWidth(30),
+				progressbar.OptionShowCount(),
+				progressbar.OptionSetDescription(fmt.Sprintf("icons(%d jobs)", jobs)),
+				progressbar.OptionThrottle(80*time.Millisecond),
+				progressbar.OptionOnCompletion(func() {
+					fmt.Fprintln(os.Stderr)
+				}),
+			)
+
+			if jobs < 1 {
+				jobs = 1
+			}
 
 			dirsUsed := map[string]bool{}
-			written := 0
-			for i, path := range paths {
-				printProgress(i+1, len(paths), filepath.Base(path))
+			var dirsUsedMu sync.Mutex
+			var written int64
+
+			workerCtx, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			tasks := make(chan string)
+			errCh := make(chan error, 1)
+			reportErr := func(err error) {
+				if err == nil {
+					return
+				}
+				select {
+				case errCh <- err:
+				default:
+				}
+				cancel()
+			}
+			processOne := func(path string) error {
 				rel, err := filepath.Rel(in, path)
 				if err != nil {
 					return err
@@ -124,52 +167,95 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 				if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
 					return err
 				}
+				dirsUsedMu.Lock()
 				dirsUsed[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
-				written++
+				dirsUsedMu.Unlock()
 
-				if noRaster {
-					written++
-					continue
-				}
-
-				ratio := extractSVGAspectRatio(svgContent)
-				maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
-				renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
-				if err != nil {
-					return err
-				}
-
-				for _, s := range sizes {
-					w, h := fitSizePreservingAspect(ratio, s)
-					var rendered image.Image
-					if s == maxSize {
-						rendered = renderedMax
-					} else {
-						rendered = resizeBilinear(renderedMax, w, h)
-					}
-
-					final := centerInSquare(rendered, s)
-					sizeDir := filepath.Join(fmt.Sprintf("%dx%d", s, s), ctxDir)
-					targetPNG := filepath.Join(out, sizeDir, iconName+".png")
-					if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
-						return err
-					}
-					f, err := os.Create(targetPNG)
+				if !noRaster {
+					ratio := extractSVGAspectRatio(svgContent)
+					maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
+					renderedMax, err := svgraster.RasterizeSVG(workerCtx, svgContent, maxW, maxH)
 					if err != nil {
 						return err
 					}
-					if err := png.Encode(f, final); err != nil {
-						f.Close()
-						return err
+
+					for _, s := range sizes {
+						w, h := fitSizePreservingAspect(ratio, s)
+						var rendered image.Image
+						if s == maxSize {
+							rendered = renderedMax
+						} else {
+							rendered = resizeBilinear(renderedMax, w, h)
+						}
+
+						final := centerInSquare(rendered, s)
+						sizeDir := filepath.Join(fmt.Sprintf("%dx%d", s, s), ctxDir)
+						targetPNG := filepath.Join(out, sizeDir, iconName+".png")
+						if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
+							return err
+						}
+						f, err := os.Create(targetPNG)
+						if err != nil {
+							return err
+						}
+						if err := png.Encode(f, final); err != nil {
+							f.Close()
+							return err
+						}
+						if err := f.Close(); err != nil {
+							return err
+						}
+
+						dirsUsedMu.Lock()
+						dirsUsed[filepath.ToSlash(sizeDir)] = true
+						dirsUsedMu.Unlock()
 					}
-					if err := f.Close(); err != nil {
-						return err
-					}
-					dirsUsed[filepath.ToSlash(sizeDir)] = true
 				}
-				written++
+
+				atomic.AddInt64(&written, 1)
+				return bar.Add(1)
 			}
-			fmt.Fprintln(os.Stderr)
+
+			var wg sync.WaitGroup
+			for i := 0; i < jobs; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					for {
+						select {
+						case <-workerCtx.Done():
+							return
+						case path, ok := <-tasks:
+							if !ok {
+								return
+							}
+							if err := processOne(path); err != nil {
+								reportErr(err)
+								return
+							}
+						}
+					}
+				}()
+			}
+
+		produceLoop:
+			for _, path := range paths {
+				select {
+				case <-workerCtx.Done():
+					break produceLoop
+				case tasks <- path:
+				}
+			}
+			close(tasks)
+			wg.Wait()
+			select {
+			case err := <-errCh:
+				return err
+			default:
+			}
+			if err := workerCtx.Err(); err != nil && err != context.Canceled {
+				return err
+			}
 
 			if err := writeIndexTheme(out, themeName, dirsUsed); err != nil {
 				return err
@@ -182,7 +268,7 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 				}
 			}
 
-			fmt.Printf("generated icon theme %q in %s (%d SVG files)\n", themeName, out, written)
+			fmt.Printf("generated icon theme %q in %s (%d SVG files, deduped %d/%d)\n", themeName, out, int(atomic.LoadInt64(&written)), dedupedCount, originalCount)
 			return nil
 		},
 	}
@@ -197,6 +283,7 @@ Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 	cmd.Flags().BoolVar(&clean, "clean", false, "Delete output directory before generation")
 	cmd.Flags().BoolVar(&noRaster, "no-raster", false, "Only write scalable SVG icons")
 	cmd.Flags().BoolVar(&updateCache, "update-cache", true, "Run gtk-update-icon-cache after generation (if available)")
+	cmd.Flags().IntVar(&jobs, "jobs", runtime.NumCPU(), "Number of SVG processing workers")
 	return cmd
 }
 
@@ -219,6 +306,41 @@ func collectIconInputs(inputDir string) ([]string, error) {
 	}
 	sort.Strings(paths)
 	return paths, nil
+}
+
+func dedupeIconInputs(inputDir string, paths []string) ([]string, int, error) {
+	byKey := map[string]string{}
+	byKeyScore := map[string]int{}
+	for _, path := range paths {
+		rel, err := filepath.Rel(inputDir, path)
+		if err != nil {
+			return nil, 0, err
+		}
+		relOut := strings.TrimSuffix(rel, ".tmpl")
+		relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
+		key := filepath.ToSlash(stripLeadingSizeDir(relOut))
+		score := 1
+		if strings.HasSuffix(path, ".svg.tmpl") {
+			score = 2
+		}
+		prevScore, ok := byKeyScore[key]
+		if !ok || score > prevScore {
+			byKey[key] = path
+			byKeyScore[key] = score
+		}
+	}
+
+	keys := make([]string, 0, len(byKey))
+	for k := range byKey {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	out := make([]string, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, byKey[k])
+	}
+	return out, len(paths) - len(out), nil
 }
 
 func parseSizes(raw string) ([]int, error) {
@@ -541,23 +663,6 @@ func clampInt(v, minV, maxV int) int {
 		return maxV
 	}
 	return v
-}
-
-func printProgress(done, total int, item string) {
-	if total <= 0 {
-		return
-	}
-	width := 30
-	ratio := float64(done) / float64(total)
-	filled := int(math.Round(ratio * float64(width)))
-	if filled < 0 {
-		filled = 0
-	}
-	if filled > width {
-		filled = width
-	}
-	bar := strings.Repeat("#", filled) + strings.Repeat("-", width-filled)
-	fmt.Fprintf(os.Stderr, "\r[%s] %d/%d %3.0f%% %s", bar, done, total, ratio*100, item)
 }
 
 func writeIndexTheme(outputDir string, themeName string, dirsUsed map[string]bool) error {
