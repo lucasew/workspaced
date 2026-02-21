@@ -51,7 +51,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
 		slog.Info("tool not installed, installing", "spec", spec)
 
-		if err := m.Install(ctx, spec.String()); err != nil {
+		if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
 			return "", fmt.Errorf("failed to install tool: %w", err)
 		}
 
@@ -63,7 +63,17 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		return binPath, nil
 	}
 
-	return "", err
+	// The version directory exists but the expected binary is missing.
+	// Reinstalling with a binary hint fixes ambiguous artifact selections.
+	slog.Info("tool version present but binary missing, reinstalling with hint", "spec", spec, "cmd", cmdName)
+	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
+		return "", fmt.Errorf("failed to reinstall tool: %w", err)
+	}
+	binPath, err = m.ResolveBinary(spec, cmdName)
+	if err != nil {
+		return "", fmt.Errorf("tool reinstalled but binary not found: %w", err)
+	}
+	return binPath, nil
 }
 
 // ResolveBinary attempts to find the executable binary for a specific tool version.
