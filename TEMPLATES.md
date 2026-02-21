@@ -206,6 +206,33 @@ config/.bashrc.d.tmpl/
 
 ---
 
+## 🚀 Generator Bundle Fast-Path
+
+Para módulos geradores (ex.: ícones), o provider deve incluir um fingerprint de bundle no `SourceInfo`.
+
+Formato recomendado:
+
+```text
+module:<nome> bundle:<fingerprint> (<arquivo-relativo>)
+```
+
+Com isso, o planner pode pular comparação pesada de conteúdo por arquivo quando:
+
+1. `managed == true`
+2. `current.SourceInfo == desired.SourceInfo`
+3. `SourceInfo` contém `bundle:`
+
+Resultado: `noop` massivo cai de segundos para milissegundos quando o bundle não mudou.
+
+Boas práticas para o fingerprint:
+
+1. incluir versão do engine (`v1`, `v2`, ...)
+2. incluir config efetiva do módulo (`sizes`, `map_scheme`, etc.)
+3. incluir palette/tema (ex.: base16)
+4. incluir snapshot da source (`count`, `size`, `max_mtime` ou hash de arquivos)
+
+---
+
 ## 🧪 Testar
 
 ```bash
