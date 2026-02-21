@@ -1,15 +1,15 @@
 package modfile
 
 import (
+	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
 // TryResolveSourceRefToPath tries to resolve "alias:path" using modfile sources.
 // It returns (resolvedPath, true, nil) when the spec is a resolvable source ref.
 // It returns (spec, false, nil) when the input should be treated as a regular path.
-func (m *ModFile) TryResolveSourceRefToPath(spec string, modulesBaseDir string) (string, bool, error) {
+func (m *ModFile) TryResolveSourceRefToPath(ctx context.Context, spec string, modulesBaseDir string) (string, bool, error) {
 	parts := strings.SplitN(strings.TrimSpace(spec), ":", 2)
 	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
 		return spec, false, nil
@@ -20,31 +20,26 @@ func (m *ModFile) TryResolveSourceRefToPath(spec string, modulesBaseDir string) 
 		return spec, false, nil
 	}
 
-	resolveBase := func(base string) string {
-		if strings.TrimSpace(base) == "" {
-			return modulesBaseDir
-		}
-		if filepath.IsAbs(base) {
-			return base
-		}
-		return filepath.Join(filepath.Dir(modulesBaseDir), base)
-	}
-
-	if alias == "local" {
-		return filepath.Join(resolveBase(""), rel), true, nil
-	}
-
 	src, ok := m.Sources[alias]
 	if !ok {
+		// Support direct provider form for built-ins like local:path
+		src = SourceConfig{Provider: alias}
+	}
+	providerID := strings.TrimSpace(src.Provider)
+	if providerID == "" {
+		providerID = alias
+	}
+	provider, ok := getSourceProvider(providerID)
+	if ok {
+		normalized := provider.Normalize(src)
+		out, err := provider.ResolvePath(ctx, alias, normalized, rel, modulesBaseDir)
+		if err != nil {
+			return "", false, err
+		}
+		return out, true, nil
+	}
+	if _, exists := m.Sources[alias]; !exists {
 		return spec, false, nil
 	}
-	provider := strings.TrimSpace(src.Provider)
-	if provider == "" {
-		provider = alias
-	}
-	if provider != "local" {
-		return "", false, fmt.Errorf("source alias %q provider %q is not supported for input refs (use local)", alias, provider)
-	}
-
-	return filepath.Join(resolveBase(src.Path), rel), true, nil
+	return "", false, fmt.Errorf("source alias %q provider %q is not supported for input refs", alias, providerID)
 }

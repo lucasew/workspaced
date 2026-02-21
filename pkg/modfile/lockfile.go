@@ -25,19 +25,18 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 		return out
 	}
 	for name, src := range modFile.Sources {
+		provider := strings.TrimSpace(src.Provider)
+		if provider == "" {
+			provider = strings.TrimSpace(name)
+		}
+		if p, ok := getSourceProvider(provider); ok {
+			src = p.Normalize(src)
+		}
 		out[name] = LockedSource{
-			Provider: strings.TrimSpace(src.Provider),
+			Provider: provider,
 			Path:     strings.TrimSpace(src.Path),
 			Repo:     strings.TrimSpace(src.Repo),
 			URL:      strings.TrimSpace(src.URL),
-		}
-		if out[name].Provider == "" {
-			out[name] = LockedSource{
-				Provider: strings.TrimSpace(name),
-				Path:     out[name].Path,
-				Repo:     out[name].Repo,
-				URL:      out[name].URL,
-			}
 		}
 	}
 	return out

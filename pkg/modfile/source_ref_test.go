@@ -1,15 +1,18 @@
-package modfile
+package modfile_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 )
 
 func TestTryResolveSourceRefToPath(t *testing.T) {
 	t.Parallel()
 
-	mod := &ModFile{
-		Sources: map[string]SourceConfig{
+	mod := &modfile.ModFile{
+		Sources: map[string]modfile.SourceConfig{
 			"papirus": {
 				Provider: "local",
 				Path:     "/tmp/papirus-icon-theme-20250501",
@@ -17,7 +20,7 @@ func TestTryResolveSourceRefToPath(t *testing.T) {
 		},
 	}
 
-	got, ok, err := mod.TryResolveSourceRefToPath("papirus:Papirus", "/home/lucasew/.dotfiles/modules")
+	got, ok, err := mod.TryResolveSourceRefToPath(context.Background(), "papirus:Papirus", "/home/lucasew/.dotfiles/modules")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -33,12 +36,12 @@ func TestTryResolveSourceRefToPath(t *testing.T) {
 func TestTryResolveSourceRefToPathPlainPath(t *testing.T) {
 	t.Parallel()
 
-	mod := &ModFile{
-		Sources: map[string]SourceConfig{},
+	mod := &modfile.ModFile{
+		Sources: map[string]modfile.SourceConfig{},
 	}
 
 	input := "/tmp/papirus-icon-theme-20250501/Papirus"
-	got, ok, err := mod.TryResolveSourceRefToPath(input, "/home/lucasew/.dotfiles/modules")
+	got, ok, err := mod.TryResolveSourceRefToPath(context.Background(), input, "/home/lucasew/.dotfiles/modules")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	toolpkg "workspaced/pkg/tool"
 
 	"github.com/BurntSushi/toml"
 )
@@ -14,6 +15,7 @@ type SourceConfig struct {
 	Path     string `toml:"path"`
 	Repo     string `toml:"repo"`
 	URL      string `toml:"url"`
+	Ref      string `toml:"ref"`
 }
 
 type ModFile struct {
@@ -31,17 +33,27 @@ var coreModuleDefaults = map[string]string{
 }
 
 func LoadModFile(path string) (*ModFile, error) {
-	out := &ModFile{
-		Sources: map[string]SourceConfig{},
-	}
+	out := &ModFile{Sources: map[string]SourceConfig{}}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return out, nil
 	}
-	if _, err := toml.DecodeFile(path, out); err != nil {
+
+	var raw struct {
+		Sources map[string]any `toml:"sources"`
+	}
+	if _, err := toml.DecodeFile(path, &raw); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
 	}
-	if out.Sources == nil {
-		out.Sources = map[string]SourceConfig{}
+	if raw.Sources == nil {
+		return out, nil
+	}
+
+	for alias, v := range raw.Sources {
+		cfg, err := parseSourceEntry(alias, v)
+		if err != nil {
+			return nil, fmt.Errorf("invalid source %q: %w", alias, err)
+		}
+		out.Sources[alias] = cfg
 	}
 	return out, nil
 }
@@ -103,7 +115,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		}
 		return resolved, validateNonVersionedProvider(resolved)
 	case "github":
-		repo := strings.Trim(strings.TrimSpace(src.Repo), "/")
+		repo := normalizeGitHubRepo(src.Repo)
 		if repo == "" {
 			return ResolvedModuleSource{}, fmt.Errorf("source alias %q (github) requires repo", left)
 		}
@@ -184,6 +196,9 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 	if provider == "" {
 		provider = alias
 	}
+	if p, ok := getSourceProvider(provider); ok {
+		src = p.Normalize(src)
+	}
 	if strings.TrimSpace(lock.Provider) != provider ||
 		strings.TrimSpace(lock.Path) != strings.TrimSpace(src.Path) ||
 		strings.TrimSpace(lock.Repo) != strings.TrimSpace(src.Repo) ||
@@ -191,4 +206,70 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 		return fmt.Errorf("source %q lock mismatch: run `workspaced mod lock`", alias)
 	}
 	return nil
+}
+
+func normalizeGitHubRepo(in string) string {
+	repo := strings.Trim(strings.TrimSpace(in), "/")
+	repo = strings.TrimPrefix(repo, "github:")
+	repo = strings.Trim(repo, "/")
+	return repo
+}
+
+func parseSourceEntry(alias string, v any) (SourceConfig, error) {
+	switch t := v.(type) {
+	case string:
+		return ParseSourceSpec(t)
+	case map[string]any:
+		cfg := SourceConfig{}
+		if provider, ok := t["provider"].(string); ok {
+			cfg.Provider = strings.TrimSpace(provider)
+		}
+		if path, ok := t["path"].(string); ok {
+			cfg.Path = strings.TrimSpace(path)
+		}
+		if repo, ok := t["repo"].(string); ok {
+			cfg.Repo = strings.TrimSpace(repo)
+		}
+		if url, ok := t["url"].(string); ok {
+			cfg.URL = strings.TrimSpace(url)
+		}
+		if ref, ok := t["ref"].(string); ok {
+			cfg.Ref = strings.TrimSpace(ref)
+		}
+		if cfg.Provider == "" {
+			cfg.Provider = strings.TrimSpace(alias)
+		}
+		return cfg, nil
+	default:
+		return SourceConfig{}, fmt.Errorf("expected string or table, got %T", v)
+	}
+}
+
+func ParseSourceSpec(spec string) (SourceConfig, error) {
+	trimmed := strings.TrimSpace(spec)
+	if !strings.Contains(trimmed, ":") {
+		return SourceConfig{}, fmt.Errorf("expected provider:target[@ref]")
+	}
+
+	ts, err := toolpkg.ParseToolSpec(trimmed)
+	if err != nil {
+		return SourceConfig{}, err
+	}
+	provider := strings.TrimSpace(ts.Provider)
+	target := strings.TrimSpace(ts.Package)
+	ref := strings.TrimSpace(ts.Version)
+
+	cfg := SourceConfig{Provider: provider, Ref: ref}
+	if !strings.Contains(trimmed, "@") {
+		cfg.Ref = ""
+	}
+	switch provider {
+	case "github":
+		cfg.Repo = target
+	case "local":
+		cfg.Path = target
+	default:
+		cfg.Path = target
+	}
+	return cfg, nil
 }

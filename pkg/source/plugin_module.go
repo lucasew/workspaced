@@ -9,6 +9,7 @@ import (
 	"workspaced/pkg/config"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/module"
 	_ "workspaced/pkg/module/prelude"
 )
@@ -87,7 +88,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 		// while input_dir can be provided as a source ref (e.g. "papirus:Papirus").
 		if providerID == "core" && ref == "base16-icons-linux" {
 			if inputRef, ok := modCfg["input_dir"].(string); ok && strings.TrimSpace(inputRef) != "" {
-				resolvedInputDir, resolved, err := modFile.TryResolveSourceRefToPath(inputRef, p.baseDir)
+				resolvedInputDir, resolved, err := modFile.TryResolveSourceRefToPath(ctx, inputRef, p.baseDir)
 				if err != nil {
 					return nil, fmt.Errorf("module %q input %q: %w", modName, inputRef, err)
 				}
