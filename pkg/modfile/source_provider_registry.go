@@ -5,7 +5,7 @@ import "context"
 type SourceProvider interface {
 	ID() string
 	ResolvePath(ctx context.Context, alias string, src SourceConfig, rel string, modulesBaseDir string) (string, error)
-	LockHash(ctx context.Context, alias string, src SourceConfig, modulesBaseDir string) (string, error)
+	LockHash(ctx context.Context, alias string, src SourceConfig, modulesBaseDir string) (string, SourceConfig, error)
 	Normalize(src SourceConfig) SourceConfig
 }
 
