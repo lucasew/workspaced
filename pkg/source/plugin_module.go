@@ -7,6 +7,7 @@ import (
 	"sort"
 	"workspaced/pkg/config"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/modfile"
 	"workspaced/pkg/module"
 	_ "workspaced/pkg/module/prelude"
 )
@@ -34,11 +35,11 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 	discovered := []File{}
 	modFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.mod.toml")
 	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.sum.toml")
-	modFile, err := module.LoadModFile(modFilePath)
+	modFile, err := modfile.LoadModFile(modFilePath)
 	if err != nil {
 		return nil, err
 	}
-	sumFile, err := module.LoadSumFile(sumFilePath)
+	sumFile, err := modfile.LoadSumFile(sumFilePath)
 	if err != nil {
 		return nil, err
 	}

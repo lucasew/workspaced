@@ -1,10 +1,10 @@
 package mod
 
 import (
+	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
-	"workspaced/pkg/module"
+	"workspaced/pkg/modfile"
 
 	"github.com/spf13/cobra"
 )
@@ -19,9 +19,9 @@ func init() {
   workspaced mod add my-module`,
 			Args: cobra.RangeArgs(1, 2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				root, err := resolveRepoRoot()
+				ws, err := modfile.DetectWorkspace(context.Background(), "")
 				if err != nil {
-					return fmt.Errorf("failed to detect repo root: %w", err)
+					return err
 				}
 
 				name := strings.TrimSpace(args[0])
@@ -40,17 +40,19 @@ func init() {
 					return fmt.Errorf("core modules are built-in; do not add them to workspaced.mod.toml")
 				}
 
-				modPath := filepath.Join(root, "workspaced.mod.toml")
-				modFile, err := module.LoadModFile(modPath)
+				if err := ws.EnsureFiles(); err != nil {
+					return err
+				}
+				mod, err := modfile.LoadModFile(ws.ModPath())
 				if err != nil {
 					return err
 				}
-				modFile.Modules[name] = source
-				if err := module.WriteModFile(modPath, modFile); err != nil {
+				mod.Modules[name] = source
+				if err := modfile.WriteModFile(ws.ModPath(), mod); err != nil {
 					return err
 				}
 
-				cmd.Printf("updated %s: %s = %s\n", modPath, name, source)
+				cmd.Printf("updated %s: %s = %s\n", ws.ModPath(), name, source)
 				return nil
 			},
 		})

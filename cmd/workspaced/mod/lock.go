@@ -1,10 +1,10 @@
 package mod
 
 import (
+	"context"
 	"fmt"
-	"path/filepath"
 	"workspaced/pkg/config"
-	"workspaced/pkg/module"
+	"workspaced/pkg/modfile"
 
 	"github.com/spf13/cobra"
 )
@@ -20,9 +20,9 @@ func init() {
 }
 
 func runModLock(cmd *cobra.Command, args []string) error {
-	root, err := resolveRepoRoot()
+	ws, err := modfile.DetectWorkspace(context.Background(), "")
 	if err != nil {
-		return fmt.Errorf("failed to detect repo root: %w", err)
+		return err
 	}
 
 	cfg, err := config.LoadConfig()
@@ -30,22 +30,22 @@ func runModLock(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	modPath := filepath.Join(root, "workspaced.mod.toml")
-	sumPath := filepath.Join(root, "workspaced.sum.toml")
-	modulesBaseDir := filepath.Join(root, "modules")
-
-	modFile, err := module.LoadModFile(modPath)
-	if err != nil {
-		return err
-	}
-	entries, err := module.BuildLockEntries(cfg, modFile, modulesBaseDir)
-	if err != nil {
-		return err
-	}
-	if err := module.WriteSumFile(sumPath, &module.SumFile{Modules: entries}); err != nil {
+	if err := ws.EnsureFiles(); err != nil {
 		return err
 	}
 
-	cmd.Printf("wrote %s (%d modules)\n", sumPath, len(entries))
+	mod, err := modfile.LoadModFile(ws.ModPath())
+	if err != nil {
+		return err
+	}
+	entries, err := modfile.BuildLockEntries(cfg, mod, ws.ModulesBaseDir())
+	if err != nil {
+		return err
+	}
+	if err := modfile.WriteSumFile(ws.SumPath(), &modfile.SumFile{Modules: entries}); err != nil {
+		return err
+	}
+
+	cmd.Printf("wrote %s (%d modules)\n", ws.SumPath(), len(entries))
 	return nil
 }
