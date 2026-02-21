@@ -9,6 +9,7 @@ import (
 type ResolveRequest struct {
 	ModuleName     string
 	Ref            string
+	Version        string
 	ModuleConfig   map[string]any
 	ModulesBaseDir string
 	Config         *config.GlobalConfig

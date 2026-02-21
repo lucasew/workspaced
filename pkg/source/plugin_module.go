@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"workspaced/pkg/config"
 	"workspaced/pkg/logging"
@@ -31,6 +32,16 @@ func (p *ModuleScannerPlugin) Name() string {
 func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File, error) {
 	logger := logging.GetLogger(ctx)
 	discovered := []File{}
+	modFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.mod.toml")
+	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.sum.toml")
+	modFile, err := module.LoadModFile(modFilePath)
+	if err != nil {
+		return nil, err
+	}
+	sumFile, err := module.LoadSumFile(sumFilePath)
+	if err != nil {
+		return nil, err
+	}
 
 	moduleNames := make([]string, 0, len(p.cfg.Modules))
 	for name := range p.cfg.Modules {
@@ -53,20 +64,26 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 			continue
 		}
 
-		from, _ := modCfg["from"].(string)
-		providerID, ref, err := module.ResolveProviderAndRef(from, modName)
+		from, _ := modCfg["from"].(string) // explicit override (legacy/escape hatch)
+		moduleSource, err := modFile.ResolveModuleSource(modName, from, p.baseDir, sumFile)
 		if err != nil {
 			return nil, fmt.Errorf("module %q: %w", modName, err)
 		}
+		providerID, ref := moduleSource.Provider, moduleSource.Ref
 		provider, err := module.GetProvider(providerID)
 		if err != nil {
 			return nil, fmt.Errorf("module %q: %w", modName, err)
 		}
 
-		logger.Info("loading module", "module", modName, "from", providerID+":"+ref)
-		resolved, err := provider.Resolve(ctx, module.ResolveRequest{
+		sourceSpec := providerID + ":" + ref
+		if moduleSource.Version != "" {
+			sourceSpec += "@" + moduleSource.Version
+		}
+		logger.Info("loading module", "module", modName, "from", sourceSpec)
+		resolvedFiles, err := provider.Resolve(ctx, module.ResolveRequest{
 			ModuleName:     modName,
 			Ref:            ref,
+			Version:        moduleSource.Version,
 			ModuleConfig:   modCfg,
 			ModulesBaseDir: p.baseDir,
 			Config:         p.cfg,
@@ -75,7 +92,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 			return nil, fmt.Errorf("module %q from %s:%s: %w", modName, providerID, ref, err)
 		}
 
-		for _, rf := range resolved {
+		for _, rf := range resolvedFiles {
 			fileType := TypeStatic
 			if rf.Symlink {
 				fileType = TypeSymlink
