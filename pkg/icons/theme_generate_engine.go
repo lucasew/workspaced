@@ -5,8 +5,7 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
+	imagedraw "image/draw"
 	"image/png"
 	"math"
 	"os"
@@ -24,6 +23,8 @@ import (
 	"workspaced/pkg/config"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
+
+	xdraw "golang.org/x/image/draw"
 
 	"github.com/schollz/progressbar/v3"
 )
@@ -594,7 +595,7 @@ func centerInSquare(img image.Image, size int) image.Image {
 	offX := (size - w) / 2
 	offY := (size - h) / 2
 	rect := image.Rect(offX, offY, offX+w, offY+h)
-	draw.Draw(dst, rect, img, b.Min, draw.Over)
+	imagedraw.Draw(dst, rect, img, b.Min, imagedraw.Over)
 	return dst
 }
 
@@ -612,66 +613,8 @@ func resizeBilinear(src image.Image, outW, outH int) image.Image {
 	}
 
 	dst := image.NewNRGBA(image.Rect(0, 0, outW, outH))
-	scaleX := float64(sw) / float64(outW)
-	scaleY := float64(sh) / float64(outH)
-
-	for y := 0; y < outH; y++ {
-		fy := (float64(y)+0.5)*scaleY - 0.5
-		y0 := clampInt(int(math.Floor(fy)), 0, sh-1)
-		y1 := clampInt(y0+1, 0, sh-1)
-		wy := fy - float64(y0)
-		if wy < 0 {
-			wy = 0
-		}
-		for x := 0; x < outW; x++ {
-			fx := (float64(x)+0.5)*scaleX - 0.5
-			x0 := clampInt(int(math.Floor(fx)), 0, sw-1)
-			x1 := clampInt(x0+1, 0, sw-1)
-			wx := fx - float64(x0)
-			if wx < 0 {
-				wx = 0
-			}
-
-			c00 := color.NRGBAModel.Convert(src.At(sb.Min.X+x0, sb.Min.Y+y0)).(color.NRGBA)
-			c10 := color.NRGBAModel.Convert(src.At(sb.Min.X+x1, sb.Min.Y+y0)).(color.NRGBA)
-			c01 := color.NRGBAModel.Convert(src.At(sb.Min.X+x0, sb.Min.Y+y1)).(color.NRGBA)
-			c11 := color.NRGBAModel.Convert(src.At(sb.Min.X+x1, sb.Min.Y+y1)).(color.NRGBA)
-
-			r := bilerp(c00.R, c10.R, c01.R, c11.R, wx, wy)
-			g := bilerp(c00.G, c10.G, c01.G, c11.G, wx, wy)
-			b := bilerp(c00.B, c10.B, c01.B, c11.B, wx, wy)
-			a := bilerp(c00.A, c10.A, c01.A, c11.A, wx, wy)
-			dst.SetNRGBA(x, y, color.NRGBA{R: r, G: g, B: b, A: a})
-		}
-	}
+	xdraw.ApproxBiLinear.Scale(dst, dst.Bounds(), src, sb, xdraw.Over, nil)
 	return dst
-}
-
-func bilerp(c00, c10, c01, c11 uint8, wx, wy float64) uint8 {
-	v00 := float64(c00)
-	v10 := float64(c10)
-	v01 := float64(c01)
-	v11 := float64(c11)
-	top := v00 + (v10-v00)*wx
-	bottom := v01 + (v11-v01)*wx
-	v := top + (bottom-top)*wy
-	if v < 0 {
-		v = 0
-	}
-	if v > 255 {
-		v = 255
-	}
-	return uint8(math.Round(v))
-}
-
-func clampInt(v, minV, maxV int) int {
-	if v < minV {
-		return minV
-	}
-	if v > maxV {
-		return maxV
-	}
-	return v
 }
 
 func writeIndexTheme(outputDir string, themeName string, dirsUsed map[string]bool) error {
