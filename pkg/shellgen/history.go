@@ -9,12 +9,12 @@ func GenerateHistory() (string, error) {
 	cmd=$(HISTTIMEFORMAT= history 1 | sed 's/^[ ]*[0-9]*[ ]*//')
 
 	# Avoid recording the record command itself and empty commands
-	if [[ -z "$cmd" || "$cmd" == "workspaced history record"* ]]; then
+	if [[ -z "$cmd" || "$cmd" == "workspaced history record"* || "$cmd" == "workspaced utils history record"* ]]; then
 		return
 	fi
 
 	# Send to daemon in background and detach completely to prevent job control messages
-	(workspaced history record \
+	(workspaced utils history record \
 		--command "$cmd" \
 		--cwd "$PWD" \
 		--exit-code "$exit_code" \
