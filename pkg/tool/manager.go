@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/tool/provider"
 )
 
@@ -32,7 +33,7 @@ func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
 
 func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binaryHint string) error {
 	slog.Debug("installing tool", "input", toolSpecStr)
-	spec, err := ParseToolSpec(toolSpecStr)
+	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
 		return err
 	}

@@ -9,12 +9,13 @@ import (
 	"path/filepath"
 	"sort"
 
+	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/semver"
 )
 
 // EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
 func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
-	spec, err := ParseToolSpec(toolSpecStr)
+	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
 		return "", err
 	}
@@ -77,7 +78,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 }
 
 // ResolveBinary attempts to find the executable binary for a specific tool version.
-func (m *Manager) ResolveBinary(spec ToolSpec, cmdName string) (string, error) {
+func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, error) {
 	normalizedVersion := normalizeVersion(spec.Version)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
@@ -102,7 +103,7 @@ func (m *Manager) ResolveBinary(spec ToolSpec, cmdName string) (string, error) {
 }
 
 // FindInstalledVersions returns a sorted list of installed versions for a tool.
-func (m *Manager) FindInstalledVersions(spec ToolSpec) ([]string, error) {
+func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
 	pkgDir := filepath.Join(m.toolsDir, spec.Dir())
 	entries, err := os.ReadDir(pkgDir)
 	if err != nil {
@@ -130,7 +131,7 @@ func (m *Manager) FindInstalledVersions(spec ToolSpec) ([]string, error) {
 }
 
 // ResolveLatestVersion queries the provider to find the latest version of a package.
-func (m *Manager) ResolveLatestVersion(ctx context.Context, spec ToolSpec) (string, error) {
+func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {
 	provider, err := GetProvider(spec.Provider)
 	if err != nil {
 		return "", err

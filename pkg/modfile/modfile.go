@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	toolpkg "workspaced/pkg/tool"
+	parsespec "workspaced/pkg/parse/spec"
 
 	"github.com/BurntSushi/toml"
 )
@@ -251,7 +251,7 @@ func ParseSourceSpec(spec string) (SourceConfig, error) {
 		return SourceConfig{}, fmt.Errorf("expected provider:target[@ref]")
 	}
 
-	ts, err := toolpkg.ParseToolSpec(trimmed)
+	ts, err := parsespec.Parse(trimmed)
 	if err != nil {
 		return SourceConfig{}, err
 	}
