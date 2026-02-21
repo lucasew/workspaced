@@ -23,6 +23,14 @@ func (p Provider) ResolvePath(ctx context.Context, alias string, src modfile.Sou
 	return filepath.Join(base, rel), nil
 }
 
+func (p Provider) LockHash(ctx context.Context, alias string, src modfile.SourceConfig, modulesBaseDir string) (string, error) {
+	_ = ctx
+	_ = alias
+	_ = src
+	_ = modulesBaseDir
+	return "", nil
+}
+
 func (p Provider) Normalize(src modfile.SourceConfig) modfile.SourceConfig {
 	src.Provider = "local"
 	src.Path = strings.TrimSpace(src.Path)

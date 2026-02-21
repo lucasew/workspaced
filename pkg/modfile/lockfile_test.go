@@ -54,7 +54,7 @@ func TestWriteSumFile(t *testing.T) {
 
 	err := WriteSumFile(path, &SumFile{
 		Sources: map[string]LockedSource{
-			"papirus": {Provider: "local", Path: "/tmp/papirus"},
+			"papirus": {Provider: "github", Repo: "PapirusDevelopmentTeam/papirus-icon-theme", URL: "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/main", Hash: "abc123"},
 		},
 		Modules: map[string]LockedModule{
 			"zeta": {Source: "github:acme/zeta"},
@@ -89,7 +89,7 @@ func TestBuildSourceLockEntries(t *testing.T) {
 
 	mod := &ModFile{
 		Sources: map[string]SourceConfig{
-			"papirus": {Provider: "local", Path: "/tmp/papirus"},
+			"papirus": {Provider: "github", Repo: "PapirusDevelopmentTeam/papirus-icon-theme"},
 		},
 	}
 
@@ -98,7 +98,7 @@ func TestBuildSourceLockEntries(t *testing.T) {
 	if !ok {
 		t.Fatal("expected papirus source lock")
 	}
-	if entry.Provider != "local" || entry.Path != "/tmp/papirus" {
+	if entry.Provider != "github" || entry.Repo != "PapirusDevelopmentTeam/papirus-icon-theme" {
 		t.Fatalf("unexpected source lock: %#v", entry)
 	}
 }

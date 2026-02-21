@@ -25,8 +25,11 @@ func TestWriteModFile(t *testing.T) {
 		t.Fatalf("read mod file: %v", err)
 	}
 	s := string(b)
-	if !strings.Contains(s, "[sources.remote]") {
-		t.Fatalf("missing source section: %s", s)
+	if !strings.Contains(s, "[sources]") {
+		t.Fatalf("missing sources section: %s", s)
+	}
+	if !strings.Contains(s, `remote = "github:lucasew/workspaced-modules"`) {
+		t.Fatalf("missing source spec entry: %s", s)
 	}
 	if strings.Contains(s, "[modules]") {
 		t.Fatalf("unexpected modules section: %s", s)

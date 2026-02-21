@@ -29,6 +29,9 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 		if provider == "" {
 			provider = strings.TrimSpace(name)
 		}
+		if !IsLockableProvider(provider) {
+			continue
+		}
 		if p, ok := getSourceProvider(provider); ok {
 			src = p.Normalize(src)
 		}
@@ -125,6 +128,10 @@ func WriteSumFile(path string, sum *SumFile) error {
 			_ = f.Close()
 			return fmt.Errorf("invalid lock entry for source %q: provider is required", name)
 		}
+		if strings.TrimSpace(entry.Hash) == "" {
+			_ = f.Close()
+			return fmt.Errorf("invalid lock entry for source %q: hash is required", name)
+		}
 		if i > 0 {
 			if _, err := fmt.Fprintf(f, "\n"); err != nil {
 				_ = f.Close()
@@ -156,6 +163,10 @@ func WriteSumFile(path string, sum *SumFile) error {
 				_ = f.Close()
 				return err
 			}
+		}
+		if _, err := fmt.Fprintf(f, "hash = %s\n", strconv.Quote(strings.TrimSpace(entry.Hash))); err != nil {
+			_ = f.Close()
+			return err
 		}
 	}
 

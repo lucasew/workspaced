@@ -4,6 +4,8 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log/slog"
@@ -32,8 +34,37 @@ func (p Provider) Normalize(src modfile.SourceConfig) modfile.SourceConfig {
 	src.Provider = "github"
 	src.Path = strings.TrimSpace(src.Path)
 	src.Repo = normalizeGitHubRepo(src.Repo)
-	src.URL = strings.TrimSpace(src.URL)
+	src.Ref = strings.TrimSpace(src.Ref)
+	src.URL = resolvedTarballURL(src)
 	return src
+}
+
+func (p Provider) LockHash(ctx context.Context, alias string, src modfile.SourceConfig, modulesBaseDir string) (string, error) {
+	_ = alias
+	_ = modulesBaseDir
+	url := resolvedTarballURL(src)
+	if url == "" {
+		return "", fmt.Errorf("github source requires repo or url")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	h := sha256.New()
+	if _, err := io.Copy(h, resp.Body); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func init() {
@@ -46,11 +77,8 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 		return "", fmt.Errorf("source alias %q (github) requires repo", alias)
 	}
 
-	key := repo + "|" + strings.TrimSpace(src.URL)
-	tarballURL := strings.TrimSpace(src.URL)
-	if tarballURL == "" {
-		tarballURL = fmt.Sprintf("https://codeload.github.com/%s/tar.gz/refs/heads/main", repo)
-	}
+	tarballURL := resolvedTarballURL(src)
+	key := repo + "|" + tarballURL
 	slog.Info("resolving github source", "alias", alias, "repo", repo, "url", tarballURL)
 	return common.EnsureCachedDir("github", key, func(tmpDir string) error {
 		if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -68,6 +96,21 @@ func normalizeGitHubRepo(in string) string {
 	repo = strings.TrimPrefix(repo, "github:")
 	repo = strings.Trim(repo, "/")
 	return repo
+}
+
+func resolvedTarballURL(src modfile.SourceConfig) string {
+	if u := strings.TrimSpace(src.URL); u != "" {
+		return u
+	}
+	repo := normalizeGitHubRepo(src.Repo)
+	if repo == "" {
+		return ""
+	}
+	ref := strings.TrimSpace(src.Ref)
+	if ref == "" {
+		ref = "main"
+	}
+	return fmt.Sprintf("https://codeload.github.com/%s/tar.gz/%s", repo, ref)
 }
 
 func downloadAndExtractTarball(ctx context.Context, url string, destDir string) error {

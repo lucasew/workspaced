@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/nix"
 
 	"github.com/spf13/cobra"
@@ -12,6 +14,16 @@ import (
 
 func RunApply(ctx context.Context, action string, dryRun bool) error {
 	logger := logging.GetLogger(ctx)
+
+	dotfilesRoot, err := env.GetDotfilesRoot()
+	if err != nil {
+		return fmt.Errorf("failed to get dotfiles root: %w", err)
+	}
+	lockResult, err := modfile.GenerateLock(ctx, modfile.NewWorkspace(dotfilesRoot))
+	if err != nil {
+		return fmt.Errorf("failed to refresh module lockfile: %w", err)
+	}
+	logger.Info("module lockfile refreshed", "sources", lockResult.Sources, "modules", lockResult.Modules)
 
 	if !env.IsNixOS() {
 		logger.Info("not running on NixOS; skipping system apply")

@@ -18,6 +18,7 @@ type LockedSource struct {
 	Path     string `toml:"path"`
 	Repo     string `toml:"repo"`
 	URL      string `toml:"url"`
+	Hash     string `toml:"hash"`
 }
 
 type SumFile struct {
@@ -47,8 +48,12 @@ func LoadSumFile(path string) (*SumFile, error) {
 		lock.Path = strings.TrimSpace(lock.Path)
 		lock.Repo = strings.TrimSpace(lock.Repo)
 		lock.URL = strings.TrimSpace(lock.URL)
+		lock.Hash = strings.TrimSpace(lock.Hash)
 		if lock.Provider == "" {
 			return nil, fmt.Errorf("invalid lock entry for source %q: provider is required", name)
+		}
+		if lock.Hash == "" {
+			return nil, fmt.Errorf("invalid lock entry for source %q: hash is required", name)
 		}
 		out.Sources[name] = lock
 	}

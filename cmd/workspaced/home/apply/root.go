@@ -13,6 +13,8 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/source"
 	"workspaced/pkg/template"
 
@@ -47,6 +49,12 @@ func GetCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
+			ws := modfile.NewWorkspace(dotfilesRoot)
+			lockResult, err := modfile.GenerateLock(ctx, ws)
+			if err != nil {
+				return fmt.Errorf("failed to refresh module lockfile: %w", err)
+			}
+			logger.Info("module lockfile refreshed", "sources", lockResult.Sources, "modules", lockResult.Modules)
 
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -78,7 +86,7 @@ func GetCommand() *cobra.Command {
 			}
 
 			// 2.5 Modules Scanner
-			modulesDir := filepath.Join(dotfilesRoot, "modules")
+			modulesDir := ws.ModulesBaseDir()
 			if _, err := os.Stat(modulesDir); err == nil {
 				pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg, 100))
 			}

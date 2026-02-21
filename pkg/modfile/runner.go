@@ -30,6 +30,9 @@ func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 		return LockResult{}, err
 	}
 	sourceEntries := BuildSourceLockEntries(mod)
+	if err := PopulateSourceLockHashes(ctx, mod, ws.ModulesBaseDir(), sourceEntries); err != nil {
+		return LockResult{}, err
+	}
 	if err := WriteSumFile(ws.SumPath(), &SumFile{
 		Sources: sourceEntries,
 		Modules: moduleEntries,

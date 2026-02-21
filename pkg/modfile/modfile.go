@@ -49,7 +49,7 @@ func LoadModFile(path string) (*ModFile, error) {
 	}
 
 	for alias, v := range raw.Sources {
-		cfg, err := parseSourceEntry(alias, v)
+		cfg, err := parseSourceEntry(v)
 		if err != nil {
 			return nil, fmt.Errorf("invalid source %q: %w", alias, err)
 		}
@@ -215,34 +215,12 @@ func normalizeGitHubRepo(in string) string {
 	return repo
 }
 
-func parseSourceEntry(alias string, v any) (SourceConfig, error) {
-	switch t := v.(type) {
-	case string:
-		return ParseSourceSpec(t)
-	case map[string]any:
-		cfg := SourceConfig{}
-		if provider, ok := t["provider"].(string); ok {
-			cfg.Provider = strings.TrimSpace(provider)
-		}
-		if path, ok := t["path"].(string); ok {
-			cfg.Path = strings.TrimSpace(path)
-		}
-		if repo, ok := t["repo"].(string); ok {
-			cfg.Repo = strings.TrimSpace(repo)
-		}
-		if url, ok := t["url"].(string); ok {
-			cfg.URL = strings.TrimSpace(url)
-		}
-		if ref, ok := t["ref"].(string); ok {
-			cfg.Ref = strings.TrimSpace(ref)
-		}
-		if cfg.Provider == "" {
-			cfg.Provider = strings.TrimSpace(alias)
-		}
-		return cfg, nil
-	default:
-		return SourceConfig{}, fmt.Errorf("expected string or table, got %T", v)
+func parseSourceEntry(v any) (SourceConfig, error) {
+	t, ok := v.(string)
+	if !ok {
+		return SourceConfig{}, fmt.Errorf("expected string spec, got %T", v)
 	}
+	return ParseSourceSpec(t)
 }
 
 func ParseSourceSpec(spec string) (SourceConfig, error) {

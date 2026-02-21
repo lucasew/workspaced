@@ -44,6 +44,27 @@ path = "/tmp/papirus"
 	}
 }
 
+func TestLoadSumFileRequiresSourceHash(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sumPath := filepath.Join(dir, "workspaced.sum.toml")
+	content := `
+[sources.papirus]
+provider = "github"
+repo = "PapirusDevelopmentTeam/papirus-icon-theme"
+url = "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/main"
+`
+	if err := os.WriteFile(sumPath, []byte(content), 0644); err != nil {
+		t.Fatalf("write sum: %v", err)
+	}
+
+	_, err := LoadSumFile(sumPath)
+	if err == nil {
+		t.Fatal("expected hash required error")
+	}
+}
+
 func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	t.Parallel()
 
