@@ -138,7 +138,7 @@ func (p *Provider) resolveBase16IconsLinux(ctx context.Context, req module.Resol
 			RelPath:    rel,
 			TargetBase: cfg.OutputDir,
 			Mode:       info.Mode(),
-			Info:       fmt.Sprintf("module:%s (%s)", req.ModuleName, rel),
+			Info:       fmt.Sprintf("module:%s bundle:%s (%s)", req.ModuleName, fp, rel),
 			AbsPath:    path,
 			Symlink:    false,
 		})
