@@ -26,7 +26,7 @@ if [[ -n "$BASH_VERSION" && $- == *i* ]]; then
 		PROMPT_COMMAND="_workspaced_history_hook${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 	fi
 	# Bind Ctrl+R to history search. If cancelled, keep the current line.
-	bind -x '"\C-r": "SELECTED=$(workspaced search \"$READLINE_LINE\"); if [[ -n \"$SELECTED\" ]]; then READLINE_LINE=$SELECTED; READLINE_POINT=${#READLINE_LINE}; fi"'
+	bind -x '"\C-r": "SELECTED=$(workspaced utils history search \"$READLINE_LINE\"); if [[ -n \"$SELECTED\" ]]; then READLINE_LINE=$SELECTED; READLINE_POINT=${#READLINE_LINE}; fi"'
 fi
 `, nil
 }
