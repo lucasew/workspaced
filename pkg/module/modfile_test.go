@@ -100,3 +100,22 @@ func TestResolveModuleSourceCoreRejectsVersion(t *testing.T) {
 		t.Fatal("expected version validation error")
 	}
 }
+
+func TestResolveModuleSourceCoreDefaultWithoutModEntry(t *testing.T) {
+	t.Parallel()
+
+	mod := &ModFile{
+		Modules: map[string]string{},
+	}
+
+	got, err := mod.ResolveModuleSource("icons", "", "/tmp/modules", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Provider != "core" {
+		t.Fatalf("provider mismatch: got=%q", got.Provider)
+	}
+	if got.Ref != "base16-icons-linux" {
+		t.Fatalf("ref mismatch: got=%q", got.Ref)
+	}
+}

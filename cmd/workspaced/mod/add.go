@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/env"
 	"workspaced/pkg/module"
 
 	"github.com/spf13/cobra"
@@ -16,14 +15,13 @@ func init() {
 			Use:   "add <name> [source]",
 			Short: "Add or update a module source in workspaced.mod.toml",
 			Long: `Examples:
-  workspaced mod add icons core:base16-icons-linux
   workspaced mod add base16-vim remote:base16/vim
   workspaced mod add my-module`,
 			Args: cobra.RangeArgs(1, 2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				root, err := env.GetDotfilesRoot()
+				root, err := resolveRepoRoot()
 				if err != nil {
-					return fmt.Errorf("failed to detect dotfiles root: %w", err)
+					return fmt.Errorf("failed to detect repo root: %w", err)
 				}
 
 				name := strings.TrimSpace(args[0])
@@ -37,6 +35,9 @@ func init() {
 				}
 				if !strings.Contains(source, ":") {
 					return fmt.Errorf("invalid source %q (expected provider-or-alias:path)", source)
+				}
+				if strings.HasPrefix(source, "core:") {
+					return fmt.Errorf("core modules are built-in; do not add them to workspaced.mod.toml")
 				}
 
 				modPath := filepath.Join(root, "workspaced.mod.toml")

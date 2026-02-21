@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"workspaced/pkg/config"
-	"workspaced/pkg/env"
 	"workspaced/pkg/module"
 
 	"github.com/spf13/cobra"
@@ -21,9 +20,9 @@ func init() {
 }
 
 func runModLock(cmd *cobra.Command, args []string) error {
-	root, err := env.GetDotfilesRoot()
+	root, err := resolveRepoRoot()
 	if err != nil {
-		return fmt.Errorf("failed to detect dotfiles root: %w", err)
+		return fmt.Errorf("failed to detect repo root: %w", err)
 	}
 
 	cfg, err := config.LoadConfig()

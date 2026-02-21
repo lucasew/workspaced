@@ -27,6 +27,10 @@ type ResolvedModuleSource struct {
 	Version  string
 }
 
+var coreModuleDefaults = map[string]string{
+	"icons": "base16-icons-linux",
+}
+
 func LoadModFile(path string) (*ModFile, error) {
 	out := &ModFile{
 		Sources: map[string]SourceConfig{},
@@ -51,6 +55,11 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	spec := strings.TrimSpace(explicitFrom)
 	if spec == "" && m != nil {
 		spec = strings.TrimSpace(m.Modules[moduleName])
+	}
+	if spec == "" {
+		if coreRef, ok := coreModuleDefaults[moduleName]; ok {
+			spec = "core:" + coreRef
+		}
 	}
 	if spec == "" {
 		spec = "local:" + moduleName
