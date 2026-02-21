@@ -39,11 +39,11 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 		// 1. Check if the linter applies.
 		err := l.Detect(ctx, dir)
 		if errors.Is(err, provider.ErrNotApplicable) {
-			slog.Debug("linter doesnt apply", "linter", l.Name())
+			slog.Info("linter skipped", "linter", l.Name(), "reason", "not applicable")
 			continue
 		}
 		if err != nil {
-			slog.Debug("cant check if linter applies, skipping", "linter", l.Name(), "error", err)
+			slog.Warn("linter skipped", "linter", l.Name(), "reason", "detect failed", "error", err)
 			continue
 		}
 
@@ -53,6 +53,11 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 			slog.Error("linter failed", "linter", l.Name(), "error", err)
 			continue
 		}
+		resultCount := 0
+		if run != nil {
+			resultCount = len(run.Results)
+		}
+		slog.Info("linter ok", "linter", l.Name(), "sarif_results", resultCount)
 
 		// 3. Aggregate the result
 		if run != nil {
