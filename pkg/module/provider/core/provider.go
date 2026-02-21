@@ -48,7 +48,6 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 
 func (p *Provider) resolveBase16IconsLinux(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
 	cfg := base16IconsConfig{
-		InputDir:       "/tmp/papirus-icon-theme-20250501/Papirus",
 		ThemeName:      "workspaced-base16",
 		Jobs:           "auto",
 		Sizes:          "16,24,32,48,64,128,256",
@@ -64,6 +63,9 @@ func (p *Provider) resolveBase16IconsLinux(ctx context.Context, req module.Resol
 		return nil, fmt.Errorf("invalid module config for %s: %w", req.ModuleName, err)
 	}
 
+	if strings.TrimSpace(cfg.InputDir) == "" {
+		return nil, fmt.Errorf("input_dir is required for core:base16-icons-linux")
+	}
 	cfg.InputDir = env.ExpandPath(cfg.InputDir)
 	if cfg.OutputDir == "" {
 		cfg.OutputDir = filepath.Join("~/.local/share/icons", cfg.ThemeName)

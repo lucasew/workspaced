@@ -143,7 +143,7 @@ config/.bashrc.d.tmpl/
 # config/.local/share/applications/backup.desktop.tmpl
 [Desktop Entry]
 Name=Backup
-Exec=workspaced dispatch backup run
+Exec=workspaced utils backup run
 Terminal=true
 ```
 

@@ -15,7 +15,7 @@ func GetCommand() *cobra.Command {
 			ctx := cmd.Context()
 
 			// Run dry-run apply
-			applyCmd := execdriver.MustRun(ctx, "workspaced", "dispatch", "apply", "--dry-run")
+			applyCmd := execdriver.MustRun(ctx, "workspaced", "home", "apply", "--dry-run")
 			applyCmd.Stdout = os.Stdout
 			applyCmd.Stderr = os.Stderr
 			return applyCmd.Run()
