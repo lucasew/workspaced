@@ -28,7 +28,7 @@ func GenerateMise() (string, error) {
 	}
 
 	// Execute mise activate bash using execdriver
-	cmd, err := execdriver.Run(context.Background(), misePath, "activate", "bash")
+	cmd, err := execdriver.Run(context.Background(), misePath, "activate", "bash", "--shims")
 	if err != nil {
 		return "", fmt.Errorf("failed to create mise command: %w", err)
 	}
