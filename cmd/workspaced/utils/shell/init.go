@@ -2,6 +2,8 @@ package shell
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"os"
@@ -48,6 +50,16 @@ Uses caching for performance - regenerates only when source files change.`,
 
 			preludeDir := filepath.Join(dotfilesRoot, "bin", "prelude")
 
+			allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
+			if err != nil {
+				return fmt.Errorf("failed to list prelude files: %w", err)
+			}
+
+			preludeFingerprint, err := calculatePreludeFingerprint(allFiles)
+			if err != nil {
+				return fmt.Errorf("failed to fingerprint prelude files: %w", err)
+			}
+
 			// Get cache path
 			cacheDir := getCacheDir()
 			if err := os.MkdirAll(cacheDir, 0755); err != nil {
@@ -55,7 +67,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			}
 
 			buildID := version.GetBuildID()
-			cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s.bash", shell, buildID))
+			cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s-%s.bash", shell, buildID, preludeFingerprint))
 
 			// Check if cache exists (build ID already in filename)
 			if !force {
@@ -73,10 +85,6 @@ Uses caching for performance - regenerates only when source files change.`,
 
 			// Read all prelude files in parallel
 			t1 := time.Now()
-			allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
-			if err != nil {
-				return fmt.Errorf("failed to list prelude files: %w", err)
-			}
 			if profile {
 				slog.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
 			}
@@ -172,7 +180,8 @@ Uses caching for performance - regenerates only when source files change.`,
 
 				// Skip files generated inline above
 				if strings.Contains(basename, "workspaced-init") ||
-					strings.Contains(basename, "workspaced-history") {
+					strings.Contains(basename, "workspaced-history") ||
+					strings.Contains(basename, "interactive-uptime") {
 					continue
 				}
 
@@ -237,6 +246,22 @@ func getCacheDir() string {
 		return filepath.Join(xdgCache, "workspaced")
 	}
 	return filepath.Join(os.Getenv("HOME"), ".cache", "workspaced")
+}
+
+func calculatePreludeFingerprint(files []string) (string, error) {
+	h := sha256.New()
+	sort.Strings(files)
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		_, _ = h.Write([]byte(file))
+		_, _ = h.Write([]byte{0})
+		_, _ = h.Write(content)
+		_, _ = h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16], nil
 }
 
 // generateColorCodes generates ANSI color codes inline without calling external commands
