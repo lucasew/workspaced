@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
 
@@ -32,20 +33,20 @@ func (p *Provider) Name() string {
 	return "actionlint"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if .github/workflows exists and is not empty
 	workflowsDir := filepath.Join(dir, ".github", "workflows")
 	entries, err := os.ReadDir(workflowsDir)
 	if os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
 	if err != nil {
-		return false, err
+		return err
 	}
 	if len(entries) == 0 {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
-	return true, nil
+	return nil
 }
 
 type Issue struct {

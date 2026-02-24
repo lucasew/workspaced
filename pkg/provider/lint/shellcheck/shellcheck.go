@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
 
@@ -33,7 +34,7 @@ func (p *Provider) Name() string {
 	return "shellcheck"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if any .sh file exists in the directory or subdirectories
 	found := false
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
@@ -47,10 +48,13 @@ func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
 		return nil
 	})
 	if err != nil {
-		// Ignore errors during detection
-		return false, nil
+		// Preserve previous behavior: ignore detection errors and skip provider.
+		return provider.ErrNotApplicable
 	}
-	return found, nil
+	if !found {
+		return provider.ErrNotApplicable
+	}
+	return nil
 }
 
 type Issue struct {
