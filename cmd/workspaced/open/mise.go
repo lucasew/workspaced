@@ -142,7 +142,7 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 
 	// Check if wrapper already exists and is correct
 	if content, err := os.ReadFile(wrapperPath); err == nil {
-		expectedContent := fmt.Sprintf("#!%s\nexec %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
+		expectedContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 		if string(content) == expectedContent {
 			return nil
 		}
@@ -154,7 +154,7 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 	}
 
 	// Generate wrapper script that calls workspaced open mise
-	wrapperContent := fmt.Sprintf("#!%s\nexec %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
+	wrapperContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 
 	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
 		return fmt.Errorf("failed to write wrapper: %w", err)
