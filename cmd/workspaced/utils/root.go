@@ -14,6 +14,8 @@ import (
 	"workspaced/pkg/registry"
 	"workspaced/pkg/types"
 
+	_ "workspaced/pkg/driver/prelude"
+
 	"github.com/gorilla/websocket"
 
 	"github.com/spf13/cobra"

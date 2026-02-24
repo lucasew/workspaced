@@ -9,13 +9,12 @@ import (
 	"path/filepath"
 	"sort"
 
-	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/semver"
 )
 
 // EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
 func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
-	spec, err := parsespec.Parse(toolSpecStr)
+	spec, err := ParseToolSpec(toolSpecStr)
 	if err != nil {
 		return "", err
 	}
@@ -52,7 +51,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
 		slog.Info("tool not installed, installing", "spec", spec)
 
-		if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
+		if err := m.Install(ctx, spec.String()); err != nil {
 			return "", fmt.Errorf("failed to install tool: %w", err)
 		}
 
@@ -64,21 +63,11 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		return binPath, nil
 	}
 
-	// The version directory exists but the expected binary is missing.
-	// Reinstalling with a binary hint fixes ambiguous artifact selections.
-	slog.Info("tool version present but binary missing, reinstalling with hint", "spec", spec, "cmd", cmdName)
-	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
-		return "", fmt.Errorf("failed to reinstall tool: %w", err)
-	}
-	binPath, err = m.ResolveBinary(spec, cmdName)
-	if err != nil {
-		return "", fmt.Errorf("tool reinstalled but binary not found: %w", err)
-	}
-	return binPath, nil
+	return "", err
 }
 
 // ResolveBinary attempts to find the executable binary for a specific tool version.
-func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, error) {
+func (m *Manager) ResolveBinary(spec ToolSpec, cmdName string) (string, error) {
 	normalizedVersion := normalizeVersion(spec.Version)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
@@ -103,7 +92,7 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 }
 
 // FindInstalledVersions returns a sorted list of installed versions for a tool.
-func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
+func (m *Manager) FindInstalledVersions(spec ToolSpec) ([]string, error) {
 	pkgDir := filepath.Join(m.toolsDir, spec.Dir())
 	entries, err := os.ReadDir(pkgDir)
 	if err != nil {
@@ -131,7 +120,7 @@ func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
 }
 
 // ResolveLatestVersion queries the provider to find the latest version of a package.
-func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {
+func (m *Manager) ResolveLatestVersion(ctx context.Context, spec ToolSpec) (string, error) {
 	provider, err := GetProvider(spec.Provider)
 	if err != nil {
 		return "", err

@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/tool/provider"
 )
 
@@ -28,12 +27,8 @@ func NewManager() (*Manager, error) {
 }
 
 func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
-	return m.installWithHint(ctx, toolSpecStr, "")
-}
-
-func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binaryHint string) error {
 	slog.Debug("installing tool", "input", toolSpecStr)
-	spec, err := parsespec.Parse(toolSpecStr)
+	spec, err := ParseToolSpec(toolSpecStr)
 	if err != nil {
 		return err
 	}
@@ -73,7 +68,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	}
 	slog.Debug("found artifacts", "count", len(artifacts))
 
-	artifact := findArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint)
+	artifact := findArtifact(artifacts, runtime.GOOS, runtime.GOARCH)
 	if artifact == nil {
 		return fmt.Errorf("no artifact found for platform %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
@@ -146,7 +141,7 @@ func (m *Manager) ListInstalled() ([]InstalledTool, error) {
 	return tools, nil
 }
 
-func findArtifact(artifacts []provider.Artifact, osName, arch string, binaryHint string) *provider.Artifact {
+func findArtifact(artifacts []provider.Artifact, osName, arch string) *provider.Artifact {
 	var candidates []provider.Artifact
 	for _, a := range artifacts {
 		if a.OS == osName && a.Arch == arch {
@@ -164,51 +159,11 @@ func findArtifact(artifacts []provider.Artifact, osName, arch string, binaryHint
 		return nil
 	}
 
-	hint := strings.ToLower(strings.TrimSpace(binaryHint))
 	sort.Slice(candidates, func(i, j int) bool {
-		si := scoreArtifactForHint(candidates[i].URL, hint)
-		sj := scoreArtifactForHint(candidates[j].URL, hint)
-		if si != sj {
-			return si > sj
-		}
 		return len(candidates[i].URL) < len(candidates[j].URL)
 	})
 
 	return &candidates[0]
-}
-
-func scoreArtifactForHint(url string, hint string) int {
-	if hint == "" {
-		return 0
-	}
-
-	base := strings.ToLower(filepath.Base(url))
-	score := 0
-
-	// Strong matches for tokenized binary names (resvg-*, *_resvg_*, etc.)
-	for _, sep := range []string{"-", "_", "."} {
-		if strings.Contains(base, hint+sep) || strings.Contains(base, sep+hint+sep) || strings.Contains(base, sep+hint+".") {
-			score += 120
-			break
-		}
-	}
-
-	// Generic match fallback
-	if strings.Contains(base, hint) {
-		score += 60
-	}
-
-	// Slightly prefer common distributable archives for CLI tools
-	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") {
-		score += 10
-	}
-
-	// Avoid obvious debug/minimal artifacts when possible
-	if strings.Contains(base, "debug") {
-		score -= 20
-	}
-
-	return score
 }
 
 // normalizeVersion removes the 'v' prefix from versions for consistent storage

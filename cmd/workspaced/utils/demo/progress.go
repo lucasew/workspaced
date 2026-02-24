@@ -2,7 +2,6 @@ package demo
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 	"workspaced/pkg/driver/notification"
 
@@ -27,14 +26,14 @@ func init() {
 					n.ID = 69
 					n.Progress = float64(percent) / 100.0
 					if err := notification.Notify(ctx, n); err != nil {
-						slog.Error("error sending progress notification", "error", err)
+						fmt.Printf("Error sending notification: %v\n", err)
 					}
 					time.Sleep(time.Second)
 				}
 				n.Message = "Demo concluída!"
 				n.Progress = 1.0
 				if err := notification.Notify(ctx, n); err != nil {
-					slog.Error("error sending final notification", "error", err)
+					fmt.Printf("Error sending final notification: %v\n", err)
 				}
 			},
 		})

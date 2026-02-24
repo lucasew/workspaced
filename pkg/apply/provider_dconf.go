@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -87,7 +86,7 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 	if err := os.WriteFile(tmpIni, []byte(dconfContent), 0600); err == nil {
 		defer os.Remove(tmpIni)
 		if err := applyDconf(tmpIni); err != nil {
-			slog.Warn("failed to apply dconf", "error", err)
+			fmt.Fprintf(os.Stderr, "warning: failed to apply dconf: %v\n", err)
 		}
 	}
 

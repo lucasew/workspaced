@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"log/slog"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -142,8 +142,8 @@ func loadSystemCerts() *x509.CertPool {
 		}
 	}
 
-	// Last resort: return the pool even if empty.
-	// The TLS library may still work with built-in roots.
-	slog.Warn("could not load system CA certificates from known locations")
+	// Last resort: return the pool even if empty
+	// The TLS library may still work with built-in roots
+	fmt.Fprintf(os.Stderr, "Warning: Could not load system CA certificates from any known location\n")
 	return pool
 }

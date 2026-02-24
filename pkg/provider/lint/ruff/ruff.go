@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
 
@@ -30,12 +29,12 @@ func (p *Provider) Name() string {
 	return "ruff"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
 	// Applies if uv.lock exists
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
-		return provider.ErrNotApplicable
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {

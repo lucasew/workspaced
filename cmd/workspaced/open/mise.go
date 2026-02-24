@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -45,10 +44,10 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("failed to create mise directory: %w", err)
 	}
 
-	slog.Info("installing mise", "path", misePath)
+	fmt.Fprintf(os.Stderr, "Installing mise to %s...\n", misePath)
 
 	// Download installer script using httpclient driver (handles Termux DNS/certs)
-	slog.Info("downloading mise installer", "url", "https://mise.run")
+	fmt.Fprintf(os.Stderr, "Downloading installer from https://mise.run...\n")
 	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get http client: %w", err)
@@ -90,7 +89,7 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
 	}
 
-	slog.Info("mise installed successfully", "path", misePath)
+	fmt.Fprintf(os.Stderr, "✓ mise installed successfully\n")
 	return nil
 }
 
@@ -110,7 +109,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 
 	// Generate wrapper in ~/.local/bin/mise if it doesn't exist
 	if err := ensureMiseWrapper(ctx.Context(), misePath); err != nil {
-		slog.Warn("failed to create mise wrapper", "error", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to create mise wrapper: %v\n", err)
 	}
 
 	return misePath, nil
@@ -142,7 +141,7 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 
 	// Check if wrapper already exists and is correct
 	if content, err := os.ReadFile(wrapperPath); err == nil {
-		expectedContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
+		expectedContent := fmt.Sprintf("#!%s\nexec %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 		if string(content) == expectedContent {
 			return nil
 		}
@@ -154,13 +153,13 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 	}
 
 	// Generate wrapper script that calls workspaced open mise
-	wrapperContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
+	wrapperContent := fmt.Sprintf("#!%s\nexec %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 
 	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
 		return fmt.Errorf("failed to write wrapper: %w", err)
 	}
 
-	slog.Info("created mise wrapper", "path", wrapperPath)
+	fmt.Fprintf(os.Stderr, "✓ Created mise wrapper at %s\n", wrapperPath)
 	return nil
 }
 

@@ -1,0 +1,72 @@
+TOOL           LEVEL    FILE:LINE                                  MESSAGE
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/x509).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 2 packages (os and syscall).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (net/http).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (database/sql).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (os/exec).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (net/mail).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/x509).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/tls).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (encoding/pem).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (net/url).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (encoding/asn1).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (net/http).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/x509).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (archive/tar).
+govulncheck    warning  go.mod:1                                   Your code imports 1 vulnerable package (net/textproto), but doesn’t appear to call any of the vulnerable symbols.
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/x509).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/x509).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/tls).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (crypto/tls).
+govulncheck    error    go.mod:1                                   Your code calls vulnerable functions in 1 package (net/url).
+govulncheck    warning  go.mod:1                                   Your code imports 1 vulnerable package (archive/zip), but doesn’t appear to call any of the vulnerable symbols.
+golangci-lint  error    cmd/workspaced/codebase/lint.go:110        Error return value of `fmt.Fprintln` is not checked
+golangci-lint  error    cmd/workspaced/codebase/lint.go:152        Error return value of `fmt.Fprintf` is not checked
+golangci-lint  error    cmd/workspaced/codebase/lint.go:155        Error return value of `w.Flush` is not checked
+golangci-lint  error    cmd/workspaced/daemon/daemon.go:79         Error return value of `conn.Close` is not checked
+golangci-lint  error    cmd/workspaced/daemon/daemon.go:125        Error return value of `database.Close` is not checked
+golangci-lint  error    cmd/workspaced/daemon/daemon.go:142        Error return value of `f.Close` is not checked
+golangci-lint  error    cmd/workspaced/driver/doctor/root.go:24    Error return value of `fmt.Fprintln` is not checked
+golangci-lint  error    cmd/workspaced/driver/doctor/root.go:70    Error return value of `fmt.Fprintf` is not checked
+golangci-lint  error    cmd/workspaced/driver/doctor/root.go:73    Error return value of `w.Flush` is not checked
+golangci-lint  error    cmd/workspaced/open/mise.go:60             Error return value of `resp.Body.Close` is not checked
+golangci-lint  error    cmd/workspaced/selfinstall/root.go:162     Error return value of `source.Close` is not checked
+golangci-lint  error    cmd/workspaced/selfinstall/root.go:168     Error return value of `dest.Close` is not checked
+golangci-lint  error    cmd/workspaced/selfupdate/root.go:195      Error return value of `os.RemoveAll` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/ingest.go:30  Error return value of `database.Close` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/list.go:29    Error return value of `database.Close` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/list.go:44    Error return value of `fmt.Fprintf` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/root.go:36    Error return value of `file.Close` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/root.go:73    Error return value of `dbConn.Close` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/root.go:79    Error return value of `rows.Close` is not checked
+golangci-lint  error    cmd/workspaced/utils/history/root.go:126   Error return value of `conn.Close` is not checked
+golangci-lint  error    pkg/apply/provider_dconf.go:87             Error return value of `os.Remove` is not checked
+golangci-lint  error    pkg/apply/provider_dconf.go:122            Error return value of `file.Close` is not checked
+golangci-lint  error    pkg/cas/cas.go:50                          Error return value of `c.tempFile.Close` is not checked
+golangci-lint  error    pkg/cas/cas.go:60                          Error return value of `os.Remove` is not checked
+golangci-lint  error    pkg/deployer/executor.go:100               Error return value of `reader.Close` is not checked
+golangci-lint  error    pkg/deployer/planner.go:85                 Error return value of `reader.Close` is not checked
+golangci-lint  error    pkg/deployer/planner.go:96                 Error return value of `targetFile.Close` is not checked
+golangci-lint  error    pkg/driver/exec/termux/provider.go:326     Error return value of `os.Remove` is not checked
+golangci-lint  error    pkg/executil/executil.go:49                Error return value of `file.Close` is not checked
+golangci-lint  error    pkg/source/lazy_file.go:25                 Error return value of `srcReader.Close` is not checked
+golangci-lint  error    pkg/source/lazy_file.go:75                 Error return value of `r.inner.Close` is not checked
+golangci-lint  error    pkg/source/plugin_template.go:63           Error return value of `reader.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:80    Error return value of `resp.Body.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:125   Error return value of `resp.Body.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:171   Error return value of `os.RemoveAll` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:211   Error return value of `outFile.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:215   Error return value of `outFile.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:221   Error return value of `outFile.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:320   Error return value of `in.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:327   Error return value of `out.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:367   Error return value of `r.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:401   Error return value of `rc.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:466   Error return value of `f.Close` is not checked
+golangci-lint  error    pkg/tool/provider/github/provider.go:472   Error return value of `gzr.Close` is not checked
+golangci-lint  error    pkg/tool/resolution/resolver.go:171        Error return value of `f.Close` is not checked
+golangci-lint  error    pkg/driver/driver.go:69                    ST1023: should omit type reflect.Type from declaration; it will be inferred from the right-hand side
+golangci-lint  error    pkg/driver/driver.go:106                   ST1023: should omit type reflect.Type from declaration; it will be inferred from the right-hand side
+golangci-lint  error    pkg/palette/genetic/fitness.go:122         QF1003: could use tagged switch on polarity
+golangci-lint  error    pkg/palette/genetic/fitness.go:225         QF1005: could expand call to math.Pow
+golangci-lint  error    pkg/palette/genetic/fitness.go:226         QF1005: could expand call to math.Pow

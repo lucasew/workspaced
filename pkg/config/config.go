@@ -3,7 +3,6 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -319,7 +318,7 @@ func validateDependencies(enabled map[string]bool, meta map[string]ModuleMetadat
 		}
 		for _, rec := range m.Recommends {
 			if !enabled[rec] {
-				slog.Warn("module recommendation is not enabled", "module", name, "recommends", rec)
+				fmt.Printf("Warning: module %q recommends %q, but it is not enabled\n", name, rec)
 			}
 		}
 	}

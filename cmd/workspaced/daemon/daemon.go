@@ -20,6 +20,7 @@ import (
 	"workspaced/pkg/config"
 	"workspaced/pkg/db"
 	"workspaced/pkg/driver/media"
+	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/driver/tray"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/icons"

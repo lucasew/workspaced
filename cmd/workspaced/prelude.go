@@ -7,7 +7,6 @@ import (
 	pkg_home "workspaced/cmd/workspaced/home"
 	pkg_init "workspaced/cmd/workspaced/init"
 	pkg_is "workspaced/cmd/workspaced/is"
-	pkg_mod "workspaced/cmd/workspaced/mod"
 	pkg_open "workspaced/cmd/workspaced/open"
 	pkg_selfinstall "workspaced/cmd/workspaced/selfinstall"
 	pkg_selfupdate "workspaced/cmd/workspaced/selfupdate"
@@ -23,7 +22,6 @@ func init() {
 	Registry.FromGetter(pkg_home.GetCommand)
 	Registry.FromGetter(pkg_init.GetCommand)
 	Registry.FromGetter(pkg_is.GetCommand)
-	Registry.FromGetter(pkg_mod.GetCommand)
 	Registry.FromGetter(pkg_open.GetCommand)
 	Registry.FromGetter(pkg_selfinstall.GetCommand)
 	Registry.FromGetter(pkg_selfupdate.GetCommand)

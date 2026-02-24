@@ -34,9 +34,12 @@ func TestFormat(t *testing.T) {
 	ctx := context.Background()
 
 	// Verify detection
-	err := p.Detect(ctx, dir)
+	ok, err := p.Detect(ctx, dir)
 	if err != nil {
 		t.Fatalf("Detect failed: %v", err)
+	}
+	if !ok {
+		t.Fatal("Provider should detect uv.lock")
 	}
 
 	// Run format

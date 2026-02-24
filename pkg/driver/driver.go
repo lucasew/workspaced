@@ -9,11 +9,10 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"workspaced/pkg/compat"
 )
 
 var (
-	ErrIncompatible = compat.ErrIncompatible
+	ErrIncompatible = errors.New("driver is incompatible")
 	ErrNotInterface = errors.New("driver is not an interface")
 	ErrNotFound     = errors.New("driver not found")
 )

@@ -71,21 +71,21 @@ func saveSarifToCI(report *sarif.Report) {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				slog.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
+				slog.Warn("failed to create SARIF output directory", "dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			file, err := os.Create(sarifPath)
 			if err != nil {
-				slog.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
+				slog.Warn("failed to create SARIF report file", "path", sarifPath, "error", err)
 				continue
 			}
 
 			encoder := json.NewEncoder(file)
 			encoder.SetIndent("", "  ")
 			if err := encoder.Encode(report); err != nil {
-				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
+				slog.Warn("failed to write SARIF report", "path", sarifPath, "error", err)
 			}
 			file.Close()
 		}
@@ -107,7 +107,9 @@ func printReport(report *sarif.Report, format string) error {
 
 func printTable(report *sarif.Report) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE")
+	if _, err := fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE"); err != nil {
+		return err
+	}
 
 	for _, run := range report.Runs {
 		toolName := run.Tool.Driver.Name
@@ -149,11 +151,12 @@ func printTable(report *sarif.Report) error {
 				level = *res.Level
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", toolName, level, fileLine, msg)
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", toolName, level, fileLine, msg); err != nil {
+				return err
+			}
 		}
 	}
-	w.Flush()
-	return nil
+	return w.Flush()
 }
 
 func uploadSarifToGithub(ctx context.Context, report *sarif.Report) {

@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"reflect"
-	"workspaced/pkg/compat"
 )
 
 // Provider is the base interface for any data source in the system.
@@ -14,15 +13,9 @@ type Provider interface {
 	Name() string
 
 	// Detect checks if this provider is applicable in the given context.
-	// Return ErrNotApplicable when the provider should be skipped.
-	Detect(ctx context.Context, dir string) error
+	// Typically checks for the existence of specific files (e.g. package.json).
+	Detect(ctx context.Context, dir string) (bool, error)
 }
-
-// ErrIncompatible marks providers that do not apply to current context.
-var ErrIncompatible = compat.ErrIncompatible
-
-// ErrNotApplicable is kept as alias for readability in provider code.
-var ErrNotApplicable = ErrIncompatible
 
 // providers holds the registry of implementations.
 // Since registration happens only during init(), we don't need mutexes for runtime access.

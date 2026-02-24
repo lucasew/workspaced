@@ -15,9 +15,9 @@ func GetGetCommand() *cobra.Command {
 		Long: `Get a configuration value using dot notation.
 
 Examples:
-  workspaced home config get workspaces.www
-  workspaced home config get desktop.wallpaper.dir
-  workspaced home config get desktop.wallpaper
+  workspaced dispatch config get workspaces.www
+  workspaced dispatch config get desktop.wallpaper.dir
+  workspaced dispatch config get desktop.wallpaper
 
 Outputs the value as JSON for easy parsing.`,
 		Args: cobra.ExactArgs(1),

@@ -2,7 +2,6 @@ package formatter
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -30,12 +29,12 @@ func RunAll(ctx context.Context, dir string) error {
 	var errs []error
 
 	for _, f := range formatters {
-		err := f.Detect(ctx, dir)
-		if errors.Is(err, provider.ErrNotApplicable) {
-			continue
-		}
+		applies, err := f.Detect(ctx, dir)
 		if err != nil {
 			slog.Warn("formatter detection failed", "name", f.Name(), "error", err)
+			continue
+		}
+		if !applies {
 			continue
 		}
 
