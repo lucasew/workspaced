@@ -17,6 +17,8 @@ import (
 // Provider implements the lint.Linter interface for GitHub Actions workflows.
 type Provider struct{}
 
+const actionlintInfoURI = "https://github.com/rhysd/actionlint"
+
 // New creates a new actionlint provider.
 func New() lint.Linter {
 	return &Provider{}
@@ -70,16 +72,11 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// actionlint returns exit code 1 if issues are found, so we ignore exit code check errors if output is present
-	if err := cmd.Run(); err != nil {
-		// If stdout is empty, it's a real error (e.g. tool failure)
-		if stdout.Len() == 0 {
-			return nil, fmt.Errorf("actionlint execution failed: %w (stderr: %s)", err, stderr.String())
-		}
-		// Otherwise, issues were found, proceed to parsing
+	// actionlint returns exit code 1 if issues are found, so ignore that when stdout has data.
+	if err := cmd.Run(); err != nil && stdout.Len() == 0 {
+		return nil, fmt.Errorf("actionlint execution failed: %w (stderr: %s)", err, stderr.String())
 	}
 
-	// Parse JSON output
 	var issues []Issue
 	if stdout.Len() > 0 {
 		if err := json.Unmarshal(stdout.Bytes(), &issues); err != nil {
@@ -91,16 +88,12 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		return nil, nil
 	}
 
-	// Create SARIF run
-	driver := sarif.NewDriver(p.Name())
-	infoURI := "https://github.com/rhysd/actionlint"
-	driver.InformationURI = &infoURI
+	// Build SARIF run from parsed issues, mirroring the official template structure.
+	driver := sarif.NewDriver("actionlint")
+	driver.InformationURI = strPtr(actionlintInfoURI)
 	run := sarif.NewRun(*sarif.NewTool(driver))
 
 	for _, issue := range issues {
-		// Convert issue to SARIF result
-		msg := sarif.NewTextMessage(issue.Message)
-
 		region := sarif.NewRegion().
 			WithStartLine(issue.Line).
 			WithStartColumn(issue.Column)
@@ -114,12 +107,17 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 				WithArtifactLocation(sarif.NewArtifactLocation().WithUri(issue.Filepath)).
 				WithRegion(region))
 
-		res := sarif.NewRuleResult(issue.Kind).
-			WithMessage(msg).
-			WithLocations([]*sarif.Location{loc})
-
-		run.AddResult(res)
+		run.AddResult(
+			sarif.NewRuleResult(issue.Kind).
+				WithLevel("error").
+				WithMessage(sarif.NewTextMessage(issue.Message)).
+				WithLocations([]*sarif.Location{loc}),
+		)
 	}
 
 	return run, nil
+}
+
+func strPtr(s string) *string {
+	return &s
 }
