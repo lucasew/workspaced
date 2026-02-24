@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
 
@@ -30,18 +31,18 @@ func (p *Provider) Name() string {
 	return "golangci-lint"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
-	return true, nil
+	return nil
 }
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute golangci-lint.
 	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRun(ctx, "github:golangci/golangci-lint@v1.64.6", "golangci-lint", "run", "--out-format=sarif", "--show-stats=false", "--issues-exit-code=0")
+	cmd, err := tool.EnsureAndRun(ctx, "github:golangci/golangci-lint@latest", "golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
 	if err != nil {
 		slog.Error("failed to setup golangci-lint", "err", err)
 		return nil, err
