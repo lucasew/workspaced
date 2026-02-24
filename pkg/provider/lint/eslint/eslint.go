@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -36,13 +37,13 @@ func (p *Provider) Name() string {
 	return "eslint"
 }
 
-func (p *Provider) Detect(_ context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(_ context.Context, dir string) error {
 	path := filepath.Join(dir, "node_modules", ".bin", "eslint")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
 
-	return true, nil
+	return nil
 }
 
 type Message struct {

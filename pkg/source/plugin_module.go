@@ -3,13 +3,15 @@ package source
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"workspaced/pkg/config"
 	"workspaced/pkg/logging"
-
-	"github.com/xeipuuv/gojsonschema"
+	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
+	"workspaced/pkg/module"
+	_ "workspaced/pkg/module/prelude"
 )
 
 type ModuleScannerPlugin struct {
@@ -30,161 +32,99 @@ func (p *ModuleScannerPlugin) Name() string {
 	return "module-scanner"
 }
 
-var presetBases = map[string]string{
-	"home": "~",
-	"etc":  "/etc",
-	"usr":  "/usr",
-	"root": "/",
-	"var":  "/var",
-	"bin":  "/usr/local/bin",
-}
-
-func (p *ModuleScannerPlugin) validateConfig(ctx context.Context, modName string, modPath string, modCfg map[string]any) error {
-	logger := logging.GetLogger(ctx)
-	schemaPath := filepath.Join(modPath, "schema.json")
-	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
-		return nil // No schema, skip validation
-	}
-
-	logger.Debug("validating module config", "module", modName, "schema", schemaPath)
-
-	absSchemaPath, err := filepath.Abs(schemaPath)
-	if err != nil {
-		return err
-	}
-
-	// Wrapper schema that adds 'enable' property and requires it
-	wrapperSchema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"enable": map[string]any{"type": "boolean"},
-		},
-		"required": []string{"enable"},
-		"allOf": []map[string]any{
-			{"$ref": "file://" + absSchemaPath},
-		},
-	}
-
-	schemaLoader := gojsonschema.NewGoLoader(wrapperSchema)
-	documentLoader := gojsonschema.NewGoLoader(modCfg)
-
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		return fmt.Errorf("failed to validate module %q: %w", modName, err)
-	}
-
-	if !result.Valid() {
-		var errs strings.Builder
-		for _, desc := range result.Errors() {
-			fmt.Fprintf(&errs, "- %s\n", desc)
-		}
-		return fmt.Errorf("config validation failed for module %q:\n%s", modName, errs.String())
-	}
-
-	logger.Debug("module config valid", "module", modName)
-	return nil
-}
-
 func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File, error) {
 	logger := logging.GetLogger(ctx)
-
-	entries, err := os.ReadDir(p.baseDir)
+	discovered := []File{}
+	modFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.mod.toml")
+	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.sum.toml")
+	modFile, err := modfile.LoadModFile(modFilePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return files, nil
-		}
+		return nil, err
+	}
+	sumFile, err := modfile.LoadSumFile(sumFilePath)
+	if err != nil {
 		return nil, err
 	}
 
-	discovered := []File{}
+	moduleNames := make([]string, 0, len(p.cfg.Modules))
+	for name := range p.cfg.Modules {
+		moduleNames = append(moduleNames, name)
+	}
+	sort.Strings(moduleNames)
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	for _, modName := range moduleNames {
+		modCfgRaw := p.cfg.Modules[modName]
+		if modCfgRaw == nil {
 			continue
 		}
-		modName := entry.Name()
-		modPath := filepath.Join(p.baseDir, modName)
-
-		// Check if module configuration exists
-		modCfgRaw, ok := p.cfg.Modules[modName]
-		if !ok {
-			modCfgRaw = make(map[string]any)
-		}
-
 		modCfg, ok := modCfgRaw.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("invalid config for module %q: expected map, got %T", modName, modCfgRaw)
 		}
-
-		// Validate config if schema exists
-		if err := p.validateConfig(ctx, modName, modPath, modCfg); err != nil {
-			return nil, err
-		}
-
 		enabled, _ := modCfg["enable"].(bool)
 		if !enabled {
 			logger.Debug("module disabled", "module", modName)
 			continue
 		}
 
-		logger.Info("loading module", "module", modName)
-
-		// Scan presets
-		presets, err := os.ReadDir(modPath)
+		from, _ := modCfg["from"].(string) // explicit override (legacy/escape hatch)
+		moduleSource, err := modFile.ResolveModuleSource(modName, from, p.baseDir, sumFile)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("module %q: %w", modName, err)
+		}
+		providerID, ref := moduleSource.Provider, moduleSource.Ref
+		provider, err := module.GetProvider(providerID)
+		if err != nil {
+			return nil, fmt.Errorf("module %q: %w", modName, err)
 		}
 
-		for _, preset := range presets {
-			if !preset.IsDir() {
-				name := preset.Name()
-				if name == "schema.json" || name == "module.toml" || name == "defaults.toml" || name == "README.md" {
-					continue
-				}
-				return nil, fmt.Errorf("strict structure violation: file %q found in module %q root (expected preset directory or module meta files)", name, modName)
-			}
+		sourceSpec := providerID + ":" + ref
+		if moduleSource.Version != "" {
+			sourceSpec += "@" + moduleSource.Version
+		}
+		logger.Info("loading module", "module", modName, "from", sourceSpec)
 
-			presetName := preset.Name()
-			targetBase, ok := presetBases[presetName]
-			if !ok {
-				return nil, fmt.Errorf("unknown preset %q in module %q", presetName, modName)
-			}
-
-			if targetBase == "~" {
-				home, _ := os.UserHomeDir()
-				targetBase = home
-			}
-
-			presetPath := filepath.Join(modPath, presetName)
-			err := filepath.Walk(presetPath, func(path string, info os.FileInfo, err error) error {
+		// core:base16-icons-linux keeps module source in "from=core:...",
+		// while input_dir can be provided as a source ref (e.g. "papirus:Papirus").
+		if providerID == "core" && ref == "base16-icons-linux" {
+			if inputRef, ok := modCfg["input_dir"].(string); ok && strings.TrimSpace(inputRef) != "" {
+				resolvedInputDir, resolved, err := modFile.TryResolveSourceRefToPath(ctx, inputRef, p.baseDir)
 				if err != nil {
-					return err
+					return nil, fmt.Errorf("module %q input %q: %w", modName, inputRef, err)
 				}
-				if info.IsDir() {
-					return nil
+				if resolved {
+					modCfg["input_dir"] = resolvedInputDir
 				}
-
-				rel, _ := filepath.Rel(presetPath, path)
-				fileType := TypeStatic
-				if info.Mode()&os.ModeSymlink != 0 {
-					fileType = TypeSymlink
-				}
-
-				discovered = append(discovered, &StaticFile{
-					BasicFile: BasicFile{
-						RelPathStr:    rel,
-						TargetBaseDir: targetBase,
-						FileMode:      info.Mode(),
-						Info:          fmt.Sprintf("module:%s (%s/%s)", modName, presetName, rel),
-						FileType:      fileType,
-					},
-					AbsPath: path,
-				})
-				return nil
-			})
-			if err != nil {
-				return nil, err
 			}
+		}
+
+		resolvedFiles, err := provider.Resolve(ctx, module.ResolveRequest{
+			ModuleName:     modName,
+			Ref:            ref,
+			Version:        moduleSource.Version,
+			ModuleConfig:   modCfg,
+			ModulesBaseDir: p.baseDir,
+			Config:         p.cfg,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("module %q from %s:%s: %w", modName, providerID, ref, err)
+		}
+
+		for _, rf := range resolvedFiles {
+			fileType := TypeStatic
+			if rf.Symlink {
+				fileType = TypeSymlink
+			}
+			discovered = append(discovered, &StaticFile{
+				BasicFile: BasicFile{
+					RelPathStr:    rf.RelPath,
+					TargetBaseDir: rf.TargetBase,
+					FileMode:      rf.Mode,
+					Info:          rf.Info,
+					FileType:      fileType,
+				},
+				AbsPath: rf.AbsPath,
+			})
 		}
 	}
 

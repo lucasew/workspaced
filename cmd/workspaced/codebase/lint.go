@@ -71,21 +71,21 @@ func saveSarifToCI(report *sarif.Report) {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				slog.Warn("failed to create SARIF output directory", "dir", outputDir, "error", err)
+				slog.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			file, err := os.Create(sarifPath)
 			if err != nil {
-				slog.Warn("failed to create SARIF report file", "path", sarifPath, "error", err)
+				slog.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
 				continue
 			}
 
 			encoder := json.NewEncoder(file)
 			encoder.SetIndent("", "  ")
 			if err := encoder.Encode(report); err != nil {
-				slog.Warn("failed to write SARIF report", "path", sarifPath, "error", err)
+				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
 			file.Close()
 		}

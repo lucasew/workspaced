@@ -2,7 +2,10 @@ package shell
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -31,7 +34,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			startTime := time.Now()
 			defer func() {
 				if profile {
-					fmt.Fprintf(os.Stderr, "\n⏱️  Total time: %v\n", time.Since(startTime))
+					slog.Info("shell init total time", "duration", time.Since(startTime))
 				}
 			}()
 			shell := "bash"
@@ -47,6 +50,16 @@ Uses caching for performance - regenerates only when source files change.`,
 
 			preludeDir := filepath.Join(dotfilesRoot, "bin", "prelude")
 
+			allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
+			if err != nil {
+				return fmt.Errorf("failed to list prelude files: %w", err)
+			}
+
+			preludeFingerprint, err := calculatePreludeFingerprint(allFiles)
+			if err != nil {
+				return fmt.Errorf("failed to fingerprint prelude files: %w", err)
+			}
+
 			// Get cache path
 			cacheDir := getCacheDir()
 			if err := os.MkdirAll(cacheDir, 0755); err != nil {
@@ -54,30 +67,26 @@ Uses caching for performance - regenerates only when source files change.`,
 			}
 
 			buildID := version.GetBuildID()
-			cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s.bash", shell, buildID))
+			cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s-%s.bash", shell, buildID, preludeFingerprint))
 
 			// Check if cache exists (build ID already in filename)
 			if !force {
 				if content, err := os.ReadFile(cacheFile); err == nil {
 					if profile {
-						fmt.Fprintf(os.Stderr, "✓ Cache hit: %s\n", cacheFile)
+						slog.Info("shell init cache hit", "cache_file", cacheFile)
 					}
 					fmt.Print(string(content))
 					return nil
 				}
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "⚠️  Cache miss, generating...\n")
+				slog.Info("shell init cache miss, generating")
 			}
 
 			// Read all prelude files in parallel
 			t1 := time.Now()
-			allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
-			if err != nil {
-				return fmt.Errorf("failed to list prelude files: %w", err)
-			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "  Glob files: %v (%d files)\n", time.Since(t1), len(allFiles))
+				slog.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
 			}
 
 			// Separate .source.sh files from regular .sh files
@@ -145,7 +154,7 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to execute source files: %w", err)
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "  Execute .source.sh files: %v (%d files)\n", time.Since(t2), len(sourceFiles))
+				slog.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
 			}
 
 			// Build output in order
@@ -161,7 +170,7 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to generate inline shell initialization: %w", err)
 			}
 			if profile {
-				fmt.Fprintf(os.Stderr, "  Generate inline shell initialization: %v\n", time.Since(t3))
+				slog.Info("shell init generated inline code", "duration", time.Since(t3))
 			}
 			output.WriteString(inlineCode)
 
@@ -171,7 +180,8 @@ Uses caching for performance - regenerates only when source files change.`,
 
 				// Skip files generated inline above
 				if strings.Contains(basename, "workspaced-init") ||
-					strings.Contains(basename, "workspaced-history") {
+					strings.Contains(basename, "workspaced-history") ||
+					strings.Contains(basename, "interactive-uptime") {
 					continue
 				}
 
@@ -202,7 +212,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			// Save to cache
 			if err := os.WriteFile(cacheFile, []byte(result), 0644); err != nil {
 				// Non-fatal, continue
-				fmt.Fprintf(os.Stderr, "Warning: failed to write cache: %v\n", err)
+				slog.Warn("failed to write shell init cache", "cache_file", cacheFile, "error", err)
 			}
 
 			fmt.Print(result)
@@ -236,6 +246,22 @@ func getCacheDir() string {
 		return filepath.Join(xdgCache, "workspaced")
 	}
 	return filepath.Join(os.Getenv("HOME"), ".cache", "workspaced")
+}
+
+func calculatePreludeFingerprint(files []string) (string, error) {
+	h := sha256.New()
+	sort.Strings(files)
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return "", err
+		}
+		_, _ = h.Write([]byte(file))
+		_, _ = h.Write([]byte{0})
+		_, _ = h.Write(content)
+		_, _ = h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))[:16], nil
 }
 
 // generateColorCodes generates ANSI color codes inline without calling external commands
@@ -291,7 +317,7 @@ func executeSourceFiles(sourceFiles map[string]string) (map[string]string, error
 	for result := range results {
 		if result.err != nil {
 			// Log warning but don't fail - just skip this source file
-			fmt.Fprintf(os.Stderr, "Warning: failed to execute %s.source.sh: %v\n", result.key, result.err)
+			slog.Warn("failed to execute .source.sh", "source", result.key+".source.sh", "error", result.err)
 			continue
 		}
 		outputMap[result.key] = result.output

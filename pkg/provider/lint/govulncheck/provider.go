@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -31,15 +32,15 @@ func (p *Provider) Name() string {
 	return "govulncheck"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) (bool, error) {
+func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
-		return false, nil
+		return provider.ErrNotApplicable
 	}
 	if exec.IsBinaryAvailable(ctx, "go") {
-		return true, nil
+		return nil
 	}
-	return false, nil
+	return provider.ErrNotApplicable
 }
 
 func (p *Provider) getCommand(ctx context.Context, dir string) (*stdexec.Cmd, error) {

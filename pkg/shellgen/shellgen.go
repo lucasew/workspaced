@@ -2,6 +2,7 @@ package shellgen
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -27,7 +28,6 @@ var generators = map[string]Generator{
 	"05-flags":      GenerateFlags,
 	"06-daemon":     GenerateDaemon,
 	"10-completion": GenerateCompletion,
-	"15-mise":       GenerateMise,
 	"20-history":    GenerateHistory,
 }
 
@@ -74,7 +74,7 @@ func Generate() (string, error) {
 		resultMap[r.key] = r.output
 		timings[r.key] = r.duration
 		if profile {
-			fmt.Fprintf(os.Stderr, "    • %s: %v\n", r.key, r.duration)
+			slog.Info("shell generator timing", "generator", r.key, "duration", r.duration)
 		}
 	}
 

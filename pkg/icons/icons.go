@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"workspaced/pkg/driver"
+	httpclientdriver "workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
 )
@@ -57,7 +59,11 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		return "", err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get http client driver: %w", err)
+	}
+	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
 		return "", err
 	}

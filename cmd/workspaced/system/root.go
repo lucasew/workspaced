@@ -7,11 +7,9 @@ import (
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "system",
-		Short: "System apply tools. To be implemented.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
-		},
+		Short: "System apply tools",
 	}
+	cmd.AddCommand(getApplyCommand())
 	return cmd
 
 }

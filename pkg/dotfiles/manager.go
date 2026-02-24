@@ -3,6 +3,7 @@ package dotfiles
 import (
 	"context"
 	"fmt"
+	"time"
 	"workspaced/pkg/deployer"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
@@ -97,11 +98,13 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	// 4. Planejar ações
 	logger.Info("planning actions")
+	planStart := time.Now()
 	actions, err := m.planner.Plan(ctx, desired, state)
 	if err != nil {
 		result.Error = err
 		return result, fmt.Errorf("failed to plan: %w", err)
 	}
+	logger.Info("plan calculated", "duration", time.Since(planStart).String(), "actions", len(actions))
 
 	result.Actions = actions
 

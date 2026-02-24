@@ -5,6 +5,7 @@ import (
 	pkg_backup "workspaced/cmd/workspaced/utils/backup"
 	pkg_demo "workspaced/cmd/workspaced/utils/demo"
 	pkg_history "workspaced/cmd/workspaced/utils/history"
+	pkg_icons "workspaced/cmd/workspaced/utils/icons"
 	pkg_nix "workspaced/cmd/workspaced/utils/nix"
 	pkg_palette "workspaced/cmd/workspaced/utils/palette"
 	pkg_shell "workspaced/cmd/workspaced/utils/shell"
@@ -15,6 +16,7 @@ func init() {
 	Registry.FromGetter(pkg_backup.GetCommand)
 	Registry.FromGetter(pkg_demo.GetCommand)
 	Registry.FromGetter(pkg_history.GetCommand)
+	Registry.FromGetter(pkg_icons.GetCommand)
 	Registry.FromGetter(pkg_nix.GetCommand)
 	Registry.FromGetter(pkg_palette.GetCommand)
 	Registry.FromGetter(pkg_shell.GetCommand)

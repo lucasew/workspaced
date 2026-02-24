@@ -54,3 +54,18 @@ When adding new config fields to `pkg/config/config.go`:
   - `New()`: Create instance
 - Use `workspaced doctor` to see all drivers and their status
 - Configure driver weights in `settings.toml` under `[driver.weights]`
+
+## Runtime Guidelines
+- **Network access**:
+  - If an expected hash is available, use `fetchurl` driver.
+  - If no expected hash is available, use `httpclient` driver.
+  - Avoid direct `http.DefaultClient` usage outside driver implementations.
+- **Process execution**:
+  - Prefer `pkg/driver/exec` instead of direct `os/exec` in feature code.
+  - Direct `os/exec` is acceptable only inside exec driver implementations.
+- **Driver preload**:
+  - Keep driver prelude import centralized in root command (`cmd/workspaced/root.go`).
+  - Avoid duplicate `_ "workspaced/pkg/driver/prelude"` imports in subcommands.
+- **Module lock model**:
+  - `workspaced.mod.toml`: declarative source specs only.
+  - `workspaced.sum.toml`: resolved lock state (including source URL/hash and module version/source pins).

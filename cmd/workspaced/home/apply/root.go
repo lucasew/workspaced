@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"workspaced/pkg/apply"
 	"workspaced/pkg/config"
 	"workspaced/pkg/deployer"
@@ -12,7 +13,8 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/nix"
+	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/source"
 	"workspaced/pkg/template"
 
@@ -32,6 +34,7 @@ func GetCommand() *cobra.Command {
 			if len(args) > 0 {
 				action = args[0]
 			}
+			_ = action
 
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 
@@ -46,6 +49,12 @@ func GetCommand() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
+			ws := modfile.NewWorkspace(dotfilesRoot)
+			lockResult, err := modfile.GenerateLock(ctx, ws)
+			if err != nil {
+				return fmt.Errorf("failed to refresh module lockfile: %w", err)
+			}
+			logger.Info("module lockfile refreshed", "sources", lockResult.Sources, "modules", lockResult.Modules)
 
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -77,7 +86,7 @@ func GetCommand() *cobra.Command {
 			}
 
 			// 2.5 Modules Scanner
-			modulesDir := filepath.Join(dotfilesRoot, "modules")
+			modulesDir := ws.ModulesBaseDir()
 			if _, err := os.Stat(modulesDir); err == nil {
 				pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg, 100))
 			}
@@ -112,15 +121,23 @@ func GetCommand() *cobra.Command {
 						home, _ := os.UserHomeDir()
 						dummyTheme := home + "/.local/share/themes/dummy"
 						if _, err := os.Stat(dummyTheme); err == nil {
+							targetTheme := "adw-gtk3-dark"
+							if readCmd, err := execdriver.Run(ctx, "dconf", "read", "/org/gnome/desktop/interface/gtk-theme"); err == nil {
+								if out, err := readCmd.Output(); err == nil {
+									if v := strings.Trim(strings.TrimSpace(string(out)), "'"); v != "" {
+										targetTheme = v
+									}
+								}
+							}
 							// Switch to dummy and back to force GTK reload
 							if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", "'dummy'"); err == nil {
 								if err := cmd.Run(); err != nil {
 									logger.Warn("failed to switch to dummy theme", "error", err)
 								}
 							}
-							if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", "'base16'"); err == nil {
+							if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", fmt.Sprintf("'%s'", targetTheme)); err == nil {
 								if err := cmd.Run(); err != nil {
-									logger.Warn("failed to switch to base16 theme", "error", err)
+									logger.Warn("failed to restore gtk theme", "theme", targetTheme, "error", err)
 								}
 							}
 						}
@@ -158,29 +175,6 @@ func GetCommand() *cobra.Command {
 					}
 				}
 				cmd.Printf("\nSummary: %d created, %d updated, %d deleted\n", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
-			}
-
-			// NixOS rebuild (se aplicável)
-			if env.IsNixOS() {
-				logger.Info("running NixOS rebuild", "action", action)
-				if dryRun {
-					logger.Info("dry-run: skipping nixos-rebuild")
-				} else {
-					flake := ""
-					hostname := env.GetHostname()
-					if hostname == "riverwood" {
-						logger.Info("performing remote build for riverwood")
-						ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)
-						nixResult, err := nix.RemoteBuild(ctx, ref, "whiterun", true)
-						if err != nil {
-							return fmt.Errorf("remote build failed: %w", err)
-						}
-						flake = nixResult
-					}
-					if err := nix.Rebuild(ctx, action, flake); err != nil {
-						return err
-					}
-				}
 			}
 
 			return nil

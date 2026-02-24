@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -158,6 +159,6 @@ func loadTermuxCerts() *x509.CertPool {
 	}
 
 	// Last resort: return empty pool
-	fmt.Fprintf(os.Stderr, "Warning: Could not load any CA certificates for Termux\n")
+	slog.Warn("could not load any CA certificates for Termux")
 	return pool
 }
