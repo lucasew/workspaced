@@ -3,6 +3,7 @@ package codebase
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"workspaced/pkg/driver"
+	httpclientdriver "workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/provider/lint"
 	_ "workspaced/pkg/provider/prelude"
 
@@ -49,7 +52,7 @@ func init() {
 
 				// Upload SARIF report to GitHub if running in GitHub Actions
 				if os.Getenv("GITHUB_ACTIONS") == "true" {
-					uploadSarifToGithub(report)
+					uploadSarifToGithub(cmd.Context(), report)
 				}
 
 				return printReport(report, format)
@@ -153,7 +156,7 @@ func printTable(report *sarif.Report) error {
 	return nil
 }
 
-func uploadSarifToGithub(report *sarif.Report) {
+func uploadSarifToGithub(ctx context.Context, report *sarif.Report) {
 	repo := os.Getenv("GITHUB_REPOSITORY")
 	token := os.Getenv("GITHUB_TOKEN")
 	sha := os.Getenv("GITHUB_SHA")
@@ -167,8 +170,17 @@ func uploadSarifToGithub(report *sarif.Report) {
 		return
 	}
 
-	workflowRunID, _ := strconv.Atoi(workflowRunIDStr)
-	workflowRunAttempt, _ := strconv.Atoi(workflowRunAttemptStr)
+	workflowRunID, err := strconv.Atoi(workflowRunIDStr)
+	if err != nil {
+		slog.Warn("failed to parse GITHUB_RUN_ID", "error", err, "val", workflowRunIDStr)
+		// Proceeding with 0 as it's just metadata
+	}
+
+	workflowRunAttempt, err := strconv.Atoi(workflowRunAttemptStr)
+	if err != nil {
+		slog.Warn("failed to parse GITHUB_RUN_ATTEMPT", "error", err, "val", workflowRunAttemptStr)
+		// Proceeding with 0 as it's just metadata
+	}
 
 	// Serialize SARIF report
 	var sarifBuf bytes.Buffer
@@ -233,7 +245,14 @@ func uploadSarifToGithub(report *sarif.Report) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	// Use the httpclient driver
+	httpClientDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+	if err != nil {
+		slog.Error("failed to get httpclient driver", "error", err)
+		return
+	}
+	client := httpClientDriver.Client()
+
 	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("failed to upload SARIF report", "error", err)
