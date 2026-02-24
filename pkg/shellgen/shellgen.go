@@ -28,7 +28,6 @@ var generators = map[string]Generator{
 	"05-flags":      GenerateFlags,
 	"06-daemon":     GenerateDaemon,
 	"10-completion": GenerateCompletion,
-	"15-mise":       GenerateMise,
 	"20-history":    GenerateHistory,
 }
 
