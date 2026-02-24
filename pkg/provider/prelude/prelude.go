@@ -11,4 +11,5 @@ import (
 	_ "workspaced/pkg/provider/lint/golangci"
 	_ "workspaced/pkg/provider/lint/govulncheck"
 	_ "workspaced/pkg/provider/lint/ruff"
+	_ "workspaced/pkg/provider/lint/shellcheck"
 )
