@@ -13,10 +13,14 @@ import (
 	"workspaced/pkg/tool/provider"
 )
 
+// Manager handles the lifecycle of tools, including installation and listing.
+// It coordinates with providers to fetch artifacts and manages the local tool storage.
 type Manager struct {
 	toolsDir string
 }
 
+// NewManager creates a new Manager instance.
+// It initializes the tools directory path based on user configuration or defaults.
 func NewManager() (*Manager, error) {
 	toolsDir, err := GetToolsDir()
 	if err != nil {
@@ -27,6 +31,9 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
+// Install downloads and installs a tool based on the provided specification string.
+// The spec string is parsed to determine the provider, package, and version (e.g., "github:owner/repo@version").
+// If the version is "latest", it resolves the latest available version from the provider.
 func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
 	return m.installWithHint(ctx, toolSpecStr, "")
 }
@@ -101,12 +108,15 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	return nil
 }
 
+// InstalledTool represents a locally installed tool version.
 type InstalledTool struct {
 	Name    string
 	Version string
 	Path    string
 }
 
+// ListInstalled scans the tools directory and returns a list of all installed tools and their versions.
+// It iterates through the directory structure created by the manager.
 func (m *Manager) ListInstalled() ([]InstalledTool, error) {
 	var tools []InstalledTool
 
