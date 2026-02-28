@@ -68,9 +68,128 @@ const (
 	SeverityError   = 2
 )
 
+func sanitizeESLintOutput(raw []byte) []byte {
+	b := bytes.TrimSpace(raw)
+	// Remove UTF-8 BOM if present.
+	b = bytes.TrimPrefix(b, []byte{0xEF, 0xBB, 0xBF})
+	if len(b) == 0 {
+		return b
+	}
+
+	// If stdout contains extra text, extract the first JSON value.
+	if b[0] != '[' && b[0] != '{' {
+		if extracted, ok := extractFirstJSONValue(b); ok {
+			b = extracted
+		}
+	}
+
+	return escapeInvalidStringControlChars(b)
+}
+
+func extractFirstJSONValue(raw []byte) ([]byte, bool) {
+	start := -1
+	var opener byte
+	for i, c := range raw {
+		if c == '[' || c == '{' {
+			start = i
+			opener = c
+			break
+		}
+	}
+	if start == -1 {
+		return nil, false
+	}
+
+	closer := byte(']')
+	if opener == '{' {
+		closer = '}'
+	}
+
+	depth := 0
+	inString := false
+	escaped := false
+
+	for i := start; i < len(raw); i++ {
+		c := raw[i]
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			switch c {
+			case '\\':
+				escaped = true
+			case '"':
+				inString = false
+			}
+			continue
+		}
+
+		switch c {
+		case '"':
+			inString = true
+		case opener:
+			depth++
+		case closer:
+			depth--
+			if depth == 0 {
+				return raw[start : i+1], true
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func escapeInvalidStringControlChars(raw []byte) []byte {
+	out := make([]byte, 0, len(raw))
+	inString := false
+	escaped := false
+
+	for _, c := range raw {
+		if inString {
+			if escaped {
+				out = append(out, c)
+				escaped = false
+				continue
+			}
+
+			switch c {
+			case '\\':
+				out = append(out, c)
+				escaped = true
+			case '"':
+				out = append(out, c)
+				inString = false
+			case '\n':
+				out = append(out, '\\', 'n')
+			case '\r':
+				out = append(out, '\\', 'r')
+			case '\t':
+				out = append(out, '\\', 't')
+			default:
+				if c < 0x20 {
+					// Keep JSON valid if any other raw control character appears.
+					out = append(out, ' ')
+					continue
+				}
+				out = append(out, c)
+			}
+			continue
+		}
+
+		out = append(out, c)
+		if c == '"' {
+			inString = true
+		}
+	}
+
+	return out
+}
+
 func parseAndConvert(output []byte) (*sarif.Run, error) {
 	var results []Result
-	if err := json.Unmarshal(output, &results); err != nil {
+	if err := json.Unmarshal(sanitizeESLintOutput(output), &results); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal eslint output: %w", err)
 	}
 
@@ -139,7 +258,11 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	run, err := parseAndConvert(stdout.Bytes())
 	if err != nil {
-		slog.Error("eslint failed to produce valid JSON", "stderr", stderr.String())
+		rawStdout := stdout.String()
+		if len(rawStdout) > 2048 {
+			rawStdout = rawStdout[:2048] + "...(truncated)"
+		}
+		slog.Error("eslint failed to produce valid JSON", "stderr", stderr.String(), "stdout", rawStdout)
 		return nil, fmt.Errorf("eslint failed: %w: %s", err, stderr.String())
 	}
 

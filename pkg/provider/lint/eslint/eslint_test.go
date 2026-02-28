@@ -71,3 +71,41 @@ func TestParseAndConvert(t *testing.T) {
 		t.Errorf("expected level warning, got %s", *res2.Level)
 	}
 }
+
+func TestParseAndConvert_WithRawNewlineInString(t *testing.T) {
+	// Simulates broken JSON payload where a message contains a raw newline.
+	raw := []byte(`[{"filePath":"/tmp/a.js","messages":[{"ruleId":"x","severity":2,"message":"line1
+line2","line":1,"column":1,"endLine":1,"endColumn":2}]}]`)
+
+	run, err := parseAndConvert(raw)
+	if err != nil {
+		t.Fatalf("parseAndConvert failed: %v", err)
+	}
+
+	if len(run.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(run.Results))
+	}
+
+	if run.Results[0].Message.Text == nil || *run.Results[0].Message.Text != "line1\nline2" {
+		t.Fatalf("unexpected message: %+v", run.Results[0].Message.Text)
+	}
+}
+
+func TestParseAndConvert_WithNonJSONPrefix(t *testing.T) {
+	raw := []byte(`note: running eslint
+[{"filePath":"/tmp/b.js","messages":[{"ruleId":"y","severity":1,"message":"ok","line":2,"column":3,"endLine":2,"endColumn":4}]}]
+done`)
+
+	run, err := parseAndConvert(raw)
+	if err != nil {
+		t.Fatalf("parseAndConvert failed: %v", err)
+	}
+
+	if len(run.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(run.Results))
+	}
+
+	if run.Results[0].RuleID == nil || *run.Results[0].RuleID != "y" {
+		t.Fatalf("unexpected rule id: %+v", run.Results[0].RuleID)
+	}
+}
