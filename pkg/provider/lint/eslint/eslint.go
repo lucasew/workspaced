@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	os_exec "os/exec"
 	"path/filepath"
+	"strings"
 
 	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/provider"
@@ -188,8 +190,8 @@ func escapeInvalidStringControlChars(raw []byte) []byte {
 }
 
 func parseAndConvert(output []byte) (*sarif.Run, error) {
-	var results []Result
-	if err := json.Unmarshal(sanitizeESLintOutput(output), &results); err != nil {
+	results, err := parseResults(sanitizeESLintOutput(output))
+	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal eslint output: %w", err)
 	}
 
@@ -221,6 +223,64 @@ func parseAndConvert(output []byte) (*sarif.Run, error) {
 	}
 
 	return run, nil
+}
+
+func parseResults(output []byte) ([]Result, error) {
+	var results []Result
+	if err := json.Unmarshal(output, &results); err == nil {
+		return results, nil
+	}
+
+	// Some wrappers can double-encode output as a JSON string.
+	var encoded string
+	if err := json.Unmarshal(output, &encoded); err == nil {
+		var decoded []Result
+		if err := json.Unmarshal([]byte(encoded), &decoded); err == nil {
+			return decoded, nil
+		}
+	}
+
+	// Best-effort parse: if top-level array is truncated, keep decoded items.
+	dec := json.NewDecoder(bytes.NewReader(output))
+	tok, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+
+	delim, ok := tok.(json.Delim)
+	if !ok || delim != '[' {
+		return nil, fmt.Errorf("unexpected top-level JSON token: %v", tok)
+	}
+
+	partial := make([]Result, 0, 8)
+	for dec.More() {
+		var r Result
+		if err := dec.Decode(&r); err != nil {
+			if isTruncationError(err) && len(partial) > 0 {
+				return partial, nil
+			}
+			return nil, err
+		}
+		partial = append(partial, r)
+	}
+
+	if _, err := dec.Token(); err != nil {
+		if isTruncationError(err) && len(partial) > 0 {
+			return partial, nil
+		}
+		return nil, err
+	}
+
+	return partial, nil
+}
+
+func isTruncationError(err error) bool {
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "unexpected EOF") ||
+		strings.Contains(msg, "unexpected end of JSON input")
 }
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {

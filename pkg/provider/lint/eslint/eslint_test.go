@@ -109,3 +109,20 @@ done`)
 		t.Fatalf("unexpected rule id: %+v", run.Results[0].RuleID)
 	}
 }
+
+func TestParseAndConvert_WithTruncatedJSONTail(t *testing.T) {
+	raw := []byte(`[{"filePath":"/tmp/ok.js","messages":[{"ruleId":"ok","severity":1,"message":"first","line":1,"column":1,"endLine":1,"endColumn":2}]},{"filePath":"/tmp/broken.js","messages":[`)
+
+	run, err := parseAndConvert(raw)
+	if err != nil {
+		t.Fatalf("parseAndConvert failed: %v", err)
+	}
+
+	if len(run.Results) != 1 {
+		t.Fatalf("expected 1 recovered result, got %d", len(run.Results))
+	}
+
+	if run.Results[0].RuleID == nil || *run.Results[0].RuleID != "ok" {
+		t.Fatalf("unexpected rule id: %+v", run.Results[0].RuleID)
+	}
+}
