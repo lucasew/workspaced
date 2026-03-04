@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-//go:embed version.txt
 var version string
 
 // Version returns the workspaced version from version.txt
