@@ -36,7 +36,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {
-	cmd, err := exec.Run(ctx, "gofmt", "-w", "../.")
+	cmd, err := exec.Run(ctx, "gofmt", "-w", ".")
 	if err != nil {
 		return err
 	}
