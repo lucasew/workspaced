@@ -7,11 +7,11 @@ import (
 )
 
 //go:embed version.txt
-var versionTxt string
+var version string
 
 // Version returns the workspaced version from version.txt
 func Version() string {
-	return strings.TrimSpace(versionTxt)
+	return strings.TrimSpace(version)
 }
 
 // BuildID returns the build ID from buildinfo

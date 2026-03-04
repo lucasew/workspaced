@@ -2,3 +2,5 @@
 /workspaced-test
 /build
 /bin
+# Added by goreleaser init:
+dist/
