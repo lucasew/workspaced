@@ -78,7 +78,11 @@ func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github api error: %s", resp.Status)
@@ -123,7 +127,11 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("github api error: %s", resp.Status)
@@ -169,7 +177,11 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			slog.Error("failed to remove temp tool dir", "error", err)
+		}
+	}()
 
 	filename := filepath.Base(artifact.URL)
 	downloadPath := filepath.Join(tmpDir, filename)
@@ -209,17 +221,23 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 		// Fallback to direct download
 		// Reset file position
 		if _, err := outFile.Seek(0, 0); err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return fmt.Errorf("failed to seek file: %w", err)
 		}
 		if err := outFile.Truncate(0); err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return fmt.Errorf("failed to truncate file: %w", err)
 		}
 
 		req, err := http.NewRequestWithContext(ctx, "GET", artifact.URL, nil)
 		if err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return err
 		}
 		if token := os.Getenv("GITHUB_TOKEN"); token != "" {
@@ -229,29 +247,43 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 		// Use httpclient driver (handles Termux DNS/certs)
 		httpClient, err := driver.Get[httpclient.Driver](ctx)
 		if err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return fmt.Errorf("failed to get http client: %w", err)
 		}
 
 		resp, err := httpClient.Client().Do(req)
 		if err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return err
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				slog.Error("failed to close response body", "error", err)
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return fmt.Errorf("download failed: %s", resp.Status)
 		}
 
 		if _, err := io.Copy(outFile, resp.Body); err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return err
 		}
 	}
 
-	outFile.Close()
+	if err := outFile.Close(); err != nil {
+		slog.Error("failed", "error", err)
+	}
 
 	// Extract
 	slog.Debug("extracting", "file", downloadPath, "dest", destPath)
@@ -320,14 +352,22 @@ func extract(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		if err := in.Close(); err != nil {
+			slog.Error("failed to close binary input file", "error", err)
+		}
+	}()
 
 	outPath := filepath.Join(dest, normalizedName)
 	out, err := os.Create(outPath)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		if err := out.Close(); err != nil {
+			slog.Error("failed to close binary output file", "error", err)
+		}
+	}()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return err
@@ -367,7 +407,11 @@ func unzip(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer func() {
+		if err := r.Close(); err != nil {
+			slog.Error("failed to close file reader", "error", err)
+		}
+	}()
 
 	for _, f := range r.File {
 		fpath := filepath.Join(dest, f.Name)
@@ -394,14 +438,20 @@ func unzip(src, dest string) error {
 
 		rc, err := f.Open()
 		if err != nil {
-			outFile.Close()
+			if err := outFile.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 			return err
 		}
 
 		_, err = io.Copy(outFile, rc)
 
-		outFile.Close()
-		rc.Close()
+		if err := outFile.Close(); err != nil {
+			slog.Error("failed", "error", err)
+		}
+		if err := rc.Close(); err != nil {
+			slog.Error("failed", "error", err)
+		}
 
 		if err != nil {
 			return err
@@ -479,13 +529,21 @@ func untargz(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close archive file", "error", err)
+		}
+	}()
 
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() {
+		if err := gzr.Close(); err != nil {
+			slog.Error("failed to close gzip reader", "error", err)
+		}
+	}()
 
 	tr := tar.NewReader(gzr)
 
@@ -518,10 +576,14 @@ func untargz(src, dest string) error {
 				return err
 			}
 			if _, err := io.Copy(f, tr); err != nil {
-				f.Close()
+				if err := f.Close(); err != nil {
+					slog.Error("failed", "error", err)
+				}
 				return err
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				slog.Error("failed", "error", err)
+			}
 
 			// Explicitly restore permissions (including execute bit)
 			if header.Mode&0111 != 0 {

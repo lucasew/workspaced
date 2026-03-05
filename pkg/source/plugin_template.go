@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"workspaced/pkg/template"
@@ -60,7 +61,9 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			return nil, fmt.Errorf("failed to read template source %s: %w", f.SourceInfo(), err)
 		}
 		srcContent, err := io.ReadAll(reader)
-		reader.Close()
+		if err := reader.Close(); err != nil {
+			slog.Error("failed", "error", err)
+		}
 		if err != nil {
 			return nil, err
 		}

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -78,7 +79,11 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status: %s", resp.Status)
 	}
@@ -95,7 +100,11 @@ func extractTarGzFromPath(path string, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("failed to close file", "error", err)
+		}
+	}()
 	return extractTarGz(f, destDir)
 }
 
@@ -104,7 +113,11 @@ func extractTarGz(r io.Reader, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func() {
+		if err := gzr.Close(); err != nil {
+			slog.Error("failed to close gzip reader", "error", err)
+		}
+	}()
 
 	tr := tar.NewReader(gzr)
 	for {
@@ -155,7 +168,7 @@ func extractTarEntry(tr *tar.Reader, hdr *tar.Header, target string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		return os.MkdirAll(target, 0755)
-	case tar.TypeReg, tar.TypeRegA:
+	case tar.TypeReg:
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}

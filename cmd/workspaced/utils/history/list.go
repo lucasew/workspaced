@@ -3,6 +3,7 @@ package history
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 	"workspaced/pkg/db"
 	"workspaced/pkg/types"
@@ -26,7 +27,11 @@ func init() {
 					if err != nil {
 						return err
 					}
-					defer database.Close()
+					defer func() {
+						if err := database.Close(); err != nil {
+							slog.Error("failed to close database", "error", err)
+						}
+					}()
 				}
 
 				events, err := database.SearchHistory(c.Context(), "", int(limit))
@@ -41,7 +46,7 @@ func init() {
 
 				for _, e := range events {
 					t := time.Unix(e.Timestamp, 0).Format("2006-01-02 15:04:05")
-					fmt.Fprintf(c.OutOrStdout(), "%s\t%s\n", t, e.Command)
+					_, _ = fmt.Fprintf(c.OutOrStdout(), "%s\t%s\n", t, e.Command)
 				}
 
 				return nil

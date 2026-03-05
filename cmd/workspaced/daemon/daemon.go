@@ -75,7 +75,9 @@ var Command = &cobra.Command{
 			socketPath := getSocketPath()
 			conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
 			if err == nil {
-				conn.Close()
+				if err := conn.Close(); err != nil {
+					slog.Error("failed", "error", err)
+				}
 				slog.Info("daemon already running, exiting")
 				os.Exit(0)
 			}
@@ -121,7 +123,11 @@ func RunDaemon() error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer func() {
+		if err := database.Close(); err != nil {
+			slog.Error("failed to close database", "error", err)
+		}
+	}()
 
 	go media.Watch(ctx)
 
@@ -138,7 +144,11 @@ func RunDaemon() error {
 		if err == nil {
 			f, err := os.Open(iconPath)
 			if err == nil {
-				defer f.Close()
+				defer func() {
+					if err := f.Close(); err != nil {
+						slog.Error("failed to close file", "error", err)
+					}
+				}()
 				icon, _, _ = image.Decode(f)
 			}
 		}
