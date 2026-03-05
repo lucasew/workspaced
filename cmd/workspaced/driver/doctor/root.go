@@ -21,7 +21,7 @@ func GetCommand() *cobra.Command {
 			report := driver.Doctor(cmd.Context())
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-			_, _ = fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE")
+			fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE")
 
 			for _, iface := range report {
 				// Use full interface name if verbose, otherwise friendly name
@@ -67,10 +67,10 @@ func GetCommand() *cobra.Command {
 						driverName = fmt.Sprintf("%s (%s)", d.Name, d.ID)
 					}
 
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg)
 				}
 			}
-			_ = w.Flush()
+			w.Flush()
 		},
 	}
 	c.Flags().BoolP("verbose", "v", false, "Show full interface and driver names")

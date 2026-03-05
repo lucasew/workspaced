@@ -58,7 +58,7 @@ info "Latest version: ${VERSION}"
 
 # Download binary
 TMP=$(mktemp -d)
-trap 'rm -rf "${TMP}"' EXIT
+trap 'rm -rf ""' EXIT
 
 BINARY_NAME="workspaced-${GOOS}-${GOARCH}"
 URL="https://github.com/lucasew/workspaced/releases/download/${VERSION}/${BINARY_NAME}"
@@ -86,7 +86,7 @@ if [[ ":${PATH}:" != *":${HOME}/.local/bin:"* ]]; then
 	echo ""
 	echo "Add the following to your shell configuration (${HOME}/.bashrc, ${HOME}/.zshrc, etc):"
 	echo ""
-	echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+	echo "    export PATH=\"$HOME/.local/bin:$PATH\""
 	echo ""
 fi
 

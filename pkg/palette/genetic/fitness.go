@@ -123,7 +123,7 @@ func calculateLightnessError(colors []api.LAB, polarity api.Polarity) float64 {
 	case api.PolarityDark:
 		// Dark theme: background dark, foreground light
 		targetLightnesses = []float64{10, 30, 45, 65, 75, 90, 95, 95}
-	case api.PolarityLight:
+		case api.PolarityLight:
 		// Light theme: background light, foreground dark
 		targetLightnesses = []float64{90, 70, 55, 35, 25, 10, 5, 5}
 	}

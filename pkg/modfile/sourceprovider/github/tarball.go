@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -79,11 +78,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			slog.Error("failed to close response body", "error", err)
-		}
-	}()
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status: %s", resp.Status)
 	}
@@ -100,11 +95,7 @@ func extractTarGzFromPath(path string, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			slog.Error("failed to close file", "error", err)
-		}
-	}()
+	defer f.Close()
 	return extractTarGz(f, destDir)
 }
 
@@ -113,11 +104,7 @@ func extractTarGz(r io.Reader, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := gzr.Close(); err != nil {
-			slog.Error("failed to close gzip reader", "error", err)
-		}
-	}()
+	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
 	for {

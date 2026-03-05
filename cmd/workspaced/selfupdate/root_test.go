@@ -1,7 +1,6 @@
 package selfupdate
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,9 +20,7 @@ func TestFindBinary(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := f.Close(); err != nil {
-			slog.Error("failed", "error", err)
-		}
+		f.Close()
 		if err := os.Chmod(path, mode); err != nil {
 			t.Fatal(err)
 		}

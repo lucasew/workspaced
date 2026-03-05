@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log/slog"
 	"workspaced/pkg/template"
 )
 
@@ -23,11 +22,7 @@ func (f *TemplateFile) Reader() (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		if err := srcReader.Close(); err != nil {
-			slog.Error("failed to close source reader", "error", err)
-		}
-	}()
+	defer srcReader.Close()
 
 	srcContent, err := io.ReadAll(srcReader)
 	if err != nil {
@@ -77,9 +72,7 @@ type autoCloserReader struct {
 func (r *autoCloserReader) Read(p []byte) (n int, err error) {
 	n, err = r.inner.Read(p)
 	if err == io.EOF {
-		if err := r.inner.Close(); err != nil {
-			slog.Error("failed", "error", err)
-		}
+		r.inner.Close()
 	}
 	return n, err
 }

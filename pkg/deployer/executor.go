@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,19 +92,13 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 
 			reader, err := action.Desired.File.Reader()
 			if err != nil {
-				if err := f.Close(); err != nil {
-					slog.Error("failed", "error", err)
-				}
+				f.Close()
 				return fmt.Errorf("failed to get reader for %s: %w", action.Desired.File.SourceInfo(), err)
 			}
 
 			_, err = io.Copy(f, reader)
-			if err := reader.Close(); err != nil {
-				slog.Error("failed", "error", err)
-			}
-			if err := f.Close(); err != nil {
-				slog.Error("failed", "error", err)
-			}
+			reader.Close()
+			f.Close()
 
 			if err != nil {
 				return fmt.Errorf("failed to write content to %s: %w", action.Target, err)

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"workspaced/pkg/env"
@@ -48,9 +47,7 @@ func (c *CASWriter) Write(p []byte) (n int, err error) {
 }
 
 func (c *CASWriter) Seal() (string, error) {
-	if err := c.tempFile.Close(); err != nil {
-		slog.Error("failed", "error", err)
-	}
+	c.tempFile.Close()
 	hash := c.hasher.(interface{ Sum(b []byte) []byte }).Sum(nil)
 	hashStr := hex.EncodeToString(hash)
 	finalPath := filepath.Join(c.dir, hashStr)
@@ -60,7 +57,7 @@ func (c *CASWriter) Seal() (string, error) {
 			return "", err
 		}
 	} else {
-		_ = os.Remove(c.tempFile.Name())
+		os.Remove(c.tempFile.Name())
 	}
 
 	return finalPath, nil
