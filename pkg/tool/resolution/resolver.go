@@ -11,14 +11,22 @@ import (
 	"strings"
 )
 
+// Resolver identifies the specific binary path for a tool based on version constraints.
+// It searches installed packages in the tools directory and resolves versions from
+// .tool-versions files, environment variables, or defaults to "latest".
 type Resolver struct {
 	toolsDir string
 }
 
+// NewResolver creates a new Resolver instance with the given tools directory.
 func NewResolver(toolsDir string) *Resolver {
 	return &Resolver{toolsDir: toolsDir}
 }
 
+// Resolve locates the executable binary for the specified tool name.
+// It first determines the desired version, then scans installed packages for a match.
+// If the version is "latest", it finds the most recent installed version.
+// Returns the absolute path to the binary or an error if not found.
 func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error) {
 	version := r.resolveVersion(toolName)
 
@@ -168,7 +176,11 @@ func readToolVersion(path, toolName string) string {
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	defer func() {
+		// We can't do much if closing the file fails in this context,
+		// and we are just reading configuration.
+		_ = f.Close()
+	}()
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
