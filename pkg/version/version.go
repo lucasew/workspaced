@@ -6,11 +6,16 @@ import (
 	"strings"
 )
 
-var version string
+var version = "dev"
 
-// Version returns the workspaced version from version.txt
+// Version returns the workspaced version.
+// It defaults to "dev" when ldflags injection is not provided.
 func Version() string {
-	return strings.TrimSpace(version)
+	v := strings.TrimSpace(version)
+	if v == "" {
+		return "dev"
+	}
+	return v
 }
 
 // BuildID returns the build ID from buildinfo

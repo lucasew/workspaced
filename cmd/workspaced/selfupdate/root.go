@@ -76,12 +76,6 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
 	installPath := filepath.Join(installDir, "workspaced")
 
-	// Read version from source
-	sourceVersion, err := readVersionFile(filepath.Join(srcPath, "pkg/version/version.txt"))
-	if err != nil {
-		return err
-	}
-
 	// Get build dependencies
 	goVersion := getGoVersion()
 	if goVersion == "" {
@@ -111,7 +105,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
-	slog.Info("building from source", "version", sourceVersion, "go", goSpec)
+	slog.Info("building from source", "path", srcPath, "go", goSpec)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
@@ -361,14 +355,6 @@ func findSourcePath() (string, bool) {
 	}
 
 	return "", false
-}
-
-func readVersionFile(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
 }
 
 func getGoVersion() string {
