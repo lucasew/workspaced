@@ -4,13 +4,12 @@ go = "1.26.0"
 "go:golang.org/x/tools/gopls" = "0.21.0"
 goreleaser = "2.14.1"
 svu = "3.3.0"
-"github:lucasew/workspaced" = "0.2.1"
 
 [tasks.install]
 depends = ["install:*"]
 
 [tasks."install:go"]
-run = "go mod download"
+run = "go mod download && go install ./cmd/..."
 
 [tasks.test]
 depends = ["test:*"]
