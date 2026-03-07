@@ -5,6 +5,18 @@ go = "1.26.0"
 goreleaser = "2.14.1"
 svu = "3.3.0"
 
+[tasks.install]
+depends = ["install:*"]
+
+[tasks."install:go"]
+run = "go mod download"
+
+[tasks.test]
+depends = ["test:*"]
+
+[tasks."test:go"]
+run = "go test -v ./..."
+
 [tasks.lint]
 run = "go run ./cmd/workspaced codebase lint"
 
@@ -12,10 +24,13 @@ run = "go run ./cmd/workspaced codebase lint"
 run = "go run ./cmd/workspaced codebase format"
 
 [tasks.codegen]
-depends = ["fmt"]
+depends = ["codegen:*"]
+
+[tasks."codegen:go"]
+run = "go generate ./..."
 
 [tasks.ci]
-depends = ["lint"]
+depends = ["lint", "test"]
 
 [tasks.release]
 description = "Run a release"
