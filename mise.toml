@@ -4,18 +4,13 @@ go = "1.26.0"
 "go:golang.org/x/tools/gopls" = "0.21.0"
 goreleaser = "2.14.1"
 svu = "3.3.0"
+"github:lucasew/workspaced" = "0.2.1"
 
 [tasks.install]
 depends = ["install:*"]
 
-[tasks."install:go"]
-run = "go mod download && go install ./cmd/..."
-
 [tasks.test]
 depends = ["test:*"]
-
-[tasks."test:go"]
-run = "go test -v ./..."
 
 [tasks.lint]
 run = "workspaced codebase lint"
@@ -25,9 +20,6 @@ run = "workspaced codebase format"
 
 [tasks.codegen]
 depends = ["codegen:*"]
-
-[tasks."codegen:go"]
-run = "go generate ./..."
 
 [tasks.ci]
 depends = ["lint", "test"]
