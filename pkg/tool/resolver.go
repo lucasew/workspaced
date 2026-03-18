@@ -13,7 +13,9 @@ import (
 	"workspaced/pkg/semver"
 )
 
-// EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
+// EnsureInstalled ensures that a specific tool version is installed and returns the path to its executable binary.
+// If the tool or version is missing, it attempts to resolve and install it using the configured provider.
+// It handles "latest" version resolution by checking local installs first, then querying the provider.
 func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
 	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
@@ -77,7 +79,8 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	return binPath, nil
 }
 
-// ResolveBinary attempts to find the executable binary for a specific tool version.
+// ResolveBinary attempts to find the executable binary for a specific tool version in the local storage.
+// It checks common locations like `bin/` or the root of the version directory, and handles `.exe` extensions.
 func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, error) {
 	normalizedVersion := normalizeVersion(spec.Version)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
@@ -102,7 +105,7 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	return "", fmt.Errorf("binary %q not found in %s", cmdName, versionDir)
 }
 
-// FindInstalledVersions returns a sorted list of installed versions for a tool.
+// FindInstalledVersions scans the local tool directory and returns a sorted list (descending) of installed versions for the given tool spec.
 func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
 	pkgDir := filepath.Join(m.toolsDir, spec.Dir())
 	entries, err := os.ReadDir(pkgDir)
@@ -130,7 +133,8 @@ func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
 	return result, nil
 }
 
-// ResolveLatestVersion queries the provider to find the latest version of a package.
+// ResolveLatestVersion queries the provider associated with the tool spec to find the latest available version.
+// This involves a network call to the provider (e.g., GitHub API).
 func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {
 	provider, err := GetProvider(spec.Provider)
 	if err != nil {
@@ -156,7 +160,8 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 	return versions[0], nil
 }
 
-// EnsureAndRun simplifies running a tool by ensuring it's installed and returning an exec.Cmd.
+// EnsureAndRun is a high-level helper that ensures a tool is installed and returns an `exec.Cmd` ready to run it.
+// It creates a temporary Manager instance for the operation.
 func EnsureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...string) (*exec.Cmd, error) {
 	m, err := NewManager()
 	if err != nil {
