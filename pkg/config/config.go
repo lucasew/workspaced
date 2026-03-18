@@ -14,11 +14,19 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+//
+// Config wraps the global configuration alongside its raw map representation.
+// The raw map preserves arbitrary dynamic keys needed for modular expansion.
+//
 type Config struct {
 	*GlobalConfig
 	raw map[string]any
 }
 
+//
+// GlobalConfig defines the core system schema loaded from settings.toml.
+// Nested structures within this object dictate template system injections.
+//
 type GlobalConfig struct {
 	Workspaces map[string]int            `toml:"workspaces" json:"workspaces"`
 	Desktop    DesktopConfig             `toml:"desktop" json:"desktop"`
@@ -32,11 +40,17 @@ type GlobalConfig struct {
 	Drivers    map[string]map[string]int `toml:"drivers" json:"drivers"`
 }
 
+//
+// DesktopConfig organizes environment theming and background resources.
+//
 type DesktopConfig struct {
 	DarkMode  bool            `toml:"dark_mode" json:"dark_mode"`
 	Wallpaper WallpaperConfig `toml:"wallpaper" json:"wallpaper"`
 }
 
+//
+// LazyToolConfig defines dynamic executable specs for the tooling orchestrator.
+//
 type LazyToolConfig struct {
 	Version string   `toml:"version" json:"version"`
 	Pkg     string   `toml:"pkg" json:"pkg"`
@@ -45,6 +59,9 @@ type LazyToolConfig struct {
 	Bins    []string `toml:"bins" json:"bins"`
 }
 
+//
+// HostConfig manages remote node parameters.
+//
 type HostConfig struct {
 	IPs  []string `toml:"ips" json:"ips"`
 	MAC  string   `toml:"mac" json:"mac"`
@@ -52,30 +69,49 @@ type HostConfig struct {
 	User string   `toml:"user" json:"user"`
 }
 
+//
+// BrowserConfig maps default web navigation targets.
+//
 type BrowserConfig struct {
 	Default string `toml:"default" json:"default"`
 	Engine  string `toml:"webapp" json:"webapp"`
 }
 
+//
+// WallpaperConfig defines paths expanded into the environment context.
+//
 type WallpaperConfig struct {
 	Dir     string `toml:"dir" json:"dir"`
 	Default string `toml:"default" json:"default"`
 }
 
+//
+// ScreenshotConfig dictates generic file dump locations.
+//
 type ScreenshotConfig struct {
 	Dir string `toml:"dir" json:"dir"`
 }
 
+//
+// BackupConfig links local system states with remote persistence targets.
+//
 type BackupConfig struct {
 	RsyncnetUser string `toml:"rsyncnet_user" json:"rsyncnet_user"`
 	RemotePath   string `toml:"remote_path" json:"remote_path"`
 }
 
+//
+// QuickSyncConfig defines paths for automated synchronization logic.
+//
 type QuickSyncConfig struct {
 	RepoDir    string `toml:"repo_dir" json:"repo_dir"`
 	RemotePath string `toml:"remote_path" json:"remote_path"`
 }
 
+//
+// PaletteConfig defines standard color variables used by the template engine.
+// Maps base16 themes directly into {{ .Palette.BaseXX }} tags.
+//
 type PaletteConfig struct {
 	Base00 string `toml:"base00" json:"base00"`
 	Base01 string `toml:"base01" json:"base01"`
@@ -103,10 +139,16 @@ type PaletteConfig struct {
 	Base17 string `toml:"base17,omitempty" json:"base17,omitempty"`
 }
 
+//
+// Module queries the raw state representation to yield dynamic structs that were ignored by core mappings.
+//
 func (c *Config) Module(name string, target any) error {
 	return c.UnmarshalKey("modules."+name, target)
 }
 
+//
+// UnmarshalKey recursively indexes into the bound configuration values by traversing nested map structures.
+//
 func (c *Config) UnmarshalKey(key string, val any) error {
 	parts := strings.Split(key, ".")
 	var current any = c.raw
@@ -137,6 +179,10 @@ func (c *Config) UnmarshalKey(key string, val any) error {
 	return json.Unmarshal(data, val)
 }
 
+//
+// Load parses configurations, merges nested maps dynamically, and evaluates module dependencies.
+// Flow: Loads hardcoded bases -> Settings maps -> Overlays module defaults -> Final user settings overlay.
+//
 func Load() (*Config, error) {
 	home, _ := os.UserHomeDir()
 	dotfiles, _ := env.GetDotfilesRoot()
@@ -276,6 +322,9 @@ func Load() (*Config, error) {
 	return &Config{GlobalConfig: finalGCfg, raw: rawMerged}, nil
 }
 
+//
+// LoadConfig resolves and unwraps the globally bound settings map.
+//
 func LoadConfig() (*GlobalConfig, error) {
 	cfg, err := Load()
 	if err != nil {
@@ -284,6 +333,9 @@ func LoadConfig() (*GlobalConfig, error) {
 	return cfg.GlobalConfig, nil
 }
 
+//
+// LoadConfigBase yields hardcoded fallbacks prior to configuration overriding.
+//
 func LoadConfigBase() (*GlobalConfig, error) {
 	home, _ := os.UserHomeDir()
 	dotfiles, _ := env.GetDotfilesRoot()
@@ -301,11 +353,17 @@ func LoadConfigBase() (*GlobalConfig, error) {
 	}, nil
 }
 
+//
+// ModuleMetadata represents dependency linkages extracted from a module's definition.
+//
 type ModuleMetadata struct {
 	Requires   []string `toml:"requires"`
 	Recommends []string `toml:"recommends"`
 }
 
+//
+// validateDependencies evaluates enablement flags of cross-module requires/recommends edges.
+//
 func validateDependencies(enabled map[string]bool, meta map[string]ModuleMetadata) error {
 	for name := range enabled {
 		m, ok := meta[name]
@@ -330,6 +388,9 @@ func validateDependencies(enabled map[string]bool, meta map[string]ModuleMetadat
 	return detectCycles(deps)
 }
 
+//
+// detectCycles checks for infinite resolution loops spanning recursive depth-first traversals.
+//
 func detectCycles(deps map[string][]string) error {
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
@@ -359,6 +420,9 @@ func detectCycles(deps map[string][]string) error {
 	return nil
 }
 
+//
+// MergeStrict applies a strict map override. Fails automatically when slices/arrays exist to enforce flat configuration definitions.
+//
 func MergeStrict(dst, src map[string]any, allowSubstitution bool) error {
 	for k, v := range src {
 		if v == nil {
@@ -402,6 +466,10 @@ func MergeStrict(dst, src map[string]any, allowSubstitution bool) error {
 	return nil
 }
 
+//
+// LoadFiles aggregates raw definitions across an explicit string path list.
+// Evaluates under MergeStrict constraints (no slice overwrites).
+//
 func LoadFiles(paths []string) (*GlobalConfig, error) {
 	config := &GlobalConfig{
 		Workspaces: make(map[string]int),
