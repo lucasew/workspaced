@@ -20,7 +20,7 @@ func GetLayersCommand() *cobra.Command {
 		Short: "List discovered workspaced.cue layers",
 		RunE: func(c *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
-			layers, err := configcue.DiscoverLayers(configcue.DiscoverOptions{
+			result, err := configcue.Evaluate(configcue.DiscoverOptions{
 				Cwd: cwd,
 			})
 			if err != nil {
@@ -29,7 +29,7 @@ func GetLayersCommand() *cobra.Command {
 
 			enc := json.NewEncoder(c.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(layers)
+			return enc.Encode(map[string]any{"layers": result.Layers})
 		},
 	}
 }

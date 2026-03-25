@@ -3,8 +3,9 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 
 	"github.com/spf13/cobra"
 )
@@ -23,14 +24,22 @@ func GetDumpCommand() *cobra.Command {
 
 Outputs the result as JSON format.`,
 		RunE: func(c *cobra.Command, args []string) error {
-			cfg, err := config.LoadHome()
+			cwd, _ := os.Getwd()
+			result, err := configcue.Evaluate(configcue.DiscoverOptions{
+				Cwd:      cwd,
+				HomeMode: true,
+			})
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
+			var raw any
+			if err := json.Unmarshal(result.JSON, &raw); err != nil {
+				return fmt.Errorf("failed to decode evaluated config: %w", err)
+			}
 			enc := json.NewEncoder(c.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(cfg.Raw())
+			return enc.Encode(raw)
 		},
 	}
 }
