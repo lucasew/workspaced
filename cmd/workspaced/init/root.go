@@ -28,7 +28,7 @@ func GetCommand() *cobra.Command {
 		Long: `Initialize workspaced configuration and modules.
 
 This command will:
-  1. Generate settings.toml in $DOTFILES (or ~/.dotfiles)
+  1. Generate workspaced.cue in $DOTFILES (or ~/.dotfiles)
   2. Copy example module to $DOTFILES/modules/
   3. Auto-detect hostname and local IPs
 
@@ -67,7 +67,7 @@ func runInit(force bool) error {
 	}
 
 	// 2. Generate config from template
-	configPath := filepath.Join(dotfilesRoot, "settings.toml")
+	configPath := filepath.Join(dotfilesRoot, "workspaced.cue")
 	if !force {
 		if _, err := os.Stat(configPath); err == nil {
 			return fmt.Errorf("config already exists at %s (use --force to overwrite)", configPath)
@@ -100,7 +100,7 @@ func runInit(force bool) error {
 
 func generateConfig(configPath string) error {
 	// Read embedded template
-	tmplContent, err := templatesFS.ReadFile("templates/init/settings.toml.tmpl")
+	tmplContent, err := templatesFS.ReadFile("templates/init/workspaced.cue.tmpl")
 	if err != nil {
 		return fmt.Errorf("failed to read template: %w", err)
 	}
@@ -119,7 +119,7 @@ func generateConfig(configPath string) error {
 	}
 
 	// Parse and execute template
-	tmpl, err := template.New("settings").Funcs(template.FuncMap{
+	tmpl, err := template.New("workspaced").Funcs(template.FuncMap{
 		"toJSON": func(v any) string {
 			b, err := json.Marshal(v)
 			if err != nil {

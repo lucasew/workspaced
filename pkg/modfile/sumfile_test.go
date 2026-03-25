@@ -1,6 +1,7 @@
 package modfile
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,12 +11,13 @@ func TestLoadSumFileRequiresSource(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.sum.toml")
-	content := `
-[modules.foo]
-version = "v1.0.0"
-`
-	if err := os.WriteFile(sumPath, []byte(content), 0644); err != nil {
+	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	content, _ := json.Marshal(map[string]any{
+		"modules": map[string]any{
+			"foo": map[string]any{"version": "v1.0.0"},
+		},
+	})
+	if err := os.WriteFile(sumPath, content, 0644); err != nil {
 		t.Fatalf("write sum: %v", err)
 	}
 
@@ -29,12 +31,13 @@ func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.sum.toml")
-	content := `
-[sources.papirus]
-path = "/tmp/papirus"
-`
-	if err := os.WriteFile(sumPath, []byte(content), 0644); err != nil {
+	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	content, _ := json.Marshal(map[string]any{
+		"sources": map[string]any{
+			"papirus": map[string]any{"path": "/tmp/papirus"},
+		},
+	})
+	if err := os.WriteFile(sumPath, content, 0644); err != nil {
 		t.Fatalf("write sum: %v", err)
 	}
 
@@ -48,14 +51,17 @@ func TestLoadSumFileRequiresSourceHash(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "workspaced.sum.toml")
-	content := `
-[sources.papirus]
-provider = "github"
-repo = "PapirusDevelopmentTeam/papirus-icon-theme"
-url = "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/main"
-`
-	if err := os.WriteFile(sumPath, []byte(content), 0644); err != nil {
+	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	content, _ := json.Marshal(map[string]any{
+		"sources": map[string]any{
+			"papirus": map[string]any{
+				"provider": "github",
+				"repo":     "PapirusDevelopmentTeam/papirus-icon-theme",
+				"url":      "https://codeload.github.com/PapirusDevelopmentTeam/papirus-icon-theme/tar.gz/main",
+			},
+		},
+	})
+	if err := os.WriteFile(sumPath, content, 0644); err != nil {
 		t.Fatalf("write sum: %v", err)
 	}
 
@@ -69,7 +75,7 @@ func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	sumPath := filepath.Join(dir, "missing.sum.toml")
+	sumPath := filepath.Join(dir, "missing.lock.json")
 	got, err := LoadSumFile(sumPath)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

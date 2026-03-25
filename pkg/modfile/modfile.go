@@ -9,15 +9,15 @@ import (
 )
 
 type SourceConfig struct {
-	Provider string `toml:"provider"`
-	Path     string `toml:"path"`
-	Repo     string `toml:"repo"`
-	URL      string `toml:"url"`
-	Ref      string `toml:"ref"`
+	Provider string `json:"provider"`
+	Path     string `json:"path"`
+	Repo     string `json:"repo"`
+	URL      string `json:"url"`
+	Ref      string `json:"ref"`
 }
 
 type ModFile struct {
-	Sources map[string]SourceConfig `toml:"sources"`
+	Sources map[string]SourceConfig `json:"sources"`
 }
 
 type ResolvedModuleSource struct {
@@ -86,7 +86,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		return resolved, validateNonVersionedProvider(resolved)
 	}
 
-	// Alias source from workspaced.mod.toml
+	// Alias source from workspaced inputs.
 	src, ok := m.Sources[left]
 	if !ok {
 		return ResolvedModuleSource{}, fmt.Errorf("unknown source alias %q for module %q", left, moduleName)

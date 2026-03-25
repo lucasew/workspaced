@@ -1,9 +1,9 @@
 package modfile
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"workspaced/pkg/config"
 )
@@ -12,10 +12,13 @@ func TestBuildLockEntriesSkipsCoreAndLocal(t *testing.T) {
 	t.Parallel()
 
 	cfg := &config.GlobalConfig{
+		Inputs: map[string]config.InputConfig{
+			"remote": {From: "github:owner/repo", Version: "v1.0.0"},
+		},
 		Modules: map[string]any{
 			"icons": map[string]any{"enable": true},
-			"foo":   map[string]any{"enable": true, "from": "github:owner/repo/path@v1.0.0"},
-			"bar":   map[string]any{"enable": true, "from": "local:bar"},
+			"foo":   map[string]any{"enable": true, "input": "remote", "path": "path"},
+			"bar":   map[string]any{"enable": true, "input": "self", "path": "modules/bar"},
 		},
 	}
 	modFile := &ModFile{
@@ -31,7 +34,7 @@ func TestBuildLockEntriesSkipsCoreAndLocal(t *testing.T) {
 		t.Fatalf("icons should not be lock entry for core provider")
 	}
 	if _, ok := got["bar"]; ok {
-		t.Fatalf("bar should not be lock entry for local provider")
+		t.Fatalf("bar should not be lock entry for self provider")
 	}
 
 	entry, ok := got["foo"]
@@ -50,7 +53,7 @@ func TestWriteSumFile(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, "workspaced.sum.toml")
+	path := filepath.Join(dir, "workspaced.lock.json")
 
 	err := WriteSumFile(path, &SumFile{
 		Sources: map[string]LockedSource{
@@ -69,18 +72,15 @@ func TestWriteSumFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read file: %v", err)
 	}
-	content := string(b)
-
-	if !strings.Contains(content, "[sources.papirus]") {
-		t.Fatalf("missing sources lock section: %s", content)
+	var got SumFile
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatalf("decode json: %v", err)
 	}
-	alfaPos := strings.Index(content, "[modules.alfa]")
-	zetaPos := strings.Index(content, "[modules.zeta]")
-	if alfaPos < 0 || zetaPos < 0 || alfaPos >= zetaPos {
-		t.Fatalf("entries are not sorted: %s", content)
+	if got.Sources["papirus"].Provider != "github" {
+		t.Fatalf("missing sources lock entry: %#v", got.Sources)
 	}
-	if !strings.Contains(content, `version = "v2"`) {
-		t.Fatalf("missing version in content: %s", content)
+	if got.Modules["alfa"].Version != "v2" {
+		t.Fatalf("missing version in content: %#v", got.Modules["alfa"])
 	}
 }
 

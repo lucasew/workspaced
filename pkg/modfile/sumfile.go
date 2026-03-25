@@ -8,21 +8,21 @@ import (
 )
 
 type LockedModule struct {
-	Source  string `toml:"source"`
-	Version string `toml:"version"`
+	Source  string `json:"source"`
+	Version string `json:"version"`
 }
 
 type LockedSource struct {
-	Provider string `toml:"provider"`
-	Path     string `toml:"path"`
-	Repo     string `toml:"repo"`
-	URL      string `toml:"url"`
-	Hash     string `toml:"hash"`
+	Provider string `json:"provider"`
+	Path     string `json:"path"`
+	Repo     string `json:"repo"`
+	URL      string `json:"url"`
+	Hash     string `json:"hash"`
 }
 
 type SumFile struct {
-	Sources map[string]LockedSource `toml:"sources"`
-	Modules map[string]LockedModule `toml:"modules"`
+	Sources map[string]LockedSource `json:"sources"`
+	Modules map[string]LockedModule `json:"modules"`
 }
 
 func LoadSumFile(path string) (*SumFile, error) {

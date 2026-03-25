@@ -3,7 +3,7 @@
 This file consolidates project conventions and guidelines.
 
 ## Overview
-User configs/dotfiles in `config/`. Settings in `settings.toml`. Templates use `{{ .Field }}` syntax.
+User configs/dotfiles live in `workspaced.cue`. Templates use `{{ .Field }}` syntax.
 - **⚠️ CRITICAL**: See `TEMPLATES.md` for complete template system documentation (5 types: static, simple, multi-file, index, .d.tmpl)
 
 ## Common Commands
@@ -14,18 +14,18 @@ User configs/dotfiles in `config/`. Settings in `settings.toml`. Templates use `
 
 ## Adding New Config Fields
 When adding new config fields to `pkg/config/config.go`:
-1. Add field to `GlobalConfig` struct with `toml:"field_name"` tag
+1. Add field to `GlobalConfig` struct with `json:"field_name"` tag
 2. Create corresponding struct (e.g., `FooConfig`) with fields and tags
 3. **CRITICAL**: Add `Merge()` method to new struct (see `PaletteConfig.Merge()` as example)
 4. **CRITICAL**: Call merge in `GlobalConfig.Merge()`: `result.Foo = result.Foo.Merge(other.Foo)`
-5. Add config section to `settings.toml`
+5. Add config section to `workspaced.cue`
 6. Templates access via `{{ .Foo.Field }}`
 
 **⚠️ IMPORTANT - Merge Methods:**
-- LoadConfig() creates hardcoded defaults, then loads settings.toml and merges
+- LoadConfig() creates hardcoded defaults, then loads `workspaced.cue` and merges
 - Without implementing `Merge()` and calling it in `GlobalConfig.Merge()`, the merge doesn't happen
-- Result: values from settings.toml are ignored, templates generate empty fields
-- Symptom: code compiles OK, TOML is read, but `{{ .Field }}` returns empty string
+- Result: values from `workspaced.cue` are ignored, templates generate empty fields
+- Symptom: code compiles OK, config is read, but `{{ .Field }}` returns empty string
 - Always implement Merge() for structs nested in GlobalConfig!
 
 ## CLI & Architecture
@@ -37,7 +37,7 @@ When adding new config fields to `pkg/config/config.go`:
 - **Local-First**: CLI binary executes hardware/system logic locally whenever possible. Daemon handles shared state, tray, watchers, and cross-client coordination (OSD IDs).
 - **Module System**:
   - Located in `modules/`. Atomic, parametric, and strictly unique (no claim collisions).
-  - Uses `module.toml` (deps), `defaults.toml` (base config), and `schema.json` (validation).
+  - Uses `module.cue` for metadata and config validation.
   - **Zero-Intermediate**: Files are processed in-memory and streamed directly to targets.
 - **Lazy Processing**: `source.File` interface delays content reading/rendering until strictly needed.
 - **Strict Config**: No lists in module configs. Deep merge with zero substitution policy between different modules.
@@ -53,7 +53,7 @@ When adding new config fields to `pkg/config/config.go`:
   - `CheckCompatibility()`: Verify if driver can run
   - `New()`: Create instance
 - Use `workspaced doctor` to see all drivers and their status
-- Configure driver weights in `settings.toml` under `[driver.weights]`
+- Configure driver weights in `workspaced.cue` under `workspaced.drivers`
 
 ## Runtime Guidelines
 - **Network access**:
@@ -67,5 +67,5 @@ When adding new config fields to `pkg/config/config.go`:
   - Keep driver prelude import centralized in root command (`cmd/workspaced/root.go`).
   - Avoid duplicate `_ "workspaced/pkg/driver/prelude"` imports in subcommands.
 - **Module lock model**:
-  - `workspaced.mod.toml`: declarative source specs only.
-  - `workspaced.sum.toml`: resolved lock state (including source URL/hash and module version/source pins).
+  - `workspaced.cue`: declarative inputs, modules, and config.
+  - `workspaced.lock.json`: resolved lock state (including source URL/hash and module version/source pins).

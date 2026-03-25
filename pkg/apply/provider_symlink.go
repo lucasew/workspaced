@@ -251,7 +251,7 @@ func (p *SymlinkProvider) GetDesiredState(ctx context.Context) ([]DesiredState, 
 		}
 
 		// Check if file is a template
-		// Supports: colors.tmpl.toml → colors.toml  OR  colors.tmpl → colors
+		// Supports: colors.tmpl.json -> colors.json  or colors.tmpl -> colors
 		filename := filepath.Base(rel)
 		parts := strings.Split(filename, ".")
 		isTemplate := (len(parts) >= 2 && parts[len(parts)-1] == "tmpl") ||

@@ -8,14 +8,19 @@ This is an example workspaced module demonstrating how to:
 
 ## Usage
 
-Enable in `settings.toml`:
+Enable in `workspaced.cue`:
 
-```toml
-[modules.example]
-enable = true
-greeting = "Hello from workspaced!"
-show_hostname = true
-show_ips = true
+```cue
+workspaced: modules: example: {
+	input: "self"
+	path: "modules/example"
+	config: {
+		enable: true
+		greeting: "Hello from workspaced!"
+		show_hostname: true
+		show_ips: true
+	}
+}
 ```
 
 ## Generated Files
@@ -58,24 +63,6 @@ The template demonstrates:
 ## Creating Your Own Module
 
 1. Copy this module as a template
-2. Edit `module.toml` with your metadata
-3. Define config schema in `defaults.toml` and `schema.json`
-4. Optionally mirror the same metadata and config defaults in `module.cue`
-5. Create templates in `home/`, `etc/`, or another preset directory
-6. Enable in `settings.toml`
-
-## Experimental CUE Format
-
-This module also ships with a `module.cue` file as an experiment for a future
-module format. It is not used by workspaced yet, and exists only as a parallel
-definition of:
-
-- module metadata
-- config fields
-- default values
-
-For now, the legacy files remain the source of truth:
-
-- `module.toml`
-- `defaults.toml`
-- `schema.json`
+2. Edit `module.cue` with your metadata and config schema
+3. Create templates in `home/`, `etc/`, or another preset directory
+4. Enable in `workspaced.cue`
