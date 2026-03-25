@@ -1,18 +1,18 @@
 package modfile
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"workspaced/pkg/config"
 )
 
 func IsLockableProvider(provider string) bool {
 	switch strings.TrimSpace(provider) {
-	case "local", "core":
+	case "self", "core":
 		return false
 	default:
 		return true
@@ -71,8 +71,7 @@ func BuildLockEntries(cfg *config.GlobalConfig, modFile *ModFile, modulesBaseDir
 			continue
 		}
 
-		from, _ := modCfg["from"].(string)
-		resolved, err := modFile.ResolveModuleSource(modName, from, modulesBaseDir, nil)
+		resolved, err := ResolveModuleFromConfig(cfg, modName, modCfg, modulesBaseDir, nil)
 		if err != nil {
 			return nil, fmt.Errorf("module %q: %w", modName, err)
 		}
@@ -110,92 +109,11 @@ func WriteSumFile(path string, sum *SumFile) error {
 		return err
 	}
 
-	names := make([]string, 0, len(sum.Modules))
-	for name := range sum.Modules {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	sourceNames := make([]string, 0, len(sum.Sources))
-	for name := range sum.Sources {
-		sourceNames = append(sourceNames, name)
-	}
-	sort.Strings(sourceNames)
-
-	for i, name := range sourceNames {
-		entry := sum.Sources[name]
-		if strings.TrimSpace(entry.Provider) == "" {
-			_ = f.Close()
-			return fmt.Errorf("invalid lock entry for source %q: provider is required", name)
-		}
-		if strings.TrimSpace(entry.Hash) == "" {
-			_ = f.Close()
-			return fmt.Errorf("invalid lock entry for source %q: hash is required", name)
-		}
-		if i > 0 {
-			if _, err := fmt.Fprintf(f, "\n"); err != nil {
-				_ = f.Close()
-				return err
-			}
-		}
-		if _, err := fmt.Fprintf(f, "[sources.%s]\n", name); err != nil {
-			_ = f.Close()
-			return err
-		}
-		if _, err := fmt.Fprintf(f, "provider = %s\n", strconv.Quote(strings.TrimSpace(entry.Provider))); err != nil {
-			_ = f.Close()
-			return err
-		}
-		if strings.TrimSpace(entry.Path) != "" {
-			if _, err := fmt.Fprintf(f, "path = %s\n", strconv.Quote(strings.TrimSpace(entry.Path))); err != nil {
-				_ = f.Close()
-				return err
-			}
-		}
-		if strings.TrimSpace(entry.Repo) != "" {
-			if _, err := fmt.Fprintf(f, "repo = %s\n", strconv.Quote(strings.TrimSpace(entry.Repo))); err != nil {
-				_ = f.Close()
-				return err
-			}
-		}
-		if strings.TrimSpace(entry.URL) != "" {
-			if _, err := fmt.Fprintf(f, "url = %s\n", strconv.Quote(strings.TrimSpace(entry.URL))); err != nil {
-				_ = f.Close()
-				return err
-			}
-		}
-		if _, err := fmt.Fprintf(f, "hash = %s\n", strconv.Quote(strings.TrimSpace(entry.Hash))); err != nil {
-			_ = f.Close()
-			return err
-		}
-	}
-
-	for i, name := range names {
-		entry := sum.Modules[name]
-		if strings.TrimSpace(entry.Source) == "" {
-			_ = f.Close()
-			return fmt.Errorf("invalid lock entry for module %q: source is required", name)
-		}
-		if i > 0 || len(sourceNames) > 0 {
-			if _, err := fmt.Fprintf(f, "\n"); err != nil {
-				_ = f.Close()
-				return err
-			}
-		}
-		if _, err := fmt.Fprintf(f, "[modules.%s]\n", name); err != nil {
-			_ = f.Close()
-			return err
-		}
-		if _, err := fmt.Fprintf(f, "source = %s\n", strconv.Quote(entry.Source)); err != nil {
-			_ = f.Close()
-			return err
-		}
-		if strings.TrimSpace(entry.Version) != "" {
-			if _, err := fmt.Fprintf(f, "version = %s\n", strconv.Quote(entry.Version)); err != nil {
-				_ = f.Close()
-				return err
-			}
-		}
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(sum); err != nil {
+		_ = f.Close()
+		return err
 	}
 
 	if err := f.Close(); err != nil {

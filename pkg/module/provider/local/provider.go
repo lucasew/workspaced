@@ -18,8 +18,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "local" }
-func (p *Provider) Name() string { return "Local Module" }
+func (p *Provider) ID() string   { return "self" }
+func (p *Provider) Name() string { return "Workspace Module" }
 
 var presetBases = map[string]string{
 	"home": "~",
@@ -31,9 +31,13 @@ var presetBases = map[string]string{
 }
 
 func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
-	modPath := filepath.Join(req.ModulesBaseDir, req.Ref)
+	workspaceRoot := filepath.Dir(req.ModulesBaseDir)
+	modPath := req.Ref
+	if !filepath.IsAbs(modPath) {
+		modPath = filepath.Join(workspaceRoot, req.Ref)
+	}
 	if st, err := os.Stat(modPath); err != nil || !st.IsDir() {
-		return nil, fmt.Errorf("local module %q not found at %s", req.Ref, modPath)
+		return nil, fmt.Errorf("workspace module %q not found at %s", req.Ref, modPath)
 	}
 
 	if err := validateConfig(req.Ref, modPath, req.ModuleConfig); err != nil {
@@ -48,8 +52,8 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 	var out []module.ResolvedFile
 	for _, preset := range entries {
 		if !preset.IsDir() {
-			name := preset.Name()
-			if name == "schema.json" || name == "module.toml" || name == "defaults.toml" || name == "module.cue" || name == "README.md" {
+			name := strings.TrimSpace(preset.Name())
+			if name == "schema.json" || name == "module.toml" || name == "defaults.toml" || name == "README.md" || strings.HasSuffix(name, ".cue") {
 				continue
 			}
 			return nil, fmt.Errorf("strict structure violation: file %q found in module %q root", name, req.Ref)

@@ -21,7 +21,7 @@ func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 		return LockResult{}, err
 	}
 
-	mod, err := LoadModFile(ws.ModPath())
+	mod, err := ModFileFromConfig(cfg)
 	if err != nil {
 		return LockResult{}, err
 	}

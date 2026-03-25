@@ -28,8 +28,14 @@ type GlobalConfig struct {
 	QuickSync  QuickSyncConfig           `toml:"quicksync" json:"quicksync"`
 	Browser    BrowserConfig             `toml:"browser" json:"browser"`
 	LazyTools  map[string]LazyToolConfig `toml:"lazy_tools" json:"lazy_tools"`
+	Inputs     map[string]InputConfig    `json:"inputs"`
 	Modules    map[string]any            `toml:"modules" json:"modules"`
 	Drivers    map[string]map[string]int `toml:"drivers" json:"drivers"`
+}
+
+type InputConfig struct {
+	From    string `json:"from"`
+	Version string `json:"version"`
 }
 
 type DesktopConfig struct {
@@ -161,6 +167,7 @@ func LoadFiles(paths []string) (*GlobalConfig, error) {
 	if err := json.Unmarshal(exported, &currentRaw); err != nil {
 		return nil, fmt.Errorf("failed to decode exported cue config: %w", err)
 	}
+	normalizeModuleEntries(currentRaw)
 	enabledModules := enabledModulesFromRaw(currentRaw)
 	moduleMeta, defaultsRaw, err := loadEnabledModuleDefinitions(enabledModules)
 	if err != nil {
@@ -203,6 +210,7 @@ func loadFromCUE() (*Config, error) {
 	if err := json.Unmarshal(exported, &currentRaw); err != nil {
 		return nil, fmt.Errorf("failed to decode exported cue config: %w", err)
 	}
+	normalizeModuleEntries(currentRaw)
 
 	enabledModules := enabledModulesFromRaw(currentRaw)
 	moduleMeta, defaultsRaw, err := loadEnabledModuleDefinitions(enabledModules)
@@ -242,6 +250,7 @@ func LoadConfigBase() (*GlobalConfig, error) {
 		Hosts:      make(map[string]HostConfig),
 		Browser:    BrowserConfig{Default: "zen", Engine: "brave"},
 		LazyTools:  make(map[string]LazyToolConfig),
+		Inputs:     make(map[string]InputConfig),
 		Modules:    make(map[string]any),
 		Drivers:    make(map[string]map[string]int),
 	}, nil
@@ -358,6 +367,42 @@ func finalizeConfig(rawMerged map[string]any) (*Config, error) {
 		return nil, err
 	}
 	return &Config{GlobalConfig: finalGCfg, raw: rawMerged}, nil
+}
+
+func normalizeModuleEntries(raw map[string]any) {
+	modsRaw, ok := raw["modules"]
+	if !ok {
+		return
+	}
+	mods, ok := modsRaw.(map[string]any)
+	if !ok {
+		return
+	}
+	for name, entryRaw := range mods {
+		entry, ok := entryRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		configRaw, hasConfig := entry["config"]
+		if !hasConfig {
+			continue
+		}
+		cfgMap, ok := configRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		flattened := make(map[string]any, len(entry)+len(cfgMap))
+		for k, v := range cfgMap {
+			flattened[k] = v
+		}
+		for k, v := range entry {
+			if k == "config" {
+				continue
+			}
+			flattened[k] = v
+		}
+		mods[name] = flattened
+	}
 }
 
 type ModuleMetadata struct {
