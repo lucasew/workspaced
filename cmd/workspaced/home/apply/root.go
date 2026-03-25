@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 	"workspaced/pkg/apply"
 	"workspaced/pkg/config"
 	"workspaced/pkg/deployer"
@@ -37,6 +38,7 @@ func GetCommand() *cobra.Command {
 			_ = action
 
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
 			// Carregar configuração
 			cfg, err := config.LoadHome()
@@ -165,21 +167,30 @@ func GetCommand() *cobra.Command {
 			}
 
 			// Mostrar resultado
-			if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 {
+			if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
+				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 				for _, a := range result.Actions {
-					if a.Type != deployer.ActionNoop {
-						cmd.Printf("[%s] %s\n", a.Type, a.Target)
-						if a.Type == deployer.ActionUpdate || a.Type == deployer.ActionCreate {
-							cmd.Printf("      -> %s\n", a.Desired.File.SourceInfo())
-						}
+					if a.Type == deployer.ActionNoop && !showNoop {
+						continue
 					}
+					sourceInfo := ""
+					if a.Desired.File != nil {
+						sourceInfo = a.Desired.File.SourceInfo()
+					}
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, a.Target, sourceInfo)
 				}
-				cmd.Printf("\nSummary: %d created, %d updated, %d deleted\n", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
+				_ = w.Flush()
+				cmd.Printf("\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
+				if showNoop {
+					cmd.Printf(", %d no-op", result.FilesNoOp)
+				}
+				cmd.Printf("\n")
 			}
 
 			return nil
 		},
 	}
 	cmd.Flags().BoolP("dry-run", "d", false, "Only show what would be done")
+	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
 	return cmd
 }
