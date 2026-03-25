@@ -43,10 +43,6 @@ func (w *Workspace) EnsureFiles() error {
 	return err
 }
 
-func (w *Workspace) ModPath() string {
-	return filepath.Join(w.Root, "workspaced.mod.toml")
-}
-
 func (w *Workspace) SumPath() string {
 	return filepath.Join(w.Root, "workspaced.lock.json")
 }

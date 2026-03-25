@@ -11,7 +11,7 @@ func init() {
 	Registry.Register(func(c *cobra.Command) {
 		c.AddCommand(&cobra.Command{
 			Use:   "lock",
-			Short: "Refresh workspaced.sum.toml for enabled modules",
+			Short: "Refresh workspaced.lock.json for enabled modules",
 			RunE:  runModLock,
 		})
 	})

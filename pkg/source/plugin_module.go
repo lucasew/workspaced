@@ -35,14 +35,11 @@ func (p *ModuleScannerPlugin) Name() string {
 func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File, error) {
 	logger := logging.GetLogger(ctx)
 	discovered := []File{}
-	modFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.mod.toml")
-	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.sum.toml")
-	_ = modFilePath
+	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.lock.json")
 	modFile, err := modfile.ModFileFromConfig(p.cfg)
 	if err != nil {
 		return nil, err
 	}
-	sumFilePath = filepath.Join(filepath.Dir(p.baseDir), "workspaced.lock.json")
 	sumFile, err := modfile.LoadSumFile(sumFilePath)
 	if err != nil {
 		return nil, err
