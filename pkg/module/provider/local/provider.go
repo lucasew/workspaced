@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"workspaced/pkg/module"
+	"workspaced/pkg/modulecue"
 
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -48,7 +49,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 	for _, preset := range entries {
 		if !preset.IsDir() {
 			name := preset.Name()
-			if name == "schema.json" || name == "module.toml" || name == "defaults.toml" || name == "README.md" {
+			if name == "schema.json" || name == "module.toml" || name == "defaults.toml" || name == "module.cue" || name == "README.md" {
 				continue
 			}
 			return nil, fmt.Errorf("strict structure violation: file %q found in module %q root", name, req.Ref)
@@ -92,6 +93,9 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 }
 
 func validateConfig(modName string, modPath string, modCfg map[string]any) error {
+	if modulecue.Exists(modPath) {
+		return modulecue.ValidateConfig(modPath, modCfg)
+	}
 	schemaPath := filepath.Join(modPath, "schema.json")
 	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
 		return nil

@@ -15,4 +15,6 @@ module: {
 		show_hostname: bool | *true
 		show_ips:      bool | *true
 	}
+
+	drivers: {}
 }

@@ -16,6 +16,7 @@ func GetCommand() *cobra.Command {
 
 	cmd.AddCommand(GetGetCommand())
 	cmd.AddCommand(GetDumpCommand())
+	cmd.AddCommand(GetDriftCommand())
 
 	return cmd
 }
