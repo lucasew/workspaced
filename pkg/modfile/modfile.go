@@ -52,15 +52,12 @@ func ModFileFromConfig(cfg *config.GlobalConfig) (*ModFile, error) {
 			}
 			continue
 		}
-		parts := strings.SplitN(spec, ":", 2)
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid input %q from %q", name, spec)
+		src, err := ParseSourceSpec(spec)
+		if err != nil {
+			return nil, fmt.Errorf("invalid input %q from %q: %w", name, spec, err)
 		}
-		out.Sources[name] = SourceConfig{
-			Provider: strings.TrimSpace(parts[0]),
-			Path:     strings.TrimSpace(parts[1]),
-			Ref:      strings.TrimSpace(input.Version),
-		}
+		src.Ref = strings.TrimSpace(input.Version)
+		out.Sources[name] = src
 	}
 	return out, nil
 }
