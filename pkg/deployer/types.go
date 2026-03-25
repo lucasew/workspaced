@@ -2,6 +2,7 @@ package deployer
 
 import (
 	"path/filepath"
+	"sort"
 	"workspaced/pkg/source"
 )
 
@@ -53,6 +54,33 @@ type Action struct {
 	Target  string
 	Desired DesiredState
 	Current ManagedInfo
+}
+
+func SortActions(actions []Action) []Action {
+	ordered := append([]Action(nil), actions...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		rank := func(t ActionType) int {
+			switch t {
+			case ActionDelete:
+				return 0
+			case ActionUpdate:
+				return 1
+			case ActionCreate:
+				return 2
+			case ActionNoop:
+				return 3
+			default:
+				return 4
+			}
+		}
+		ri := rank(ordered[i].Type)
+		rj := rank(ordered[j].Type)
+		if ri != rj {
+			return ri < rj
+		}
+		return ordered[i].Target < ordered[j].Target
+	})
+	return ordered
 }
 
 // Provider alias para source.Provider

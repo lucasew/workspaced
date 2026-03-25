@@ -168,8 +168,9 @@ func GetCommand() *cobra.Command {
 
 			// Mostrar resultado
 			if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
+				orderedActions := deployer.SortActions(result.Actions)
 				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-				for _, a := range result.Actions {
+				for _, a := range orderedActions {
 					if a.Type == deployer.ActionNoop && !showNoop {
 						continue
 					}

@@ -36,8 +36,9 @@ func NewExecutor() *Executor {
 // Execute aplica lista de ações e atualiza estado
 func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) error {
 	logger := logging.GetLogger(ctx)
+	orderedActions := SortActions(actions)
 
-	for _, action := range actions {
+	for _, action := range orderedActions {
 		switch action.Type {
 		case ActionNoop:
 			continue
