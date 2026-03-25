@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	Registry.FromGetter(GetDumpCommand)
+}
+
 func GetDumpCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump",
