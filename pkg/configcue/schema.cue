@@ -36,6 +36,11 @@ package workspaced
 	dotfiles_root?: string
 	config_dir?: string
 	user_data_dir?: string
+	inputs?: [string]: {
+		path?: string
+		provider?: string
+		target?: string
+	}
 }
 
 workspaced: {

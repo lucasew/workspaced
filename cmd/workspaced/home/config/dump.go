@@ -26,7 +26,7 @@ Outputs the result as JSON format.`,
 
 			enc := json.NewEncoder(c.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(cfg.GlobalConfig)
+			return enc.Encode(cfg.Raw())
 		},
 	}
 }
