@@ -52,7 +52,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 		return "", err
 	}
 
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfigForWorkspace("")
 	if err != nil {
 		return "", err
 	}

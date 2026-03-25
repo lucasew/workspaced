@@ -19,7 +19,7 @@ func init() {
 			Short: "Workspace switcher",
 			RunE: func(c *cobra.Command, args []string) error {
 				move, _ := c.Flags().GetBool("move")
-				cfg, err := config.LoadConfig()
+				cfg, err := config.LoadConfigForWorkspace("")
 				if err != nil {
 					return err
 				}

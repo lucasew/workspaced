@@ -8,13 +8,19 @@ import (
 
 type LockResult struct {
 	Sources int
-	Modules int
 }
 
 func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfigForWorkspace(ws.Root)
 	if err != nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
+	}
+	return GenerateLockWithConfig(ctx, ws, cfg)
+}
+
+func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *config.GlobalConfig) (LockResult, error) {
+	if cfg == nil {
+		return LockResult{}, fmt.Errorf("failed to load config: config is nil")
 	}
 
 	if err := ws.EnsureFiles(); err != nil {
@@ -23,11 +29,7 @@ func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 
 	mod, err := ModFileFromConfig(cfg)
 	if err != nil {
-		return LockResult{}, err
-	}
-	moduleEntries, err := BuildLockEntries(cfg, mod, ws.ModulesBaseDir())
-	if err != nil {
-		return LockResult{}, err
+		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
 	sourceEntries := BuildSourceLockEntries(mod)
 	if err := PopulateSourceLockHashes(ctx, mod, ws.ModulesBaseDir(), sourceEntries); err != nil {
@@ -35,13 +37,11 @@ func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 	}
 	if err := WriteSumFile(ws.SumPath(), &SumFile{
 		Sources: sourceEntries,
-		Modules: moduleEntries,
 	}); err != nil {
 		return LockResult{}, err
 	}
 
 	return LockResult{
 		Sources: len(sourceEntries),
-		Modules: len(moduleEntries),
 	}, nil
 }

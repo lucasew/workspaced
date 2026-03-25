@@ -158,9 +158,27 @@ func LoadHome() (*Config, error) {
 	return loadFromCUEWithOptions(configcue.DiscoverOptions{HomeMode: true})
 }
 
+func LoadForWorkspace(root string) (*Config, error) {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return loadFromCUE()
+	}
+
+	dotfilesRoot, err := env.GetDotfilesRoot()
+	if err == nil && filepath.Clean(dotfilesRoot) == filepath.Clean(root) {
+		return LoadHome()
+	}
+
+	return loadFromCUEWithOptions(configcue.DiscoverOptions{Cwd: root})
+}
+
 func LoadFiles(paths []string) (*GlobalConfig, error) {
 	if len(paths) == 0 {
-		return LoadConfig()
+		cfg, err := Load()
+		if err != nil {
+			return nil, err
+		}
+		return cfg.GlobalConfig, nil
 	}
 	gCfg, err := LoadConfigBase()
 	if err != nil {
@@ -245,8 +263,8 @@ func loadFromCUEWithOptions(opts configcue.DiscoverOptions) (*Config, error) {
 	return finalizeConfig(rawMerged)
 }
 
-func LoadConfig() (*GlobalConfig, error) {
-	cfg, err := Load()
+func LoadConfigForWorkspace(root string) (*GlobalConfig, error) {
+	cfg, err := LoadForWorkspace(root)
 	if err != nil {
 		return nil, err
 	}

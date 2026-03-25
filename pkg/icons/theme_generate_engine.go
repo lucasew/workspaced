@@ -375,7 +375,7 @@ func resolveJobs(raw string) (int, error) {
 }
 
 func loadBase16Colors() (map[string]string, error) {
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfigForWorkspace("")
 	if err != nil {
 		return nil, err
 	}

@@ -24,6 +24,21 @@ func ResolveModuleFromConfig(cfg *config.GlobalConfig, moduleName string, modCfg
 
 	modulePath, _ := modCfg["path"].(string)
 	modulePath = strings.Trim(strings.TrimSpace(modulePath), "/")
+
+	// Accept combined specs like "self:modules/base16" in the input field and
+	// canonicalize them through the same resolver used everywhere else.
+	if strings.Contains(inputName, ":") {
+		modFile, err := ModFileFromConfig(cfg)
+		if err != nil {
+			return ResolvedModuleSource{}, err
+		}
+		spec := inputName
+		if modulePath != "" {
+			spec = strings.TrimRight(spec, "/") + ":" + modulePath
+		}
+		return modFile.ResolveModuleSource(moduleName, spec, modulesBaseDir, sumFile)
+	}
+
 	if modulePath == "" {
 		modulePath = filepath.ToSlash(filepath.Join("modules", moduleName))
 	}

@@ -26,6 +26,6 @@ func runModLock(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Printf("wrote %s (%d sources, %d modules)\n", ws.SumPath(), result.Sources, result.Modules)
+	cmd.Printf("wrote %s (%d sources)\n", ws.SumPath(), result.Sources)
 	return nil
 }

@@ -19,7 +19,7 @@ import (
 )
 
 func RunFullBackup(ctx context.Context) error {
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfigForWorkspace("")
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func RunFullBackup(ctx context.Context) error {
 }
 
 func Rsync(ctx context.Context, src, dst string, n *notification.Notification, extraArgs ...string) (string, error) {
-	cfg, _ := config.LoadConfig()
+	cfg, _ := config.LoadConfigForWorkspace("")
 	remote := fmt.Sprintf("%s:%s", cfg.Backup.RsyncnetUser, dst)
 
 	logging.GetLogger(ctx).Info("rsync sync", "from", src, "to", remote)

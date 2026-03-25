@@ -7,11 +7,6 @@ import (
 	"strings"
 )
 
-type LockedModule struct {
-	Source  string `json:"source"`
-	Version string `json:"version"`
-}
-
 type LockedSource struct {
 	Provider string `json:"provider"`
 	Path     string `json:"path"`
@@ -22,13 +17,11 @@ type LockedSource struct {
 
 type SumFile struct {
 	Sources map[string]LockedSource `json:"sources"`
-	Modules map[string]LockedModule `json:"modules"`
 }
 
 func LoadSumFile(path string) (*SumFile, error) {
 	out := &SumFile{
 		Sources: map[string]LockedSource{},
-		Modules: map[string]LockedModule{},
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return out, nil
@@ -43,9 +36,6 @@ func LoadSumFile(path string) (*SumFile, error) {
 	if out.Sources == nil {
 		out.Sources = map[string]LockedSource{}
 	}
-	if out.Modules == nil {
-		out.Modules = map[string]LockedModule{}
-	}
 	for name, lock := range out.Sources {
 		lock.Provider = strings.TrimSpace(lock.Provider)
 		lock.Path = strings.TrimSpace(lock.Path)
@@ -59,14 +49,6 @@ func LoadSumFile(path string) (*SumFile, error) {
 			return nil, fmt.Errorf("invalid lock entry for source %q: hash is required", name)
 		}
 		out.Sources[name] = lock
-	}
-	for mod, lock := range out.Modules {
-		lock.Source = strings.TrimSpace(lock.Source)
-		lock.Version = strings.TrimSpace(lock.Version)
-		if lock.Source == "" {
-			return nil, fmt.Errorf("invalid lock entry for module %q: source is required", mod)
-		}
-		out.Modules[mod] = lock
 	}
 	return out, nil
 }
