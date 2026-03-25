@@ -12,6 +12,7 @@ import (
 
 func lazyCommand() *cobra.Command {
 	var binName string
+	var homeMode bool
 
 	cmd := &cobra.Command{
 		Use:   "lazy <tool-name> [args...]",
@@ -24,7 +25,12 @@ func lazyCommand() *cobra.Command {
 				binName = toolName
 			}
 
-			binPath, err := tool.ResolveLazyTool(cmd.Context(), toolName, binName)
+			resolver := tool.ResolveLazyTool
+			if homeMode {
+				resolver = tool.ResolveHomeLazyTool
+			}
+
+			binPath, err := resolver(cmd.Context(), toolName, binName)
 			if err != nil {
 				return err
 			}
@@ -41,6 +47,7 @@ func lazyCommand() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&binName, "bin", "", "Binary name to resolve inside the tool package")
+	cmd.Flags().BoolVar(&homeMode, "home", false, "Resolve the lazy tool using the home/dotfiles workspace")
 	cmd.Flags().SetInterspersed(false)
 
 	return cmd
