@@ -23,7 +23,7 @@ Outputs the value as JSON for easy parsing.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			key := args[0]
-			cfg, err := config.Load()
+			cfg, err := config.LoadHome()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
