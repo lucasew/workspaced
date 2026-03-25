@@ -14,6 +14,7 @@ package workspaced
 
 #LazyTool: {
 	version?: string
+	ref?:     string
 	pkg?:     string
 	global?:  bool
 	alias?:   string

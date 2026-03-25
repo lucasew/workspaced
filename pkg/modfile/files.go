@@ -10,6 +10,7 @@ func EnsureLockFile(root string) (string, error) {
 	if _, err := os.Stat(sumPath); os.IsNotExist(err) {
 		if err := WriteSumFile(sumPath, &SumFile{
 			Sources: map[string]LockedSource{},
+			Tools:   map[string]LockedTool{},
 		}); err != nil {
 			return "", err
 		}

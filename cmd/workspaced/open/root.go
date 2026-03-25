@@ -90,6 +90,7 @@ func GetCommand() *cobra.Command {
 	})
 
 	cmd.AddCommand(execCommand())
+	cmd.AddCommand(lazyCommand())
 	cmd.AddCommand(miseCommand())
 
 	return cmd

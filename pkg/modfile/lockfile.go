@@ -44,10 +44,13 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 
 func WriteSumFile(path string, sum *SumFile) error {
 	if sum == nil {
-		sum = &SumFile{Sources: map[string]LockedSource{}}
+		sum = &SumFile{Sources: map[string]LockedSource{}, Tools: map[string]LockedTool{}}
 	}
 	if sum.Sources == nil {
 		sum.Sources = map[string]LockedSource{}
+	}
+	if sum.Tools == nil {
+		sum.Tools = map[string]LockedTool{}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
