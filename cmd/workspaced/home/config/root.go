@@ -14,8 +14,5 @@ func GetCommand() *cobra.Command {
 		Short: "Manage configuration",
 	}
 
-	cmd.AddCommand(GetGetCommand())
-	cmd.AddCommand(GetDumpCommand())
-
-	return cmd
+	return Registry.FillCommands(cmd)
 }

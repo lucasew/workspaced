@@ -8,6 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	Registry.FromGetter(GetGetCommand)
+}
+
 func GetGetCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <key>",

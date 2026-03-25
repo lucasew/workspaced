@@ -49,11 +49,13 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 		}
 	}
 
-	dotfilesRoot, err := env.GetDotfilesRoot()
-	if err == nil && dotfilesRoot != "" {
-		p := filepath.Join(dotfilesRoot, "workspaced.cue")
-		if fileExists(p) {
-			layers = append(layers, Layer{Name: "dotfiles", Path: p})
+	if opts.HomeMode {
+		dotfilesRoot, err := env.GetDotfilesRoot()
+		if err == nil && dotfilesRoot != "" {
+			p := filepath.Join(dotfilesRoot, "workspaced.cue")
+			if fileExists(p) {
+				layers = append(layers, Layer{Name: "dotfiles", Path: p})
+			}
 		}
 	}
 
