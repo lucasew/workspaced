@@ -14,10 +14,7 @@ func TestWorkspacePaths(t *testing.T) {
 		t.Fatalf("root mismatch: got=%q want=%q", ws.Root, root)
 	}
 
-	if ws.ModPath() != filepath.Join(root, "workspaced.mod.toml") {
-		t.Fatalf("mod path mismatch: got=%q", ws.ModPath())
-	}
-	if ws.SumPath() != filepath.Join(root, "workspaced.sum.toml") {
+	if ws.SumPath() != filepath.Join(root, "workspaced.lock.json") {
 		t.Fatalf("sum path mismatch: got=%q", ws.SumPath())
 	}
 	if ws.ModulesBaseDir() != filepath.Join(root, "modules") {
