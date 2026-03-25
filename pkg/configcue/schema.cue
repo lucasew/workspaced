@@ -21,7 +21,7 @@ package workspaced
 	[string]: _
 }
 
-config: {
+workspaced: {
 	workspaces?: [string]: int
 	desktop?: {
 		dark_mode?: bool
