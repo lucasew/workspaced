@@ -1,5 +1,10 @@
 package workspaced
 
+#Input: {
+	from:    string
+	version?: string
+}
+
 #Host: {
 	ips?:  [...string]
 	mac?:  string
@@ -16,12 +21,17 @@ package workspaced
 }
 
 #ModuleRef: {
-	enable?: bool
-	from?:   string
-	[string]: _
+	enable: bool | *true
+	input?: string
+	path?:  string | *"."
+	from?:  string
+	version?: string
+	config?: _
 }
 
 workspaced: {
+	inputs?: [string]: #Input
+	modules?: [string]: #ModuleRef
 	workspaces?: [string]: int
 	desktop?: {
 		dark_mode?: bool
@@ -48,5 +58,4 @@ workspaced: {
 	}
 	lazy_tools?: [string]: #LazyTool
 	drivers?: [string]: [string]: int
-	modules?: [string]: #ModuleRef
 }
