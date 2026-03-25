@@ -14,7 +14,7 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
-//go:embed schema.cue
+//go:embed schema.cue prelude.cue
 var schemaFS embed.FS
 
 type Layer struct {
@@ -65,11 +65,26 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	paths := make([]string, 0, len(discovered.Layers))
+	for _, layer := range discovered.Layers {
+		paths = append(paths, layer.Path)
+	}
+	return ExportJSONFromPaths(paths)
+}
 
+func ExportJSONFromPaths(paths []string) ([]byte, error) {
+	return exportJSONFromPaths(paths, nil)
+}
+
+func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
 	ctx := cuecontext.New()
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {
 		return nil, fmt.Errorf("read embedded cue schema: %w", err)
+	}
+	preludeBytes, err := schemaFS.ReadFile("prelude.cue")
+	if err != nil {
+		return nil, fmt.Errorf("read embedded cue prelude: %w", err)
 	}
 
 	v := ctx.CompileString(string(schemaBytes), cue.Filename("schema.cue"))
@@ -77,18 +92,27 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 		return nil, fmt.Errorf("compile embedded cue schema: %w", err)
 	}
 
-	for _, layer := range discovered.Layers {
-		src, err := os.ReadFile(layer.Path)
+	preludeLayer := ctx.CompileString(string(preludeBytes), cue.Filename("prelude.cue"))
+	if err := preludeLayer.Err(); err != nil {
+		return nil, fmt.Errorf("compile embedded cue prelude: %w", err)
+	}
+	v = v.Unify(preludeLayer)
+	if err := v.Err(); err != nil {
+		return nil, fmt.Errorf("unify embedded cue prelude: %w", err)
+	}
+
+	for _, path := range paths {
+		src, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("read %s layer: %w", layer.Name, err)
+			return nil, fmt.Errorf("read cue layer %s: %w", path, err)
 		}
-		layerValue := ctx.CompileString(string(src), cue.Filename(layer.Path))
+		layerValue := ctx.CompileString(string(src), cue.Filename(path))
 		if err := layerValue.Err(); err != nil {
-			return nil, fmt.Errorf("compile %s layer %s: %w", layer.Name, layer.Path, err)
+			return nil, fmt.Errorf("compile cue layer %s: %w", path, err)
 		}
 		v = v.Unify(layerValue)
 		if err := v.Err(); err != nil {
-			return nil, fmt.Errorf("unify %s layer %s: %w", layer.Name, layer.Path, err)
+			return nil, fmt.Errorf("unify cue layer %s: %w", path, err)
 		}
 	}
 
@@ -97,8 +121,10 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 		return nil, fmt.Errorf("lookup workspaced value: %w", err)
 	}
 	if !configValue.Exists() {
-		if len(discovered.Layers) > 0 {
-			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered.Layers)
+		if len(discovered) > 0 {
+			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
+		} else if len(paths) > 0 {
+			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
 		}
 		return json.Marshal(map[string]any{})
 	}
@@ -106,8 +132,10 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal cue config to json: %w", err)
 	}
-	if string(b) == "{}" && len(discovered.Layers) > 0 {
-		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "layers", discovered.Layers)
+	if string(b) == "{}" && len(discovered) > 0 {
+		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "layers", discovered)
+	} else if string(b) == "{}" && len(paths) > 0 {
+		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "paths", paths)
 	}
 	return b, nil
 }

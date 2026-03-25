@@ -1,37 +1,32 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"workspaced/pkg/config"
 
-	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 )
 
 func GetDumpCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "dump",
-		Short: "Dump the full merged configuration as TOML",
+		Short: "Dump the full merged configuration as JSON",
 		Long: `Dump the complete merged configuration from all sources:
 - Hardcoded defaults
-- $DOTFILES/settings.toml
-- ~/settings.toml
+- layered workspaced.cue files
 
-Outputs the result as TOML format.`,
+Outputs the result as JSON format.`,
 		RunE: func(c *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
-			// Encode to TOML format
-			encoder := toml.NewEncoder(c.OutOrStdout())
-			if err := encoder.Encode(cfg.GlobalConfig); err != nil {
-				return fmt.Errorf("failed to encode TOML: %w", err)
-			}
-
-			return nil
+			enc := json.NewEncoder(c.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(cfg.GlobalConfig)
 		},
 	}
 }

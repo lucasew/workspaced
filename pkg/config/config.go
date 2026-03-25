@@ -8,12 +8,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/env"
-	"workspaced/pkg/configcue"
 	"workspaced/pkg/modulecue"
-
-	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
@@ -140,178 +138,48 @@ func (c *Config) UnmarshalKey(key string, val any) error {
 }
 
 func Load() (*Config, error) {
-	return LoadWithFormat("toml")
+	return loadFromCUE()
 }
 
-func LoadWithFormat(format string) (*Config, error) {
-	switch strings.TrimSpace(format) {
-	case "", "toml":
-		return loadFromTOML()
-	case "cue":
-		return loadFromCUE()
-	default:
-		return nil, fmt.Errorf("unknown config format %q", format)
+func LoadFiles(paths []string) (*GlobalConfig, error) {
+	if len(paths) == 0 {
+		return LoadConfig()
 	}
-}
-
-func loadFromTOML() (*Config, error) {
-	home, _ := os.UserHomeDir()
-	dotfiles, _ := env.GetDotfilesRoot()
 	gCfg, err := LoadConfigBase()
 	if err != nil {
 		return nil, err
-	}
-	structToMap := func(s any) (map[string]any, error) {
-		data, err := json.Marshal(s)
-		if err != nil {
-			return nil, err
-		}
-		var res map[string]any
-		if err := json.Unmarshal(data, &res); err != nil {
-			return nil, err
-		}
-		return res, nil
 	}
 	rawMerged, err := structToMap(gCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert default config to map: %w", err)
 	}
-	userConfigs := []string{}
-	if dotfiles != "" {
-		userConfigs = append(userConfigs, filepath.Join(dotfiles, "settings.toml"))
-	}
-	userConfigs = append(userConfigs, filepath.Join(home, "settings.toml"))
-	enabledModules := make(map[string]bool)
-	for _, path := range userConfigs {
-		if _, err := os.Stat(path); err == nil {
-			var currentRaw map[string]any
-			if _, err := toml.DecodeFile(path, &currentRaw); err == nil {
-				if modsRaw, ok := currentRaw["modules"]; ok {
-					modsVal := reflect.ValueOf(modsRaw)
-					if modsVal.Kind() == reflect.Map {
-						for _, modKey := range modsVal.MapKeys() {
-							mVal := modsVal.MapIndex(modKey)
-							if mVal.Kind() == reflect.Interface {
-								mVal = mVal.Elem()
-							}
-							if mVal.Kind() == reflect.Map {
-								eVal := mVal.MapIndex(reflect.ValueOf("enable"))
-								if eVal.IsValid() {
-									if eVal.Kind() == reflect.Interface {
-										eVal = eVal.Elem()
-									}
-									if eVal.Kind() == reflect.Bool && eVal.Bool() {
-										enabledModules[modKey.String()] = true
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	modulesDir := filepath.Join(dotfiles, "modules")
-	moduleMeta := make(map[string]ModuleMetadata)
-	if entries, err := os.ReadDir(modulesDir); err == nil {
-		defaultsRaw := make(map[string]any)
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			name := entry.Name()
-			if !enabledModules[name] {
-				continue
-			}
-			modPath := filepath.Join(modulesDir, name)
-			if modulecue.Exists(modPath) {
-				def, err := modulecue.Load(modPath)
-				if err != nil {
-					return nil, err
-				}
-				moduleMeta[name] = ModuleMetadata{
-					Requires:   def.Meta.Requires,
-					Recommends: def.Meta.Recommends,
-				}
-				wrapped := map[string]any{"modules": map[string]any{name: def.Config}}
-				if err := MergeStrict(defaultsRaw, wrapped, false); err != nil {
-					return nil, fmt.Errorf("failed to merge cue defaults for module %s: %w", name, err)
-				}
-				if len(def.Drivers) > 0 {
-					wrappedDrivers := map[string]any{"drivers": any(def.Drivers)}
-					if err := MergeStrict(defaultsRaw, wrappedDrivers, false); err != nil {
-						return nil, fmt.Errorf("failed to merge cue driver defaults for module %s: %w", name, err)
-					}
-				}
-				continue
-			}
-			metaPath := filepath.Join(modPath, "module.toml")
-			if _, err := os.Stat(metaPath); err == nil {
-				var meta struct {
-					Module ModuleMetadata `toml:"module"`
-				}
-				if _, err := toml.DecodeFile(metaPath, &meta); err != nil {
-					return nil, err
-				}
-				moduleMeta[name] = meta.Module
-			}
-			defaultsPath := filepath.Join(modPath, "defaults.toml")
-			if _, err := os.Stat(defaultsPath); err == nil {
-				var currentDefaults map[string]any
-				if _, err := toml.DecodeFile(defaultsPath, &currentDefaults); err == nil {
-					var driversDefaults map[string]any
-					if d, ok := currentDefaults["drivers"]; ok {
-						if dMap, ok := d.(map[string]any); ok {
-							driversDefaults = dMap
-							delete(currentDefaults, "drivers")
-						}
-					}
-					wrapped := map[string]any{"modules": map[string]any{name: currentDefaults}}
-					if err := MergeStrict(defaultsRaw, wrapped, false); err != nil {
-						return nil, fmt.Errorf("failed to merge defaults for module %s: %w", name, err)
-					}
-					if driversDefaults != nil {
-						wrappedDrivers := map[string]any{"drivers": driversDefaults}
-						if err := MergeStrict(defaultsRaw, wrappedDrivers, false); err != nil {
-							return nil, fmt.Errorf("failed to merge driver defaults for module %s: %w", name, err)
-						}
-					}
-				}
-			}
-		}
-		if err := validateDependencies(enabledModules, moduleMeta); err != nil {
-			return nil, err
-		}
-		if err := MergeStrict(rawMerged, defaultsRaw, true); err != nil {
-			return nil, fmt.Errorf("failed to merge defaults into config: %w", err)
-		}
-	}
-	for _, path := range userConfigs {
-		if _, err := os.Stat(path); err == nil {
-			var currentRaw map[string]any
-			if _, err := toml.DecodeFile(path, &currentRaw); err == nil {
-				if err := MergeStrict(rawMerged, currentRaw, true); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	finalGCfg := &GlobalConfig{}
-	data, err := json.Marshal(rawMerged)
+	exported, err := configcue.ExportJSONFromPaths(paths)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal merged config: %w", err)
-	}
-	if err := json.Unmarshal(data, finalGCfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal merged config: %w", err)
-	}
-	finalGCfg.Desktop.Wallpaper.Dir = env.ExpandPath(finalGCfg.Desktop.Wallpaper.Dir)
-	finalGCfg.Desktop.Wallpaper.Default = env.ExpandPath(finalGCfg.Desktop.Wallpaper.Default)
-	finalGCfg.Screenshot.Dir = env.ExpandPath(finalGCfg.Screenshot.Dir)
-	finalGCfg.QuickSync.RepoDir = env.ExpandPath(finalGCfg.QuickSync.RepoDir)
-	if err := driver.SetWeights(finalGCfg.Drivers); err != nil {
 		return nil, err
 	}
-	return &Config{GlobalConfig: finalGCfg, raw: rawMerged}, nil
+	var currentRaw map[string]any
+	if err := json.Unmarshal(exported, &currentRaw); err != nil {
+		return nil, fmt.Errorf("failed to decode exported cue config: %w", err)
+	}
+	enabledModules := enabledModulesFromRaw(currentRaw)
+	moduleMeta, defaultsRaw, err := loadEnabledModuleDefinitions(enabledModules)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateDependencies(enabledModules, moduleMeta); err != nil {
+		return nil, err
+	}
+	if err := MergeStrict(rawMerged, defaultsRaw, true); err != nil {
+		return nil, fmt.Errorf("failed to merge defaults into config: %w", err)
+	}
+	if err := MergeStrict(rawMerged, currentRaw, true); err != nil {
+		return nil, err
+	}
+	cfg, err := finalizeConfig(rawMerged)
+	if err != nil {
+		return nil, err
+	}
+	return cfg.GlobalConfig, nil
 }
 
 func loadFromCUE() (*Config, error) {
@@ -467,39 +335,7 @@ func loadEnabledModuleDefinitions(enabledModules map[string]bool) (map[string]Mo
 			}
 			continue
 		}
-		metaPath := filepath.Join(modPath, "module.toml")
-		if _, err := os.Stat(metaPath); err == nil {
-			var meta struct {
-				Module ModuleMetadata `toml:"module"`
-			}
-			if _, err := toml.DecodeFile(metaPath, &meta); err != nil {
-				return nil, nil, err
-			}
-			moduleMeta[name] = meta.Module
-		}
-		defaultsPath := filepath.Join(modPath, "defaults.toml")
-		if _, err := os.Stat(defaultsPath); err == nil {
-			var currentDefaults map[string]any
-			if _, err := toml.DecodeFile(defaultsPath, &currentDefaults); err == nil {
-				var driversDefaults map[string]any
-				if d, ok := currentDefaults["drivers"]; ok {
-					if dMap, ok := d.(map[string]any); ok {
-						driversDefaults = dMap
-						delete(currentDefaults, "drivers")
-					}
-				}
-				wrapped := map[string]any{"modules": map[string]any{name: currentDefaults}}
-				if err := MergeStrict(defaultsRaw, wrapped, false); err != nil {
-					return nil, nil, fmt.Errorf("failed to merge defaults for module %s: %w", name, err)
-				}
-				if driversDefaults != nil {
-					wrappedDrivers := map[string]any{"drivers": driversDefaults}
-					if err := MergeStrict(defaultsRaw, wrappedDrivers, false); err != nil {
-						return nil, nil, fmt.Errorf("failed to merge driver defaults for module %s: %w", name, err)
-					}
-				}
-			}
-		}
+		return nil, nil, fmt.Errorf("module %q is missing module.cue", name)
 	}
 
 	return moduleMeta, defaultsRaw, nil
@@ -623,32 +459,4 @@ func MergeStrict(dst, src map[string]any, allowSubstitution bool) error {
 		}
 	}
 	return nil
-}
-
-func LoadFiles(paths []string) (*GlobalConfig, error) {
-	config := &GlobalConfig{
-		Workspaces: make(map[string]int),
-		Hosts:      make(map[string]HostConfig),
-		LazyTools:  make(map[string]LazyToolConfig),
-		Modules:    make(map[string]any),
-		Drivers:    make(map[string]map[string]int),
-	}
-	mergedRaw := make(map[string]any)
-	for _, path := range paths {
-		var currentRaw map[string]any
-		if _, err := toml.DecodeFile(path, &currentRaw); err != nil {
-			return nil, fmt.Errorf("failed to decode %s: %w", path, err)
-		}
-		if err := MergeStrict(mergedRaw, currentRaw, true); err != nil {
-			return nil, fmt.Errorf("strict merge failed for %s: %w", path, err)
-		}
-	}
-	data, err := json.Marshal(mergedRaw)
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(data, config); err != nil {
-		return nil, err
-	}
-	return config, nil
 }

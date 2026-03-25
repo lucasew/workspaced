@@ -1,13 +1,12 @@
 package workspaced
 
 workspaced: {
-	inputs: exampleSource: {
-		from:    "local:modules"
-		version: "experimental"
+	inputs: self: {
+		from: "self"
 	}
 
 	modules: example: {
-		input: "exampleSource"
+		input: "self"
 		path:  "example"
 		config: {
 			enable: true
