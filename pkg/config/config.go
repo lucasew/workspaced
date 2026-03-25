@@ -216,13 +216,13 @@ func loadFromCUEWithOptions(opts configcue.DiscoverOptions) (*Config, error) {
 		return nil, fmt.Errorf("failed to convert default config to map: %w", err)
 	}
 
-	exported, err := configcue.ExportJSON(opts)
+	evaluated, err := configcue.Evaluate(opts)
 	if err != nil {
 		return nil, err
 	}
 
 	var currentRaw map[string]any
-	if err := json.Unmarshal(exported, &currentRaw); err != nil {
+	if err := json.Unmarshal(evaluated.JSON, &currentRaw); err != nil {
 		return nil, fmt.Errorf("failed to decode exported cue config: %w", err)
 	}
 	normalizeModuleEntries(currentRaw)
