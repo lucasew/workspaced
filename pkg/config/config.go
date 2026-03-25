@@ -52,6 +52,7 @@ type DesktopConfig struct {
 
 type LazyToolConfig struct {
 	Version string   `json:"version"`
+	Ref     string   `json:"ref"`
 	Pkg     string   `json:"pkg"`
 	Global  bool     `json:"global"`
 	Alias   string   `json:"alias"`
