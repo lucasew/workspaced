@@ -1,9 +1,9 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	"workspaced/pkg/configcue"
 
@@ -15,7 +15,9 @@ func init() {
 }
 
 func GetLayersCommand() *cobra.Command {
-	return &cobra.Command{
+	var format string
+
+	cmd := &cobra.Command{
 		Use:   "layers",
 		Short: "List discovered workspaced.cue layers",
 		RunE: func(c *cobra.Command, args []string) error {
@@ -28,9 +30,30 @@ func GetLayersCommand() *cobra.Command {
 				return fmt.Errorf("failed to discover config layers: %w", err)
 			}
 
-			enc := json.NewEncoder(c.OutOrStdout())
-			enc.SetIndent("", "  ")
-			return enc.Encode(map[string]any{"layers": result.Layers})
+			if format == "table" {
+				w := tabwriter.NewWriter(c.OutOrStdout(), 0, 0, 2, ' ', 0)
+				if _, err := fmt.Fprintln(w, "NAME\tPATH"); err != nil {
+					return err
+				}
+				for _, layer := range result.Layers {
+					if _, err := fmt.Fprintf(w, "%s\t%s\n", layer.Name, layer.Path); err != nil {
+						return err
+					}
+				}
+				return w.Flush()
+			}
+			if format != "" && format != "paths" {
+				return fmt.Errorf("unknown format: %s (supported: paths, table)", format)
+			}
+			for _, layer := range result.Layers {
+				if _, err := fmt.Fprintln(c.OutOrStdout(), layer.Path); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
+
+	cmd.Flags().StringVarP(&format, "format", "f", "paths", "Output format (paths, table)")
+	return cmd
 }

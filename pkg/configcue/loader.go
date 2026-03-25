@@ -65,6 +65,16 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 	}
 
 	if opts.HomeMode {
+		homeDir, err := os.UserHomeDir()
+		if err == nil && homeDir != "" {
+			p := filepath.Join(homeDir, "workspaced.cue")
+			if fileExists(p) {
+				layers = append(layers, Layer{Name: "user", Path: p})
+			}
+		}
+	}
+
+	if opts.HomeMode {
 		configDir, err := env.GetConfigDir()
 		if err == nil && configDir != "" {
 			p := filepath.Join(configDir, "workspaced.cue")
