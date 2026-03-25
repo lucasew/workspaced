@@ -37,10 +37,12 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 	discovered := []File{}
 	modFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.mod.toml")
 	sumFilePath := filepath.Join(filepath.Dir(p.baseDir), "workspaced.sum.toml")
-	modFile, err := modfile.LoadModFile(modFilePath)
+	_ = modFilePath
+	modFile, err := modfile.ModFileFromConfig(p.cfg)
 	if err != nil {
 		return nil, err
 	}
+	sumFilePath = filepath.Join(filepath.Dir(p.baseDir), "workspaced.lock.json")
 	sumFile, err := modfile.LoadSumFile(sumFilePath)
 	if err != nil {
 		return nil, err
@@ -67,8 +69,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 			continue
 		}
 
-		from, _ := modCfg["from"].(string) // explicit override (legacy/escape hatch)
-		moduleSource, err := modFile.ResolveModuleSource(modName, from, p.baseDir, sumFile)
+		moduleSource, err := modfile.ResolveModuleFromConfig(p.cfg, modName, modCfg, p.baseDir, sumFile)
 		if err != nil {
 			return nil, fmt.Errorf("module %q: %w", modName, err)
 		}

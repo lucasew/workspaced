@@ -1,11 +1,10 @@
 package modfile
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/BurntSushi/toml"
 )
 
 type LockedModule struct {
@@ -34,7 +33,11 @@ func LoadSumFile(path string) (*SumFile, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return out, nil
 	}
-	if _, err := toml.DecodeFile(path, out); err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
+	}
+	if err := json.Unmarshal(data, out); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
 	}
 	if out.Sources == nil {

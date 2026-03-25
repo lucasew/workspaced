@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"workspaced/pkg/config"
 	parsespec "workspaced/pkg/parse/spec"
 
 	"github.com/BurntSushi/toml"
@@ -58,6 +59,29 @@ func LoadModFile(path string) (*ModFile, error) {
 	return out, nil
 }
 
+func ModFileFromConfig(cfg *config.GlobalConfig) (*ModFile, error) {
+	out := &ModFile{Sources: map[string]SourceConfig{}}
+	if cfg == nil {
+		return out, nil
+	}
+	for name, input := range cfg.Inputs {
+		spec := strings.TrimSpace(input.From)
+		if spec == "" {
+			continue
+		}
+		parts := strings.SplitN(spec, ":", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid input %q from %q", name, spec)
+		}
+		out.Sources[name] = SourceConfig{
+			Provider: strings.TrimSpace(parts[0]),
+			Path:     strings.TrimSpace(parts[1]),
+			Ref:      strings.TrimSpace(input.Version),
+		}
+	}
+	return out, nil
+}
+
 func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {
 	spec := strings.TrimSpace(explicitFrom)
 	if spec == "" {
@@ -66,7 +90,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		}
 	}
 	if spec == "" {
-		spec = "local:" + moduleName
+		spec = "self:modules/" + moduleName
 	}
 
 	parts := strings.SplitN(spec, ":", 2)
@@ -77,7 +101,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	right := strings.TrimSpace(parts[1])
 
 	// Built-in providers (no alias entry required).
-	if left == "local" || left == "core" || left == "github" || left == "registry" || left == "http" || left == "https" {
+	if left == "self" || left == "core" || left == "github" || left == "registry" || left == "http" || left == "https" {
 		ref, version := splitRefAndVersion(right)
 		resolved, err := applyVersionLock(moduleName, left, ref, version, sumFile)
 		if err != nil {
@@ -100,16 +124,18 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	}
 
 	switch provider {
-	case "local":
-		base := strings.TrimSpace(src.Path)
-		if base == "" {
-			base = modulesBaseDir
-		} else if !filepath.IsAbs(base) {
-			repoRoot := filepath.Dir(modulesBaseDir)
-			base = filepath.Join(repoRoot, base)
+	case "self":
+		base := filepath.Dir(modulesBaseDir)
+		customBase := strings.TrimSpace(src.Path)
+		if customBase != "" {
+			if filepath.IsAbs(customBase) {
+				base = customBase
+			} else {
+				base = filepath.Join(base, customBase)
+			}
 		}
 		ref, version := splitRefAndVersion(right)
-		resolved, err := applyVersionLock(moduleName, "local", filepath.Join(base, ref), version, sumFile)
+		resolved, err := applyVersionLock(moduleName, "self", filepath.Join(base, ref), version, sumFile)
 		if err != nil {
 			return ResolvedModuleSource{}, err
 		}
@@ -178,7 +204,7 @@ func validateNonVersionedProvider(source ResolvedModuleSource) error {
 	if source.Version == "" {
 		return nil
 	}
-	if source.Provider == "local" || source.Provider == "core" {
+	if source.Provider == "self" || source.Provider == "core" {
 		return fmt.Errorf("provider %q does not support version pins", source.Provider)
 	}
 	return nil

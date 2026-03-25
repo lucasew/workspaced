@@ -39,7 +39,7 @@ func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
 }
 
 func (w *Workspace) EnsureFiles() error {
-	_, _, err := EnsureModAndSumFiles(w.Root)
+	_, err := EnsureLockFile(w.Root)
 	return err
 }
 
@@ -48,7 +48,7 @@ func (w *Workspace) ModPath() string {
 }
 
 func (w *Workspace) SumPath() string {
-	return filepath.Join(w.Root, "workspaced.sum.toml")
+	return filepath.Join(w.Root, "workspaced.lock.json")
 }
 
 func (w *Workspace) ModulesBaseDir() string {

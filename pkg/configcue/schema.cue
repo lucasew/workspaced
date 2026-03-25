@@ -32,7 +32,7 @@ package workspaced
 workspaced: {
 	inputs?: {
 		self?: #Input & {
-			from: *"self"
+			from: "self"
 		}
 		[string]: #Input
 	}
