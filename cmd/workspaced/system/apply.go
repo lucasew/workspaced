@@ -3,6 +3,7 @@ package system
 import (
 	"context"
 	"fmt"
+	"workspaced/pkg/config"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
@@ -19,11 +20,15 @@ func RunApply(ctx context.Context, action string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to get dotfiles root: %w", err)
 	}
-	lockResult, err := modfile.GenerateLock(ctx, modfile.NewWorkspace(dotfilesRoot))
+	cfg, err := config.LoadHome()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	lockResult, err := modfile.GenerateLockWithConfig(ctx, modfile.NewWorkspace(dotfilesRoot), cfg.GlobalConfig)
 	if err != nil {
 		return fmt.Errorf("failed to refresh module lockfile: %w", err)
 	}
-	logger.Info("module lockfile refreshed", "sources", lockResult.Sources, "modules", lockResult.Modules)
+	logger.Info("module lockfile refreshed", "sources", lockResult.Sources)
 
 	if !env.IsNixOS() {
 		logger.Info("not running on NixOS; skipping system apply")

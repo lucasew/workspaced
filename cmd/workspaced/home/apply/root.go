@@ -50,11 +50,11 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
 			ws := modfile.NewWorkspace(dotfilesRoot)
-			lockResult, err := modfile.GenerateLock(ctx, ws)
+			lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg.GlobalConfig)
 			if err != nil {
 				return fmt.Errorf("failed to refresh module lockfile: %w", err)
 			}
-			logger.Info("module lockfile refreshed", "sources", lockResult.Sources, "modules", lockResult.Modules)
+			logger.Info("module lockfile refreshed", "sources", lockResult.Sources)
 
 			home, err := os.UserHomeDir()
 			if err != nil {

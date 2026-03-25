@@ -156,30 +156,8 @@ func applyVersionLock(moduleName, provider, ref, version string, sumFile *SumFil
 		Ref:      strings.TrimSpace(ref),
 		Version:  strings.TrimSpace(version),
 	}
-	if sumFile == nil {
-		return resolved, nil
-	}
-	lock, ok := sumFile.Modules[moduleName]
-	if !ok {
-		return resolved, nil
-	}
-	expectedSource := resolved.Provider + ":" + resolved.Ref
-	if lock.Source != expectedSource {
-		return ResolvedModuleSource{}, fmt.Errorf(
-			"module %q lock mismatch: source=%q but resolved=%q",
-			moduleName, lock.Source, expectedSource,
-		)
-	}
-	if resolved.Version == "" && lock.Version != "" {
-		resolved.Version = lock.Version
-		return resolved, nil
-	}
-	if resolved.Version != "" && lock.Version != "" && resolved.Version != lock.Version {
-		return ResolvedModuleSource{}, fmt.Errorf(
-			"module %q lock mismatch: version=%q but resolved=%q",
-			moduleName, lock.Version, resolved.Version,
-		)
-	}
+	_ = moduleName
+	_ = sumFile
 	return resolved, nil
 }
 
