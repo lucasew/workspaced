@@ -45,6 +45,13 @@ func ModFileFromConfig(cfg *config.GlobalConfig) (*ModFile, error) {
 		if spec == "" {
 			continue
 		}
+		if spec == "self" {
+			out.Sources[name] = SourceConfig{
+				Provider: "self",
+				Ref:      strings.TrimSpace(input.Version),
+			}
+			continue
+		}
 		parts := strings.SplitN(spec, ":", 2)
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("invalid input %q from %q", name, spec)
