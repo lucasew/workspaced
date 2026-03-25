@@ -19,6 +19,13 @@ type Config struct {
 	raw map[string]any
 }
 
+func (c *Config) Raw() map[string]any {
+	if c == nil || c.raw == nil {
+		return map[string]any{}
+	}
+	return c.raw
+}
+
 type GlobalConfig struct {
 	Workspaces map[string]int            `toml:"workspaces" json:"workspaces"`
 	Desktop    DesktopConfig             `toml:"desktop" json:"desktop"`
