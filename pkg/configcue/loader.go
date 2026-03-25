@@ -36,6 +36,11 @@ type DiscoverResult struct {
 	Layers []Layer `json:"layers"`
 }
 
+type EvaluationResult struct {
+	Layers []Layer         `json:"layers"`
+	JSON   json.RawMessage `json:"json"`
+}
+
 func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 	layers := make([]Layer, 0)
 
@@ -59,11 +64,13 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 		}
 	}
 
-	configDir, err := env.GetConfigDir()
-	if err == nil && configDir != "" {
-		p := filepath.Join(configDir, "workspaced.cue")
-		if fileExists(p) {
-			layers = append(layers, Layer{Name: "home", Path: p})
+	if opts.HomeMode {
+		configDir, err := env.GetConfigDir()
+		if err == nil && configDir != "" {
+			p := filepath.Join(configDir, "workspaced.cue")
+			if fileExists(p) {
+				layers = append(layers, Layer{Name: "home", Path: p})
+			}
 		}
 	}
 
@@ -71,15 +78,30 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 }
 
 func ExportJSON(opts DiscoverOptions) ([]byte, error) {
-	discovered, err := DiscoverLayers(opts)
+	result, err := Evaluate(opts)
 	if err != nil {
 		return nil, err
+	}
+	return result.JSON, nil
+}
+
+func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
+	discovered, err := DiscoverLayers(opts)
+	if err != nil {
+		return EvaluationResult{}, err
 	}
 	paths := make([]string, 0, len(discovered.Layers))
 	for _, layer := range discovered.Layers {
 		paths = append(paths, layer.Path)
 	}
-	return ExportJSONFromPaths(paths)
+	b, err := exportJSONFromPaths(paths, discovered.Layers)
+	if err != nil {
+		return EvaluationResult{}, err
+	}
+	return EvaluationResult{
+		Layers: discovered.Layers,
+		JSON:   b,
+	}, nil
 }
 
 func ExportJSONFromPaths(paths []string) ([]byte, error) {
@@ -228,6 +250,7 @@ func resolveWorkspaceCuePath(start string) (string, error) {
 		if fileExists(candidate) {
 			return candidate, nil
 		}
+		return "", nil
 	}
 
 	return findUp(start, "workspaced.cue")
