@@ -1,7 +1,7 @@
 package workspaced
 
 // Experimental root config used by `workspaced experiments cue ...`.
-config: {
+workspaced: {
 	modules: example: {
 		enable: true
 	}

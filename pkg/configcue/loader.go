@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -30,7 +31,7 @@ type DiscoverResult struct {
 }
 
 func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
-	var layers []Layer
+	layers := make([]Layer, 0)
 
 	repoPath, err := findUp(opts.Cwd, "workspaced.cue")
 	if err != nil {
@@ -91,16 +92,22 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 		}
 	}
 
-	configValue := v.LookupPath(cue.ParsePath("config"))
+	configValue := v.LookupPath(cue.ParsePath("workspaced"))
 	if err := configValue.Err(); err != nil {
-		return nil, fmt.Errorf("lookup config value: %w", err)
+		return nil, fmt.Errorf("lookup workspaced value: %w", err)
 	}
 	if !configValue.Exists() {
+		if len(discovered.Layers) > 0 {
+			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered.Layers)
+		}
 		return json.Marshal(map[string]any{})
 	}
 	b, err := configValue.MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("marshal cue config to json: %w", err)
+	}
+	if string(b) == "{}" && len(discovered.Layers) > 0 {
+		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "layers", discovered.Layers)
 	}
 	return b, nil
 }
