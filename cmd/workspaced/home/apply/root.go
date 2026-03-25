@@ -92,10 +92,10 @@ func GetCommand() *cobra.Command {
 			}
 
 			// 3. TemplateExpander - renderiza .tmpl (inclui multi-file)
-			pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg.Raw()))
+			pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg.GlobalConfig))
 
 			// 4. DotDProcessor - concatena .d.tmpl/
-			pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg.Raw()))
+			pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg.GlobalConfig))
 
 			// 5. StrictConflictResolver - garante unicidade total
 			pipeline.AddPlugin(source.NewStrictConflictResolverPlugin())
