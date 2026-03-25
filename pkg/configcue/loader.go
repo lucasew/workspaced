@@ -1,12 +1,15 @@
 package configcue
 
 import (
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
 	"fmt"
+	"encoding/hex"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"workspaced/pkg/env"
 
@@ -77,62 +80,86 @@ func ExportJSONFromPaths(paths []string) ([]byte, error) {
 }
 
 func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
+	baseRuntimePrelude, err := buildRuntimePrelude(nil)
+	if err != nil {
+		return nil, err
+	}
+	initialValue, err := compileWorkspacedValue(paths, baseRuntimePrelude)
+	if err != nil {
+		return nil, err
+	}
+	resolvedInputs, err := resolveRuntimeInputs(initialValue, paths, discovered)
+	if err != nil {
+		return nil, err
+	}
+	runtimePrelude, err := buildRuntimePrelude(resolvedInputs)
+	if err != nil {
+		return nil, err
+	}
+	configValue, err := compileWorkspacedValue(paths, runtimePrelude)
+	if err != nil {
+		return nil, err
+	}
+	return marshalWorkspacedValue(configValue, paths, discovered)
+}
+
+func compileWorkspacedValue(paths []string, runtimePrelude string) (cue.Value, error) {
 	ctx := cuecontext.New()
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {
-		return nil, fmt.Errorf("read embedded cue schema: %w", err)
+		return cue.Value{}, fmt.Errorf("read embedded cue schema: %w", err)
 	}
 	preludeBytes, err := schemaFS.ReadFile("prelude.cue")
 	if err != nil {
-		return nil, fmt.Errorf("read embedded cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("read embedded cue prelude: %w", err)
 	}
 
 	v := ctx.CompileString(string(schemaBytes), cue.Filename("schema.cue"))
 	if err := v.Err(); err != nil {
-		return nil, fmt.Errorf("compile embedded cue schema: %w", err)
+		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w", err)
 	}
 
 	preludeLayer := ctx.CompileString(string(preludeBytes), cue.Filename("prelude.cue"))
 	if err := preludeLayer.Err(); err != nil {
-		return nil, fmt.Errorf("compile embedded cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("compile embedded cue prelude: %w", err)
 	}
 	v = v.Unify(preludeLayer)
 	if err := v.Err(); err != nil {
-		return nil, fmt.Errorf("unify embedded cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("unify embedded cue prelude: %w", err)
 	}
 
-	runtimePrelude, err := buildRuntimePrelude()
-	if err != nil {
-		return nil, err
-	}
 	runtimeLayer := ctx.CompileString(runtimePrelude, cue.Filename("runtime_prelude.cue"))
 	if err := runtimeLayer.Err(); err != nil {
-		return nil, fmt.Errorf("compile runtime cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("compile runtime cue prelude: %w", err)
 	}
 	v = v.Unify(runtimeLayer)
 	if err := v.Err(); err != nil {
-		return nil, fmt.Errorf("unify runtime cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("unify runtime cue prelude: %w", err)
 	}
 
 	for _, path := range paths {
 		src, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("read cue layer %s: %w", path, err)
+			return cue.Value{}, fmt.Errorf("read cue layer %s: %w", path, err)
 		}
 		layerValue := ctx.CompileString(string(src), cue.Filename(path))
 		if err := layerValue.Err(); err != nil {
-			return nil, fmt.Errorf("compile cue layer %s: %w", path, err)
+			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w", path, err)
 		}
 		v = v.Unify(layerValue)
 		if err := v.Err(); err != nil {
-			return nil, fmt.Errorf("unify cue layer %s: %w", path, err)
+			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w", path, err)
 		}
 	}
 
 	configValue := v.LookupPath(cue.ParsePath("workspaced"))
 	if err := configValue.Err(); err != nil {
-		return nil, fmt.Errorf("lookup workspaced value: %w", err)
+		return cue.Value{}, fmt.Errorf("lookup workspaced value: %w", err)
 	}
+	return configValue, nil
+}
+
+func marshalWorkspacedValue(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
 			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
@@ -185,7 +212,7 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func buildRuntimePrelude() (string, error) {
+func buildRuntimePrelude(resolvedInputs map[string]map[string]any) (string, error) {
 	home, _ := os.UserHomeDir()
 	dotfilesRoot, _ := env.GetDotfilesRoot()
 	configDir, _ := env.GetConfigDir()
@@ -193,12 +220,15 @@ func buildRuntimePrelude() (string, error) {
 	hostname := env.GetHostname()
 
 	runtime := map[string]any{
-		"is_phone":     env.IsPhone(),
-		"hostname":     hostname,
-		"home":         home,
+		"is_phone":      env.IsPhone(),
+		"hostname":      hostname,
+		"home":          home,
 		"dotfiles_root": dotfilesRoot,
-		"config_dir":   configDir,
+		"config_dir":    configDir,
 		"user_data_dir": userDataDir,
+	}
+	if len(resolvedInputs) > 0 {
+		runtime["inputs"] = resolvedInputs
 	}
 
 	payload := map[string]any{
@@ -211,4 +241,104 @@ func buildRuntimePrelude() (string, error) {
 		return "", fmt.Errorf("marshal runtime cue prelude: %w", err)
 	}
 	return string(b), nil
+}
+
+func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []Layer) (map[string]map[string]any, error) {
+	b, err := configValue.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("marshal cue config for input resolution: %w", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return nil, fmt.Errorf("decode cue config for input resolution: %w", err)
+	}
+	inputsRaw, _ := raw["inputs"].(map[string]any)
+	if len(inputsRaw) == 0 {
+		return nil, nil
+	}
+
+	type inputCfg struct {
+		From    string `json:"from"`
+		Version string `json:"version"`
+	}
+	cfgInputs := map[string]inputCfg{}
+	tmp, _ := json.Marshal(inputsRaw)
+	_ = json.Unmarshal(tmp, &cfgInputs)
+
+	modulesBaseDir := resolvedSelfModulesBase(paths, discovered)
+	workspaceRoot := filepath.Dir(modulesBaseDir)
+	home, _ := os.UserHomeDir()
+	out := map[string]map[string]any{}
+	for name, input := range cfgInputs {
+		spec := strings.TrimSpace(input.From)
+		if spec == "" {
+			continue
+		}
+		if spec == "self" || name == "self" {
+			out[name] = map[string]any{"path": workspaceRoot}
+			continue
+		}
+
+		provider, target, ok := parseInputSpec(spec)
+		if !ok {
+			return nil, fmt.Errorf("resolve runtime input %q: invalid from %q", name, spec)
+		}
+		switch provider {
+		case "github":
+			cacheKey := githubCacheKey(target, input.Version)
+			out[name] = map[string]any{
+				"path": filepath.Join(home, ".cache", "workspaced", "sources", "github", hashPath(cacheKey)),
+			}
+		case "local":
+			base := target
+			if !filepath.IsAbs(base) {
+				base = filepath.Join(workspaceRoot, base)
+			}
+			out[name] = map[string]any{"path": filepath.Clean(base)}
+		default:
+			out[name] = map[string]any{
+				"provider": provider,
+				"target":   target,
+			}
+		}
+	}
+	return out, nil
+}
+
+func resolvedSelfModulesBase(paths []string, discovered []Layer) string {
+	for _, layer := range discovered {
+		if layer.Name == "repo" || layer.Name == "dotfiles" {
+			return filepath.Join(filepath.Dir(layer.Path), "modules")
+		}
+	}
+	for _, path := range paths {
+		return filepath.Join(filepath.Dir(path), "modules")
+	}
+	return filepath.Join(".", "modules")
+}
+
+func parseInputSpec(spec string) (string, string, bool) {
+	parts := strings.SplitN(strings.TrimSpace(spec), ":", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	provider := strings.TrimSpace(parts[0])
+	target := strings.TrimSpace(parts[1])
+	if provider == "" || target == "" {
+		return "", "", false
+	}
+	return provider, target, true
+}
+
+func githubCacheKey(repo, version string) string {
+	ref := strings.TrimSpace(version)
+	if ref == "" {
+		ref = "HEAD"
+	}
+	return "v4:repo:" + strings.Trim(strings.TrimSpace(repo), "/") + "@" + ref
+}
+
+func hashPath(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return hex.EncodeToString(sum[:])
 }
