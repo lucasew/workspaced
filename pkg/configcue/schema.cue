@@ -30,7 +30,12 @@ package workspaced
 }
 
 workspaced: {
-	inputs?: [string]: #Input
+	inputs?: {
+		self?: #Input & {
+			from: *"self"
+		}
+		[string]: #Input
+	}
 	modules?: [string]: #ModuleRef
 	workspaces?: [string]: int
 	desktop?: {
