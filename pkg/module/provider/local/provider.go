@@ -8,8 +8,6 @@ import (
 	"strings"
 	"workspaced/pkg/module"
 	"workspaced/pkg/modulecue"
-
-	"github.com/xeipuuv/gojsonschema"
 )
 
 func init() {
@@ -53,7 +51,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 	for _, preset := range entries {
 		if !preset.IsDir() {
 			name := strings.TrimSpace(preset.Name())
-			if name == "schema.json" || name == "module.toml" || name == "defaults.toml" || name == "README.md" || strings.HasSuffix(name, ".cue") {
+			if name == "README.md" || strings.HasSuffix(name, ".cue") {
 				continue
 			}
 			return nil, fmt.Errorf("strict structure violation: file %q found in module %q root", name, req.Ref)
@@ -97,37 +95,8 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 }
 
 func validateConfig(modName string, modPath string, modCfg map[string]any) error {
-	if modulecue.Exists(modPath) {
-		return modulecue.ValidateConfig(modPath, modCfg)
+	if !modulecue.Exists(modPath) {
+		return fmt.Errorf("module %q is missing module.cue", modName)
 	}
-	schemaPath := filepath.Join(modPath, "schema.json")
-	if _, err := os.Stat(schemaPath); os.IsNotExist(err) {
-		return nil
-	}
-	absSchemaPath, err := filepath.Abs(schemaPath)
-	if err != nil {
-		return err
-	}
-	wrapperSchema := map[string]any{
-		"type": "object",
-		"properties": map[string]any{
-			"enable": map[string]any{"type": "boolean"},
-		},
-		"required": []string{"enable"},
-		"allOf":    []map[string]any{{"$ref": "file://" + absSchemaPath}},
-	}
-	schemaLoader := gojsonschema.NewGoLoader(wrapperSchema)
-	documentLoader := gojsonschema.NewGoLoader(modCfg)
-	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
-	if err != nil {
-		return fmt.Errorf("failed to validate module %q: %w", modName, err)
-	}
-	if !result.Valid() {
-		var errs strings.Builder
-		for _, desc := range result.Errors() {
-			fmt.Fprintf(&errs, "- %s\n", desc)
-		}
-		return fmt.Errorf("config validation failed for module %q:\n%s", modName, errs.String())
-	}
-	return nil
+	return modulecue.ValidateConfig(modPath, modCfg)
 }

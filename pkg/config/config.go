@@ -27,17 +27,17 @@ func (c *Config) Raw() map[string]any {
 }
 
 type GlobalConfig struct {
-	Workspaces map[string]int            `toml:"workspaces" json:"workspaces"`
-	Desktop    DesktopConfig             `toml:"desktop" json:"desktop"`
-	Screenshot ScreenshotConfig          `toml:"screenshot" json:"screenshot"`
-	Hosts      map[string]HostConfig     `toml:"hosts" json:"hosts"`
-	Backup     BackupConfig              `toml:"backup" json:"backup"`
-	QuickSync  QuickSyncConfig           `toml:"quicksync" json:"quicksync"`
-	Browser    BrowserConfig             `toml:"browser" json:"browser"`
-	LazyTools  map[string]LazyToolConfig `toml:"lazy_tools" json:"lazy_tools"`
+	Workspaces map[string]int            `json:"workspaces"`
+	Desktop    DesktopConfig             `json:"desktop"`
+	Screenshot ScreenshotConfig          `json:"screenshot"`
+	Hosts      map[string]HostConfig     `json:"hosts"`
+	Backup     BackupConfig              `json:"backup"`
+	QuickSync  QuickSyncConfig           `json:"quicksync"`
+	Browser    BrowserConfig             `json:"browser"`
+	LazyTools  map[string]LazyToolConfig `json:"lazy_tools"`
 	Inputs     map[string]InputConfig    `json:"inputs"`
-	Modules    map[string]any            `toml:"modules" json:"modules"`
-	Drivers    map[string]map[string]int `toml:"drivers" json:"drivers"`
+	Modules    map[string]any            `json:"modules"`
+	Drivers    map[string]map[string]int `json:"drivers"`
 }
 
 type InputConfig struct {
@@ -46,74 +46,74 @@ type InputConfig struct {
 }
 
 type DesktopConfig struct {
-	DarkMode  bool            `toml:"dark_mode" json:"dark_mode"`
-	Wallpaper WallpaperConfig `toml:"wallpaper" json:"wallpaper"`
+	DarkMode  bool            `json:"dark_mode"`
+	Wallpaper WallpaperConfig `json:"wallpaper"`
 }
 
 type LazyToolConfig struct {
-	Version string   `toml:"version" json:"version"`
-	Pkg     string   `toml:"pkg" json:"pkg"`
-	Global  bool     `toml:"global" json:"global"`
-	Alias   string   `toml:"alias" json:"alias"`
-	Bins    []string `toml:"bins" json:"bins"`
+	Version string   `json:"version"`
+	Pkg     string   `json:"pkg"`
+	Global  bool     `json:"global"`
+	Alias   string   `json:"alias"`
+	Bins    []string `json:"bins"`
 }
 
 type HostConfig struct {
-	IPs  []string `toml:"ips" json:"ips"`
-	MAC  string   `toml:"mac" json:"mac"`
-	Port int      `toml:"port" json:"port"`
-	User string   `toml:"user" json:"user"`
+	IPs  []string `json:"ips"`
+	MAC  string   `json:"mac"`
+	Port int      `json:"port"`
+	User string   `json:"user"`
 }
 
 type BrowserConfig struct {
-	Default string `toml:"default" json:"default"`
-	Engine  string `toml:"webapp" json:"webapp"`
+	Default string `json:"default"`
+	Engine  string `json:"webapp"`
 }
 
 type WallpaperConfig struct {
-	Dir     string `toml:"dir" json:"dir"`
-	Default string `toml:"default" json:"default"`
+	Dir     string `json:"dir"`
+	Default string `json:"default"`
 }
 
 type ScreenshotConfig struct {
-	Dir string `toml:"dir" json:"dir"`
+	Dir string `json:"dir"`
 }
 
 type BackupConfig struct {
-	RsyncnetUser string `toml:"rsyncnet_user" json:"rsyncnet_user"`
-	RemotePath   string `toml:"remote_path" json:"remote_path"`
+	RsyncnetUser string `json:"rsyncnet_user"`
+	RemotePath   string `json:"remote_path"`
 }
 
 type QuickSyncConfig struct {
-	RepoDir    string `toml:"repo_dir" json:"repo_dir"`
-	RemotePath string `toml:"remote_path" json:"remote_path"`
+	RepoDir    string `json:"repo_dir"`
+	RemotePath string `json:"remote_path"`
 }
 
 type PaletteConfig struct {
-	Base00 string `toml:"base00" json:"base00"`
-	Base01 string `toml:"base01" json:"base01"`
-	Base02 string `toml:"base02" json:"base02"`
-	Base03 string `toml:"base03" json:"base03"`
-	Base04 string `toml:"base04" json:"base04"`
-	Base05 string `toml:"base05" json:"base05"`
-	Base06 string `toml:"base06" json:"base06"`
-	Base07 string `toml:"base07" json:"base07"`
-	Base08 string `toml:"base08" json:"base08"`
-	Base09 string `toml:"base09" json:"base09"`
-	Base0A string `toml:"base0A" json:"base0A"`
-	Base0B string `toml:"base0B" json:"base0B"`
-	Base0C string `toml:"base0C" json:"base0C"`
-	Base0D string `toml:"base0D" json:"base0D"`
-	Base0E string `toml:"base0E" json:"base0E"`
-	Base0F string `toml:"base0F" json:"base0F"`
-	Base10 string `toml:"base10,omitempty" json:"base10,omitempty"`
-	Base11 string `toml:"base11,omitempty" json:"base11,omitempty"`
-	Base12 string `toml:"base12,omitempty" json:"base12,omitempty"`
-	Base13 string `toml:"base13,omitempty" json:"base13,omitempty"`
-	Base14 string `toml:"base14,omitempty" json:"base14,omitempty"`
-	Base15 string `toml:"base15,omitempty" json:"base15,omitempty"`
-	Base16 string `toml:"base16,omitempty" json:"base16,omitempty"`
-	Base17 string `toml:"base17,omitempty" json:"base17,omitempty"`
+	Base00 string `json:"base00"`
+	Base01 string `json:"base01"`
+	Base02 string `json:"base02"`
+	Base03 string `json:"base03"`
+	Base04 string `json:"base04"`
+	Base05 string `json:"base05"`
+	Base06 string `json:"base06"`
+	Base07 string `json:"base07"`
+	Base08 string `json:"base08"`
+	Base09 string `json:"base09"`
+	Base0A string `json:"base0A"`
+	Base0B string `json:"base0B"`
+	Base0C string `json:"base0C"`
+	Base0D string `json:"base0D"`
+	Base0E string `json:"base0E"`
+	Base0F string `json:"base0F"`
+	Base10 string `json:"base10,omitempty"`
+	Base11 string `json:"base11,omitempty"`
+	Base12 string `json:"base12,omitempty"`
+	Base13 string `json:"base13,omitempty"`
+	Base14 string `json:"base14,omitempty"`
+	Base15 string `json:"base15,omitempty"`
+	Base16 string `json:"base16,omitempty"`
+	Base17 string `json:"base17,omitempty"`
 }
 
 func (c *Config) Module(name string, target any) error {
@@ -413,8 +413,8 @@ func normalizeModuleEntries(raw map[string]any) {
 }
 
 type ModuleMetadata struct {
-	Requires   []string `toml:"requires"`
-	Recommends []string `toml:"recommends"`
+	Requires   []string `json:"requires"`
+	Recommends []string `json:"recommends"`
 }
 
 func validateDependencies(enabled map[string]bool, meta map[string]ModuleMetadata) error {

@@ -32,7 +32,7 @@ func GetGenerateCommand() *cobra.Command {
 		Long: `Generate a freedesktop icon theme from SVG master files.
 
 Input files can be plain .svg or .svg.tmpl templates.
-Template variables include base16 keys (base00..base0F) from settings.toml.
+Template variables include base16 keys (base00..base0F) from the active workspaced config.
 Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return iconspkg.RunThemeGenerate(cmd.Context(), iconspkg.ThemeGenerateOptions{
