@@ -71,10 +71,18 @@ func (p *DotDProcessorPlugin) Process(ctx context.Context, files []File) ([]File
 				FileMode:      0644,
 				Info:          "concatenated:" + targetPath,
 				FileType:      TypeDotD,
+				Module:        moduleNameOf(first),
 			},
 			Components: groupFiles,
 		})
 	}
 
 	return result, nil
+}
+
+func moduleNameOf(f File) string {
+	if scoped, ok := f.(ScopedFile); ok {
+		return scoped.ModuleName()
+	}
+	return ""
 }

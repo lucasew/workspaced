@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"workspaced/pkg/config"
 	"workspaced/pkg/template"
 )
 
@@ -30,6 +31,7 @@ func (p *TemplateExpanderPlugin) Name() string {
 
 func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]File, error) {
 	result := []File{}
+	globalCfg, _ := p.data.(*config.GlobalConfig)
 
 	for _, f := range files {
 		// Detectar se é template
@@ -65,7 +67,12 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			return nil, err
 		}
 
-		rendered, err := p.engine.Render(ctx, string(srcContent), p.data)
+		templateData, err := buildTemplateData(ctx, globalCfg, f)
+		if err != nil {
+			return nil, err
+		}
+
+		rendered, err := p.engine.Render(ctx, string(srcContent), templateData)
 		if err != nil {
 			if errors.Is(err, template.ErrFileSkipped) {
 				continue
@@ -88,15 +95,16 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			for _, mf := range multiFiles {
 				mfRelPath := filepath.Join(baseRelDir, mf.Name)
 				result = append(result, &BufferFile{
-					BasicFile: BasicFile{
-						RelPathStr:    mfRelPath,
-						TargetBaseDir: f.TargetBase(),
-						FileMode:      mf.Mode,
-						Info:          fmt.Sprintf("%s (multi:%s)", f.SourceInfo(), mf.Name),
-						FileType:      TypeMultiFile,
-					},
-					Content: []byte(mf.Content),
-				})
+				BasicFile: BasicFile{
+					RelPathStr:    mfRelPath,
+					TargetBaseDir: f.TargetBase(),
+					FileMode:      mf.Mode,
+					Info:          fmt.Sprintf("%s (multi:%s)", f.SourceInfo(), mf.Name),
+					FileType:      TypeMultiFile,
+					Module:        moduleNameOf(f),
+				},
+				Content: []byte(mf.Content),
+			})
 			}
 		} else {
 			// UM template → 1 file (LAZY)
@@ -107,10 +115,11 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 					FileMode:      f.Mode(), // Usually templates produce non-exec files but we can keep source mode
 					Info:          f.SourceInfo(),
 					FileType:      TypeTemplate,
+					Module:        moduleNameOf(f),
 				},
 				SourceFile: f,
 				Engine:     p.engine,
-				Data:       p.data,
+				Data:       templateData,
 				Context:    ctx,
 			})
 		}
