@@ -120,6 +120,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 					FileMode:      rf.Mode,
 					Info:          rf.Info,
 					FileType:      fileType,
+					Module:        modName,
 				},
 				AbsPath: rf.AbsPath,
 			})

@@ -61,6 +61,11 @@ type File interface {
 	LinkTarget() (string, error)
 }
 
+type ScopedFile interface {
+	File
+	ModuleName() string
+}
+
 // BasicFile implementa os campos comuns de File
 type BasicFile struct {
 	RelPathStr    string
@@ -68,6 +73,7 @@ type BasicFile struct {
 	FileMode      os.FileMode
 	Info          string
 	FileType      FileType
+	Module        string
 }
 
 func (f *BasicFile) RelPath() string    { return f.RelPathStr }
@@ -75,6 +81,7 @@ func (f *BasicFile) TargetBase() string { return f.TargetBaseDir }
 func (f *BasicFile) Mode() os.FileMode  { return f.FileMode }
 func (f *BasicFile) SourceInfo() string { return f.Info }
 func (f *BasicFile) Type() FileType     { return f.FileType }
+func (f *BasicFile) ModuleName() string { return f.Module }
 func (f *BasicFile) LinkTarget() (string, error) {
 	return "", fmt.Errorf("not a symlink")
 }
