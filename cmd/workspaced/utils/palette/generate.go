@@ -6,10 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/config"
 	"workspaced/pkg/palette"
 	"workspaced/pkg/palette/api"
 )
@@ -19,7 +17,6 @@ func GetGenerateCommand() *cobra.Command {
 		driverName string
 		polarity   string
 		colorCount int
-		outputJSON bool
 	)
 
 	cmd := &cobra.Command{
@@ -35,9 +32,6 @@ The genetic driver uses an evolutionary algorithm to find colors that:
 Examples:
   # Generate dark theme from wallpaper
   workspaced palette generate ~/wallpaper.jpg --polarity dark
-
-  # Generate light theme as JSON
-  workspaced palette generate image.png --polarity light --json
 
   # Generate base24 palette (24 colors instead of 16)
   workspaced palette generate image.png --colors 24`,
@@ -64,22 +58,15 @@ Examples:
 				return fmt.Errorf("failed to extract palette: %w", err)
 			}
 
-			// Output format
-			if outputJSON {
-				encoder := json.NewEncoder(os.Stdout)
-				encoder.SetIndent("", "  ")
-				return encoder.Encode(pal)
-			}
-
-			return printPaletteTOML(pal)
+			encoder := json.NewEncoder(os.Stdout)
+			encoder.SetIndent("", "  ")
+			return encoder.Encode(pal)
 		},
 	}
 
 	cmd.Flags().StringVar(&driverName, "driver", "genetic", "Extraction algorithm (genetic)")
 	cmd.Flags().StringVar(&polarity, "polarity", "any", "Theme preference: dark, light, or any")
 	cmd.Flags().IntVar(&colorCount, "colors", 16, "Number of colors (16 for base16, 24 for base24)")
-	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output as JSON instead of TOML")
-
 	return cmd
 }
 
@@ -95,15 +82,4 @@ func parsePolarityFlag(s string) (api.Polarity, error) {
 	default:
 		return api.PolarityAny, fmt.Errorf("invalid polarity: %s (must be 'dark', 'light', or 'any')", s)
 	}
-}
-
-// printPaletteTOML outputs palette in TOML format
-func printPaletteTOML(pal *config.PaletteConfig) error {
-	// Create a map for TOML encoding
-	paletteMap := map[string]any{
-		"palette": pal,
-	}
-
-	encoder := toml.NewEncoder(os.Stdout)
-	return encoder.Encode(paletteMap)
 }
