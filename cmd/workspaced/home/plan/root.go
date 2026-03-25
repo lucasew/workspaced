@@ -13,14 +13,20 @@ func GetCommand() *cobra.Command {
 		Short: "Show what would be applied (dry-run)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
 			// Run dry-run apply
-			applyCmd := execdriver.MustRun(ctx, "workspaced", "home", "apply", "--dry-run")
+			applyArgs := []string{"home", "apply", "--dry-run"}
+			if showNoop {
+				applyArgs = append(applyArgs, "--show-noop")
+			}
+			applyCmd := execdriver.MustRun(ctx, "workspaced", applyArgs...)
 			applyCmd.Stdout = os.Stdout
 			applyCmd.Stderr = os.Stderr
 			return applyCmd.Run()
 		},
 	}
 
+	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
 	return cmd
 }
