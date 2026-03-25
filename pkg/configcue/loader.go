@@ -101,6 +101,19 @@ func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
 		return nil, fmt.Errorf("unify embedded cue prelude: %w", err)
 	}
 
+	runtimePrelude, err := buildRuntimePrelude()
+	if err != nil {
+		return nil, err
+	}
+	runtimeLayer := ctx.CompileString(runtimePrelude, cue.Filename("runtime_prelude.cue"))
+	if err := runtimeLayer.Err(); err != nil {
+		return nil, fmt.Errorf("compile runtime cue prelude: %w", err)
+	}
+	v = v.Unify(runtimeLayer)
+	if err := v.Err(); err != nil {
+		return nil, fmt.Errorf("unify runtime cue prelude: %w", err)
+	}
+
 	for _, path := range paths {
 		src, err := os.ReadFile(path)
 		if err != nil {
@@ -170,4 +183,32 @@ func findUp(start string, name string) (string, error) {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+func buildRuntimePrelude() (string, error) {
+	home, _ := os.UserHomeDir()
+	dotfilesRoot, _ := env.GetDotfilesRoot()
+	configDir, _ := env.GetConfigDir()
+	userDataDir, _ := env.GetUserDataDir()
+	hostname := env.GetHostname()
+
+	runtime := map[string]any{
+		"is_phone":     env.IsPhone(),
+		"hostname":     hostname,
+		"home":         home,
+		"dotfiles_root": dotfilesRoot,
+		"config_dir":   configDir,
+		"user_data_dir": userDataDir,
+	}
+
+	payload := map[string]any{
+		"workspaced": map[string]any{
+			"runtime": runtime,
+		},
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal runtime cue prelude: %w", err)
+	}
+	return string(b), nil
 }

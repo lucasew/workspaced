@@ -29,6 +29,15 @@ package workspaced
 	config?: _
 }
 
+#Runtime: {
+	is_phone?: bool
+	hostname?: string
+	home?: string
+	dotfiles_root?: string
+	config_dir?: string
+	user_data_dir?: string
+}
+
 workspaced: {
 	inputs?: {
 		self?: #Input & {
@@ -36,6 +45,7 @@ workspaced: {
 		}
 		[string]: #Input
 	}
+	runtime?: #Runtime
 	modules?: [string]: #ModuleRef
 	workspaces?: [string]: int
 	desktop?: {
