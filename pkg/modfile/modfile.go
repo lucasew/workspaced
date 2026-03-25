@@ -2,13 +2,10 @@ package modfile
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"workspaced/pkg/config"
 	parsespec "workspaced/pkg/parse/spec"
-
-	"github.com/BurntSushi/toml"
 )
 
 type SourceConfig struct {
@@ -34,29 +31,8 @@ var coreModuleDefaults = map[string]string{
 }
 
 func LoadModFile(path string) (*ModFile, error) {
-	out := &ModFile{Sources: map[string]SourceConfig{}}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return out, nil
-	}
-
-	var raw struct {
-		Sources map[string]any `toml:"sources"`
-	}
-	if _, err := toml.DecodeFile(path, &raw); err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
-	}
-	if raw.Sources == nil {
-		return out, nil
-	}
-
-	for alias, v := range raw.Sources {
-		cfg, err := parseSourceEntry(v)
-		if err != nil {
-			return nil, fmt.Errorf("invalid source %q: %w", alias, err)
-		}
-		out.Sources[alias] = cfg
-	}
-	return out, nil
+	_ = path
+	return &ModFile{Sources: map[string]SourceConfig{}}, nil
 }
 
 func ModFileFromConfig(cfg *config.GlobalConfig) (*ModFile, error) {

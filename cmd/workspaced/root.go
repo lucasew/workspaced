@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"runtime"
@@ -21,6 +23,22 @@ import (
 var Registry registry.CommandRegistry
 
 func main() {
+	if os.Getenv("REBUILD_TEST") != "" {
+		exe, err := os.Executable()
+		if err != nil {
+			panic(err)
+		}
+		h := sha256.New()
+		f, err := os.Open(exe)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		if _, err = io.Copy(h, f); err != nil {
+			panic(err)
+		}
+		slog.Info("build time", "t", h.Sum(nil))
+	}
 	// Load config early to set driver weights
 	if _, err := config.Load(); err != nil {
 		slog.Debug("failed to load config", "error", err)
