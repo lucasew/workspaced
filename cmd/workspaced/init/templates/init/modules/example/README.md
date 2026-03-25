@@ -60,5 +60,22 @@ The template demonstrates:
 1. Copy this module as a template
 2. Edit `module.toml` with your metadata
 3. Define config schema in `defaults.toml` and `schema.json`
-4. Create templates in `templates/`
-5. Enable in `settings.toml`
+4. Optionally mirror the same metadata and config defaults in `module.cue`
+5. Create templates in `home/`, `etc/`, or another preset directory
+6. Enable in `settings.toml`
+
+## Experimental CUE Format
+
+This module also ships with a `module.cue` file as an experiment for a future
+module format. It is not used by workspaced yet, and exists only as a parallel
+definition of:
+
+- module metadata
+- config fields
+- default values
+
+For now, the legacy files remain the source of truth:
+
+- `module.toml`
+- `defaults.toml`
+- `schema.json`

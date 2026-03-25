@@ -4,6 +4,7 @@ package main
 import (
 	pkg_codebase "workspaced/cmd/workspaced/codebase"
 	pkg_driver "workspaced/cmd/workspaced/driver"
+	pkg_experiments "workspaced/cmd/workspaced/experiments"
 	pkg_home "workspaced/cmd/workspaced/home"
 	pkg_init "workspaced/cmd/workspaced/init"
 	pkg_is "workspaced/cmd/workspaced/is"
@@ -20,6 +21,7 @@ import (
 func init() {
 	Registry.FromGetter(pkg_codebase.GetCommand)
 	Registry.FromGetter(pkg_driver.GetCommand)
+	Registry.FromGetter(pkg_experiments.GetCommand)
 	Registry.FromGetter(pkg_home.GetCommand)
 	Registry.FromGetter(pkg_init.GetCommand)
 	Registry.FromGetter(pkg_is.GetCommand)
