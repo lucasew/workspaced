@@ -154,6 +154,10 @@ func Load() (*Config, error) {
 	return loadFromCUE()
 }
 
+func LoadHome() (*Config, error) {
+	return loadFromCUEWithOptions(configcue.DiscoverOptions{HomeMode: true})
+}
+
 func LoadFiles(paths []string) (*GlobalConfig, error) {
 	if len(paths) == 0 {
 		return LoadConfig()
@@ -197,6 +201,11 @@ func LoadFiles(paths []string) (*GlobalConfig, error) {
 }
 
 func loadFromCUE() (*Config, error) {
+	cwd, _ := os.Getwd()
+	return loadFromCUEWithOptions(configcue.DiscoverOptions{Cwd: cwd})
+}
+
+func loadFromCUEWithOptions(opts configcue.DiscoverOptions) (*Config, error) {
 	gCfg, err := LoadConfigBase()
 	if err != nil {
 		return nil, err
@@ -207,8 +216,7 @@ func loadFromCUE() (*Config, error) {
 		return nil, fmt.Errorf("failed to convert default config to map: %w", err)
 	}
 
-	cwd, _ := os.Getwd()
-	exported, err := configcue.ExportJSON(configcue.DiscoverOptions{Cwd: cwd})
+	exported, err := configcue.ExportJSON(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +247,14 @@ func loadFromCUE() (*Config, error) {
 
 func LoadConfig() (*GlobalConfig, error) {
 	cfg, err := Load()
+	if err != nil {
+		return nil, err
+	}
+	return cfg.GlobalConfig, nil
+}
+
+func LoadConfigHome() (*GlobalConfig, error) {
+	cfg, err := LoadHome()
 	if err != nil {
 		return nil, err
 	}

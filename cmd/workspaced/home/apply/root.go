@@ -39,7 +39,7 @@ func GetCommand() *cobra.Command {
 			dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 			// Carregar configuração
-			cfg, err := config.Load()
+			cfg, err := config.LoadHome()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}

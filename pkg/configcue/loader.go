@@ -1,16 +1,18 @@
 package configcue
 
 import (
+	"context"
 	"crypto/sha256"
 	"embed"
 	"encoding/json"
-	"fmt"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
 
 	"cuelang.org/go/cue"
@@ -26,7 +28,8 @@ type Layer struct {
 }
 
 type DiscoverOptions struct {
-	Cwd string
+	Cwd        string
+	HomeMode   bool
 }
 
 type DiscoverResult struct {
@@ -36,12 +39,14 @@ type DiscoverResult struct {
 func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 	layers := make([]Layer, 0)
 
-	repoPath, err := findUp(opts.Cwd, "workspaced.cue")
-	if err != nil {
-		return DiscoverResult{}, err
-	}
-	if repoPath != "" {
-		layers = append(layers, Layer{Name: "repo", Path: repoPath})
+	if !opts.HomeMode {
+		repoPath, err := resolveWorkspaceCuePath(opts.Cwd)
+		if err != nil {
+			return DiscoverResult{}, err
+		}
+		if repoPath != "" {
+			layers = append(layers, Layer{Name: "repo", Path: repoPath})
+		}
 	}
 
 	dotfilesRoot, err := env.GetDotfilesRoot()
@@ -205,6 +210,37 @@ func findUp(start string, name string) (string, error) {
 		}
 		dir = parent
 	}
+}
+
+func resolveWorkspaceCuePath(start string) (string, error) {
+	if start == "" {
+		var err error
+		start, err = os.Getwd()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if root, err := getGitRoot(start); err == nil && root != "" {
+		candidate := filepath.Join(root, "workspaced.cue")
+		if fileExists(candidate) {
+			return candidate, nil
+		}
+	}
+
+	return findUp(start, "workspaced.cue")
+}
+
+func getGitRoot(path string) (string, error) {
+	if _, err := os.Stat(path); err != nil {
+		return "", err
+	}
+	cmd := execdriver.MustRun(context.Background(), "git", "-C", path, "rev-parse", "--show-toplevel")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func fileExists(path string) bool {

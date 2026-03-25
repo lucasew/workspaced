@@ -19,7 +19,7 @@ func GetDumpCommand() *cobra.Command {
 
 Outputs the result as JSON format.`,
 		RunE: func(c *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.LoadHome()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
