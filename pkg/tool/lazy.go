@@ -175,7 +175,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		return "", err
 	}
 
-	toolCfg, ok := cfg.LazyTools[toolName]
+	toolName, toolCfg, ok := findLazyTool(cfg.GlobalConfig, toolName)
 	if !ok {
 		return "", fmt.Errorf("lazy tool %q not found in config", toolName)
 	}
@@ -218,6 +218,22 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 
 	return mgr.EnsureInstalled(ctx, spec.String(), binName)
+}
+
+func findLazyTool(cfg *config.GlobalConfig, query string) (string, config.LazyToolConfig, bool) {
+	if cfg == nil {
+		return "", config.LazyToolConfig{}, false
+	}
+	if toolCfg, ok := cfg.LazyTools[query]; ok {
+		return query, toolCfg, true
+	}
+	for name, toolCfg := range cfg.LazyTools {
+		ref := strings.TrimSpace(toolCfg.Ref)
+		if ref != "" && ref == query {
+			return name, toolCfg, true
+		}
+	}
+	return "", config.LazyToolConfig{}, false
 }
 
 func lazyToolSpec(toolName string, toolCfg config.LazyToolConfig) (parsespec.Spec, string, error) {

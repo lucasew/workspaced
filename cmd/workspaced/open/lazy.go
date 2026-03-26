@@ -21,6 +21,9 @@ func lazyCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			toolName := args[0]
 			toolArgs := args[1:]
+			if len(toolArgs) > 0 && toolArgs[0] == "--" {
+				toolArgs = toolArgs[1:]
+			}
 			if binName == "" {
 				binName = toolName
 			}
