@@ -59,6 +59,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	if err != nil {
 		return 0, err
 	}
+	beforeTools := len(sum.Tools)
 
 	names := make([]string, 0, len(cfg.LazyTools))
 	for name := range cfg.LazyTools {
@@ -103,6 +104,9 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 
 	if updated == 0 {
 		return 0, nil
+	}
+	if len(sum.Tools) < beforeTools {
+		return 0, fmt.Errorf("refusing to shrink tool lock entries: before=%d after=%d", beforeTools, len(sum.Tools))
 	}
 	if err := modfile.WriteSumFile(ws.SumPath(), sum); err != nil {
 		return 0, err
