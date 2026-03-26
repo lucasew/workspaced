@@ -10,13 +10,18 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
+	"cuelang.org/go/cue/ast"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
+	"workspaced/pkg/modulecue"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/format"
+	"cuelang.org/go/cue/parser"
 )
 
 //go:embed schema.cue prelude.cue
@@ -123,7 +128,8 @@ func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	initialValue, err := compileWorkspacedValue(paths, baseRuntimePrelude)
+	ctx := cuecontext.New()
+	initialValue, err := compileWorkspacedValueWithContext(ctx, paths, baseRuntimePrelude, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +141,15 @@ func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	configValue, err := compileWorkspacedValue(paths, runtimePrelude)
+	baseConfigValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	preLayers, postLayers, err := buildResolvedModuleLayers(baseConfigValue, paths, discovered)
+	if err != nil {
+		return nil, err
+	}
+	configValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, preLayers, postLayers)
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +157,10 @@ func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
 }
 
 func compileWorkspacedValue(paths []string, runtimePrelude string) (cue.Value, error) {
-	ctx := cuecontext.New()
+	return compileWorkspacedValueWithContext(cuecontext.New(), paths, runtimePrelude, nil, nil)
+}
+
+func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("read embedded cue schema: %w", err)
@@ -176,6 +193,17 @@ func compileWorkspacedValue(paths []string, runtimePrelude string) (cue.Value, e
 		return cue.Value{}, fmt.Errorf("unify runtime cue prelude: %w", err)
 	}
 
+	for _, layer := range preLayers {
+		layerValue := ctx.CompileString(layer.Source, cue.Filename(layer.Name))
+		if err := layerValue.Err(); err != nil {
+			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w", layer.Name, err)
+		}
+		v = v.Unify(layerValue)
+		if err := v.Err(); err != nil {
+			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w", layer.Name, err)
+		}
+	}
+
 	for _, path := range paths {
 		src, err := os.ReadFile(path)
 		if err != nil {
@@ -191,11 +219,230 @@ func compileWorkspacedValue(paths []string, runtimePrelude string) (cue.Value, e
 		}
 	}
 
+	for _, layer := range postLayers {
+		layerValue := ctx.CompileString(layer.Source, cue.Filename(layer.Name))
+		if err := layerValue.Err(); err != nil {
+			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w", layer.Name, err)
+		}
+		v = v.Unify(layerValue)
+		if err := v.Err(); err != nil {
+			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w", layer.Name, err)
+		}
+	}
+
 	configValue := v.LookupPath(cue.ParsePath("workspaced"))
 	if err := configValue.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("lookup workspaced value: %w", err)
 	}
 	return configValue, nil
+}
+
+type compiledLayer struct {
+	Name   string
+	Source string
+}
+
+func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered []Layer) ([]compiledLayer, []compiledLayer, error) {
+	configJSON, err := configValue.MarshalJSON()
+	if err != nil {
+		return nil, nil, fmt.Errorf("marshal cue config before module config resolution: %w", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(configJSON, &raw); err != nil {
+		return nil, nil, fmt.Errorf("decode cue config before module config resolution: %w", err)
+	}
+	cfg, err := decodeConfig(configJSON)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	modules, err := cfg.Modules()
+	if err != nil {
+		return nil, nil, nil
+	}
+	modulesBaseDir := resolveModulesBaseDir(paths, discovered)
+	if modulesBaseDir == "" {
+		return nil, nil, nil
+	}
+
+	schemaByModule := map[string]string{}
+	for modName, modEntry := range modules {
+		modulePath, ok, err := resolveLocalModulePath(cfg, modName, modEntry, modulesBaseDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("resolve module %q for config resolution: %w", modName, err)
+		}
+		if !ok {
+			continue
+		}
+		if !modulecue.Exists(modulePath) {
+			continue
+		}
+		schemaText, err := modulecue.ConfigSyntax(modulePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		schemaByModule[modName] = schemaText
+	}
+
+	preLayers := make([]compiledLayer, 0, 1)
+	if len(schemaByModule) > 0 {
+		schemaLayer, err := buildModuleSchemaLayer(schemaByModule)
+		if err != nil {
+			return nil, nil, err
+		}
+		preLayers = append(preLayers, compiledLayer{
+			Name:   "module_schemas.cue",
+			Source: schemaLayer,
+		})
+	}
+	postLayers := make([]compiledLayer, 0, 1)
+	if hasDerivedDesktopModules(raw) {
+		postLayers = append(postLayers, compiledLayer{
+			Name:   "derived_modules.cue",
+			Source: buildDerivedModulePrelude(),
+		})
+	}
+	return preLayers, postLayers, nil
+}
+
+func resolveModulesBaseDir(paths []string, discovered []Layer) string {
+	for _, layer := range discovered {
+		if layer.Name == "repo" || layer.Name == "dotfiles" {
+			return filepath.Join(filepath.Dir(layer.Path), "modules")
+		}
+	}
+	if len(paths) > 0 {
+		return filepath.Join(filepath.Dir(paths[0]), "modules")
+	}
+	return ""
+}
+
+func hasDerivedDesktopModules(raw map[string]any) bool {
+	modules, _ := raw["modules"].(map[string]any)
+	if len(modules) == 0 {
+		return false
+	}
+	_, hasBase16 := modules["base16"]
+	_, hasGTK := modules["base16-gtk"]
+	return hasBase16 || hasGTK
+}
+
+func buildDerivedModulePrelude() string {
+	return `package workspaced
+
+workspaced: {
+	desktop: {
+		dark_mode: *workspaced.modules.base16.config.dark_mode | bool
+		raw: {
+			dconf: *workspaced.modules["base16-gtk"].config.dconf | {
+				[string]: [string]: _
+			}
+		}
+	}
+}
+`
+}
+
+func buildModuleSchemaLayer(schemaByModule map[string]string) (string, error) {
+	moduleNames := make([]string, 0, len(schemaByModule))
+	for name := range schemaByModule {
+		moduleNames = append(moduleNames, name)
+	}
+	sort.Strings(moduleNames)
+
+	moduleFields := make([]ast.Decl, 0, len(moduleNames))
+	for _, name := range moduleNames {
+		expr, err := parser.ParseExpr(name+".module_config.cue", strings.TrimSpace(schemaByModule[name]))
+		if err != nil {
+			return "", fmt.Errorf("parse module config schema for %q: %w", name, err)
+		}
+		moduleFields = append(moduleFields, &ast.Field{
+			Label: ast.NewString(name),
+			Value: &ast.StructLit{
+				Elts: []ast.Decl{
+					&ast.Field{
+						Label: ast.NewIdent("config"),
+						Value: expr,
+					},
+				},
+			},
+		})
+	}
+
+	file := &ast.File{
+		Decls: []ast.Decl{
+			&ast.Package{Name: ast.NewIdent("workspaced")},
+			&ast.Field{
+				Label: ast.NewIdent("workspaced"),
+				Value: &ast.StructLit{
+					Elts: []ast.Decl{
+						&ast.Field{
+							Label: ast.NewIdent("modules"),
+							Value: &ast.StructLit{
+								Elts: moduleFields,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	formatted, err := format.Node(file)
+	if err != nil {
+		return "", fmt.Errorf("format generated module schema layer: %w", err)
+	}
+	return string(formatted), nil
+}
+
+func resolveLocalModulePath(cfg *Config, moduleName string, modEntry ModuleEntry, modulesBaseDir string) (string, bool, error) {
+	workspaceRoot := filepath.Dir(modulesBaseDir)
+	modulePath := strings.Trim(strings.TrimSpace(modEntry.Path), "/")
+	if modulePath == "" {
+		modulePath = filepath.ToSlash(filepath.Join("modules", moduleName))
+	}
+
+	if from := strings.TrimSpace(modEntry.From); from != "" {
+		return resolveLocalSourceSpec(workspaceRoot, modulePath, from)
+	}
+
+	inputName := strings.TrimSpace(modEntry.Input)
+	if inputName == "" {
+		inputName = "self"
+	}
+	if strings.Contains(inputName, ":") {
+		return resolveLocalSourceSpec(workspaceRoot, modulePath, inputName)
+	}
+	if inputName == "self" {
+		return filepath.Join(workspaceRoot, filepath.FromSlash(modulePath)), true, nil
+	}
+
+	inputs, err := cfg.Inputs()
+	if err != nil {
+		return "", false, err
+	}
+	input, ok := inputs[inputName]
+	if !ok {
+		return "", false, nil
+	}
+	return resolveLocalSourceSpec(workspaceRoot, modulePath, input.From)
+}
+
+func resolveLocalSourceSpec(workspaceRoot, modulePath, spec string) (string, bool, error) {
+	spec = strings.TrimSpace(spec)
+	if spec == "self" {
+		return filepath.Join(workspaceRoot, filepath.FromSlash(modulePath)), true, nil
+	}
+	if !strings.HasPrefix(spec, "self:") {
+		return "", false, nil
+	}
+	ref := strings.TrimSpace(strings.TrimPrefix(spec, "self:"))
+	if ref == "" {
+		return filepath.Join(workspaceRoot, filepath.FromSlash(modulePath)), true, nil
+	}
+	if modulePath != "" && modulePath != filepath.ToSlash(filepath.Join("modules", filepath.Base(modulePath))) {
+		ref = strings.TrimRight(ref, "/") + "/" + strings.TrimLeft(modulePath, "/")
+	}
+	return filepath.Join(workspaceRoot, filepath.FromSlash(ref)), true, nil
 }
 
 func marshalWorkspacedValue(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {

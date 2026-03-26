@@ -8,6 +8,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"cuelang.org/go/cue/format"
 )
 
 type Metadata struct {
@@ -60,15 +61,20 @@ func Load(modPath string) (*Definition, error) {
 }
 
 func ValidateConfig(modPath string, cfg map[string]any) error {
+	_, err := ResolveConfig(modPath, cfg)
+	return err
+}
+
+func ResolveConfig(modPath string, cfg map[string]any) (map[string]any, error) {
 	ctx := cuecontext.New()
 	v, err := compileModuleWithContext(ctx, modPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	configSchema := v.LookupPath(cue.ParsePath("module.config"))
 	if err := configSchema.Err(); err != nil {
-		return fmt.Errorf("lookup module.config in %s: %w", FilePath(modPath), err)
+		return nil, fmt.Errorf("lookup module.config in %s: %w", FilePath(modPath), err)
 	}
 
 	if cfg == nil {
@@ -76,20 +82,54 @@ func ValidateConfig(modPath string, cfg map[string]any) error {
 	}
 	data, err := json.Marshal(cfg)
 	if err != nil {
-		return fmt.Errorf("marshal module config for %s: %w", modPath, err)
+		return nil, fmt.Errorf("marshal module config for %s: %w", modPath, err)
 	}
 
 	cfgValue := ctx.CompileBytes(data, cue.Filename("module-config.json"))
 	if err := cfgValue.Err(); err != nil {
-		return fmt.Errorf("compile module config for %s: %w", modPath, err)
+		return nil, fmt.Errorf("compile module config for %s: %w", modPath, err)
 	}
 
 	unified := configSchema.Unify(cfgValue)
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		return fmt.Errorf("config validation failed for module %q: %w", filepath.Base(modPath), err)
+		return nil, fmt.Errorf("config validation failed for module %q: %w", filepath.Base(modPath), err)
 	}
 
-	return nil
+	resolvedJSON, err := unified.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("marshal resolved module config for %s: %w", modPath, err)
+	}
+
+	resolved := map[string]any{}
+	if err := json.Unmarshal(resolvedJSON, &resolved); err != nil {
+		return nil, fmt.Errorf("decode resolved module config for %s: %w", modPath, err)
+	}
+	return resolved, nil
+}
+
+func ConfigSyntax(modPath string) (string, error) {
+	v, err := compileModule(modPath)
+	if err != nil {
+		return "", err
+	}
+
+	configSchema := v.LookupPath(cue.ParsePath("module.config"))
+	if err := configSchema.Err(); err != nil {
+		return "", fmt.Errorf("lookup module.config in %s: %w", FilePath(modPath), err)
+	}
+
+	node := configSchema.Syntax(
+		cue.Concrete(false),
+		cue.Definitions(true),
+		cue.Optional(true),
+		cue.Attributes(true),
+		cue.Docs(true),
+	)
+	formatted, err := format.Node(node)
+	if err != nil {
+		return "", fmt.Errorf("format module.config syntax for %s: %w", modPath, err)
+	}
+	return string(formatted), nil
 }
 
 func compileModule(modPath string) (cue.Value, error) {

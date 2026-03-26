@@ -56,6 +56,9 @@ workspaced: {
 	workspaces?: [string]: int
 	desktop?: {
 		dark_mode?: bool
+		raw?: {
+			dconf?: [string]: [string]: _
+		}
 		wallpaper?: {
 			dir?:     string
 			default?: string
