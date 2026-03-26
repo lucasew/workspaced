@@ -25,7 +25,7 @@ func RunApply(ctx context.Context, action string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	lockResult, err := tool.RefreshWorkspaceLocks(ctx, modfile.NewWorkspace(dotfilesRoot), cfg.GlobalConfig)
+	lockResult, err := tool.RefreshWorkspaceLocks(ctx, modfile.NewWorkspace(dotfilesRoot), cfg)
 	if err != nil {
 		return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
 	}

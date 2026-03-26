@@ -123,7 +123,7 @@ func getFavicon(ctx context.Context, url string) (string, error) {
 	return iconPath, nil
 }
 
-func processDotDDirectory(ctx context.Context, dirPath string, cfg *config.Config) ([]byte, error) {
+func processDotDDirectory(ctx context.Context, dirPath string, cfg *config.GlobalConfig) ([]byte, error) {
 	// Check if directory exists
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, nil // Empty content if directory doesn't exist
@@ -353,7 +353,7 @@ func (p *SymlinkProvider) GetDesiredState(ctx context.Context) ([]DesiredState, 
 	return desired, nil
 }
 
-func renderTemplate(ctx context.Context, content string, cfg *config.Config) ([]byte, error) {
+func renderTemplate(ctx context.Context, content string, cfg *config.GlobalConfig) ([]byte, error) {
 	tmpl, err := template.New("config").Funcs(makeFuncMap(ctx)).Parse(content)
 	if err != nil {
 		return nil, err

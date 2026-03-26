@@ -53,7 +53,7 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
 			ws := modfile.NewWorkspace(dotfilesRoot)
-			lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg.GlobalConfig)
+			lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg)
 			if err != nil {
 				return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
 			}
@@ -91,14 +91,14 @@ func GetCommand() *cobra.Command {
 			// 2.5 Modules Scanner
 			modulesDir := ws.ModulesBaseDir()
 			if _, err := os.Stat(modulesDir); err == nil {
-				pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg.GlobalConfig, 100))
+				pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg, 100))
 			}
 
 			// 3. TemplateExpander - renderiza .tmpl (inclui multi-file)
-			pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg.GlobalConfig))
+			pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg))
 
 			// 4. DotDProcessor - concatena .d.tmpl/
-			pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg.GlobalConfig))
+			pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg))
 
 			// 5. StrictConflictResolver - garante unicidade total
 			pipeline.AddPlugin(source.NewStrictConflictResolverPlugin())

@@ -49,7 +49,7 @@ Outputs the value as JSON for easy parsing.`,
 	}
 }
 
-func getConfigValue(cfg *config.Config, key string) (any, error) {
+func getConfigValue(cfg *config.GlobalConfig, key string) (any, error) {
 	if key == "" {
 		return cfg, nil
 	}

@@ -92,11 +92,20 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return err
 	}
+	tmpOut, err := os.CreateTemp(installDir, "workspaced.tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpOut.Name()
+	if err := tmpOut.Close(); err != nil {
+		return err
+	}
+	defer os.Remove(tmpPath)
 
 	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
 	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
-		"go", "build", "-v", "-o", installPath, "./cmd/workspaced")
+		"go", "build", "-v", "-o", tmpPath, "./cmd/workspaced")
 	if err != nil {
 		return err
 	}
@@ -108,6 +117,12 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	slog.Info("building from source", "path", srcPath, "go", goSpec)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		return fmt.Errorf("failed to set permissions on built binary: %w", err)
+	}
+	if err := os.Rename(tmpPath, installPath); err != nil {
+		return fmt.Errorf("failed to install built binary: %w", err)
 	}
 
 	slog.Info("build completed", "path", installPath)

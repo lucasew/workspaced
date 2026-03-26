@@ -175,7 +175,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		return "", err
 	}
 
-	toolName, toolCfg, ok := findLazyTool(cfg.GlobalConfig, toolName)
+	toolName, toolCfg, ok := findLazyTool(cfg, toolName)
 	if !ok {
 		return "", fmt.Errorf("lazy tool %q not found in config", toolName)
 	}

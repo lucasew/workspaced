@@ -161,15 +161,29 @@ func copyFile(src, dst string) error {
 	}
 	defer source.Close()
 
-	dest, err := os.Create(dst)
+	dir := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp-*")
 	if err != nil {
 		return err
 	}
-	defer dest.Close()
+	tmpPath := tmp.Name()
+	defer func() {
+		tmp.Close()
+		_ = os.Remove(tmpPath)
+	}()
 
-	if _, err := io.Copy(dest, source); err != nil {
+	if _, err := io.Copy(tmp, source); err != nil {
 		return err
 	}
 
-	return dest.Sync()
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, dst)
 }
