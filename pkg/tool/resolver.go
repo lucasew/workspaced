@@ -11,6 +11,7 @@ import (
 
 	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/semver"
+	"workspaced/pkg/tool/provider"
 )
 
 // EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
@@ -38,6 +39,14 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			spec.Version = actualVersion
 		}
 	}
+	p, err := GetProvider(spec.Provider)
+	if err != nil {
+		return "", err
+	}
+	pkgConfig, err := p.ParsePackage(spec.Package)
+	if err != nil {
+		return "", err
+	}
 
 	// Try to resolve the binary first (if already installed)
 	binPath, err := m.ResolveBinary(spec, cmdName)
@@ -51,6 +60,14 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
 		slog.Info("tool not installed, installing", "spec", spec)
+
+		if bp, ok := p.(provider.BinaryProvider); ok {
+			binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+			if err != nil {
+				return "", fmt.Errorf("failed to install tool: %w", err)
+			}
+			return binPath, nil
+		}
 
 		if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
 			return "", fmt.Errorf("failed to install tool: %w", err)
@@ -67,6 +84,9 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
 	slog.Info("tool version present but binary missing, reinstalling with hint", "spec", spec, "cmd", cmdName)
+	if bp, ok := p.(provider.BinaryProvider); ok {
+		return bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+	}
 	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
 		return "", fmt.Errorf("failed to reinstall tool: %w", err)
 	}
