@@ -3,6 +3,8 @@ package mise
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"workspaced/pkg/miseutil"
 	"workspaced/pkg/tool"
@@ -54,4 +56,46 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 		return fmt.Errorf("missing mise artifact spec")
 	}
 	return miseutil.Run(ctx, "install", spec)
+}
+
+func (p *Provider) EnsureBinary(ctx context.Context, pkg provider.PackageConfig, version string, cmdName string, destPath string) (string, error) {
+	toolSpec := strings.TrimSpace(pkg.Spec) + "@" + strings.TrimSpace(version)
+
+	binPath, err := miseutil.ResolveBinPath(ctx, cmdName, toolSpec)
+	if err == nil {
+		return ensureSymlink(destPath, binPath, cmdName)
+	}
+
+	if err := miseutil.Run(ctx, "install", toolSpec); err != nil {
+		return "", err
+	}
+
+	binPath, err = miseutil.ResolveBinPath(ctx, cmdName, toolSpec)
+	if err != nil {
+		return "", err
+	}
+	return ensureSymlink(destPath, binPath, cmdName)
+}
+
+func ensureSymlink(destPath, binPath, cmdName string) (string, error) {
+	if err := os.MkdirAll(destPath, 0755); err != nil {
+		return "", err
+	}
+
+	linkPath := filepath.Join(destPath, "bin", cmdName)
+	if err := os.MkdirAll(filepath.Dir(linkPath), 0755); err != nil {
+		return "", err
+	}
+
+	if _, err := os.Lstat(linkPath); err == nil {
+		if err := os.Remove(linkPath); err != nil {
+			return "", err
+		}
+	}
+
+	if err := os.Symlink(binPath, linkPath); err != nil {
+		return "", err
+	}
+
+	return linkPath, nil
 }

@@ -13,6 +13,10 @@ type Provider interface {
 	Install(ctx context.Context, artifact Artifact, destPath string) error
 }
 
+type BinaryProvider interface {
+	EnsureBinary(ctx context.Context, pkg PackageConfig, version string, cmdName string, destPath string) (string, error)
+}
+
 type PackageConfig struct {
 	Provider string
 	Spec     string

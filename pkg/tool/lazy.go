@@ -7,7 +7,6 @@ import (
 	"strings"
 	"workspaced/pkg/config"
 	"workspaced/pkg/env"
-	"workspaced/pkg/miseutil"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
 )
@@ -133,17 +132,6 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		if err := modfile.WriteSumFile(ws.SumPath(), sum); err != nil {
 			return "", fmt.Errorf("failed to update tool lock: %w", err)
 		}
-	}
-	if spec.Provider == "mise" {
-		toolSpec := spec.Package + "@" + spec.Version
-		binPath, err := miseutil.ResolveBinPath(ctx, binName, toolSpec)
-		if err == nil && strings.TrimSpace(binPath) != "" {
-			return strings.TrimSpace(binPath), nil
-		}
-		if err := miseutil.Run(ctx, "install", toolSpec); err != nil {
-			return "", err
-		}
-		return miseutil.ResolveBinPath(ctx, binName, toolSpec)
 	}
 
 	return mgr.EnsureInstalled(ctx, spec.String(), binName)
