@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -21,24 +20,65 @@ func (p *DconfProvider) Name() string {
 }
 
 func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredState, error) {
-	cfg, err := configcue.LoadHome()
-	if err != nil {
-		return nil, err
-	}
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
+	dconfContent, err := buildHomeDconfContent()
+	if err != nil {
+		return nil, err
+	}
+	if dconfContent == "" {
+		return nil, nil
+	}
 
-	// Read desktop.raw.dconf section
+	// Use content hash as marker to track changes
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(dconfContent)))
+
+	return []source.DesiredState{
+		{
+			File: &source.BufferFile{
+				BasicFile: source.BasicFile{
+					RelPathStr:    "dconf.marker",
+					TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
+					FileMode:      0644,
+					Info:          "provider:dconf (marker)",
+					FileType:      source.TypeStatic,
+				},
+				Content: []byte(hash),
+			},
+		},
+	}, nil
+}
+
+func ApplyHomeDconf(ctx context.Context) error {
+	dconfContent, err := buildHomeDconfContent()
+	if err != nil {
+		return err
+	}
+	if dconfContent == "" {
+		return nil
+	}
+
+	tmpIni := filepath.Join(os.TempDir(), "workspaced-dconf.ini")
+	if err := os.WriteFile(tmpIni, []byte(dconfContent), 0600); err != nil {
+		return err
+	}
+	defer os.Remove(tmpIni)
+	return applyDconf(ctx, tmpIni)
+}
+
+func buildHomeDconfContent() (string, error) {
+	cfg, err := configcue.LoadHome()
+	if err != nil {
+		return "", err
+	}
+
 	rawDconf := make(map[string]map[string]any)
 	if err := cfg.Decode("desktop.raw.dconf", &rawDconf); err != nil {
-		// Section doesn't exist, that's ok
 		rawDconf = make(map[string]map[string]any)
 	}
 
-	// Apply desktop.dark_mode if set
 	var darkMode bool
 	if err := cfg.Decode("desktop.dark_mode", &darkMode); err == nil {
 		if rawDconf["org/gnome/desktop/interface"] == nil {
@@ -52,10 +92,9 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 	}
 
 	if len(rawDconf) == 0 {
-		return nil, nil
+		return "", nil
 	}
 
-	// Generate dconf ini format (sorted for consistency)
 	var sb strings.Builder
 	paths := make([]string, 0, len(rawDconf))
 	for path := range rawDconf {
@@ -80,38 +119,11 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 		sb.WriteString("\n")
 	}
 
-	dconfContent := sb.String()
-
-	// Create a temp file for dconf load (execution is side-effect here, keeping for compatibility)
-	tmpIni := filepath.Join(os.TempDir(), "workspaced-dconf.ini")
-	if err := os.WriteFile(tmpIni, []byte(dconfContent), 0600); err == nil {
-		defer os.Remove(tmpIni)
-		if err := applyDconf(tmpIni); err != nil {
-			slog.Warn("failed to apply dconf", "error", err)
-		}
-	}
-
-	// Use content hash as marker to track changes
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(dconfContent)))
-
-	return []source.DesiredState{
-		{
-			File: &source.BufferFile{
-				BasicFile: source.BasicFile{
-					RelPathStr:    "dconf.marker",
-					TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
-					FileMode:      0644,
-					Info:          "provider:dconf (marker)",
-					FileType:      source.TypeStatic,
-				},
-				Content: []byte(hash),
-			},
-		},
-	}, nil
+	return sb.String(), nil
 }
 
-func applyDconf(iniFile string) error {
-	cmd, err := execdriver.Run(context.Background(), "dconf", "load", "/")
+func applyDconf(ctx context.Context, iniFile string) error {
+	cmd, err := execdriver.Run(ctx, "dconf", "load", "/")
 	if err != nil {
 		return err
 	}

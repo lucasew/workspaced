@@ -111,6 +111,27 @@ func GetCommand() *cobra.Command {
 
 			// Hooks
 			hooks := []dotfiles.Hook{
+				&dotfiles.FuncHook{
+					AfterFn: func(ctx context.Context, actions []deployer.Action, execErr error) error {
+						if execErr != nil {
+							return nil
+						}
+						needsDconfApply := false
+						for _, action := range actions {
+							if action.Type != deployer.ActionCreate && action.Type != deployer.ActionUpdate {
+								continue
+							}
+							if action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(os.Getenv("HOME"), ".config", "workspaced", "dconf.marker") {
+								needsDconfApply = true
+								break
+							}
+						}
+						if !needsDconfApply {
+							return nil
+						}
+						return apply.ApplyHomeDconf(ctx)
+					},
+				},
 				// Hook para reload GTK theme
 				&dotfiles.FuncHook{
 					AfterFn: func(ctx context.Context, actions []deployer.Action, execErr error) error {
