@@ -66,7 +66,6 @@ func (p Provider) ID() string { return "resvg" }
 func (p Provider) Name() string {
 	return "resvg"
 }
-func (p Provider) DefaultWeight() int { return 100 }
 func (p Provider) CheckCompatibility(ctx context.Context) error {
 	// resvg is installed on demand via the tool subsystem.
 	return nil

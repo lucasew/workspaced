@@ -14,9 +14,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "power_systemd" }
-func (p *Provider) Name() string       { return "Systemd" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string   { return "power_systemd" }
+func (p *Provider) Name() string { return "Systemd" }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "loginctl") {

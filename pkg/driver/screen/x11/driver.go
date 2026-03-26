@@ -19,9 +19,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "screen_x11" }
-func (p *Provider) Name() string       { return "X11" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string   { return "screen_x11" }
+func (p *Provider) Name() string { return "X11" }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	display := os.Getenv("DISPLAY")

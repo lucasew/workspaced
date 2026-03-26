@@ -20,10 +20,6 @@ func (p *Provider) Name() string {
 	return "Native Environment"
 }
 
-func (p *Provider) DefaultWeight() int {
-	return driver.DefaultWeight
-}
-
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
 	return nil

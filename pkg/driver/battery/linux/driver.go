@@ -16,9 +16,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "battery_linux" }
-func (p *Provider) Name() string       { return "linux" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string   { return "battery_linux" }
+func (p *Provider) Name() string { return "linux" }
 
 // CheckCompatibility implements [driver.DriverProvider].
 func (p *Provider) CheckCompatibility(ctx context.Context) error {

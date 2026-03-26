@@ -25,11 +25,6 @@ func (p *Provider) Name() string {
 	return "Termux"
 }
 
-func (p *Provider) DefaultWeight() int {
-	// Higher weight than native driver (50) to ensure Termux driver is preferred on Android
-	return 60
-}
-
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	// Check if we're running in Termux
 	if os.Getenv("TERMUX_VERSION") == "" {

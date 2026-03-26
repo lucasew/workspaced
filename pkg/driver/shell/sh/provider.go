@@ -2,8 +2,6 @@ package sh
 
 import (
 	"context"
-	"os"
-	"strings"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	shelldriver "workspaced/pkg/driver/shell"
@@ -17,18 +15,6 @@ func (p *Provider) ID() string {
 
 func (p *Provider) Name() string {
 	return "POSIX sh"
-}
-
-func (p *Provider) DefaultWeight() int {
-	// Base weight: 50
-	// If $SHELL points to sh (or dash, ash, etc), increase to 75
-	userShell := os.Getenv("SHELL")
-	if strings.HasSuffix(userShell, "/sh") ||
-		strings.Contains(userShell, "dash") ||
-		strings.Contains(userShell, "ash") {
-		return 75
-	}
-	return 50
 }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
@@ -48,16 +34,6 @@ func (d *Driver) ID() string {
 
 func (d *Driver) Name() string {
 	return "POSIX sh"
-}
-
-func (d *Driver) DefaultWeight() int {
-	userShell := os.Getenv("SHELL")
-	if strings.HasSuffix(userShell, "/sh") ||
-		strings.Contains(userShell, "dash") ||
-		strings.Contains(userShell, "ash") {
-		return 75
-	}
-	return 50
 }
 
 func (d *Driver) CheckCompatibility(ctx context.Context) error {

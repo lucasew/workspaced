@@ -21,10 +21,6 @@ func (p *Provider) Name() string {
 	return "Bash Shim"
 }
 
-func (p *Provider) DefaultWeight() int {
-	return 50
-}
-
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	_, err := execdriver.Which(ctx, "bash")
 	return err

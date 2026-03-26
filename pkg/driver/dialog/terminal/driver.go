@@ -20,8 +20,7 @@ func init() {
 
 type baseProvider struct{}
 
-func (p *baseProvider) ID() string         { return "terminal" }
-func (p *baseProvider) DefaultWeight() int { return 0 }
+func (p *baseProvider) ID() string { return "terminal" }
 
 func (p *baseProvider) CheckCompatibility(ctx context.Context) error {
 	// Sempre compatível, mas com peso 0 para ser fallback

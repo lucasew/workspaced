@@ -17,9 +17,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "env_termux" }
-func (p *Provider) Name() string       { return "Termux Environment" }
-func (p *Provider) DefaultWeight() int { return 60 } // Higher than native
+func (p *Provider) ID() string   { return "env_termux" }
+func (p *Provider) Name() string { return "Termux Environment" }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" {

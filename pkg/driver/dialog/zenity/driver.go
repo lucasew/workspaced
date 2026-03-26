@@ -17,8 +17,7 @@ func init() {
 
 type baseProvider struct{}
 
-func (p *baseProvider) ID() string         { return "zenity" }
-func (p *baseProvider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *baseProvider) ID() string { return "zenity" }
 
 func (p *baseProvider) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {

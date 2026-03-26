@@ -21,9 +21,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "screenshot_grim" }
-func (p *Provider) Name() string       { return "Grim (Wayland)" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string   { return "screenshot_grim" }
+func (p *Provider) Name() string { return "Grim (Wayland)" }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {

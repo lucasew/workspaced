@@ -21,7 +21,6 @@ var (
 type DriverProvider[T any] interface {
 	ID() string   // Unique slug for the driver (e.g. "wayland_swaybg")
 	Name() string // Human readable name
-	DefaultWeight() int
 	CheckCompatibility(ctx context.Context) error
 	New(ctx context.Context) (T, error)
 }
@@ -33,12 +32,7 @@ type doctorEntry struct {
 	DriverID      string
 	DriverName    string
 	Check         func(context.Context) error
-	DefaultWeight func() int
 }
-
-const (
-	DefaultWeight = 50
-)
 
 var (
 	mu            sync.RWMutex
@@ -91,7 +85,6 @@ func Register[T any](provider DriverProvider[T]) {
 		DriverID:      id,
 		DriverName:    provider.Name(),
 		Check:         provider.CheckCompatibility,
-		DefaultWeight: provider.DefaultWeight,
 	})
 }
 
@@ -100,6 +93,13 @@ func getInterfaceName(t reflect.Type) string {
 		return t.PkgPath() + "." + t.Name()
 	}
 	return t.String()
+}
+
+func getConfiguredWeight(weights map[string]int, driverID string) int {
+	if weight, ok := weights[driverID]; ok {
+		return weight
+	}
+	return 50
 }
 
 func Get[T any](ctx context.Context) (T, error) {
@@ -131,23 +131,14 @@ func Get[T any](ctx context.Context) (T, error) {
 	// Log all providers before sorting
 	slog.Debug("available providers", "interface", ifaceName, "count", len(providers))
 	for _, p := range providers {
-		w := p.DefaultWeight()
-		if cw, ok := weights[p.ID()]; ok {
-			w = cw
-		}
+		w := getConfiguredWeight(weights, p.ID())
 		slog.Debug("provider registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
 	}
 
 	// Sort providers by weight then ID
 	sort.Slice(providers, func(i, j int) bool {
-		wi := providers[i].DefaultWeight()
-		if w, ok := weights[providers[i].ID()]; ok {
-			wi = w
-		}
-		wj := providers[j].DefaultWeight()
-		if w, ok := weights[providers[j].ID()]; ok {
-			wj = w
-		}
+		wi := getConfiguredWeight(weights, providers[i].ID())
+		wj := getConfiguredWeight(weights, providers[j].ID())
 
 		if wi != wj {
 			return wi > wj // Higher weight first
@@ -158,10 +149,7 @@ func Get[T any](ctx context.Context) (T, error) {
 	var report []string
 
 	for _, provider := range providers {
-		weight := provider.DefaultWeight()
-		if w, ok := weights[provider.ID()]; ok {
-			weight = w
-		}
+		weight := getConfiguredWeight(weights, provider.ID())
 
 		if err := provider.CheckCompatibility(ctx); err != nil {
 			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", provider.ID(), provider.Name(), weight, err))
@@ -228,10 +216,7 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 
 		for _, d := range entries {
 			err := d.Check(ctx)
-			weight := d.DefaultWeight()
-			if w, ok := weights[d.DriverID]; ok {
-				weight = w
-			}
+			weight := getConfiguredWeight(weights, d.DriverID)
 			status := DriverStatus{
 				ID:           d.DriverID,
 				Name:         d.DriverName,

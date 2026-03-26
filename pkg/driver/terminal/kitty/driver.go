@@ -14,9 +14,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "terminal_kitty" }
-func (p *Provider) Name() string       { return "Kitty" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string   { return "terminal_kitty" }
+func (p *Provider) Name() string { return "Kitty" }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "kitty") {

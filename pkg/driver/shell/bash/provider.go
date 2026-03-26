@@ -2,8 +2,6 @@ package bash
 
 import (
 	"context"
-	"os"
-	"strings"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	shelldriver "workspaced/pkg/driver/shell"
@@ -17,16 +15,6 @@ func (p *Provider) ID() string {
 
 func (p *Provider) Name() string {
 	return "Bash"
-}
-
-func (p *Provider) DefaultWeight() int {
-	// Base weight: 50
-	// If $SHELL points to bash, increase to 75
-	userShell := os.Getenv("SHELL")
-	if strings.Contains(userShell, "bash") {
-		return 75
-	}
-	return 50
 }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
@@ -46,14 +34,6 @@ func (d *Driver) ID() string {
 
 func (d *Driver) Name() string {
 	return "Bash"
-}
-
-func (d *Driver) DefaultWeight() int {
-	userShell := os.Getenv("SHELL")
-	if strings.Contains(userShell, "bash") {
-		return 75
-	}
-	return 50
 }
 
 func (d *Driver) CheckCompatibility(ctx context.Context) error {

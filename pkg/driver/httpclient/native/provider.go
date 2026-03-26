@@ -21,9 +21,8 @@ func init() {
 
 type Provider struct{}
 
-func (p *Provider) ID() string         { return "httpclient_native" }
-func (p *Provider) Name() string       { return "Native HTTP Client" }
-func (p *Provider) DefaultWeight() int { return driver.DefaultWeight }
+func (p *Provider) ID() string   { return "httpclient_native" }
+func (p *Provider) Name() string { return "Native HTTP Client" }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
