@@ -95,16 +95,16 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			for _, mf := range multiFiles {
 				mfRelPath := filepath.Join(baseRelDir, mf.Name)
 				result = append(result, &BufferFile{
-				BasicFile: BasicFile{
-					RelPathStr:    mfRelPath,
-					TargetBaseDir: f.TargetBase(),
-					FileMode:      mf.Mode,
-					Info:          fmt.Sprintf("%s (multi:%s)", f.SourceInfo(), mf.Name),
-					FileType:      TypeMultiFile,
-					Module:        moduleNameOf(f),
-				},
-				Content: []byte(mf.Content),
-			})
+					BasicFile: BasicFile{
+						RelPathStr:    mfRelPath,
+						TargetBaseDir: f.TargetBase(),
+						FileMode:      mf.Mode,
+						Info:          fmt.Sprintf("%s (multi:%s)", f.SourceInfo(), mf.Name),
+						FileType:      TypeMultiFile,
+						Module:        moduleNameOf(f),
+					},
+					Content: []byte(mf.Content),
+				})
 			}
 		} else {
 			// UM template → 1 file (LAZY)

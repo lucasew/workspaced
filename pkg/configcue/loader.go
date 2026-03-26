@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"embed"
-	"encoding/json"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -28,8 +28,8 @@ type Layer struct {
 }
 
 type DiscoverOptions struct {
-	Cwd        string
-	HomeMode   bool
+	Cwd      string
+	HomeMode bool
 }
 
 type DiscoverResult struct {
