@@ -28,4 +28,5 @@ type Artifact struct {
 	Arch string
 	URL  string
 	Hash string
+	Size int64
 }

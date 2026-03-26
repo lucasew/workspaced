@@ -59,13 +59,14 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
-		slog.Info("tool not installed, installing", "spec", spec)
+		slog.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 
 		if bp, ok := p.(provider.BinaryProvider); ok {
 			binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
 			if err != nil {
 				return "", fmt.Errorf("failed to install tool: %w", err)
 			}
+			slog.Info("tool installed", "spec", spec, "bin_path", binPath)
 			return binPath, nil
 		}
 
@@ -78,14 +79,20 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		if err != nil {
 			return "", fmt.Errorf("tool installed but binary not found: %w", err)
 		}
+		slog.Info("tool installed", "spec", spec, "bin_path", binPath)
 		return binPath, nil
 	}
 
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
-	slog.Info("tool version present but binary missing, reinstalling with hint", "spec", spec, "cmd", cmdName)
+	slog.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 	if bp, ok := p.(provider.BinaryProvider); ok {
-		return bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+		binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+		if err != nil {
+			return "", err
+		}
+		slog.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+		return binPath, nil
 	}
 	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
 		return "", fmt.Errorf("failed to reinstall tool: %w", err)
@@ -94,6 +101,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if err != nil {
 		return "", fmt.Errorf("tool reinstalled but binary not found: %w", err)
 	}
+	slog.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
 	return binPath, nil
 }
 
