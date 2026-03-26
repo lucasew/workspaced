@@ -3,7 +3,7 @@ package system
 import (
 	"context"
 	"fmt"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
@@ -21,7 +21,7 @@ func RunApply(ctx context.Context, action string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to get dotfiles root: %w", err)
 	}
-	cfg, err := config.LoadHome()
+	cfg, err := configcue.LoadHome()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

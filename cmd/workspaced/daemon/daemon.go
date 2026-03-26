@@ -17,7 +17,7 @@ import (
 	_ "image/png"
 	"io"
 	"workspaced/cmd/workspaced/utils"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/db"
 	"workspaced/pkg/driver/media"
 	"workspaced/pkg/driver/tray"
@@ -108,7 +108,7 @@ func RunDaemon() error {
 	slog.Info("daemon starting", "pid", os.Getpid())
 
 	// Load config to set driver weights
-	if _, err := config.Load(); err != nil {
+	if _, err := configcue.Load(); err != nil {
 		slog.Warn("failed to load config", "error", err)
 	} else {
 		slog.Info("config loaded successfully")

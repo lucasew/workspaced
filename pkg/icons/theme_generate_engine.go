@@ -20,7 +20,7 @@ import (
 	"text/template"
 	"time"
 
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
 
@@ -375,12 +375,12 @@ func resolveJobs(raw string) (int, error) {
 }
 
 func loadBase16Colors() (map[string]string, error) {
-	cfg, err := config.LoadConfigForWorkspace("")
+	cfg, err := configcue.LoadForWorkspace("")
 	if err != nil {
 		return nil, err
 	}
-	raw, ok := cfg.Modules["base16"]
-	if !ok {
+	raw, err := cfg.Lookup("modules.base16")
+	if err != nil {
 		return nil, fmt.Errorf("module base16 is not configured")
 	}
 	m, ok := raw.(map[string]any)

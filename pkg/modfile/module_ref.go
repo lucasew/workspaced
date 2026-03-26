@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 )
 
-func ResolveModuleFromConfig(cfg *config.GlobalConfig, moduleName string, modCfg map[string]any, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {
-	if from, _ := modCfg["from"].(string); strings.TrimSpace(from) != "" {
+func ResolveModuleFromConfig(cfg *configcue.Config, moduleName string, modCfg configcue.ModuleEntry, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {
+	if from := strings.TrimSpace(modCfg.From); from != "" {
 		modFile, err := ModFileFromConfig(cfg)
 		if err != nil {
 			return ResolvedModuleSource{}, err
@@ -16,14 +16,12 @@ func ResolveModuleFromConfig(cfg *config.GlobalConfig, moduleName string, modCfg
 		return modFile.ResolveModuleSource(moduleName, from, modulesBaseDir, sumFile)
 	}
 
-	inputName, _ := modCfg["input"].(string)
-	inputName = strings.TrimSpace(inputName)
+	inputName := strings.TrimSpace(modCfg.Input)
 	if inputName == "" {
 		inputName = "self"
 	}
 
-	modulePath, _ := modCfg["path"].(string)
-	modulePath = strings.Trim(strings.TrimSpace(modulePath), "/")
+	modulePath := strings.Trim(strings.TrimSpace(modCfg.Path), "/")
 
 	// Accept combined specs like "self:modules/base16" in the input field and
 	// canonicalize them through the same resolver used everywhere else.
@@ -54,7 +52,11 @@ func ResolveModuleFromConfig(cfg *config.GlobalConfig, moduleName string, modCfg
 	if cfg == nil {
 		return ResolvedModuleSource{}, fmt.Errorf("module %q references input %q without config", moduleName, inputName)
 	}
-	input, ok := cfg.Inputs[inputName]
+	inputs, err := cfg.Inputs()
+	if err != nil {
+		return ResolvedModuleSource{}, fmt.Errorf("failed to decode inputs: %w", err)
+	}
+	input, ok := inputs[inputName]
 	if !ok {
 		return ResolvedModuleSource{}, fmt.Errorf("module %q references unknown input %q", moduleName, inputName)
 	}

@@ -33,14 +33,14 @@ The template demonstrates:
 
 ### Variables
 ```go
-{{ .Example.Greeting }}       // Module config
-{{ .Hostname }}               // System hostname
-{{ .LocalIPs }}               // Array of local IPs
+{{ .module.greeting }}        // Module config
+{{ .runtime.hostname }}       // System hostname
+{{ .root.hosts }}             // Map of configured hosts
 ```
 
 ### Conditionals
 ```go
-{{- if .IsPhone }}
+{{- if .runtime.is_phone }}
   // Termux-specific config
 {{- else }}
   // Desktop config
@@ -49,8 +49,8 @@ The template demonstrates:
 
 ### Loops
 ```go
-{{- range .Hosts }}
-  Host {{ .Name }}: {{ .IP }}
+{{- range $name, $host := .root.hosts }}
+  Host {{ $name }}: {{ index $host.ips 0 }}
 {{- end }}
 ```
 

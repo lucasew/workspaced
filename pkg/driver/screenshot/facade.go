@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/clipboard"
 	"workspaced/pkg/driver/notification"
@@ -52,12 +52,18 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 		return "", err
 	}
 
-	cfg, err := config.LoadConfigForWorkspace("")
+	cfg, err := configcue.LoadForWorkspace("")
 	if err != nil {
 		return "", err
 	}
+	var screenshot struct {
+		Dir string `json:"dir"`
+	}
+	if err := cfg.Decode("screenshot", &screenshot); err != nil {
+		return "", err
+	}
 
-	dir := cfg.Screenshot.Dir
+	dir := screenshot.Dir
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create screenshot dir: %w", err)
 	}

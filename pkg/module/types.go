@@ -3,7 +3,7 @@ package module
 import (
 	"context"
 	"os"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 )
 
 type ResolveRequest struct {
@@ -12,7 +12,7 @@ type ResolveRequest struct {
 	Version        string
 	ModuleConfig   map[string]any
 	ModulesBaseDir string
-	Config         *config.GlobalConfig
+	Config         *configcue.Config
 }
 
 type ResolvedFile struct {

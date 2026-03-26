@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
@@ -29,12 +29,18 @@ func Open(ctx context.Context, target string) error {
 
 // OpenWebapp launches a URL as a webapp using the configured browser engine.
 func OpenWebapp(ctx context.Context, wa WebappConfig) error {
-	cfg, err := config.Load()
+	cfg, err := configcue.Load()
 	if err != nil {
 		return err
 	}
+	var browser struct {
+		Engine string `json:"webapp"`
+	}
+	if err := cfg.Decode("browser", &browser); err != nil {
+		return err
+	}
 
-	engine := cfg.Browser.Engine
+	engine := browser.Engine
 	normalizedURL := env.NormalizeURL(wa.URL)
 	args := []string{"--app=" + normalizedURL}
 

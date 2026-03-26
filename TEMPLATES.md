@@ -154,7 +154,7 @@ Terminal=true
 {{- file (printf "workspaced-webapp-%s.desktop" $name) }}
 [Desktop Entry]
 Name={{ titleCase $name }}
-Exec={{ $.Browser.Engine }} --app={{ $wa.URL }}
+Exec={{ $.root.browser.webapp }} --app={{ $wa.URL }}
 Icon={{ favicon $wa.URL }}
 {{- endfile }}
 {{- end }}

@@ -5,17 +5,23 @@ import (
 	"fmt"
 	"net"
 	"workspaced/pkg/api"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/logging"
 )
 
 func Wake(ctx context.Context, host string) error {
-	cfg, err := config.LoadConfigForWorkspace("")
+	cfg, err := configcue.LoadForWorkspace("")
 	if err != nil {
 		return err
 	}
+	var hosts map[string]struct {
+		MAC string `json:"mac"`
+	}
+	if err := cfg.Decode("hosts", &hosts); err != nil {
+		return err
+	}
 
-	hostCfg, ok := cfg.Hosts[host]
+	hostCfg, ok := hosts[host]
 	macStr := ""
 	if !ok {
 		return fmt.Errorf("%w: %s", api.ErrHostNotFound, host)

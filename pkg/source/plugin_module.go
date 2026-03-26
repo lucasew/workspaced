@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
@@ -16,11 +16,11 @@ import (
 
 type ModuleScannerPlugin struct {
 	baseDir  string
-	cfg      *config.GlobalConfig
+	cfg      *configcue.Config
 	priority int
 }
 
-func NewModuleScannerPlugin(baseDir string, cfg *config.GlobalConfig, priority int) *ModuleScannerPlugin {
+func NewModuleScannerPlugin(baseDir string, cfg *configcue.Config, priority int) *ModuleScannerPlugin {
 	return &ModuleScannerPlugin{
 		baseDir:  baseDir,
 		cfg:      cfg,
@@ -45,28 +45,24 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 		return nil, err
 	}
 
-	moduleNames := make([]string, 0, len(p.cfg.Modules))
-	for name := range p.cfg.Modules {
+	modules, err := p.cfg.Modules()
+	if err != nil {
+		return nil, err
+	}
+	moduleNames := make([]string, 0, len(modules))
+	for name := range modules {
 		moduleNames = append(moduleNames, name)
 	}
 	sort.Strings(moduleNames)
 
 	for _, modName := range moduleNames {
-		modCfgRaw := p.cfg.Modules[modName]
-		if modCfgRaw == nil {
-			continue
-		}
-		modCfg, ok := modCfgRaw.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("invalid config for module %q: expected map, got %T", modName, modCfgRaw)
-		}
-		enabled, _ := modCfg["enable"].(bool)
-		if !enabled {
+		modEntry := modules[modName]
+		if !modEntry.Enable {
 			logger.Debug("module disabled", "module", modName)
 			continue
 		}
 
-		moduleSource, err := modfile.ResolveModuleFromConfig(p.cfg, modName, modCfg, p.baseDir, sumFile)
+		moduleSource, err := modfile.ResolveModuleFromConfig(p.cfg, modName, modEntry, p.baseDir, sumFile)
 		if err != nil {
 			return nil, fmt.Errorf("module %q: %w", modName, err)
 		}
@@ -82,16 +78,18 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 		}
 		logger.Info("loading module", "module", modName, "from", sourceSpec)
 
+		moduleConfig := modEntry.Config
+
 		// core:base16-icons-linux keeps module source in "from=core:...",
 		// while input_dir can be provided as a source ref (e.g. "papirus:Papirus").
 		if providerID == "core" && ref == "base16-icons-linux" {
-			if inputRef, ok := modCfg["input_dir"].(string); ok && strings.TrimSpace(inputRef) != "" {
+			if inputRef, ok := moduleConfig["input_dir"].(string); ok && strings.TrimSpace(inputRef) != "" {
 				resolvedInputDir, resolved, err := modFile.TryResolveSourceRefToPath(ctx, inputRef, p.baseDir)
 				if err != nil {
 					return nil, fmt.Errorf("module %q input %q: %w", modName, inputRef, err)
 				}
 				if resolved {
-					modCfg["input_dir"] = resolvedInputDir
+					moduleConfig["input_dir"] = resolvedInputDir
 				}
 			}
 		}
@@ -100,7 +98,7 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 			ModuleName:     modName,
 			Ref:            ref,
 			Version:        moduleSource.Version,
-			ModuleConfig:   modCfg,
+			ModuleConfig:   moduleConfig,
 			ModulesBaseDir: p.baseDir,
 			Config:         p.cfg,
 		})

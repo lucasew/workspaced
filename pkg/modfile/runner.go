@@ -3,7 +3,7 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 )
 
 type LockResult struct {
@@ -11,14 +11,14 @@ type LockResult struct {
 }
 
 func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
-	cfg, err := config.LoadConfigForWorkspace(ws.Root)
+	cfg, err := configcue.LoadForWorkspace(ws.Root)
 	if err != nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
 	return GenerateLockWithConfig(ctx, ws, cfg)
 }
 
-func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *config.GlobalConfig) (LockResult, error) {
+func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.Config) (LockResult, error) {
 	if cfg == nil {
 		return LockResult{}, fmt.Errorf("failed to load config: config is nil")
 	}

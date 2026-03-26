@@ -5,7 +5,7 @@ import (
 	"net"
 	"os"
 	"slices"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 
 	"github.com/spf13/cobra"
 )
@@ -54,15 +54,21 @@ func init() {
 			Use:   "known-node",
 			Short: "Check if current host is defined in config (by hostname or IP)",
 			RunE: func(c *cobra.Command, args []string) error {
-				cfg, err := config.Load()
+				cfg, err := configcue.Load()
 				if err != nil {
 					return fmt.Errorf("failed to load config: %w", err)
+				}
+				var hosts map[string]struct {
+					IPs []string `json:"ips"`
+				}
+				if err := cfg.Decode("hosts", &hosts); err != nil {
+					return fmt.Errorf("failed to decode hosts: %w", err)
 				}
 
 				// Try hostname first
 				hostname, err := os.Hostname()
 				if err == nil {
-					if _, ok := cfg.Hosts[hostname]; ok {
+					if _, ok := hosts[hostname]; ok {
 						return nil
 					}
 				}
@@ -73,7 +79,7 @@ func init() {
 					return fmt.Errorf("failed to get local IPs: %w", err)
 				}
 
-				for nodeName, hostCfg := range cfg.Hosts {
+				for nodeName, hostCfg := range hosts {
 					for _, configIP := range hostCfg.IPs {
 						if slices.Contains(localIPs, configIP) {
 							// Found match by IP

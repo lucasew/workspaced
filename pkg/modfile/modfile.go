@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	parsespec "workspaced/pkg/parse/spec"
 )
 
@@ -35,12 +35,16 @@ func LoadModFile(path string) (*ModFile, error) {
 	return &ModFile{Sources: map[string]SourceConfig{}}, nil
 }
 
-func ModFileFromConfig(cfg *config.GlobalConfig) (*ModFile, error) {
+func ModFileFromConfig(cfg *configcue.Config) (*ModFile, error) {
 	out := &ModFile{Sources: map[string]SourceConfig{}}
 	if cfg == nil {
 		return out, nil
 	}
-	for name, input := range cfg.Inputs {
+	inputs, err := cfg.Inputs()
+	if err != nil {
+		return out, nil
+	}
+	for name, input := range inputs {
 		spec := strings.TrimSpace(input.From)
 		if spec == "" {
 			continue

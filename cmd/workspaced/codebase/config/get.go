@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 
 	"github.com/spf13/cobra"
 )
@@ -28,7 +28,7 @@ Outputs the value as JSON for easy parsing.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			key := args[0]
-			cfg, err := config.Load()
+			cfg, err := configcue.Load()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
@@ -49,14 +49,10 @@ Outputs the value as JSON for easy parsing.`,
 	}
 }
 
-func getConfigValue(cfg *config.GlobalConfig, key string) (any, error) {
+func getConfigValue(cfg *configcue.Config, key string) (any, error) {
 	if key == "" {
 		return cfg.Raw(), nil
 	}
 
-	var result any
-	if err := cfg.UnmarshalKey(key, &result); err != nil {
-		return nil, err
-	}
-	return result, nil
+	return cfg.Lookup(key)
 }

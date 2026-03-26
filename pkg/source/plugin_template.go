@@ -7,7 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/template"
 )
 
@@ -31,7 +31,7 @@ func (p *TemplateExpanderPlugin) Name() string {
 
 func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]File, error) {
 	result := []File{}
-	globalCfg, _ := p.data.(*config.GlobalConfig)
+	globalCfg, _ := p.data.(*configcue.Config)
 
 	for _, f := range files {
 		// Detectar se é template

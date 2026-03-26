@@ -6,20 +6,26 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/logging"
 )
 
 func QuickSync(ctx context.Context) error {
-	cfg, err := config.LoadConfigForWorkspace("")
+	cfg, err := configcue.LoadForWorkspace("")
 	if err != nil {
+		return err
+	}
+	var quicksync struct {
+		RepoDir string `json:"repo_dir"`
+	}
+	if err := cfg.Decode("quicksync", &quicksync); err != nil {
 		return err
 	}
 
 	logger := logging.GetLogger(ctx)
-	repoDir := cfg.QuickSync.RepoDir
+	repoDir := quicksync.RepoDir
 	entries, err := os.ReadDir(repoDir)
 	if err != nil {
 		return fmt.Errorf("failed to read repo dir %s: %w", repoDir, err)

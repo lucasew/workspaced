@@ -2,7 +2,7 @@ package open
 
 import (
 	"fmt"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver/opener"
 	"workspaced/pkg/driver/terminal"
 
@@ -30,7 +30,7 @@ func GetCommand() *cobra.Command {
 		Use:   "webapp [name]",
 		Short: "Launch a configured webapp",
 		RunE: func(c *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := configcue.Load()
 			if err != nil {
 				return err
 			}
@@ -42,7 +42,7 @@ func GetCommand() *cobra.Command {
 				var modCfg struct {
 					Apps map[string]opener.WebappConfig `json:"apps"`
 				}
-				if err := cfg.Module("webapp", &modCfg); err == nil {
+				if err := cfg.ModuleConfig("webapp", &modCfg); err == nil {
 					if app, ok := modCfg.Apps[name]; ok {
 						wa = app
 					}

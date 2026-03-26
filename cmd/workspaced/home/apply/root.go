@@ -8,7 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"workspaced/pkg/apply"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/deployer"
 	"workspaced/pkg/dotfiles"
 	execdriver "workspaced/pkg/driver/exec"
@@ -42,7 +42,7 @@ func GetCommand() *cobra.Command {
 			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
 			// Carregar configuração
-			cfg, err := config.LoadHome()
+			cfg, err := configcue.LoadHome()
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}

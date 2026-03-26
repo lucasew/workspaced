@@ -6,12 +6,21 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
 )
+
+type lazyToolConfig struct {
+	Version string   `json:"version"`
+	Ref     string   `json:"ref"`
+	Pkg     string   `json:"pkg"`
+	Global  bool     `json:"global"`
+	Alias   string   `json:"alias"`
+	Bins    []string `json:"bins"`
+}
 
 func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, error) {
 	currentWS, currentErr := selectLazyToolWorkspace(ctx, false)
@@ -44,7 +53,7 @@ func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string,
 	return resolveLazyToolInWorkspace(ctx, ws, toolName, binName)
 }
 
-func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *config.GlobalConfig) (int, error) {
+func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (int, error) {
 	if ws == nil {
 		return 0, fmt.Errorf("workspace is nil")
 	}
@@ -61,8 +70,13 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	}
 	beforeTools := len(sum.Tools)
 
-	names := make([]string, 0, len(cfg.LazyTools))
-	for name := range cfg.LazyTools {
+	lazyTools := map[string]lazyToolConfig{}
+	if err := cfg.Decode("lazy_tools", &lazyTools); err != nil {
+		return 0, err
+	}
+
+	names := make([]string, 0, len(lazyTools))
+	for name := range lazyTools {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -75,7 +89,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	logger := logging.GetLogger(ctx)
 
 	for _, name := range names {
-		toolCfg := cfg.LazyTools[name]
+		toolCfg := lazyTools[name]
 		spec, lockRef, err := lazyToolSpec(name, toolCfg)
 		if err != nil {
 			return 0, fmt.Errorf("lazy tool %q: %w", name, err)
@@ -119,7 +133,7 @@ type LockRefreshResult struct {
 	Tools   int
 }
 
-func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *config.GlobalConfig) (LockRefreshResult, error) {
+func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (LockRefreshResult, error) {
 	if ws == nil {
 		return LockRefreshResult{}, fmt.Errorf("workspace is nil")
 	}
@@ -167,7 +181,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		return "", fmt.Errorf("workspace is nil")
 	}
 
-	cfg, err := config.LoadForWorkspace(ws.Root)
+	cfg, err := configcue.LoadForWorkspace(ws.Root)
 	if err != nil {
 		return "", fmt.Errorf("failed to load workspace config: %w", err)
 	}
@@ -220,23 +234,27 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	return mgr.EnsureInstalled(ctx, spec.String(), binName)
 }
 
-func findLazyTool(cfg *config.GlobalConfig, query string) (string, config.LazyToolConfig, bool) {
+func findLazyTool(cfg *configcue.Config, query string) (string, lazyToolConfig, bool) {
 	if cfg == nil {
-		return "", config.LazyToolConfig{}, false
+		return "", lazyToolConfig{}, false
 	}
-	if toolCfg, ok := cfg.LazyTools[query]; ok {
+	lazyTools := map[string]lazyToolConfig{}
+	if err := cfg.Decode("lazy_tools", &lazyTools); err != nil {
+		return "", lazyToolConfig{}, false
+	}
+	if toolCfg, ok := lazyTools[query]; ok {
 		return query, toolCfg, true
 	}
-	for name, toolCfg := range cfg.LazyTools {
+	for name, toolCfg := range lazyTools {
 		ref := strings.TrimSpace(toolCfg.Ref)
 		if ref != "" && ref == query {
 			return name, toolCfg, true
 		}
 	}
-	return "", config.LazyToolConfig{}, false
+	return "", lazyToolConfig{}, false
 }
 
-func lazyToolSpec(toolName string, toolCfg config.LazyToolConfig) (parsespec.Spec, string, error) {
+func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, string, error) {
 	ref := strings.TrimSpace(toolCfg.Ref)
 	if ref == "" {
 		ref = strings.TrimSpace(toolCfg.Pkg)

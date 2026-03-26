@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/source"
 )
@@ -21,7 +21,7 @@ func (p *DconfProvider) Name() string {
 }
 
 func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredState, error) {
-	cfg, err := config.Load()
+	cfg, err := configcue.Load()
 	if err != nil {
 		return nil, err
 	}
@@ -33,14 +33,14 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 
 	// Read desktop.raw.dconf section
 	rawDconf := make(map[string]map[string]any)
-	if err := cfg.UnmarshalKey("desktop.raw.dconf", &rawDconf); err != nil {
+	if err := cfg.Decode("desktop.raw.dconf", &rawDconf); err != nil {
 		// Section doesn't exist, that's ok
 		rawDconf = make(map[string]map[string]any)
 	}
 
 	// Apply desktop.dark_mode if set
 	var darkMode bool
-	if err := cfg.UnmarshalKey("desktop.dark_mode", &darkMode); err == nil {
+	if err := cfg.Decode("desktop.dark_mode", &darkMode); err == nil {
 		if rawDconf["org/gnome/desktop/interface"] == nil {
 			rawDconf["org/gnome/desktop/interface"] = make(map[string]any)
 		}

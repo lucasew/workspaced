@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/registry"
 	"workspaced/pkg/shellgen"
@@ -40,7 +40,7 @@ func main() {
 		slog.Info("build time", "t", h.Sum(nil))
 	}
 	// Load config early to set driver weights
-	if _, err := config.Load(); err != nil {
+	if _, err := configcue.Load(); err != nil {
 		slog.Debug("failed to load config", "error", err)
 	}
 

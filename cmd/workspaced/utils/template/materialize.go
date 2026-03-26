@@ -3,7 +3,7 @@ package template
 import (
 	"fmt"
 	"path/filepath"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/deployer"
 	"workspaced/pkg/source"
 	"workspaced/pkg/template"
@@ -22,7 +22,7 @@ func init() {
 				if targetDir == "" {
 					return fmt.Errorf("--target is required")
 				}
-				cfg, err := config.LoadFiles(configPaths)
+				cfg, err := configcue.LoadFiles(configPaths)
 				if err != nil {
 					return err
 				}

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/env"
@@ -18,9 +18,20 @@ import (
 	"workspaced/pkg/types"
 )
 
+type backupConfig struct {
+	Backup struct {
+		RsyncnetUser string `json:"rsyncnet_user"`
+		RemotePath   string `json:"remote_path"`
+	} `json:"backup"`
+}
+
 func RunFullBackup(ctx context.Context) error {
-	cfg, err := config.LoadConfigForWorkspace("")
+	rawCfg, err := configcue.LoadForWorkspace("")
 	if err != nil {
+		return err
+	}
+	var cfg backupConfig
+	if err := rawCfg.Decode("", &cfg); err != nil {
 		return err
 	}
 
@@ -87,7 +98,11 @@ func RunFullBackup(ctx context.Context) error {
 }
 
 func Rsync(ctx context.Context, src, dst string, n *notification.Notification, extraArgs ...string) (string, error) {
-	cfg, _ := config.LoadConfigForWorkspace("")
+	rawCfg, _ := configcue.LoadForWorkspace("")
+	var cfg backupConfig
+	if rawCfg != nil {
+		_ = rawCfg.Decode("", &cfg)
+	}
 	remote := fmt.Sprintf("%s:%s", cfg.Backup.RsyncnetUser, dst)
 
 	logging.GetLogger(ctx).Info("rsync sync", "from", src, "to", remote)
@@ -126,7 +141,7 @@ func Rsync(ctx context.Context, src, dst string, n *notification.Notification, e
 	return lastLine, err
 }
 
-func runPhoneBackup(ctx context.Context, cfg *config.GlobalConfig, updateProgress func(string), n *notification.Notification) error {
+func runPhoneBackup(ctx context.Context, cfg backupConfig, updateProgress func(string), n *notification.Notification) error {
 	logger := logging.GetLogger(ctx)
 	// Sync Camera and Pictures
 	logger.Info("syncing media and whatsapp")
@@ -168,7 +183,7 @@ func runPhoneBackup(ctx context.Context, cfg *config.GlobalConfig, updateProgres
 	return err
 }
 
-func getRemoteStatus(ctx context.Context, cfg *config.GlobalConfig) (string, error) {
+func getRemoteStatus(ctx context.Context, cfg backupConfig) (string, error) {
 	user := cfg.Backup.RsyncnetUser
 
 	// Get quota (raw)

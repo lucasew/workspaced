@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"math/rand"
 
-	"workspaced/pkg/config"
 	"workspaced/pkg/palette/api"
 )
 
@@ -16,7 +15,7 @@ func (d *Driver) Name() string {
 	return "genetic"
 }
 
-func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options) (*config.PaletteConfig, error) {
+func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options) (*api.Palette, error) {
 	// Use deterministic RNG for reproducibility (like Stylix)
 	rng := rand.New(rand.NewSource(42))
 
@@ -91,8 +90,8 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 }
 
 // mapToPalette converts an individual to a base16/base24 palette
-func mapToPalette(ind Individual, colorCount int) *config.PaletteConfig {
-	pal := &config.PaletteConfig{}
+func mapToPalette(ind Individual, colorCount int) *api.Palette {
+	pal := &api.Palette{}
 
 	// Convert LAB colors back to hex strings
 	hexColors := make([]string, len(ind.colors))
@@ -132,7 +131,5 @@ func mapToPalette(ind Individual, colorCount int) *config.PaletteConfig {
 		pal.Base16 = hexColors[22]
 		pal.Base17 = hexColors[23]
 	}
-	// Note: If base24 fields are empty, PaletteConfig.Merge() will auto-repeat Base08-0F
-
 	return pal
 }

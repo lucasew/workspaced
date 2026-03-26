@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/api"
-	"workspaced/pkg/config"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
@@ -19,11 +19,17 @@ import (
 func SetStatic(ctx context.Context, path string) error {
 	logger := logging.GetLogger(ctx)
 	if path == "" {
-		cfg, err := config.LoadConfigForWorkspace("")
+		cfg, err := configcue.LoadForWorkspace("")
 		if err != nil {
 			return err
 		}
-		wallpaperDir := cfg.Desktop.Wallpaper.Dir
+		var wallpaper struct {
+			Dir string `json:"dir"`
+		}
+		if err := cfg.Decode("desktop.wallpaper", &wallpaper); err != nil {
+			return err
+		}
+		wallpaperDir := wallpaper.Dir
 		files, err := filepath.Glob(filepath.Join(wallpaperDir, "*"))
 		if err != nil {
 			return fmt.Errorf("error when listing wallpaper candidates: %w", err)

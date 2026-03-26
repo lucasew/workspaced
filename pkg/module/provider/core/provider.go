@@ -152,15 +152,14 @@ func (p *Provider) resolveBase16IconsLinux(ctx context.Context, req module.Resol
 }
 
 func extractBase16(req module.ResolveRequest) (map[string]any, error) {
-	raw, ok := req.Config.Modules["base16"]
-	if !ok {
+	entry, err := req.Config.ModuleEntry("base16")
+	if err != nil {
 		return nil, fmt.Errorf("module %q from core:base16-icons-linux requires modules.base16", req.ModuleName)
 	}
-	m, ok := raw.(map[string]any)
-	if !ok {
+	if entry.Config == nil {
 		return nil, fmt.Errorf("invalid modules.base16 config")
 	}
-	return m, nil
+	return entry.Config, nil
 }
 
 func moduleFingerprint(cfg base16IconsConfig, palette map[string]any) (string, error) {
