@@ -31,13 +31,25 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *config.Glob
 	if err != nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
+	sum, err := LoadSumFile(ws.SumPath())
+	if err != nil {
+		return LockResult{}, err
+	}
+	beforeSources := len(sum.Sources)
 	sourceEntries := BuildSourceLockEntries(mod)
 	if err := PopulateSourceLockHashes(ctx, mod, ws.ModulesBaseDir(), sourceEntries); err != nil {
 		return LockResult{}, err
 	}
-	if err := WriteSumFile(ws.SumPath(), &SumFile{
-		Sources: sourceEntries,
-	}); err != nil {
+	if sum.Sources == nil {
+		sum.Sources = map[string]LockedSource{}
+	}
+	for name, entry := range sourceEntries {
+		sum.Sources[name] = entry
+	}
+	if len(sum.Sources) < beforeSources {
+		return LockResult{}, fmt.Errorf("refusing to shrink source lock entries: before=%d after=%d", beforeSources, len(sum.Sources))
+	}
+	if err := WriteSumFile(ws.SumPath(), sum); err != nil {
 		return LockResult{}, err
 	}
 
