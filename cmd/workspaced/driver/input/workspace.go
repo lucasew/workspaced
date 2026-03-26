@@ -1,13 +1,14 @@
 package input
 
 import (
+	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/dialog"
 	"workspaced/pkg/driver/wm"
-
-	"workspaced/pkg/config"
 
 	"github.com/spf13/cobra"
 )
@@ -19,14 +20,22 @@ func init() {
 			Short: "Workspace switcher",
 			RunE: func(c *cobra.Command, args []string) error {
 				move, _ := c.Flags().GetBool("move")
-				cfg, err := config.LoadConfigForWorkspace("")
+				result, err := configcue.Evaluate(configcue.DiscoverOptions{
+					HomeMode: true,
+				})
 				if err != nil {
 					return err
+				}
+				var raw struct {
+					Workspaces map[string]int `json:"workspaces"`
+				}
+				if err := json.Unmarshal(result.JSON, &raw); err != nil {
+					return fmt.Errorf("failed to decode evaluated config: %w", err)
 				}
 
 				var items []dialog.Item
 				var keys []string
-				for k := range cfg.Workspaces {
+				for k := range raw.Workspaces {
 					keys = append(keys, k)
 				}
 				sort.Strings(keys)
@@ -34,7 +43,7 @@ func init() {
 				for _, k := range keys {
 					items = append(items, dialog.Item{
 						Label: k,
-						Value: strconv.Itoa(cfg.Workspaces[k]),
+						Value: strconv.Itoa(raw.Workspaces[k]),
 					})
 				}
 
