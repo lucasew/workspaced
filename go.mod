@@ -13,7 +13,7 @@ require (
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/image v0.37.0
+	golang.org/x/image v0.38.0
 	modernc.org/sqlite v1.44.3
 )
 
