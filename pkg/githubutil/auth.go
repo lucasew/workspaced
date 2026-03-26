@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 	execdriver "workspaced/pkg/driver/exec"
 )
 
@@ -28,11 +29,18 @@ func Token(ctx context.Context) string {
 			return
 		}
 
-		cmd, err := execdriver.Run(ctx, "gh", "auth", "token")
+		ghCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+
+		cmd, err := execdriver.Run(ghCtx, "gh", "auth", "token")
 		if err != nil {
 			slog.Warn("github token unavailable: failed to create gh auth token command, using anonymous requests", "error", err)
 			return
 		}
+		cmd.Env = append(os.Environ(),
+			"GH_PROMPT_DISABLED=1",
+			"GIT_TERMINAL_PROMPT=0",
+		)
 		out, err := cmd.Output()
 		if err != nil {
 			slog.Warn("github token unavailable: gh auth token failed, using anonymous requests", "error", err)
