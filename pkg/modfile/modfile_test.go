@@ -89,7 +89,7 @@ func TestResolveModuleSourceCoreRejectsVersion(t *testing.T) {
 	}
 }
 
-func TestResolveModuleSourceCoreDefaultWithoutModEntry(t *testing.T) {
+func TestResolveModuleSourceDefaultsToSelfModulePath(t *testing.T) {
 	t.Parallel()
 
 	mod := &ModFile{Sources: map[string]SourceConfig{}}
@@ -98,10 +98,10 @@ func TestResolveModuleSourceCoreDefaultWithoutModEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got.Provider != "core" {
+	if got.Provider != "self" {
 		t.Fatalf("provider mismatch: got=%q", got.Provider)
 	}
-	if got.Ref != "base16-icons-linux" {
+	if got.Ref != "/tmp/modules/icons" {
 		t.Fatalf("ref mismatch: got=%q", got.Ref)
 	}
 }

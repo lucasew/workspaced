@@ -26,10 +26,6 @@ type ResolvedModuleSource struct {
 	Version  string
 }
 
-var coreModuleDefaults = map[string]string{
-	"icons": "base16-icons-linux",
-}
-
 func LoadModFile(path string) (*ModFile, error) {
 	_ = path
 	return &ModFile{Sources: map[string]SourceConfig{}}, nil
@@ -68,11 +64,6 @@ func ModFileFromConfig(cfg *configcue.Config) (*ModFile, error) {
 
 func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {
 	spec := strings.TrimSpace(explicitFrom)
-	if spec == "" {
-		if coreRef, ok := coreModuleDefaults[moduleName]; ok {
-			spec = "core:" + coreRef
-		}
-	}
 	if spec == "" {
 		spec = "self:modules/" + moduleName
 	}
