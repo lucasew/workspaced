@@ -375,16 +375,16 @@ func resolveJobs(raw string) (int, error) {
 }
 
 func loadBase16Colors() (map[string]string, error) {
-	cfg, err := configcue.LoadForWorkspace("")
+	cfg, err := configcue.LoadHome()
 	if err != nil {
 		return nil, err
 	}
-	raw, err := cfg.Lookup("modules.base16")
+	entry, err := cfg.ModuleEntry("base16")
 	if err != nil {
 		return nil, fmt.Errorf("module base16 is not configured")
 	}
-	m, ok := raw.(map[string]any)
-	if !ok {
+	m := entry.Config
+	if m == nil {
 		return nil, fmt.Errorf("invalid modules.base16 config")
 	}
 
