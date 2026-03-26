@@ -53,6 +53,18 @@ func SetWeights(w map[string]map[string]int) error {
 			}
 		}
 	}
+	for ifaceType, providers := range Drivers {
+		ifaceName := getInterfaceName(ifaceType)
+		configured, ok := w[ifaceName]
+		if !ok {
+			return fmt.Errorf("missing driver weights for interface %q", ifaceName)
+		}
+		for id := range providers {
+			if _, ok := configured[id]; !ok {
+				return fmt.Errorf("missing driver weight for provider %q in interface %q", id, ifaceName)
+			}
+		}
+	}
 	driverWeights = w
 	return nil
 }
@@ -95,11 +107,25 @@ func getInterfaceName(t reflect.Type) string {
 	return t.String()
 }
 
-func getConfiguredWeight(weights map[string]int, driverID string) int {
-	if weight, ok := weights[driverID]; ok {
-		return weight
+func RegisteredWeightShape() map[string][]string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	shape := make(map[string][]string, len(Drivers))
+	for ifaceType, providers := range Drivers {
+		ifaceName := getInterfaceName(ifaceType)
+		ids := make([]string, 0, len(providers))
+		for id := range providers {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		shape[ifaceName] = ids
 	}
-	return 50
+	return shape
+}
+
+func getConfiguredWeight(weights map[string]int, driverID string) int {
+	return weights[driverID]
 }
 
 func Get[T any](ctx context.Context) (T, error) {
