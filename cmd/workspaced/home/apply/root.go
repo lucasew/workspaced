@@ -18,6 +18,7 @@ import (
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/source"
 	"workspaced/pkg/template"
+	"workspaced/pkg/tool"
 
 	"github.com/spf13/cobra"
 )
@@ -52,11 +53,11 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
 			ws := modfile.NewWorkspace(dotfilesRoot)
-			lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg.GlobalConfig)
+			lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg.GlobalConfig)
 			if err != nil {
-				return fmt.Errorf("failed to refresh module lockfile: %w", err)
+				return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
 			}
-			logger.Info("module lockfile refreshed", "sources", lockResult.Sources)
+			logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
 
 			home, err := os.UserHomeDir()
 			if err != nil {

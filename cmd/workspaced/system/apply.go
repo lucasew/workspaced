@@ -9,6 +9,7 @@ import (
 	"workspaced/pkg/modfile"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/nix"
+	"workspaced/pkg/tool"
 
 	"github.com/spf13/cobra"
 )
@@ -24,11 +25,11 @@ func RunApply(ctx context.Context, action string, dryRun bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	lockResult, err := modfile.GenerateLockWithConfig(ctx, modfile.NewWorkspace(dotfilesRoot), cfg.GlobalConfig)
+	lockResult, err := tool.RefreshWorkspaceLocks(ctx, modfile.NewWorkspace(dotfilesRoot), cfg.GlobalConfig)
 	if err != nil {
-		return fmt.Errorf("failed to refresh module lockfile: %w", err)
+		return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
 	}
-	logger.Info("module lockfile refreshed", "sources", lockResult.Sources)
+	logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
 
 	if !env.IsNixOS() {
 		logger.Info("not running on NixOS; skipping system apply")
