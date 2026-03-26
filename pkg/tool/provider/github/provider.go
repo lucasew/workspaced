@@ -22,6 +22,8 @@ import (
 	"workspaced/pkg/githubutil"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
+
+	"github.com/schollz/progressbar/v3"
 )
 
 func init() {
@@ -53,6 +55,7 @@ type release struct {
 
 type asset struct {
 	Name               string `json:"name"`
+	Size               int64  `json:"size"`
 	Digest             string `json:"digest"`
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
@@ -154,6 +157,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 			Arch: arch,
 			URL:  a.BrowserDownloadURL,
 			Hash: hash,
+			Size: a.Size,
 		})
 	}
 	slog.Debug("found assets", "total_assets", len(r.Assets), "matched_artifacts", len(artifacts))
@@ -174,6 +178,11 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 	if err != nil {
 		return err
 	}
+	progress := newDownloadProgressBar(filename, artifact.Size)
+	outWriter := io.Writer(outFile)
+	if progress != nil {
+		outWriter = io.MultiWriter(outFile, progress)
+	}
 
 	// Try to use fetchurl if hash is present
 	downloaded := false
@@ -191,10 +200,13 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 				URLs: []string{artifact.URL},
 				Algo: algo,
 				Hash: hash,
-				Out:  outFile,
+				Out:  outWriter,
 			}
 			if err := fetcher.Fetch(ctx, opts); err == nil {
 				downloaded = true
+				if progress != nil {
+					_ = progress.Finish()
+				}
 			} else {
 				slog.Debug("fetchurl failed, falling back", "error", err)
 			}
@@ -213,6 +225,8 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 			outFile.Close()
 			return fmt.Errorf("failed to truncate file: %w", err)
 		}
+		progress = nil
+		outWriter = io.Writer(outFile)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", artifact.URL, nil)
 		if err != nil {
@@ -240,9 +254,21 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 			return fmt.Errorf("download failed: %s", resp.Status)
 		}
 
-		if _, err := io.Copy(outFile, resp.Body); err != nil {
+		size := resp.ContentLength
+		if size <= 0 {
+			size = artifact.Size
+		}
+		progress = newDownloadProgressBar(filename, size)
+		if progress != nil {
+			outWriter = io.MultiWriter(outFile, progress)
+		}
+
+		if _, err := io.Copy(outWriter, resp.Body); err != nil {
 			outFile.Close()
 			return err
+		}
+		if progress != nil {
+			_ = progress.Finish()
 		}
 	}
 
@@ -260,6 +286,32 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 	}
 
 	return nil
+}
+
+func newDownloadProgressBar(name string, size int64) *progressbar.ProgressBar {
+	description := fmt.Sprintf("downloading %s", name)
+	if size > 0 {
+		return progressbar.NewOptions64(
+			size,
+			progressbar.OptionSetDescription(description),
+			progressbar.OptionSetWriter(os.Stderr),
+			progressbar.OptionShowBytes(true),
+			progressbar.OptionSetWidth(24),
+			progressbar.OptionThrottle(65),
+			progressbar.OptionShowCount(),
+			progressbar.OptionClearOnFinish(),
+		)
+	}
+
+	return progressbar.NewOptions64(
+		-1,
+		progressbar.OptionSetDescription(description),
+		progressbar.OptionSetWriter(os.Stderr),
+		progressbar.OptionSetWidth(24),
+		progressbar.OptionThrottle(65),
+		progressbar.OptionSpinnerType(14),
+		progressbar.OptionClearOnFinish(),
+	)
 }
 
 func parseAssetName(name string) (osName, arch string, ok bool) {
