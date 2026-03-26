@@ -295,7 +295,7 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 		if !modulecue.Exists(modulePath) {
 			continue
 		}
-		schemaText, err := modulecue.ConfigSyntax(modulePath)
+		schemaText, err := modulecue.ConfigSyntaxWithRoot(modulePath, raw)
 		if err != nil {
 			return nil, nil, err
 		}

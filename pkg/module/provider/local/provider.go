@@ -38,7 +38,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 		return nil, fmt.Errorf("workspace module %q not found at %s", req.Ref, modPath)
 	}
 
-	if err := validateConfig(req.Ref, modPath, req.ModuleConfig); err != nil {
+	if err := validateConfig(req.Ref, modPath, req.ModuleConfig, req.Config.Raw()); err != nil {
 		return nil, err
 	}
 
@@ -94,9 +94,9 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 	return out, nil
 }
 
-func validateConfig(modName string, modPath string, modCfg map[string]any) error {
+func validateConfig(modName string, modPath string, modCfg map[string]any, root map[string]any) error {
 	if !modulecue.Exists(modPath) {
 		return fmt.Errorf("module %q is missing module.cue", modName)
 	}
-	return modulecue.ValidateConfig(modPath, modCfg)
+	return modulecue.ValidateConfigWithRoot(modPath, modCfg, root)
 }
