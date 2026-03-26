@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/githubutil"
 )
 
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
@@ -21,6 +22,7 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "workspaced")
+	githubutil.ApplyAuth(ctx, req)
 	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
 		return err
