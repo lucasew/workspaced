@@ -107,8 +107,8 @@ func RunDaemon() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	slog.Info("daemon starting", "pid", os.Getpid())
 
-	// Load config to set driver weights
-	if _, err := configcue.Load(); err != nil {
+	// Load home config to set driver weights.
+	if _, err := configcue.LoadHome(); err != nil {
 		slog.Warn("failed to load config", "error", err)
 	} else {
 		slog.Info("config loaded successfully")

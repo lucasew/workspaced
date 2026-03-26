@@ -39,8 +39,8 @@ func main() {
 		}
 		slog.Info("build time", "t", h.Sum(nil))
 	}
-	// Load config early to set driver weights
-	if _, err := configcue.Load(); err != nil {
+	// Load home config early to set driver weights.
+	if _, err := configcue.LoadHome(); err != nil {
 		slog.Debug("failed to load config", "error", err)
 	}
 
