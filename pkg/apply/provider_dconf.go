@@ -21,7 +21,7 @@ func (p *DconfProvider) Name() string {
 }
 
 func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredState, error) {
-	cfg, err := configcue.Load()
+	cfg, err := configcue.LoadHome()
 	if err != nil {
 		return nil, err
 	}

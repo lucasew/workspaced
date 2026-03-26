@@ -54,7 +54,7 @@ func init() {
 			Use:   "known-node",
 			Short: "Check if current host is defined in config (by hostname or IP)",
 			RunE: func(c *cobra.Command, args []string) error {
-				cfg, err := configcue.Load()
+				cfg, err := configcue.LoadHome()
 				if err != nil {
 					return fmt.Errorf("failed to load config: %w", err)
 				}
