@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/githubutil"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 )
@@ -64,9 +65,7 @@ func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig)
 		return nil, err
 	}
 
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
+	githubutil.ApplyAuth(ctx, req)
 
 	// Use httpclient driver (handles Termux DNS/certs)
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
@@ -109,9 +108,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig,
 		return nil, err
 	}
 
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
+	githubutil.ApplyAuth(ctx, req)
 
 	// Use httpclient driver (handles Termux DNS/certs)
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
@@ -222,9 +219,7 @@ func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, dest
 			outFile.Close()
 			return err
 		}
-		if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
+		githubutil.ApplyAuth(ctx, req)
 
 		// Use httpclient driver (handles Termux DNS/certs)
 		httpClient, err := driver.Get[httpclient.Driver](ctx)

@@ -171,8 +171,8 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if err != nil {
 		return "", fmt.Errorf("failed to load workspace config: %w", err)
 	}
-	if _, err := RefreshWorkspaceLocks(ctx, ws, cfg.GlobalConfig); err != nil {
-		return "", fmt.Errorf("failed to refresh workspace lockfile: %w", err)
+	if err := ws.EnsureFiles(); err != nil {
+		return "", err
 	}
 
 	toolCfg, ok := cfg.LazyTools[toolName]
