@@ -97,7 +97,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	args := append([]string{"-f", "json"}, files...)
 
 	// Use tool.EnsureAndRun to execute shellcheck.
-	cmd, err := tool.EnsureAndRun(ctx, "github:koalaman/shellcheck@v0.10.0", "shellcheck", args...)
+	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "shellcheck", "shellcheck", args...)
 	if err != nil {
 		slog.Error("failed to setup shellcheck", "err", err)
 		return nil, err

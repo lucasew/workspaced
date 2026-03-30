@@ -35,7 +35,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {
-	cmd, err := tool.EnsureAndRun(ctx, "github:astral-sh/ruff@0.6.2", "ruff", "format", ".")
+	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "ruff", "ruff", "format", ".")
 	if err != nil {
 		return err
 	}

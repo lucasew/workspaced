@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -23,16 +24,22 @@ type lazyToolConfig struct {
 }
 
 func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, error) {
-	currentWS, currentErr := selectLazyToolWorkspace(ctx, false)
+	return ResolveLazyToolAt(ctx, "", toolName, binName)
+}
+
+func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (string, error) {
+	logger := logging.GetLogger(ctx)
+	currentWS, currentErr := selectLazyToolWorkspaceFrom(ctx, false, wd)
 	if currentErr == nil {
 		binPath, err := resolveLazyToolInWorkspace(ctx, currentWS, toolName, binName)
 		if err == nil {
 			return binPath, nil
 		}
+		logger.Debug("lazy tool resolution in current workspace failed; trying home workspace", "tool", toolName, "workspace", workspaceRootOrEmpty(currentWS), "error", err)
 		currentErr = err
 	}
 
-	homeWS, homeErr := selectLazyToolWorkspace(ctx, true)
+	homeWS, homeErr := selectLazyToolWorkspaceFrom(ctx, true, wd)
 	if homeErr != nil {
 		if currentErr != nil {
 			return "", currentErr
@@ -42,11 +49,12 @@ func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, err
 	if workspaceRootOrEmpty(currentWS) == workspaceRootOrEmpty(homeWS) {
 		return "", currentErr
 	}
+	logger.Debug("resolving lazy tool in home workspace fallback", "tool", toolName, "workspace", workspaceRootOrEmpty(homeWS))
 	return resolveLazyToolInWorkspace(ctx, homeWS, toolName, binName)
 }
 
 func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string, error) {
-	ws, err := selectLazyToolWorkspace(ctx, true)
+	ws, err := selectLazyToolWorkspaceFrom(ctx, true, "")
 	if err != nil {
 		return "", err
 	}
@@ -101,11 +109,15 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 
 		version := spec.Version
 		if version == "" || version == "latest" {
-			logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-			version, err = mgr.ResolveLatestVersion(ctx, spec)
-			if err != nil {
-				logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-				continue
+			if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
+				version = installed[0]
+			} else {
+				logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+				version, err = mgr.ResolveLatestVersion(ctx, spec)
+				if err != nil {
+					logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
+					continue
+				}
 			}
 		}
 
@@ -157,6 +169,10 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 }
 
 func selectLazyToolWorkspace(ctx context.Context, homeMode bool) (*modfile.Workspace, error) {
+	return selectLazyToolWorkspaceFrom(ctx, homeMode, "")
+}
+
+func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) (*modfile.Workspace, error) {
 	if homeMode {
 		dotfilesRoot, err := env.GetDotfilesRoot()
 		if err != nil {
@@ -165,7 +181,10 @@ func selectLazyToolWorkspace(ctx context.Context, homeMode bool) (*modfile.Works
 		return modfile.NewWorkspace(dotfilesRoot), nil
 	}
 
-	cwd, _ := os.Getwd()
+	cwd := strings.TrimSpace(wd)
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
 	return modfile.DetectWorkspace(ctx, cwd)
 }
 
@@ -180,6 +199,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if ws == nil {
 		return "", fmt.Errorf("workspace is nil")
 	}
+	logger := logging.GetLogger(ctx)
 
 	cfg, err := configcue.LoadForWorkspace(ws.Root)
 	if err != nil {
@@ -191,7 +211,17 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 
 	toolName, toolCfg, ok := findLazyTool(cfg, toolName)
 	if !ok {
-		return "", fmt.Errorf("lazy tool %q not found in config", toolName)
+		// Allow codebase workspaces to reuse home lazy_tools while keeping lockfile local.
+		if homeCfg, homeErr := configcue.LoadHome(); homeErr == nil {
+			if homeToolName, homeToolCfg, homeOK := findLazyTool(homeCfg, toolName); homeOK {
+				toolName = homeToolName
+				toolCfg = homeToolCfg
+				ok = true
+			}
+		}
+	}
+	if !ok {
+		return "", fmt.Errorf("lazy tool %q not found in workspace or home config", toolName)
 	}
 
 	spec, lockRef, err := lazyToolSpec(toolName, toolCfg)
@@ -203,6 +233,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if err != nil {
 		return "", err
 	}
+	logger.Debug("resolving lazy tool", "tool", toolName, "workspace", ws.Root, "lockfile", ws.SumPath())
 
 	if locked, ok := sum.Tools[toolName]; ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 		spec.Version = strings.TrimSpace(locked.Version)
@@ -214,14 +245,19 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 
 	if spec.Version == "" || spec.Version == "latest" {
-		version, err := mgr.ResolveLatestVersion(ctx, spec)
-		if err != nil {
-			return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
+		if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
+			spec.Version = installed[0]
+		} else {
+			version, err := mgr.ResolveLatestVersion(ctx, spec)
+			if err != nil {
+				return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
+			}
+			spec.Version = version
 		}
-		spec.Version = version
 	}
 
 	if current := sum.Tools[toolName]; current.Ref != lockRef || current.Version != spec.Version {
+		logger.Debug("updating lazy tool lock entry", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 		sum.Tools[toolName] = modfile.LockedTool{
 			Ref:     lockRef,
 			Version: spec.Version,
@@ -229,6 +265,8 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		if err := modfile.WriteSumFile(ws.SumPath(), sum); err != nil {
 			return "", fmt.Errorf("failed to update tool lock: %w", err)
 		}
+	} else {
+		logger.Log(ctx, slog.LevelDebug, "lazy tool lock already up to date", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	}
 
 	return mgr.EnsureInstalled(ctx, spec.String(), binName)

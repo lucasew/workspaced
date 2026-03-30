@@ -38,7 +38,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 func (p *Provider) Format(ctx context.Context, dir string) error {
 	// Use tool.EnsureAndRun to execute biome.
 	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRun(ctx, "github:biomejs/biome@@biomejs/biome@2.4.3", "biome", "format", "--write", ".")
+	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "biome", "biome", "format", "--write", ".")
 	if err != nil {
 		return err
 	}

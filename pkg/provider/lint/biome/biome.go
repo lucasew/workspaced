@@ -42,7 +42,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute biome.
 	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRun(ctx, "github:biomejs/biome@@biomejs/biome@2.4.3", "biome", "lint", "--reporter=sarif", ".")
+	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "biome", "biome", "lint", "--reporter=sarif", ".")
 	if err != nil {
 		slog.Error("failed to setup biome", "err", err)
 		return nil, err

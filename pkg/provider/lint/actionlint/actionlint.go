@@ -62,7 +62,7 @@ type Issue struct {
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute actionlint.
 	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRun(ctx, "github:rhysd/actionlint@v1.7.11", "actionlint", "-format", "{{json .}}")
+	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "actionlint", "actionlint", "-format", "{{json .}}")
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup actionlint: %w", err)
 	}

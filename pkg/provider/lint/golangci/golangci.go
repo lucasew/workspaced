@@ -41,7 +41,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// AGENTS: The flags are right, don't touch it
-	cmd, err := tool.EnsureAndRun(ctx, "github:golangci/golangci-lint@latest", "golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
+	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "golangci_lint", "golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
 	if err != nil {
 		slog.Error("failed to setup golangci-lint", "err", err)
 		return nil, err
