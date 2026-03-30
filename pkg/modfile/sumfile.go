@@ -11,6 +11,7 @@ type LockedSource struct {
 	Provider string `json:"provider"`
 	Path     string `json:"path"`
 	Repo     string `json:"repo"`
+	Ref      string `json:"ref,omitempty"`
 	URL      string `json:"url"`
 	Hash     string `json:"hash"`
 }
@@ -20,9 +21,35 @@ type LockedTool struct {
 	Version string `json:"version"`
 }
 
+type RenovateDependency struct {
+	Kind string `json:"kind,omitempty"`
+	Name string `json:"name,omitempty"`
+
+	Provider string `json:"provider,omitempty"`
+	Ref      string `json:"ref,omitempty"`
+	Version  string `json:"version,omitempty"`
+	Path     string `json:"path,omitempty"`
+	Repo     string `json:"repo,omitempty"`
+	URL      string `json:"url,omitempty"`
+	Hash     string `json:"hash,omitempty"`
+
+	DepName      string `json:"depName"`
+	CurrentValue string `json:"currentValue"`
+	Datasource   string `json:"datasource"`
+	PackageName  string `json:"packageName,omitempty"`
+	Versioning   string `json:"versioning,omitempty"`
+}
+
 type SumFile struct {
-	Sources map[string]LockedSource `json:"sources"`
-	Tools   map[string]LockedTool   `json:"tools"`
+	Sources      map[string]LockedSource `json:"-"`
+	Tools        map[string]LockedTool   `json:"-"`
+	Dependencies []RenovateDependency    `json:"dependencies,omitempty"`
+}
+
+type sumFileDisk struct {
+	Dependencies []RenovateDependency    `json:"dependencies,omitempty"`
+	Sources      map[string]LockedSource `json:"sources,omitempty"` // backward-compat read only
+	Tools        map[string]LockedTool   `json:"tools,omitempty"`   // backward-compat read only
 }
 
 func LoadSumFile(path string) (*SumFile, error) {
@@ -37,39 +64,121 @@ func LoadSumFile(path string) (*SumFile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
-	if err := json.Unmarshal(data, out); err != nil {
+	var disk sumFileDisk
+	if err := json.Unmarshal(data, &disk); err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
 	}
-	if out.Sources == nil {
-		out.Sources = map[string]LockedSource{}
+
+	// Preferred format: dependencies-only.
+	if len(disk.Dependencies) > 0 {
+		out.Dependencies = disk.Dependencies
+		if err := normalizeDependencies(out.Dependencies); err != nil {
+			return nil, err
+		}
+		rebuildLocksFromDependencies(out)
+		return out, nil
 	}
-	if out.Tools == nil {
-		out.Tools = map[string]LockedTool{}
+
+	// Backward compatibility for old lockfiles.
+	if disk.Sources != nil {
+		out.Sources = disk.Sources
 	}
-	for name, lock := range out.Sources {
+	if disk.Tools != nil {
+		out.Tools = disk.Tools
+	}
+	if err := normalizeSources(out.Sources); err != nil {
+		return nil, err
+	}
+	if err := normalizeTools(out.Tools); err != nil {
+		return nil, err
+	}
+	out.Dependencies = BuildRenovateDependencies(out)
+	return out, nil
+}
+
+func normalizeDependencies(deps []RenovateDependency) error {
+	for i, dep := range deps {
+		dep.Kind = strings.TrimSpace(dep.Kind)
+		dep.Name = strings.TrimSpace(dep.Name)
+		dep.Provider = strings.TrimSpace(dep.Provider)
+		dep.Ref = strings.TrimSpace(dep.Ref)
+		dep.Version = strings.TrimSpace(dep.Version)
+		dep.Path = strings.TrimSpace(dep.Path)
+		dep.Repo = strings.TrimSpace(dep.Repo)
+		dep.URL = strings.TrimSpace(dep.URL)
+		dep.Hash = strings.TrimSpace(dep.Hash)
+		dep.DepName = strings.TrimSpace(dep.DepName)
+		dep.CurrentValue = strings.TrimSpace(dep.CurrentValue)
+		dep.Datasource = strings.TrimSpace(dep.Datasource)
+		dep.PackageName = strings.TrimSpace(dep.PackageName)
+		dep.Versioning = strings.TrimSpace(dep.Versioning)
+		if dep.DepName == "" || dep.CurrentValue == "" || dep.Datasource == "" {
+			return fmt.Errorf("invalid dependency entry at index %d: depName/currentValue/datasource are required", i)
+		}
+		deps[i] = dep
+	}
+	return nil
+}
+
+func normalizeSources(sources map[string]LockedSource) error {
+	for name, lock := range sources {
 		lock.Provider = strings.TrimSpace(lock.Provider)
 		lock.Path = strings.TrimSpace(lock.Path)
 		lock.Repo = strings.TrimSpace(lock.Repo)
+		lock.Ref = strings.TrimSpace(lock.Ref)
 		lock.URL = strings.TrimSpace(lock.URL)
 		lock.Hash = strings.TrimSpace(lock.Hash)
 		if lock.Provider == "" {
-			return nil, fmt.Errorf("invalid lock entry for source %q: provider is required", name)
+			return fmt.Errorf("invalid lock entry for source %q: provider is required", name)
 		}
 		if lock.Hash == "" {
-			return nil, fmt.Errorf("invalid lock entry for source %q: hash is required", name)
+			return fmt.Errorf("invalid lock entry for source %q: hash is required", name)
 		}
-		out.Sources[name] = lock
+		sources[name] = lock
 	}
-	for name, lock := range out.Tools {
+	return nil
+}
+
+func normalizeTools(tools map[string]LockedTool) error {
+	for name, lock := range tools {
 		lock.Ref = strings.TrimSpace(lock.Ref)
 		lock.Version = strings.TrimSpace(lock.Version)
 		if lock.Ref == "" {
-			return nil, fmt.Errorf("invalid lock entry for tool %q: ref is required", name)
+			return fmt.Errorf("invalid lock entry for tool %q: ref is required", name)
 		}
 		if lock.Version == "" {
-			return nil, fmt.Errorf("invalid lock entry for tool %q: version is required", name)
+			return fmt.Errorf("invalid lock entry for tool %q: version is required", name)
 		}
-		out.Tools[name] = lock
+		tools[name] = lock
 	}
-	return out, nil
+	return nil
+}
+
+func rebuildLocksFromDependencies(sum *SumFile) {
+	sum.Sources = map[string]LockedSource{}
+	sum.Tools = map[string]LockedTool{}
+	for _, dep := range sum.Dependencies {
+		switch dep.Kind {
+		case "source":
+			if dep.Name == "" || dep.Provider == "" || dep.Hash == "" {
+				continue
+			}
+			sum.Sources[dep.Name] = LockedSource{
+				Provider: dep.Provider,
+				Path:     dep.Path,
+				Repo:     dep.Repo,
+				Ref:      dep.Ref,
+				URL:      dep.URL,
+				Hash:     dep.Hash,
+			}
+		case "tool":
+			if dep.Name == "" || dep.Ref == "" || dep.Version == "" {
+				continue
+			}
+			sum.Tools[dep.Name] = LockedTool{
+				Ref:     dep.Ref,
+				Version: dep.Version,
+			}
+		}
+	}
 }

@@ -36,6 +36,7 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 			Provider: provider,
 			Path:     strings.TrimSpace(src.Path),
 			Repo:     strings.TrimSpace(src.Repo),
+			Ref:      strings.TrimSpace(src.Ref),
 			URL:      strings.TrimSpace(src.URL),
 		}
 	}
@@ -52,6 +53,11 @@ func WriteSumFile(path string, sum *SumFile) error {
 	if sum.Tools == nil {
 		sum.Tools = map[string]LockedTool{}
 	}
+	generated := BuildRenovateDependencies(sum)
+	sum.Dependencies = MergeRenovateDependencies(sum.Dependencies, generated)
+	onDisk := sumFileDisk{
+		Dependencies: sum.Dependencies,
+	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -65,7 +71,7 @@ func WriteSumFile(path string, sum *SumFile) error {
 
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(sum); err != nil {
+	if err := enc.Encode(onDisk); err != nil {
 		_ = f.Close()
 		return err
 	}
