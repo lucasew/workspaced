@@ -120,6 +120,23 @@ func ExportCUE(opts DiscoverOptions) ([]byte, error) {
 	return formatWorkspacedValue(configValue, paths, discovered.Layers)
 }
 
+func ExportDef(opts DiscoverOptions) ([]byte, error) {
+	discovered, err := DiscoverLayers(opts)
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(discovered.Layers))
+	for _, layer := range discovered.Layers {
+		paths = append(paths, layer.Path)
+	}
+
+	configValue, err := buildWorkspacedValue(paths, discovered.Layers)
+	if err != nil {
+		return nil, err
+	}
+	return formatWorkspacedDef(configValue, paths, discovered.Layers)
+}
+
 func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
 	discovered, err := DiscoverLayers(opts)
 	if err != nil {
@@ -604,6 +621,31 @@ func formatWorkspacedValue(configValue cue.Value, paths []string, discovered []L
 	out, err := format.Node(n, format.Simplify())
 	if err != nil {
 		return nil, fmt.Errorf("format cue config: %w", err)
+	}
+	return append(out, '\n'), nil
+}
+
+func formatWorkspacedDef(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+	if !configValue.Exists() {
+		if len(discovered) > 0 {
+			slog.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "layers", discovered)
+		} else if len(paths) > 0 {
+			slog.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "paths", paths)
+		}
+		return []byte("{}\n"), nil
+	}
+
+	n := configValue.Syntax(
+		cue.Concrete(false),
+		cue.Definitions(true),
+		cue.Hidden(false),
+		cue.Optional(true),
+		cue.Attributes(true),
+		cue.Docs(true),
+	)
+	out, err := format.Node(n, format.Simplify())
+	if err != nil {
+		return nil, fmt.Errorf("format cue def: %w", err)
 	}
 	return append(out, '\n'), nil
 }
