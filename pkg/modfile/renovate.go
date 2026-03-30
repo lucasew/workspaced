@@ -24,6 +24,9 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 			URL:      strings.TrimSpace(src.URL),
 			Hash:     strings.TrimSpace(src.Hash),
 		}
+		// Always persist lock state for sources. Renovate fields are optional.
+		deps = append(deps, dep)
+
 		switch strings.TrimSpace(src.Provider) {
 		case "github":
 			depName := strings.TrimSpace(src.Repo)
@@ -43,7 +46,7 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 			dep.DepName = depName
 			dep.CurrentValue = currentValue
 			dep.Datasource = "github-tags"
-			deps = append(deps, dep)
+			deps[len(deps)-1] = dep
 		}
 	}
 	for name, tool := range sum.Tools {
@@ -61,9 +64,12 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 
 		spec, err := parsespec.Parse(ref)
 		if err != nil {
+			deps = append(deps, dep)
 			continue
 		}
 		dep.Provider = strings.TrimSpace(spec.Provider)
+		// Always persist lock state for tools. Renovate fields are optional.
+		deps = append(deps, dep)
 
 		// Keep support strict to proven mappings so Renovate can update safely.
 		switch strings.TrimSpace(spec.Provider) {
@@ -71,7 +77,7 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 			dep.DepName = strings.TrimSpace(spec.Package)
 			dep.CurrentValue = version
 			dep.Datasource = "github-releases"
-			deps = append(deps, dep)
+			deps[len(deps)-1] = dep
 		}
 	}
 

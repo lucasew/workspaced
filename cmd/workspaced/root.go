@@ -15,6 +15,7 @@ import (
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/registry"
 	"workspaced/pkg/shellgen"
+	_ "workspaced/pkg/tool/prelude"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"

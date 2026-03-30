@@ -31,25 +31,24 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 	if err != nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
-	sum, err := LoadSumFile(ws.SumPath())
-	if err != nil {
-		return LockResult{}, err
-	}
-	beforeSources := len(sum.Sources)
 	sourceEntries := BuildSourceLockEntries(mod)
 	if err := PopulateSourceLockHashes(ctx, mod, ws.ModulesBaseDir(), sourceEntries); err != nil {
 		return LockResult{}, err
 	}
-	if sum.Sources == nil {
-		sum.Sources = map[string]LockedSource{}
-	}
-	for name, entry := range sourceEntries {
-		sum.Sources[name] = entry
-	}
-	if len(sum.Sources) < beforeSources {
-		return LockResult{}, fmt.Errorf("refusing to shrink source lock entries: before=%d after=%d", beforeSources, len(sum.Sources))
-	}
-	if err := WriteSumFile(ws.SumPath(), sum); err != nil {
+	_, err = UpdateSumFile(ws.SumPath(), func(sum *SumFile) (bool, error) {
+		beforeSources := len(sum.Sources)
+		changed := false
+		for name, entry := range sourceEntries {
+			if sum.UpsertSource(name, entry) {
+				changed = true
+			}
+		}
+		if len(sum.Sources) < beforeSources {
+			return false, fmt.Errorf("refusing to shrink source lock entries: before=%d after=%d", beforeSources, len(sum.Sources))
+		}
+		return changed, nil
+	})
+	if err != nil {
 		return LockResult{}, err
 	}
 

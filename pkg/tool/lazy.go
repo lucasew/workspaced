@@ -3,12 +3,13 @@ package tool
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/env"
+	"workspaced/pkg/git"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
@@ -72,12 +73,6 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		return 0, err
 	}
 
-	sum, err := modfile.LoadSumFile(ws.SumPath())
-	if err != nil {
-		return 0, err
-	}
-	beforeTools := len(sum.Tools)
-
 	lazyTools := map[string]lazyToolConfig{}
 	if err := cfg.Decode("lazy_tools", &lazyTools); err != nil {
 		return 0, err
@@ -103,10 +98,6 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			return 0, fmt.Errorf("lazy tool %q: %w", name, err)
 		}
 
-		if locked, ok := sum.Tools[name]; ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
-			continue
-		}
-
 		version := spec.Version
 		if version == "" || version == "latest" {
 			if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
@@ -121,21 +112,19 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			}
 		}
 
-		if current := sum.Tools[name]; current.Ref != lockRef || current.Version != version {
+		changed, err := modfile.UpdateSumFile(ws.SumPath(), func(sum *modfile.SumFile) (bool, error) {
+			return sum.UpsertTool(name, modfile.LockedTool{
+				Ref:     lockRef,
+				Version: version,
+			}), nil
+		})
+		if err != nil {
+			return 0, err
+		}
+		if changed {
 			logger.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
-			sum.Tools[name] = modfile.LockedTool{Ref: lockRef, Version: version}
 			updated++
 		}
-	}
-
-	if updated == 0 {
-		return 0, nil
-	}
-	if len(sum.Tools) < beforeTools {
-		return 0, fmt.Errorf("refusing to shrink tool lock entries: before=%d after=%d", beforeTools, len(sum.Tools))
-	}
-	if err := modfile.WriteSumFile(ws.SumPath(), sum); err != nil {
-		return 0, err
 	}
 	return updated, nil
 }
@@ -184,8 +173,18 @@ func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) 
 	cwd := strings.TrimSpace(wd)
 	if cwd == "" {
 		cwd, _ = os.Getwd()
+		return modfile.DetectWorkspace(ctx, cwd)
 	}
-	return modfile.DetectWorkspace(ctx, cwd)
+
+	if abs, err := filepath.Abs(cwd); err == nil {
+		cwd = abs
+	}
+	if root, err := git.GetRoot(ctx, cwd); err == nil && root != "" {
+		return modfile.NewWorkspace(root), nil
+	}
+	// For explicit target directories (e.g. codebase lint path), keep lockfile local
+	// even when the directory is not inside a git repository.
+	return modfile.NewWorkspace(cwd), nil
 }
 
 func workspaceRootOrEmpty(ws *modfile.Workspace) string {
@@ -256,17 +255,17 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		}
 	}
 
-	if current := sum.Tools[toolName]; current.Ref != lockRef || current.Version != spec.Version {
-		logger.Debug("updating lazy tool lock entry", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
-		sum.Tools[toolName] = modfile.LockedTool{
+	if changed, err := modfile.UpdateSumFile(ws.SumPath(), func(sum *modfile.SumFile) (bool, error) {
+		return sum.UpsertTool(toolName, modfile.LockedTool{
 			Ref:     lockRef,
 			Version: spec.Version,
-		}
-		if err := modfile.WriteSumFile(ws.SumPath(), sum); err != nil {
-			return "", fmt.Errorf("failed to update tool lock: %w", err)
-		}
+		}), nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to update tool lock: %w", err)
+	} else if changed {
+		logger.Debug("updating lazy tool lock entry", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	} else {
-		logger.Log(ctx, slog.LevelDebug, "lazy tool lock already up to date", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
+		logger.Debug("lazy tool lock already up to date", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	}
 
 	return mgr.EnsureInstalled(ctx, spec.String(), binName)

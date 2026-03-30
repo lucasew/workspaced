@@ -33,9 +33,9 @@ type RenovateDependency struct {
 	URL      string `json:"url,omitempty"`
 	Hash     string `json:"hash,omitempty"`
 
-	DepName      string `json:"depName"`
-	CurrentValue string `json:"currentValue"`
-	Datasource   string `json:"datasource"`
+	DepName      string `json:"depName,omitempty"`
+	CurrentValue string `json:"currentValue,omitempty"`
+	Datasource   string `json:"datasource,omitempty"`
 	PackageName  string `json:"packageName,omitempty"`
 	Versioning   string `json:"versioning,omitempty"`
 }
@@ -112,9 +112,6 @@ func normalizeDependencies(deps []RenovateDependency) error {
 		dep.Datasource = strings.TrimSpace(dep.Datasource)
 		dep.PackageName = strings.TrimSpace(dep.PackageName)
 		dep.Versioning = strings.TrimSpace(dep.Versioning)
-		if dep.DepName == "" || dep.CurrentValue == "" || dep.Datasource == "" {
-			return fmt.Errorf("invalid dependency entry at index %d: depName/currentValue/datasource are required", i)
-		}
 		switch dep.Kind {
 		case "source":
 			if dep.Ref == "" {
