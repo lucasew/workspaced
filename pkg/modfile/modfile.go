@@ -90,6 +90,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	if !ok {
 		return ResolvedModuleSource{}, fmt.Errorf("unknown source alias %q for module %q", left, moduleName)
 	}
+	src = applySourceLockOverlay(left, src, sumFile)
 	if err := validateSourceLock(left, src, sumFile); err != nil {
 		return ResolvedModuleSource{}, err
 	}
@@ -121,6 +122,9 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 			return ResolvedModuleSource{}, fmt.Errorf("source alias %q (github) requires repo", left)
 		}
 		ref, version := splitRefAndVersion(right)
+		if version == "" {
+			version = strings.TrimSpace(src.Ref)
+		}
 		path := strings.Trim(strings.TrimSpace(ref), "/")
 		fullRef := repo
 		if path != "" {
@@ -185,6 +189,23 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 		return fmt.Errorf("source %q lock mismatch: run `workspaced mod lock`", alias)
 	}
 	return nil
+}
+
+func applySourceLockOverlay(alias string, src SourceConfig, sumFile *SumFile) SourceConfig {
+	if sumFile == nil {
+		return src
+	}
+	lock, ok := sumFile.Sources[alias]
+	if !ok {
+		return src
+	}
+	if strings.TrimSpace(src.Ref) == "" && strings.TrimSpace(lock.Ref) != "" {
+		src.Ref = strings.TrimSpace(lock.Ref)
+	}
+	if strings.TrimSpace(src.URL) == "" && strings.TrimSpace(lock.URL) != "" {
+		src.URL = strings.TrimSpace(lock.URL)
+	}
+	return src
 }
 
 func normalizeGitHubRepo(in string) string {

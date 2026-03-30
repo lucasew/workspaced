@@ -103,6 +103,23 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 	return result.JSON, nil
 }
 
+func ExportCUE(opts DiscoverOptions) ([]byte, error) {
+	discovered, err := DiscoverLayers(opts)
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(discovered.Layers))
+	for _, layer := range discovered.Layers {
+		paths = append(paths, layer.Path)
+	}
+
+	configValue, err := buildWorkspacedValue(paths, discovered.Layers)
+	if err != nil {
+		return nil, err
+	}
+	return formatWorkspacedValue(configValue, paths, discovered.Layers)
+}
+
 func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
 	discovered, err := DiscoverLayers(opts)
 	if err != nil {
@@ -127,36 +144,44 @@ func ExportJSONFromPaths(paths []string) ([]byte, error) {
 }
 
 func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
-	baseRuntimePrelude, err := buildRuntimePrelude(nil)
-	if err != nil {
-		return nil, err
-	}
-	ctx := cuecontext.New()
-	initialValue, err := compileWorkspacedValueWithContext(ctx, paths, baseRuntimePrelude, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	resolvedInputs, err := resolveRuntimeInputs(initialValue, paths, discovered)
-	if err != nil {
-		return nil, err
-	}
-	runtimePrelude, err := buildRuntimePrelude(resolvedInputs)
-	if err != nil {
-		return nil, err
-	}
-	baseConfigValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	preLayers, postLayers, err := buildResolvedModuleLayers(baseConfigValue, paths, discovered)
-	if err != nil {
-		return nil, err
-	}
-	configValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, preLayers, postLayers)
+	configValue, err := buildWorkspacedValue(paths, discovered)
 	if err != nil {
 		return nil, err
 	}
 	return marshalWorkspacedValue(configValue, paths, discovered)
+}
+
+func buildWorkspacedValue(paths []string, discovered []Layer) (cue.Value, error) {
+	baseRuntimePrelude, err := buildRuntimePrelude(nil)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	ctx := cuecontext.New()
+	initialValue, err := compileWorkspacedValueWithContext(ctx, paths, baseRuntimePrelude, nil, nil)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	resolvedInputs, err := resolveRuntimeInputs(initialValue, paths, discovered)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	runtimePrelude, err := buildRuntimePrelude(resolvedInputs)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	baseConfigValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, nil, nil)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	preLayers, postLayers, err := buildResolvedModuleLayers(baseConfigValue, paths, discovered)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	configValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, preLayers, postLayers)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	return configValue, nil
 }
 
 func compileWorkspacedValue(paths []string, runtimePrelude string) (cue.Value, error) {
@@ -555,6 +580,32 @@ func marshalWorkspacedValue(configValue cue.Value, paths []string, discovered []
 		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "paths", paths)
 	}
 	return b, nil
+}
+
+func formatWorkspacedValue(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+	if !configValue.Exists() {
+		if len(discovered) > 0 {
+			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
+		} else if len(paths) > 0 {
+			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
+		}
+		return []byte("{}\n"), nil
+	}
+
+	n := configValue.Syntax(
+		cue.Concrete(false),
+		cue.Final(),
+		cue.Definitions(false),
+		cue.Hidden(false),
+		cue.Optional(false),
+		cue.Attributes(false),
+		cue.Docs(false),
+	)
+	out, err := format.Node(n, format.Simplify())
+	if err != nil {
+		return nil, fmt.Errorf("format cue config: %w", err)
+	}
+	return append(out, '\n'), nil
 }
 
 func findUp(start string, name string) (string, error) {

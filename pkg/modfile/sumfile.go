@@ -115,6 +115,16 @@ func normalizeDependencies(deps []RenovateDependency) error {
 		if dep.DepName == "" || dep.CurrentValue == "" || dep.Datasource == "" {
 			return fmt.Errorf("invalid dependency entry at index %d: depName/currentValue/datasource are required", i)
 		}
+		switch dep.Kind {
+		case "source":
+			if dep.Ref == "" {
+				dep.Ref = dep.CurrentValue
+			}
+		case "tool":
+			if dep.Version == "" {
+				dep.Version = dep.CurrentValue
+			}
+		}
 		deps[i] = dep
 	}
 	return nil
@@ -163,21 +173,32 @@ func rebuildLocksFromDependencies(sum *SumFile) {
 			if dep.Name == "" || dep.Provider == "" || dep.Hash == "" {
 				continue
 			}
+			ref := dep.Ref
+			if dep.CurrentValue != "" {
+				ref = dep.CurrentValue
+			}
 			sum.Sources[dep.Name] = LockedSource{
 				Provider: dep.Provider,
 				Path:     dep.Path,
 				Repo:     dep.Repo,
-				Ref:      dep.Ref,
+				Ref:      ref,
 				URL:      dep.URL,
 				Hash:     dep.Hash,
 			}
 		case "tool":
-			if dep.Name == "" || dep.Ref == "" || dep.Version == "" {
+			if dep.Name == "" || dep.Ref == "" {
+				continue
+			}
+			version := dep.Version
+			if dep.CurrentValue != "" {
+				version = dep.CurrentValue
+			}
+			if version == "" {
 				continue
 			}
 			sum.Tools[dep.Name] = LockedTool{
 				Ref:     dep.Ref,
-				Version: dep.Version,
+				Version: version,
 			}
 		}
 	}
