@@ -41,9 +41,7 @@ type RenovateDependency struct {
 }
 
 type SumFile struct {
-	Sources      map[string]LockedSource `json:"-"`
-	Tools        map[string]LockedTool   `json:"-"`
-	Dependencies []RenovateDependency    `json:"dependencies,omitempty"`
+	Dependencies []RenovateDependency `json:"dependencies,omitempty"`
 }
 
 type sumFileDisk struct {
@@ -53,10 +51,7 @@ type sumFileDisk struct {
 }
 
 func LoadSumFile(path string) (*SumFile, error) {
-	out := &SumFile{
-		Sources: map[string]LockedSource{},
-		Tools:   map[string]LockedTool{},
-	}
+	out := &SumFile{}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return out, nil
 	}
@@ -75,24 +70,17 @@ func LoadSumFile(path string) (*SumFile, error) {
 		if err := normalizeDependencies(out.Dependencies); err != nil {
 			return nil, err
 		}
-		rebuildLocksFromDependencies(out)
 		return out, nil
 	}
 
 	// Backward compatibility for old lockfiles.
-	if disk.Sources != nil {
-		out.Sources = disk.Sources
-	}
-	if disk.Tools != nil {
-		out.Tools = disk.Tools
-	}
-	if err := normalizeSources(out.Sources); err != nil {
+	if err := normalizeSources(disk.Sources); err != nil {
 		return nil, err
 	}
-	if err := normalizeTools(out.Tools); err != nil {
+	if err := normalizeTools(disk.Tools); err != nil {
 		return nil, err
 	}
-	out.Dependencies = BuildRenovateDependencies(out)
+	out.Dependencies = BuildRenovateDependenciesFromLocks(disk.Sources, disk.Tools)
 	return out, nil
 }
 
@@ -161,9 +149,11 @@ func normalizeTools(tools map[string]LockedTool) error {
 	return nil
 }
 
-func rebuildLocksFromDependencies(sum *SumFile) {
-	sum.Sources = map[string]LockedSource{}
-	sum.Tools = map[string]LockedTool{}
+func rebuildSourceLocksFromDependencies(sum *SumFile) map[string]LockedSource {
+	out := map[string]LockedSource{}
+	if sum == nil {
+		return out
+	}
 	for _, dep := range sum.Dependencies {
 		switch dep.Kind {
 		case "source":
@@ -174,7 +164,7 @@ func rebuildLocksFromDependencies(sum *SumFile) {
 			if dep.CurrentValue != "" {
 				ref = dep.CurrentValue
 			}
-			sum.Sources[dep.Name] = LockedSource{
+			out[dep.Name] = LockedSource{
 				Provider: dep.Provider,
 				Path:     dep.Path,
 				Repo:     dep.Repo,
@@ -182,21 +172,49 @@ func rebuildLocksFromDependencies(sum *SumFile) {
 				URL:      dep.URL,
 				Hash:     dep.Hash,
 			}
-		case "tool":
-			if dep.Name == "" || dep.Ref == "" {
-				continue
-			}
-			version := dep.Version
-			if dep.CurrentValue != "" {
-				version = dep.CurrentValue
-			}
-			if version == "" {
-				continue
-			}
-			sum.Tools[dep.Name] = LockedTool{
-				Ref:     dep.Ref,
-				Version: version,
-			}
 		}
 	}
+	return out
+}
+
+func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
+	out := map[string]LockedTool{}
+	if sum == nil {
+		return out
+	}
+	for _, dep := range sum.Dependencies {
+		if dep.Kind != "tool" || dep.Name == "" || dep.Ref == "" {
+			continue
+		}
+		version := dep.Version
+		if dep.CurrentValue != "" {
+			version = dep.CurrentValue
+		}
+		if version == "" {
+			continue
+		}
+		out[dep.Name] = LockedTool{
+			Ref:     dep.Ref,
+			Version: version,
+		}
+	}
+	return out
+}
+
+func (s *SumFile) SourceLocks() map[string]LockedSource {
+	return rebuildSourceLocksFromDependencies(s)
+}
+
+func (s *SumFile) ToolLocks() map[string]LockedTool {
+	return rebuildToolLocksFromDependencies(s)
+}
+
+func (s *SumFile) FindSource(name string) (LockedSource, bool) {
+	lock, ok := s.SourceLocks()[strings.TrimSpace(name)]
+	return lock, ok
+}
+
+func (s *SumFile) FindTool(name string) (LockedTool, bool) {
+	lock, ok := s.ToolLocks()[strings.TrimSpace(name)]
+	return lock, ok
 }

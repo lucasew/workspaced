@@ -171,7 +171,7 @@ func validateSourceLock(alias string, src SourceConfig, sumFile *SumFile) error 
 	if sumFile == nil {
 		return nil
 	}
-	lock, ok := sumFile.Sources[alias]
+	lock, ok := sumFile.FindSource(alias)
 	if !ok {
 		return nil
 	}
@@ -195,7 +195,7 @@ func applySourceLockOverlay(alias string, src SourceConfig, sumFile *SumFile) So
 	if sumFile == nil {
 		return src
 	}
-	lock, ok := sumFile.Sources[alias]
+	lock, ok := sumFile.FindSource(alias)
 	if !ok {
 		return src
 	}

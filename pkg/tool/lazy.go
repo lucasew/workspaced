@@ -235,7 +235,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 	logger.Debug("resolving lazy tool", "tool", toolName, "workspace", ws.Root, "lockfile", ws.SumPath())
 
-	if locked, ok := sum.Tools[toolName]; ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
+	if locked, ok := sum.FindTool(toolName); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 		spec.Version = strings.TrimSpace(locked.Version)
 	}
 

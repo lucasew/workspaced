@@ -36,15 +36,16 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 		return LockResult{}, err
 	}
 	_, err = UpdateSumFile(ws.SumPath(), func(sum *SumFile) (bool, error) {
-		beforeSources := len(sum.Sources)
+		beforeSources := len(sum.SourceLocks())
 		changed := false
 		for name, entry := range sourceEntries {
 			if sum.UpsertSource(name, entry) {
 				changed = true
 			}
 		}
-		if len(sum.Sources) < beforeSources {
-			return false, fmt.Errorf("refusing to shrink source lock entries: before=%d after=%d", beforeSources, len(sum.Sources))
+		afterSources := len(sum.SourceLocks())
+		if afterSources < beforeSources {
+			return false, fmt.Errorf("refusing to shrink source lock entries: before=%d after=%d", beforeSources, afterSources)
 		}
 		return changed, nil
 	})

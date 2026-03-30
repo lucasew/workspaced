@@ -33,16 +33,10 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 	if name == "" || lock.Ref == "" || lock.Version == "" {
 		return false
 	}
-	if s.Tools == nil {
-		s.Tools = map[string]LockedTool{}
-	}
-
-	current, ok := s.Tools[name]
+	current, ok := s.FindTool(name)
 	changed := !ok || current.Ref != lock.Ref || current.Version != lock.Version
-	if changed {
-		s.Tools[name] = lock
-	}
-	if !hasToolDependency(s.Dependencies, name, lock.Ref, lock.Version) {
+	if !hasToolDependency(s.Dependencies, name, lock.Ref, lock.Version) || changed {
+		s.Dependencies = upsertToolDependency(s.Dependencies, name, lock)
 		changed = true
 	}
 	return changed
@@ -62,11 +56,7 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	if name == "" || lock.Provider == "" || lock.Hash == "" {
 		return false
 	}
-	if s.Sources == nil {
-		s.Sources = map[string]LockedSource{}
-	}
-
-	current, ok := s.Sources[name]
+	current, ok := s.FindSource(name)
 	changed := !ok ||
 		current.Provider != lock.Provider ||
 		current.Path != lock.Path ||
@@ -74,13 +64,63 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 		current.Ref != lock.Ref ||
 		current.URL != lock.URL ||
 		current.Hash != lock.Hash
-	if changed {
-		s.Sources[name] = lock
-	}
-	if !hasSourceDependency(s.Dependencies, name, lock) {
+	if !hasSourceDependency(s.Dependencies, name, lock) || changed {
+		s.Dependencies = upsertSourceDependency(s.Dependencies, name, lock)
 		changed = true
 	}
 	return changed
+}
+
+func upsertToolDependency(deps []RenovateDependency, name string, lock LockedTool) []RenovateDependency {
+	for i, dep := range deps {
+		if strings.TrimSpace(dep.Kind) == "tool" && strings.TrimSpace(dep.Name) == name {
+			dep.Kind = "tool"
+			dep.Name = name
+			dep.Ref = lock.Ref
+			dep.Version = lock.Version
+			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Version) {
+				dep.CurrentValue = lock.Version
+			}
+			deps[i] = dep
+			return deps
+		}
+	}
+	return append(deps, RenovateDependency{
+		Kind:    "tool",
+		Name:    name,
+		Ref:     lock.Ref,
+		Version: lock.Version,
+	})
+}
+
+func upsertSourceDependency(deps []RenovateDependency, name string, lock LockedSource) []RenovateDependency {
+	for i, dep := range deps {
+		if strings.TrimSpace(dep.Kind) == "source" && strings.TrimSpace(dep.Name) == name {
+			dep.Kind = "source"
+			dep.Name = name
+			dep.Provider = lock.Provider
+			dep.Path = lock.Path
+			dep.Repo = lock.Repo
+			dep.Ref = lock.Ref
+			dep.URL = lock.URL
+			dep.Hash = lock.Hash
+			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Ref) {
+				dep.CurrentValue = lock.Ref
+			}
+			deps[i] = dep
+			return deps
+		}
+	}
+	return append(deps, RenovateDependency{
+		Kind:     "source",
+		Name:     name,
+		Provider: lock.Provider,
+		Path:     lock.Path,
+		Repo:     lock.Repo,
+		Ref:      lock.Ref,
+		URL:      lock.URL,
+		Hash:     lock.Hash,
+	})
 }
 
 func hasToolDependency(deps []RenovateDependency, name, ref, version string) bool {

@@ -11,9 +11,12 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 	if sum == nil {
 		return nil
 	}
+	return BuildRenovateDependenciesFromLocks(sum.SourceLocks(), sum.ToolLocks())
+}
 
-	deps := make([]RenovateDependency, 0, len(sum.Tools)+len(sum.Sources))
-	for alias, src := range sum.Sources {
+func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools map[string]LockedTool) []RenovateDependency {
+	deps := make([]RenovateDependency, 0, len(tools)+len(sources))
+	for alias, src := range sources {
 		dep := RenovateDependency{
 			Kind:     "source",
 			Name:     strings.TrimSpace(alias),
@@ -49,7 +52,7 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 			deps[len(deps)-1] = dep
 		}
 	}
-	for name, tool := range sum.Tools {
+	for name, tool := range tools {
 		dep := RenovateDependency{
 			Kind:    "tool",
 			Name:    strings.TrimSpace(name),

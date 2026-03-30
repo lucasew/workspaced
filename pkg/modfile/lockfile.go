@@ -45,16 +45,11 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 
 func WriteSumFile(path string, sum *SumFile) error {
 	if sum == nil {
-		sum = &SumFile{Sources: map[string]LockedSource{}, Tools: map[string]LockedTool{}}
+		sum = &SumFile{}
 	}
-	if sum.Sources == nil {
-		sum.Sources = map[string]LockedSource{}
+	if err := normalizeDependencies(sum.Dependencies); err != nil {
+		return err
 	}
-	if sum.Tools == nil {
-		sum.Tools = map[string]LockedTool{}
-	}
-	generated := BuildRenovateDependencies(sum)
-	sum.Dependencies = MergeRenovateDependencies(sum.Dependencies, generated)
 	onDisk := sumFileDisk{
 		Dependencies: sum.Dependencies,
 	}
