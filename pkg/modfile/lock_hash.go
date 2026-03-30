@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 )
 
@@ -44,6 +45,12 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		}
 		if strings.TrimSpace(resolved.URL) != "" {
 			entry.URL = strings.TrimSpace(resolved.URL)
+			if pinnedRef := refFromCodeloadTarballURL(entry.URL); pinnedRef != "" {
+				entry.Ref = pinnedRef
+			}
+		}
+		if strings.TrimSpace(entry.Ref) == "" && strings.TrimSpace(resolved.Ref) != "" {
+			entry.Ref = strings.TrimSpace(resolved.Ref)
 		}
 		entry.Hash = hash
 		entries[alias] = entry
@@ -51,4 +58,24 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	}
 	slog.Info("source lock hashes computed", "sources", len(entries))
 	return nil
+}
+
+func refFromCodeloadTarballURL(rawURL string) string {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return ""
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	if !strings.EqualFold(parsed.Hostname(), "codeload.github.com") {
+		return ""
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	// codeload.github.com/<owner>/<repo>/tar.gz/<ref>
+	if len(parts) != 4 || parts[2] != "tar.gz" {
+		return ""
+	}
+	return strings.TrimSpace(parts[3])
 }
