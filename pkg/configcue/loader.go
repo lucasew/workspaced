@@ -27,7 +27,7 @@ import (
 	"cuelang.org/go/cue/token"
 )
 
-//go:embed schema.cue prelude.cue
+//go:embed schema.cue prelude_common.cue prelude_home.cue prelude_codebase.cue
 var schemaFS embed.FS
 
 type Layer struct {
@@ -113,7 +113,7 @@ func ExportCUE(opts DiscoverOptions) ([]byte, error) {
 		paths = append(paths, layer.Path)
 	}
 
-	configValue, err := buildWorkspacedValue(paths, discovered.Layers)
+	configValue, err := buildWorkspacedValue(paths, discovered.Layers, opts.HomeMode)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func ExportDef(opts DiscoverOptions) ([]byte, error) {
 		paths = append(paths, layer.Path)
 	}
 
-	configValue, err := buildWorkspacedValue(paths, discovered.Layers)
+	configValue, err := buildWorkspacedValue(paths, discovered.Layers, opts.HomeMode)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
 	for _, layer := range discovered.Layers {
 		paths = append(paths, layer.Path)
 	}
-	b, err := exportJSONFromPaths(paths, discovered.Layers)
+	b, err := exportJSONFromPaths(paths, discovered.Layers, opts.HomeMode)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
@@ -157,24 +157,24 @@ func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
 }
 
 func ExportJSONFromPaths(paths []string) ([]byte, error) {
-	return exportJSONFromPaths(paths, nil)
+	return exportJSONFromPaths(paths, nil, false)
 }
 
-func exportJSONFromPaths(paths []string, discovered []Layer) ([]byte, error) {
-	configValue, err := buildWorkspacedValue(paths, discovered)
+func exportJSONFromPaths(paths []string, discovered []Layer, homeMode bool) ([]byte, error) {
+	configValue, err := buildWorkspacedValue(paths, discovered, homeMode)
 	if err != nil {
 		return nil, err
 	}
 	return marshalWorkspacedValue(configValue, paths, discovered)
 }
 
-func buildWorkspacedValue(paths []string, discovered []Layer) (cue.Value, error) {
+func buildWorkspacedValue(paths []string, discovered []Layer, homeMode bool) (cue.Value, error) {
 	baseRuntimePrelude, err := buildRuntimePrelude(nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
 	ctx := cuecontext.New()
-	initialValue, err := compileWorkspacedValueWithContext(ctx, paths, baseRuntimePrelude, nil, nil)
+	initialValue, err := compileWorkspacedValueWithContext(ctx, paths, baseRuntimePrelude, homeMode, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -186,7 +186,7 @@ func buildWorkspacedValue(paths []string, discovered []Layer) (cue.Value, error)
 	if err != nil {
 		return cue.Value{}, err
 	}
-	baseConfigValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, nil, nil)
+	baseConfigValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, homeMode, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -194,25 +194,33 @@ func buildWorkspacedValue(paths []string, discovered []Layer) (cue.Value, error)
 	if err != nil {
 		return cue.Value{}, err
 	}
-	configValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, preLayers, postLayers)
+	configValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, homeMode, preLayers, postLayers)
 	if err != nil {
 		return cue.Value{}, err
 	}
 	return configValue, nil
 }
 
-func compileWorkspacedValue(paths []string, runtimePrelude string) (cue.Value, error) {
-	return compileWorkspacedValueWithContext(cuecontext.New(), paths, runtimePrelude, nil, nil)
+func compileWorkspacedValue(paths []string, runtimePrelude string, homeMode bool) (cue.Value, error) {
+	return compileWorkspacedValueWithContext(cuecontext.New(), paths, runtimePrelude, homeMode, nil, nil)
 }
 
-func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
+func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeMode bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("read embedded cue schema: %w", err)
 	}
-	preludeBytes, err := schemaFS.ReadFile("prelude.cue")
+	preludeCommonBytes, err := schemaFS.ReadFile("prelude_common.cue")
 	if err != nil {
-		return cue.Value{}, fmt.Errorf("read embedded cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("read embedded cue prelude_common: %w", err)
+	}
+	preludeVariantFile := "prelude_codebase.cue"
+	if homeMode {
+		preludeVariantFile = "prelude_home.cue"
+	}
+	preludeVariantBytes, err := schemaFS.ReadFile(preludeVariantFile)
+	if err != nil {
+		return cue.Value{}, fmt.Errorf("read embedded cue %s: %w", preludeVariantFile, err)
 	}
 
 	v := ctx.CompileString(string(schemaBytes), cue.Filename("schema.cue"))
@@ -220,13 +228,22 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w", err)
 	}
 
-	preludeLayer := ctx.CompileString(string(preludeBytes), cue.Filename("prelude.cue"))
-	if err := preludeLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue prelude: %w", err)
+	preludeCommonLayer := ctx.CompileString(string(preludeCommonBytes), cue.Filename("prelude_common.cue"))
+	if err := preludeCommonLayer.Err(); err != nil {
+		return cue.Value{}, fmt.Errorf("compile embedded cue prelude_common: %w", err)
 	}
-	v = v.Unify(preludeLayer)
+	v = v.Unify(preludeCommonLayer)
 	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify embedded cue prelude: %w", err)
+		return cue.Value{}, fmt.Errorf("unify embedded cue prelude_common: %w", err)
+	}
+
+	preludeVariantLayer := ctx.CompileString(string(preludeVariantBytes), cue.Filename(preludeVariantFile))
+	if err := preludeVariantLayer.Err(); err != nil {
+		return cue.Value{}, fmt.Errorf("compile embedded cue %s: %w", preludeVariantFile, err)
+	}
+	v = v.Unify(preludeVariantLayer)
+	if err := v.Err(); err != nil {
+		return cue.Value{}, fmt.Errorf("unify embedded cue %s: %w", preludeVariantFile, err)
 	}
 
 	runtimeLayer := ctx.CompileString(runtimePrelude, cue.Filename("runtime_prelude.cue"))

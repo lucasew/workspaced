@@ -73,10 +73,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		return 0, err
 	}
 
-	lazyTools := map[string]lazyToolConfig{}
-	if err := cfg.Decode("lazy_tools", &lazyTools); err != nil {
-		return 0, err
-	}
+	lazyTools := loadLazyTools(cfg)
 
 	names := make([]string, 0, len(lazyTools))
 	for name := range lazyTools {
@@ -276,13 +273,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 }
 
 func findLazyTool(cfg *configcue.Config, query string) (string, lazyToolConfig, bool) {
-	if cfg == nil {
-		return "", lazyToolConfig{}, false
-	}
-	lazyTools := map[string]lazyToolConfig{}
-	if err := cfg.Decode("lazy_tools", &lazyTools); err != nil {
-		return "", lazyToolConfig{}, false
-	}
+	lazyTools := loadLazyTools(cfg)
 	if toolCfg, ok := lazyTools[query]; ok {
 		return query, toolCfg, true
 	}
@@ -293,6 +284,21 @@ func findLazyTool(cfg *configcue.Config, query string) (string, lazyToolConfig, 
 		}
 	}
 	return "", lazyToolConfig{}, false
+}
+
+func loadLazyTools(cfg *configcue.Config) map[string]lazyToolConfig {
+	out := map[string]lazyToolConfig{}
+	if cfg == nil {
+		return out
+	}
+	configured := map[string]lazyToolConfig{}
+	if err := cfg.Decode("lazy_tools", &configured); err != nil {
+		return out
+	}
+	for name, toolCfg := range configured {
+		out[name] = toolCfg
+	}
+	return out
 }
 
 func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, string, error) {
