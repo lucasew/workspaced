@@ -208,11 +208,15 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		return "", err
 	}
 
-	toolName, toolCfg, ok := findLazyTool(cfg, toolName)
+	queryToolName := toolName
+	resolvedToolName, toolCfg, ok := findLazyTool(cfg, queryToolName)
+	if ok {
+		toolName = resolvedToolName
+	}
 	if !ok {
 		// Allow codebase workspaces to reuse home lazy_tools while keeping lockfile local.
 		if homeCfg, homeErr := configcue.LoadHome(); homeErr == nil {
-			if homeToolName, homeToolCfg, homeOK := findLazyTool(homeCfg, toolName); homeOK {
+			if homeToolName, homeToolCfg, homeOK := findLazyTool(homeCfg, queryToolName); homeOK {
 				toolName = homeToolName
 				toolCfg = homeToolCfg
 				ok = true

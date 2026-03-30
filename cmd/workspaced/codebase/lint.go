@@ -30,6 +30,10 @@ func init() {
 				if len(args) > 0 {
 					path = args[0]
 				}
+				path, err = filepath.Abs(path)
+				if err != nil {
+					return err
+				}
 
 				// Run analysis using all registered linters
 				report, err := lint.RunAll(cmd.Context(), path)

@@ -1,1 +1,24 @@
-{}
+{
+  "dependencies": [
+    {
+      "kind": "tool",
+      "name": "golangci_lint",
+      "provider": "github",
+      "ref": "github:golangci/golangci-lint",
+      "version": "2.11.4",
+      "depName": "golangci/golangci-lint",
+      "currentValue": "2.11.4",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
+      "name": "shellcheck",
+      "provider": "github",
+      "ref": "github:koalaman/shellcheck",
+      "version": "0.11.0",
+      "depName": "koalaman/shellcheck",
+      "currentValue": "0.11.0",
+      "datasource": "github-releases"
+    }
+  ]
+}
