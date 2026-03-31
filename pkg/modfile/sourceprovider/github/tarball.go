@@ -155,7 +155,7 @@ func extractTarEntry(tr *tar.Reader, hdr *tar.Header, target string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		return os.MkdirAll(target, 0755)
-	case tar.TypeReg, tar.TypeRegA:
+	case tar.TypeReg:
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
