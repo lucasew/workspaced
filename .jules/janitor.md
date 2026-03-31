@@ -1,0 +1,1 @@
+- 2024-05-18: Unhandled return errors (like Close, Flush) must be explicitly checked and funneled through the centralized error reporting function.

@@ -76,7 +76,9 @@ func saveSarifToCI(report *sarif.Report) {
 			if err := encoder.Encode(report); err != nil {
 				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
-			file.Close()
+			if err := file.Close(); err != nil {
+				slog.Warn("failed to close SARIF report file", "sarif_path", sarifPath, "error", err)
+			}
 		}
 	}
 }
@@ -96,7 +98,7 @@ func printReport(report *sarif.Report, format string) error {
 
 func printTable(report *sarif.Report) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE")
+	_, _ = fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE")
 
 	for _, run := range report.Runs {
 		toolName := run.Tool.Driver.Name
@@ -138,9 +140,8 @@ func printTable(report *sarif.Report) error {
 				level = *res.Level
 			}
 
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", toolName, level, fileLine, msg)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", toolName, level, fileLine, msg)
 		}
 	}
-	w.Flush()
-	return nil
+	return w.Flush()
 }
