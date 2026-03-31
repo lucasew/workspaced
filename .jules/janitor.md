@@ -1,0 +1,1 @@
+- 2026-03-18: Omit type inferences, replace deprecated types, use switch on enums instead of chained ifs, prefer math expansion over function calls, and expand shell vars safely in trap and echo string literals.

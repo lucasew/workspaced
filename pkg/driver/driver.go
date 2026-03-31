@@ -73,7 +73,7 @@ func Register[T any](provider DriverProvider[T]) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	var t reflect.Type = reflect.TypeFor[T]()
+	t := reflect.TypeFor[T]()
 	if t.Kind() != reflect.Interface {
 		panic(fmt.Errorf("driver %s is not an interface", t.String()))
 	}
@@ -130,7 +130,7 @@ func getConfiguredWeight(weights map[string]int, driverID string) int {
 
 func Get[T any](ctx context.Context) (T, error) {
 	mu.RLock()
-	var t reflect.Type = reflect.TypeFor[T]()
+	t := reflect.TypeFor[T]()
 	if t.Kind() != reflect.Interface {
 		mu.RUnlock()
 		var zero T
