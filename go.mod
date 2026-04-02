@@ -3,7 +3,7 @@ module workspaced
 go 1.25.0
 
 require (
-	cuelang.org/go v0.14.2
+	cuelang.org/go v0.16.0
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
