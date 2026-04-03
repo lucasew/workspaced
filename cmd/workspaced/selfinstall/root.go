@@ -169,8 +169,15 @@ func copyFile(src, dst string) error {
 	}
 	tmpPath := tmp.Name()
 	defer func() {
-		logging.Close(context.Background(), tmp, slog.String("path", tmpPath))
-		logging.RunCleanup(context.Background(), "remove", func() error { return os.Remove(tmpPath) }, slog.String("path", tmpPath))
+		if tmp != nil {
+			logging.Close(context.Background(), tmp, slog.String("path", tmpPath))
+		}
+		logging.RunCleanup(context.Background(), "remove", func() error {
+			if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+			return nil
+		}, slog.String("path", tmpPath))
 	}()
 
 	if _, err := io.Copy(tmp, source); err != nil {
@@ -183,6 +190,7 @@ func copyFile(src, dst string) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
+	tmp = nil
 	if err := os.Chmod(tmpPath, 0755); err != nil {
 		return err
 	}

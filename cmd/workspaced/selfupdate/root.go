@@ -101,7 +101,12 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	if err := tmpOut.Close(); err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "remove", func() error { return os.Remove(tmpPath) }, slog.String("path", tmpPath))
+	defer logging.RunCleanup(ctx, "remove", func() error {
+		if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}, slog.String("path", tmpPath))
 
 	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
