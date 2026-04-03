@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"workspaced/pkg/logging"
 )
 
 type Resolver struct {
@@ -168,7 +169,7 @@ func readToolVersion(path, toolName string) string {
 	if err != nil {
 		return ""
 	}
-	defer f.Close()
+	defer logging.Close(context.Background(), f)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

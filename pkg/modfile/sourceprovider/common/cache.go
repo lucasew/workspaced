@@ -1,12 +1,14 @@
 package common
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
+	"workspaced/pkg/logging"
 )
 
 var (
@@ -42,14 +44,14 @@ func EnsureCachedDir(provider string, key string, fetch func(tmpDir string) erro
 
 	slog.Info("source cache miss", "provider", provider, "cache_dir", dest)
 	tmpDest := dest + ".tmp"
-	_ = os.RemoveAll(tmpDest)
+	logging.RunCleanup(context.Background(), "remove_all", func() error { return os.RemoveAll(tmpDest) }, slog.String("path", tmpDest))
 	slog.Info("source fetch start", "provider", provider, "tmp_dir", tmpDest)
 	if err := fetch(tmpDest); err != nil {
-		_ = os.RemoveAll(tmpDest)
+		logging.RunCleanup(context.Background(), "remove_all", func() error { return os.RemoveAll(tmpDest) }, slog.String("path", tmpDest))
 		return "", err
 	}
 	if err := os.Rename(tmpDest, dest); err != nil {
-		_ = os.RemoveAll(tmpDest)
+		logging.RunCleanup(context.Background(), "remove_all", func() error { return os.RemoveAll(tmpDest) }, slog.String("path", tmpDest))
 		return "", err
 	}
 	slog.Info("source fetch done", "provider", provider, "cache_dir", dest)

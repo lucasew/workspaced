@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 
 	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/registry"
 	"workspaced/pkg/shellgen"
 	_ "workspaced/pkg/tool/prelude"
@@ -34,7 +36,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		defer f.Close()
+		defer logging.Close(context.Background(), f, slog.String("path", exe))
 		if _, err = io.Copy(h, f); err != nil {
 			panic(err)
 		}
@@ -129,7 +131,7 @@ func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error)
 			return nil, fmt.Errorf("failed to create cpuprofile file: %w", err)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			_ = f.Close()
+			logging.Close(context.Background(), f, slog.String("path", cpuProfilePath))
 			return nil, fmt.Errorf("failed to start CPU profile: %w", err)
 		}
 		cpuFile = f
@@ -152,7 +154,7 @@ func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error)
 			}
 			runtime.GC()
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				_ = f.Close()
+				logging.Close(context.Background(), f, slog.String("path", memProfilePath))
 				return fmt.Errorf("failed to write heap profile: %w", err)
 			}
 			if err := f.Close(); err != nil {

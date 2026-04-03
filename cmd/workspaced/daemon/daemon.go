@@ -75,7 +75,7 @@ var Command = &cobra.Command{
 			socketPath := getSocketPath()
 			conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
 			if err == nil {
-				conn.Close()
+				logging.Close(context.Background(), conn)
 				slog.Info("daemon already running, exiting")
 				os.Exit(0)
 			}
@@ -121,7 +121,7 @@ func RunDaemon() error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer logging.Close(ctx, database)
 
 	go media.Watch(ctx)
 
@@ -138,7 +138,7 @@ func RunDaemon() error {
 		if err == nil {
 			f, err := os.Open(iconPath)
 			if err == nil {
-				defer f.Close()
+				defer logging.Close(ctx, f, slog.String("path", iconPath))
 				icon, _, _ = image.Decode(f)
 			}
 		}
@@ -193,14 +193,14 @@ func RunDaemon() error {
 		listener = listeners[0]
 	} else {
 		socketPath := getSocketPath()
-		_ = os.Remove(socketPath)
+		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, slog.String("path", socketPath))
 		l, err := net.Listen("unix", socketPath)
 		if err != nil {
 			return fmt.Errorf("failed to listen on socket: %w", err)
 		}
 		listener = l
 	}
-	defer func() { _ = listener.Close() }()
+	defer logging.Close(ctx, listener)
 
 	slog.Info("listening", "address", listener.Addr())
 
@@ -213,7 +213,7 @@ func RunDaemon() error {
 	go func() {
 		<-ctx.Done()
 		slog.Info("context cancelled, shutting down server")
-		_ = server.Close()
+		logging.Close(ctx, server)
 	}()
 
 	return server.Serve(listener)
@@ -229,7 +229,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 		slog.Error("ws upgrade error", "error", err)
 		return
 	}
-	defer func() { _ = conn.Close() }()
+	defer logging.Close(r.Context(), conn)
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()

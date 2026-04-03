@@ -13,6 +13,7 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim/bash"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -58,7 +59,7 @@ func installMise(ctx *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("failed to download installer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer logging.Close(ctx.Context(), resp.Body, slog.String("url", "https://mise.run"))
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 	"workspaced/pkg/db"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ func init() {
 					if err != nil {
 						return err
 					}
-					defer database.Close()
+					defer logging.Close(c.Context(), database)
 				}
 
 				events, err := database.SearchHistory(c.Context(), "", int(limit))
@@ -41,7 +42,9 @@ func init() {
 
 				for _, e := range events {
 					t := time.Unix(e.Timestamp, 0).Format("2006-01-02 15:04:05")
-					fmt.Fprintf(c.OutOrStdout(), "%s\t%s\n", t, e.Command)
+					if _, err := fmt.Fprintf(c.OutOrStdout(), "%s\t%s\n", t, e.Command); err != nil {
+						return err
+					}
 				}
 
 				return nil

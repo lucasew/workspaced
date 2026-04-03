@@ -1,10 +1,12 @@
 package modfile
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
+	"workspaced/pkg/logging"
 )
 
 func IsLockableProvider(provider string) bool {
@@ -67,7 +69,7 @@ func WriteSumFile(path string, sum *SumFile) error {
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(onDisk); err != nil {
-		_ = f.Close()
+		logging.Close(context.Background(), f)
 		return err
 	}
 

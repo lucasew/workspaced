@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 	"workspaced/pkg/db"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -52,7 +53,7 @@ func init() {
 				if err != nil {
 					return nil // Give up silently to avoid hanging shell
 				}
-				defer database.Close()
+				defer logging.Close(c.Context(), database)
 				return database.RecordHistory(c.Context(), event)
 			},
 		}

@@ -2,15 +2,18 @@ package history
 
 import (
 	"bufio"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 
 	"github.com/gorilla/websocket"
@@ -33,7 +36,7 @@ func ingestBash() ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer logging.Close(context.Background(), file, slog.String("path", path))
 
 	var events []types.HistoryEvent
 	scanner := bufio.NewScanner(file)
@@ -70,13 +73,13 @@ func ingestAtuin() ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open atuin database: %w", err)
 	}
-	defer dbConn.Close()
+	defer logging.Close(context.Background(), dbConn, slog.String("path", dbPath))
 
 	rows, err := dbConn.Query("SELECT command, cwd, timestamp, exit, duration FROM history")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query atuin database: %w", err)
 	}
-	defer rows.Close()
+	defer logging.Close(context.Background(), rows)
 
 	var events []types.HistoryEvent
 	for rows.Next() {
@@ -123,7 +126,7 @@ func sendHistoryEvent(event types.HistoryEvent) error {
 	if err != nil {
 		return err // Return error so caller can fallback
 	}
-	defer conn.Close()
+	defer logging.Close(context.Background(), conn, slog.String("socket", socketPath))
 
 	_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
 	payload, _ := json.Marshal(event)

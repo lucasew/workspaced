@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
 )
 
@@ -67,7 +68,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 				return Action{}, fmt.Errorf("failed to get reader for %s: %w", d.File.SourceInfo(), err)
 			}
 			desiredHash, err := calculateHash(reader)
-			_ = reader.Close()
+			logging.Close(context.Background(), reader)
 			if err != nil {
 				return Action{}, err
 			}
@@ -77,7 +78,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 				needsUpdate = true
 			} else {
 				actualHash, err := calculateHash(targetFile)
-				_ = targetFile.Close()
+				logging.Close(context.Background(), targetFile)
 				if err != nil {
 					return Action{}, err
 				}

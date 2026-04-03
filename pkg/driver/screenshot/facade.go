@@ -77,7 +77,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to create screenshot file: %w", err)
 	}
-	defer f.Close()
+	defer logging.Close(ctx, f)
 
 	if err := png.Encode(f, img); err != nil {
 		return "", fmt.Errorf("failed to encode screenshot: %w", err)

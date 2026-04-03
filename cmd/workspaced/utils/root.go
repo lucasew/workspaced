@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"workspaced/pkg/executil"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/registry"
 	"workspaced/pkg/types"
 
@@ -59,7 +60,7 @@ func TryRemoteRaw(cmdName string, args []string) (string, bool, error) {
 		slog.Info("daemon not reachable, running locally", "error", err)
 		return "", false, nil
 	}
-	defer func() { _ = conn.Close() }()
+	defer logging.Close(context.Background(), conn, slog.String("socket", socketPath))
 
 	// Get client binary hash
 	clientHash, _ := executil.GetBinaryHash()

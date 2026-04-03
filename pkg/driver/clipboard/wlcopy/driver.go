@@ -12,6 +12,7 @@ import (
 	"workspaced/pkg/driver/clipboard"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/executil"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -45,8 +46,10 @@ func (d *Driver) WriteImage(ctx context.Context, img image.Image) error {
 	}
 	pr, pw := io.Pipe()
 	go func() {
-		_ = png.Encode(pw, img)
-		_ = pw.Close()
+		if err := png.Encode(pw, img); err != nil {
+			logging.ReportError(ctx, err)
+		}
+		logging.Close(ctx, pw)
 	}()
 
 	cmd := execdriver.MustRun(ctx, "wl-copy", "-t", "image/png")

@@ -17,6 +17,7 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 	"workspaced/pkg/version"
@@ -100,7 +101,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	if err := tmpOut.Close(); err != nil {
 		return err
 	}
-	defer os.Remove(tmpPath)
+	defer logging.RunCleanup(ctx, "remove", func() error { return os.Remove(tmpPath) }, slog.String("path", tmpPath))
 
 	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
@@ -201,7 +202,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) }, slog.String("path", tmpDir))
 
 	slog.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
 	if err := githubProvider.Install(ctx, *artifact, tmpDir); err != nil {
@@ -434,7 +435,7 @@ func installMise(ctx context.Context, misePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to download installer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer logging.Close(ctx, resp.Body, slog.String("url", "https://mise.run"))
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)

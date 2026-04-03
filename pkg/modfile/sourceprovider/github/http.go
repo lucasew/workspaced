@@ -8,6 +8,7 @@ import (
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/githubutil"
+	"workspaced/pkg/logging"
 )
 
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
@@ -27,7 +28,7 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer logging.Close(ctx, resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status: %s", resp.Status)
 	}

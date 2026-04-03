@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"workspaced/pkg/db"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -27,7 +28,7 @@ func init() {
 					if err != nil {
 						return err
 					}
-					defer database.Close()
+					defer logging.Close(c.Context(), database)
 				}
 
 				var events []types.HistoryEvent

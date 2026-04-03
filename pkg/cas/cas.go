@@ -1,12 +1,14 @@
 package cas
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
 	"os"
 	"path/filepath"
 	"workspaced/pkg/env"
+	"workspaced/pkg/logging"
 )
 
 type CASWriter struct {
@@ -47,7 +49,9 @@ func (c *CASWriter) Write(p []byte) (n int, err error) {
 }
 
 func (c *CASWriter) Seal() (string, error) {
-	c.tempFile.Close()
+	if err := c.tempFile.Close(); err != nil {
+		return "", err
+	}
 	hash := c.hasher.(interface{ Sum(b []byte) []byte }).Sum(nil)
 	hashStr := hex.EncodeToString(hash)
 	finalPath := filepath.Join(c.dir, hashStr)
@@ -57,7 +61,7 @@ func (c *CASWriter) Seal() (string, error) {
 			return "", err
 		}
 	} else {
-		os.Remove(c.tempFile.Name())
+		logging.RunCleanup(context.Background(), "remove", func() error { return os.Remove(c.tempFile.Name()) })
 	}
 
 	return finalPath, nil

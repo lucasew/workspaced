@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/driver/shim"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -159,7 +160,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer logging.Close(context.Background(), source, slog.String("path", src))
 
 	dir := filepath.Dir(dst)
 	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp-*")
@@ -168,8 +169,8 @@ func copyFile(src, dst string) error {
 	}
 	tmpPath := tmp.Name()
 	defer func() {
-		tmp.Close()
-		_ = os.Remove(tmpPath)
+		logging.Close(context.Background(), tmp, slog.String("path", tmpPath))
+		logging.RunCleanup(context.Background(), "remove", func() error { return os.Remove(tmpPath) }, slog.String("path", tmpPath))
 	}()
 
 	if _, err := io.Copy(tmp, source); err != nil {

@@ -23,6 +23,7 @@ import (
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
+	"workspaced/pkg/logging"
 
 	xdraw "golang.org/x/image/draw"
 
@@ -86,7 +87,9 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		progressbar.OptionSetDescription(fmt.Sprintf("icons(%d jobs)", jobs)),
 		progressbar.OptionThrottle(200*time.Millisecond),
 		progressbar.OptionOnCompletion(func() {
-			fmt.Fprintln(opts.Stderr)
+			if _, err := fmt.Fprintln(opts.Stderr); err != nil {
+				logging.ReportError(ctx, err)
+			}
 		}),
 	)
 
@@ -170,7 +173,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 					return err
 				}
 				if err := fastPNGEncoder.Encode(f, final); err != nil {
-					f.Close()
+					logging.Close(workerCtx, f)
 					return err
 				}
 				if err := f.Close(); err != nil {
@@ -201,7 +204,9 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		flush := func() {
 			cur := int(atomic.LoadInt64(&written))
 			if cur > last {
-				_ = bar.Add(cur - last)
+				if err := bar.Add(cur - last); err != nil {
+					logging.ReportError(workerCtx, err)
+				}
 				last = cur
 			}
 		}

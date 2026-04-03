@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 	"workspaced/pkg/db"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/registry"
 	"workspaced/pkg/types"
 
@@ -27,7 +28,7 @@ func init() {
 					if err != nil {
 						return err
 					}
-					defer database.Close()
+					defer logging.Close(c.Context(), database)
 				}
 
 				events, err := database.SearchHistory(c.Context(), "", 5000)

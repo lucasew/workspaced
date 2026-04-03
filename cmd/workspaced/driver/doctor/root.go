@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"workspaced/pkg/driver"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -21,7 +23,10 @@ func GetCommand() *cobra.Command {
 			report := driver.Doctor(cmd.Context())
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-			fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE")
+			if _, err := fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE"); err != nil {
+				logging.ReportError(context.Background(), err)
+				return
+			}
 
 			for _, iface := range report {
 				// Use full interface name if verbose, otherwise friendly name
@@ -67,10 +72,15 @@ func GetCommand() *cobra.Command {
 						driverName = fmt.Sprintf("%s (%s)", d.Name, d.ID)
 					}
 
-					fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg)
+					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg); err != nil {
+						logging.ReportError(context.Background(), err)
+						return
+					}
 				}
 			}
-			w.Flush()
+			if err := w.Flush(); err != nil {
+				logging.ReportError(context.Background(), err)
+			}
 		},
 	}
 	c.Flags().BoolP("verbose", "v", false, "Show full interface and driver names")

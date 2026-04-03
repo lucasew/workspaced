@@ -10,6 +10,7 @@ import (
 	"strings"
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
 )
 
@@ -64,7 +65,7 @@ func ApplyHomeDconf(ctx context.Context) error {
 	if err := os.WriteFile(tmpIni, []byte(dconfContent), 0600); err != nil {
 		return err
 	}
-	defer os.Remove(tmpIni)
+	defer logging.RunCleanup(ctx, "remove", func() error { return os.Remove(tmpIni) })
 	return applyDconf(ctx, tmpIni)
 }
 
@@ -132,7 +133,7 @@ func applyDconf(ctx context.Context, iniFile string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer logging.Close(ctx, file)
 
 	cmd.Stdin = file
 	return cmd.Run()

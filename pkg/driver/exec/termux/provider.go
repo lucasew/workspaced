@@ -318,7 +318,9 @@ func ensureSSLCerts() (string, error) {
 
 	// Try to symlink first (saves space)
 	// Remove existing symlink/file if it exists (broken symlink check)
-	os.Remove(targetCert)
+	if err := os.Remove(targetCert); err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("failed to remove existing cert link %s: %w", targetCert, err)
+	}
 
 	relPath := filepath.Join("..", "..", "tls", "cert.pem")
 	if err := os.Symlink(relPath, targetCert); err != nil {

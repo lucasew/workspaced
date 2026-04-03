@@ -14,6 +14,7 @@ import (
 	"workspaced/pkg/driver"
 	fetchurldriver "workspaced/pkg/driver/fetchurl"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/logging"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {
@@ -51,18 +52,18 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 		})
 		closeErr := out.Close()
 		if err != nil {
-			_ = os.Remove(archivePath)
+			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
 			return "", err
 		}
 		if closeErr != nil {
-			_ = os.Remove(archivePath)
+			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
 			return "", closeErr
 		}
 		if err := extractTarGzFromPath(archivePath, destDir); err != nil {
-			_ = os.Remove(archivePath)
+			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
 			return "", err
 		}
-		_ = os.Remove(archivePath)
+		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
 		return expectedHash, nil
 	}
 
@@ -78,7 +79,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer logging.Close(ctx, resp.Body)
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status: %s", resp.Status)
 	}
@@ -95,7 +96,7 @@ func extractTarGzFromPath(path string, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer logging.Close(context.Background(), f)
 	return extractTarGz(f, destDir)
 }
 
@@ -104,7 +105,7 @@ func extractTarGz(r io.Reader, destDir string) error {
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer logging.Close(context.Background(), gzr)
 
 	tr := tar.NewReader(gzr)
 	for {
@@ -155,7 +156,7 @@ func extractTarEntry(tr *tar.Reader, hdr *tar.Header, target string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		return os.MkdirAll(target, 0755)
-	case tar.TypeReg, tar.TypeRegA:
+	case tar.TypeReg:
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
@@ -164,7 +165,7 @@ func extractTarEntry(tr *tar.Reader, hdr *tar.Header, target string) error {
 			return err
 		}
 		if _, err := io.Copy(f, tr); err != nil {
-			_ = f.Close()
+			logging.Close(context.Background(), f)
 			return err
 		}
 		return f.Close()

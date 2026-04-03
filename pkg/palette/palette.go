@@ -9,6 +9,7 @@ import (
 	_ "image/png"
 	"os"
 
+	"workspaced/pkg/logging"
 	"workspaced/pkg/palette/api"
 	"workspaced/pkg/palette/genetic"
 )
@@ -30,7 +31,7 @@ func ExtractFromFile(ctx context.Context, path string, driver string, opts api.O
 	if err != nil {
 		return nil, fmt.Errorf("failed to open image: %w", err)
 	}
-	defer f.Close()
+	defer logging.Close(ctx, f)
 
 	img, _, err := image.Decode(f)
 	if err != nil {

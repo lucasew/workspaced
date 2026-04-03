@@ -119,10 +119,11 @@ func calculateImageSimilarity(paletteColors []api.LAB, imageColors []api.LAB) fl
 func calculateLightnessError(colors []api.LAB, polarity api.Polarity) float64 {
 	var targetLightnesses []float64
 
-	if polarity == api.PolarityDark {
+	switch polarity {
+	case api.PolarityDark:
 		// Dark theme: background dark, foreground light
 		targetLightnesses = []float64{10, 30, 45, 65, 75, 90, 95, 95}
-	} else if polarity == api.PolarityLight {
+	case api.PolarityLight:
 		// Light theme: background light, foreground dark
 		targetLightnesses = []float64{90, 70, 55, 35, 25, 10, 5, 5}
 	}
@@ -222,8 +223,10 @@ func calculateHueDiversity(colors []api.LAB) float64 {
 
 	var aVariance, bVariance float64
 	for _, c := range colors {
-		aVariance += math.Pow(c.A-aMean, 2)
-		bVariance += math.Pow(c.B-bMean, 2)
+		aDiff := c.A - aMean
+		bDiff := c.B - bMean
+		aVariance += aDiff * aDiff
+		bVariance += bDiff * bDiff
 	}
 	aVariance /= float64(len(colors))
 	bVariance /= float64(len(colors))

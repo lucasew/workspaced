@@ -11,6 +11,7 @@ import (
 
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/svgraster"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/tool"
 )
 
@@ -23,7 +24,7 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(tmpDir)
+	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) })
 
 	inSVG := filepath.Join(tmpDir, "input.svg")
 	outPNG := filepath.Join(tmpDir, "output.png")
@@ -51,7 +52,7 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer logging.Close(ctx, f)
 
 	img, err := png.Decode(f)
 	if err != nil {

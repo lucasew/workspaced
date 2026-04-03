@@ -1,6 +1,7 @@
 package init
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"workspaced/pkg/constants"
 	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/env"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -137,7 +139,7 @@ func generateConfig(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
-	defer f.Close()
+	defer logging.Close(context.Background(), f)
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)

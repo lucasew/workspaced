@@ -20,7 +20,9 @@ func TestFindBinary(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		f.Close()
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.Chmod(path, mode); err != nil {
 			t.Fatal(err)
 		}

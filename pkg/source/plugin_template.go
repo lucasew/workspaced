@@ -62,7 +62,9 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			return nil, fmt.Errorf("failed to read template source %s: %w", f.SourceInfo(), err)
 		}
 		srcContent, err := io.ReadAll(reader)
-		reader.Close()
+		if closeErr := reader.Close(); closeErr != nil {
+			return nil, fmt.Errorf("failed to close template source %s: %w", f.SourceInfo(), closeErr)
+		}
 		if err != nil {
 			return nil, err
 		}
