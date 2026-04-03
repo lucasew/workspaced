@@ -21,9 +21,12 @@ func TestLoadSumFileRequiresSource(t *testing.T) {
 		t.Fatalf("write sum: %v", err)
 	}
 
-	_, err := LoadSumFile(sumPath)
-	if err == nil {
-		t.Fatal("expected source required error")
+	got, err := LoadSumFile(sumPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got.Dependencies) != 0 {
+		t.Fatalf("expected empty dependencies, got=%d", len(got.Dependencies))
 	}
 }
 
@@ -80,7 +83,7 @@ func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(got.Modules) != 0 {
-		t.Fatalf("expected empty modules map, got=%d", len(got.Modules))
+	if len(got.Dependencies) != 0 {
+		t.Fatalf("expected empty dependencies, got=%d", len(got.Dependencies))
 	}
 }

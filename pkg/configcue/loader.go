@@ -201,10 +201,6 @@ func buildWorkspacedValue(paths []string, discovered []Layer, homeMode bool) (cu
 	return configValue, nil
 }
 
-func compileWorkspacedValue(paths []string, runtimePrelude string, homeMode bool) (cue.Value, error) {
-	return compileWorkspacedValueWithContext(cuecontext.New(), paths, runtimePrelude, homeMode, nil, nil)
-}
-
 func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeMode bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {

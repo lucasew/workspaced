@@ -5,28 +5,26 @@ import "testing"
 func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	t.Parallel()
 
-	sum := &SumFile{
-		Sources: map[string]LockedSource{
-			"icons": {
-				Provider: "github",
-				Repo:     "PapirusDevelopmentTeam/papirus-icon-theme",
-				Ref:      "v2026.03.01",
-			},
-			"theme": {
-				Provider: "github",
-				Repo:     "catppuccin/gtk",
-				URL:      "https://codeload.github.com/catppuccin/gtk/tar.gz/9aa0d1f",
-			},
+	sources := map[string]LockedSource{
+		"icons": {
+			Provider: "github",
+			Repo:     "PapirusDevelopmentTeam/papirus-icon-theme",
+			Ref:      "v2026.03.01",
 		},
-		Tools: map[string]LockedTool{
-			"fd":   {Ref: "github:sharkdp/fd", Version: "v10.3.0"},
-			"fzf":  {Ref: "mise:fzf", Version: "0.50.0"},
-			"bad1": {Ref: "", Version: "1.0.0"},
-			"bad2": {Ref: "github:foo/bar", Version: ""},
+		"theme": {
+			Provider: "github",
+			Repo:     "catppuccin/gtk",
+			URL:      "https://codeload.github.com/catppuccin/gtk/tar.gz/9aa0d1f",
 		},
 	}
+	tools := map[string]LockedTool{
+		"fd":   {Ref: "github:sharkdp/fd", Version: "v10.3.0"},
+		"fzf":  {Ref: "mise:fzf", Version: "0.50.0"},
+		"bad1": {Ref: "", Version: "1.0.0"},
+		"bad2": {Ref: "github:foo/bar", Version: ""},
+	}
 
-	got := BuildRenovateDependencies(sum)
+	got := BuildRenovateDependenciesFromLocks(sources, tools)
 	if len(got) != 3 {
 		t.Fatalf("expected 3 dependencies, got=%d", len(got))
 	}
@@ -66,17 +64,15 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 func TestBuildRenovateDependenciesSkipsHeadWithoutResolvedURL(t *testing.T) {
 	t.Parallel()
 
-	sum := &SumFile{
-		Sources: map[string]LockedSource{
-			"icons": {
-				Provider: "github",
-				Repo:     "PapirusDevelopmentTeam/papirus-icon-theme",
-				Ref:      "HEAD",
-			},
+	sources := map[string]LockedSource{
+		"icons": {
+			Provider: "github",
+			Repo:     "PapirusDevelopmentTeam/papirus-icon-theme",
+			Ref:      "HEAD",
 		},
 	}
 
-	got := BuildRenovateDependencies(sum)
+	got := BuildRenovateDependenciesFromLocks(sources, nil)
 	if len(got) != 0 {
 		t.Fatalf("expected 0 dependencies, got=%d (%#v)", len(got), got)
 	}

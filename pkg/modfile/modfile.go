@@ -215,14 +215,6 @@ func normalizeGitHubRepo(in string) string {
 	return repo
 }
 
-func parseSourceEntry(v any) (SourceConfig, error) {
-	t, ok := v.(string)
-	if !ok {
-		return SourceConfig{}, fmt.Errorf("expected string spec, got %T", v)
-	}
-	return ParseSourceSpec(t)
-}
-
 func ParseSourceSpec(spec string) (SourceConfig, error) {
 	trimmed := strings.TrimSpace(spec)
 	if !strings.Contains(trimmed, ":") {

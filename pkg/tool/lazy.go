@@ -154,10 +154,6 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 	}, nil
 }
 
-func selectLazyToolWorkspace(ctx context.Context, homeMode bool) (*modfile.Workspace, error) {
-	return selectLazyToolWorkspaceFrom(ctx, homeMode, "")
-}
-
 func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) (*modfile.Workspace, error) {
 	if homeMode {
 		dotfilesRoot, err := env.GetDotfilesRoot()

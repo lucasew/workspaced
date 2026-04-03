@@ -11,16 +11,7 @@ func TestResolveModuleSourceWithLockVersion(t *testing.T) {
 	mod := &ModFile{
 		Sources: map[string]SourceConfig{},
 	}
-	sum := &SumFile{
-		Modules: map[string]LockedModule{
-			"foo": {
-				Source:  "github:owner/repo/path",
-				Version: "v1.2.3",
-			},
-		},
-	}
-
-	got, err := mod.ResolveModuleSource("foo", "github:owner/repo/path", "/tmp/modules", sum)
+	got, err := mod.ResolveModuleSource("foo", "github:owner/repo/path@v1.2.3", "/tmp/modules", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -32,27 +23,6 @@ func TestResolveModuleSourceWithLockVersion(t *testing.T) {
 	}
 	if got.Version != "v1.2.3" {
 		t.Fatalf("version mismatch: got=%q", got.Version)
-	}
-}
-
-func TestResolveModuleSourceLockMismatch(t *testing.T) {
-	t.Parallel()
-
-	mod := &ModFile{
-		Sources: map[string]SourceConfig{},
-	}
-	sum := &SumFile{
-		Modules: map[string]LockedModule{
-			"foo": {
-				Source:  "github:owner/repo/other",
-				Version: "v1.2.3",
-			},
-		},
-	}
-
-	_, err := mod.ResolveModuleSource("foo", "github:owner/repo/path", "/tmp/modules", sum)
-	if err == nil {
-		t.Fatal("expected lock mismatch error")
 	}
 }
 
