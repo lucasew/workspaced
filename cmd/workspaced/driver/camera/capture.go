@@ -2,9 +2,11 @@ package camera
 
 import (
 	"fmt"
+	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -45,10 +47,11 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 		return err
 	}
 
-	img, err := cam.Capture(cmd.Context())
+	usedCam, img, err := captureFromCamera(cmd, cams, cam, id)
 	if err != nil {
 		return err
 	}
+	cam = usedCam
 
 	if outPath == "-" {
 		return png.Encode(cmd.OutOrStdout(), img)
@@ -91,6 +94,39 @@ func selectCamera(cams []cameraapi.Camera, id string) (cameraapi.Camera, error) 
 		}
 	}
 	return nil, fmt.Errorf("camera %q not found", id)
+}
+
+func captureFromCamera(cmd *cobra.Command, cams []cameraapi.Camera, preferred cameraapi.Camera, id string) (cameraapi.Camera, image.Image, error) {
+	if id != "" {
+		img, err := preferred.Capture(cmd.Context())
+		return preferred, img, err
+	}
+
+	ordered := append([]cameraapi.Camera(nil), cams...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return cameraPriority(ordered[i]) < cameraPriority(ordered[j])
+	})
+
+	var errs []string
+	for _, cam := range ordered {
+		img, err := cam.Capture(cmd.Context())
+		if err == nil {
+			return cam, img, nil
+		}
+		errs = append(errs, fmt.Sprintf("%s: %v", cam.ID(), err))
+	}
+	if len(errs) == 0 {
+		return nil, nil, fmt.Errorf("no cameras found")
+	}
+	return nil, nil, fmt.Errorf("failed to capture from any camera: %s", strings.Join(errs, "; "))
+}
+
+func cameraPriority(cam cameraapi.Camera) int {
+	name := strings.ToLower(cam.Name())
+	if strings.Contains(name, "dummy") || strings.Contains(name, "virtual") {
+		return 1
+	}
+	return 0
 }
 
 func matchesCamera(cam cameraapi.Camera, id string) bool {
