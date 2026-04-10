@@ -4,6 +4,7 @@ import (
 	_ "workspaced/pkg/driver/audio/pulse"
 	_ "workspaced/pkg/driver/battery/linux"
 	_ "workspaced/pkg/driver/brightness/brightnessctl"
+	_ "workspaced/pkg/driver/camera/linux"
 	_ "workspaced/pkg/driver/clipboard/termux"
 	_ "workspaced/pkg/driver/clipboard/wlcopy"
 	_ "workspaced/pkg/driver/clipboard/xclip"

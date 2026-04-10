@@ -1,8 +1,9 @@
 package camera
 
 import (
-	"github.com/spf13/cobra"
 	"workspaced/pkg/registry"
+
+	"github.com/spf13/cobra"
 )
 
 var Registry registry.CommandRegistry
@@ -10,7 +11,7 @@ var Registry registry.CommandRegistry
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "camera",
-		Short: "Camera management",
+		Short: "Camera capture management",
 	}
 	return Registry.FillCommands(cmd)
 }
