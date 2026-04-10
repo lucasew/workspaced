@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	_ "image/png"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -104,9 +103,14 @@ func (c *cameraDevice) Capture(ctx context.Context) (image.Image, error) {
 		"-")
 
 	var stdout bytes.Buffer
+	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
-	cmd.Stderr = io.Discard
+	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			return nil, fmt.Errorf("ffmpeg capture from %s failed: %w: %s", c.device, err, msg)
+		}
 		return nil, fmt.Errorf("ffmpeg capture from %s failed: %w", c.device, err)
 	}
 
