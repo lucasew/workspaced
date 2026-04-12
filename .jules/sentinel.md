@@ -1,0 +1,1 @@
+- 2024-05-18: Command injection occurs when user input is formatted directly into a shell command string instead of being passed as separate arguments.
