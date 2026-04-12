@@ -24,10 +24,17 @@ type lazyToolConfig struct {
 	Bins    []string `json:"bins"`
 }
 
+// ResolveLazyTool discovers and validates a tool defined in the active configuration
+// and returns its absolute executable path. It queries the local workspace first,
+// gracefully falling back to the user's home workspace if the tool is not found locally.
+// Locks are automatically updated during resolution.
 func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, error) {
 	return ResolveLazyToolAt(ctx, "", toolName, binName)
 }
 
+// ResolveLazyToolAt resolves a tool similar to ResolveLazyTool, but strictly roots
+// its workspace detection at the provided working directory (wd) instead of relying
+// on process state. Useful for codebase commands targeting external directories.
 func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (string, error) {
 	logger := logging.GetLogger(ctx)
 	currentWS, currentErr := selectLazyToolWorkspaceFrom(ctx, false, wd)
@@ -54,6 +61,8 @@ func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (strin
 	return resolveLazyToolInWorkspace(ctx, homeWS, toolName, binName)
 }
 
+// ResolveHomeLazyTool explicitly resolves a tool from the global/home workspace,
+// bypassing any local workspace definitions. Useful for system-level utilities.
 func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string, error) {
 	ws, err := selectLazyToolWorkspaceFrom(ctx, true, "")
 	if err != nil {
@@ -62,6 +71,9 @@ func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string,
 	return resolveLazyToolInWorkspace(ctx, ws, toolName, binName)
 }
 
+// RefreshLazyToolLocks synchronizes the workspace lockfile with the current configuration.
+// It resolves "latest" tags to concrete versions and upserts entries into the SumFile.
+// Returns the number of tools that were successfully updated or newly locked.
 func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (int, error) {
 	if ws == nil {
 		return 0, fmt.Errorf("workspace is nil")
@@ -126,11 +138,14 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	return updated, nil
 }
 
+// LockRefreshResult summarizes the outcome of a comprehensive workspace lock synchronization.
 type LockRefreshResult struct {
 	Sources int
 	Tools   int
 }
 
+// RefreshWorkspaceLocks orchestrates the update of both module sources and lazy tool locks
+// for a given workspace. It modifies the underlying sum/lock files and ensures reproducibility.
 func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (LockRefreshResult, error) {
 	if ws == nil {
 		return LockRefreshResult{}, fmt.Errorf("workspace is nil")

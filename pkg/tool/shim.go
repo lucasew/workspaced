@@ -8,8 +8,10 @@ import (
 	"workspaced/pkg/tool/resolution"
 )
 
-// RunTool executes a managed tool by name with the given arguments.
-// Used by shell integration and direct invocation.
+// RunTool resolves the active version of a tool through local configuration
+// (e.g., .tool-versions) or defaults to the latest installed version,
+// then constructs an executable command bound to standard I/O.
+// This serves as the primary gateway for shim execution and shell integration.
 func RunTool(ctx context.Context, toolName string, args ...string) (*exec.Cmd, error) {
 	toolsDir, err := GetToolsDir()
 	if err != nil {
