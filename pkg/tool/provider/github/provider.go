@@ -420,7 +420,7 @@ func unzip(src, dest string) error {
 	for _, f := range r.File {
 		fpath := filepath.Join(dest, f.Name)
 
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
+		if !isPathWithinDest(dest, fpath) {
 			return fmt.Errorf("illegal file path: %s", fpath)
 		}
 
@@ -548,7 +548,7 @@ func untargz(src, dest string) error {
 
 		target := filepath.Join(dest, header.Name)
 
-		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
+		if !isPathWithinDest(dest, target) {
 			return fmt.Errorf("illegal file path: %s", target)
 		}
 
@@ -580,4 +580,20 @@ func untargz(src, dest string) error {
 		}
 	}
 	return nil
+}
+
+func isPathWithinDest(dest, target string) bool {
+	cleanDest := filepath.Clean(dest)
+	cleanTarget := filepath.Clean(target)
+
+	rel, err := filepath.Rel(cleanDest, cleanTarget)
+	if err != nil {
+		return false
+	}
+
+	if rel == "." {
+		return true
+	}
+
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
