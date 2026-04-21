@@ -73,6 +73,11 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		return 0, err
 	}
 
+	sum, err := ws.LoadSumFile()
+	if err != nil {
+		return 0, err
+	}
+
 	lazyTools := loadLazyTools(cfg)
 
 	names := make([]string, 0, len(lazyTools))
@@ -94,6 +99,9 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		if err != nil {
 			return 0, fmt.Errorf("lazy tool %q: %w", name, err)
 		}
+		if locked, ok := sum.Tool(name); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
+			continue
+		}
 
 		version := spec.Version
 		if version == "" || version == "latest" {
@@ -109,8 +117,8 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			}
 		}
 
-		changed, err := modfile.UpdateSumFile(ws.SumPath(), func(sum *modfile.SumFile) (bool, error) {
-			return sum.UpsertTool(name, modfile.LockedTool{
+		changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
+			return sum.EnsureTool(name, modfile.LockedTool{
 				Ref:     lockRef,
 				Version: version,
 			}), nil
@@ -121,6 +129,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		if changed {
 			logger.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
 			updated++
+			_ = sum.EnsureTool(name, modfile.LockedTool{Ref: lockRef, Version: version})
 		}
 	}
 	return updated, nil
@@ -225,13 +234,13 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		return "", fmt.Errorf("invalid lazy tool spec for %q: %w", toolName, err)
 	}
 
-	sum, err := modfile.LoadSumFile(ws.SumPath())
+	sum, err := ws.LoadSumFile()
 	if err != nil {
 		return "", err
 	}
 	logger.Debug("resolving lazy tool", "tool", toolName, "workspace", ws.Root, "lockfile", ws.SumPath())
 
-	if locked, ok := sum.FindTool(toolName); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
+	if locked, ok := sum.Tool(toolName); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 		spec.Version = strings.TrimSpace(locked.Version)
 	}
 
@@ -252,8 +261,8 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		}
 	}
 
-	if changed, err := modfile.UpdateSumFile(ws.SumPath(), func(sum *modfile.SumFile) (bool, error) {
-		return sum.UpsertTool(toolName, modfile.LockedTool{
+	if changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
+		return sum.EnsureTool(toolName, modfile.LockedTool{
 			Ref:     lockRef,
 			Version: spec.Version,
 		}), nil
