@@ -43,6 +43,14 @@ func (w *Workspace) EnsureFiles() error {
 	return err
 }
 
+func (w *Workspace) LoadSumFile() (*SumFile, error) {
+	return LoadSumFile(w.SumPath())
+}
+
+func (w *Workspace) UpdateSumFile(mutate func(sum *SumFile) (bool, error)) (bool, error) {
+	return updateSumFile(w.SumPath(), mutate)
+}
+
 func (w *Workspace) SumPath() string {
 	return filepath.Join(w.Root, "workspaced.lock.json")
 }

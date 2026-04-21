@@ -13,7 +13,7 @@ func TestWriteSumFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workspaced.lock.json")
 
-	err := WriteSumFile(path, &SumFile{
+	err := writeSumFile(path, &SumFile{
 		Dependencies: []RenovateDependency{
 			{
 				Kind:     "source",

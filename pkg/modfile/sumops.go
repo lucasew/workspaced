@@ -2,7 +2,7 @@ package modfile
 
 import "strings"
 
-func UpdateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, error) {
+func updateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, error) {
 	sum, err := LoadSumFile(path)
 	if err != nil {
 		return false, err
@@ -17,10 +17,32 @@ func UpdateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, 
 	if !changed {
 		return false, nil
 	}
-	if err := WriteSumFile(path, sum); err != nil {
+	if err := writeSumFile(path, sum); err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *SumFile) Tool(name string) (LockedTool, bool) {
+	if s == nil {
+		return LockedTool{}, false
+	}
+	return s.FindTool(name)
+}
+
+func (s *SumFile) Source(name string) (LockedSource, bool) {
+	if s == nil {
+		return LockedSource{}, false
+	}
+	return s.FindSource(name)
+}
+
+func (s *SumFile) EnsureTool(name string, lock LockedTool) bool {
+	return s.UpsertTool(name, lock)
+}
+
+func (s *SumFile) EnsureSource(name string, lock LockedSource) bool {
+	return s.UpsertSource(name, lock)
 }
 
 func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {

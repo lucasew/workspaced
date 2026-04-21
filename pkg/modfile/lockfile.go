@@ -45,7 +45,7 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 	return out
 }
 
-func WriteSumFile(path string, sum *SumFile) error {
+func writeSumFile(path string, sum *SumFile) error {
 	if sum == nil {
 		sum = &SumFile{}
 	}
