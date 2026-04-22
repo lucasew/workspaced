@@ -87,3 +87,36 @@ func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 		t.Fatalf("expected empty dependencies, got=%d", len(got.Dependencies))
 	}
 }
+
+func TestLoadSumFileToolLockUsesVersionOverCurrentValue(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	sumPath := filepath.Join(dir, "workspaced.lock.json")
+	if err := os.WriteFile(sumPath, []byte(`{
+  "dependencies": [
+    {
+      "kind": "tool",
+      "name": "ripgrep",
+      "ref": "github:burntsushi/ripgrep",
+      "version": "15.1.0",
+      "currentValue": "14.1.1"
+    }
+  ]
+}
+`), 0644); err != nil {
+		t.Fatalf("write sum: %v", err)
+	}
+
+	got, err := LoadSumFile(sumPath)
+	if err != nil {
+		t.Fatalf("load sum: %v", err)
+	}
+	lock, ok := got.Tool("ripgrep")
+	if !ok {
+		t.Fatalf("missing ripgrep lock")
+	}
+	if lock.Version != "15.1.0" {
+		t.Fatalf("version mismatch: got=%q", lock.Version)
+	}
+}

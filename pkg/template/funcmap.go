@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"text/template"
 	envdriver "workspaced/pkg/driver/env"
 	shimdriver "workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/modfile"
 	"workspaced/pkg/text"
 )
 
@@ -19,6 +22,7 @@ var ErrFileSkipped = fmt.Errorf("file skipped")
 
 // makeFuncMap cria o FuncMap padrão do workspaced
 func makeFuncMap(ctx context.Context) template.FuncMap {
+	lockTool, lockSource := makeLockLookups(ctx)
 	return template.FuncMap{
 		"skip": func() (string, error) {
 			return "", ErrFileSkipped
@@ -110,7 +114,58 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 		"shim": func(command ...string) (string, error) {
 			return shimdriver.GenerateContent(ctx, command)
 		},
+		"lockTool":   lockTool,
+		"lockSource": lockSource,
 	}
+}
+
+func makeLockLookups(ctx context.Context) (func(string) map[string]any, func(string) map[string]any) {
+	var once sync.Once
+	var sum *modfile.SumFile
+	load := func() *modfile.SumFile {
+		once.Do(func() {
+			dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
+			if err != nil {
+				sum = &modfile.SumFile{}
+				return
+			}
+			loaded, err := modfile.LoadSumFile(filepath.Join(dotfilesRoot, "workspaced.lock.json"))
+			if err != nil {
+				sum = &modfile.SumFile{}
+				return
+			}
+			sum = loaded
+		})
+		return sum
+	}
+
+	lockTool := func(name string) map[string]any {
+		locked, ok := load().Tool(name)
+		if !ok {
+			return nil
+		}
+		return map[string]any{
+			"ref":     locked.Ref,
+			"version": locked.Version,
+		}
+	}
+
+	lockSource := func(name string) map[string]any {
+		locked, ok := load().Source(name)
+		if !ok {
+			return nil
+		}
+		return map[string]any{
+			"provider": locked.Provider,
+			"path":     locked.Path,
+			"repo":     locked.Repo,
+			"ref":      locked.Ref,
+			"url":      locked.URL,
+			"hash":     locked.Hash,
+		}
+	}
+
+	return lockTool, lockSource
 }
 
 func getFavicon(ctx context.Context, url string) (string, error) {
