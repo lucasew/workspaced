@@ -88,7 +88,7 @@ func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	}
 }
 
-func TestLoadSumFileToolLockUsesVersionOverCurrentValue(t *testing.T) {
+func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -116,7 +116,7 @@ func TestLoadSumFileToolLockUsesVersionOverCurrentValue(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing ripgrep lock")
 	}
-	if lock.Version != "15.1.0" {
+	if lock.Version != "14.1.1" {
 		t.Fatalf("version mismatch: got=%q", lock.Version)
 	}
 }

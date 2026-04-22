@@ -160,11 +160,15 @@ func rebuildSourceLocksFromDependencies(sum *SumFile) map[string]LockedSource {
 			if dep.Name == "" || dep.Provider == "" || dep.Hash == "" {
 				continue
 			}
+			ref := dep.Ref
+			if dep.CurrentValue != "" {
+				ref = dep.CurrentValue
+			}
 			out[dep.Name] = LockedSource{
 				Provider: dep.Provider,
 				Path:     dep.Path,
 				Repo:     dep.Repo,
-				Ref:      dep.Ref,
+				Ref:      ref,
 				URL:      dep.URL,
 				Hash:     dep.Hash,
 			}
@@ -182,12 +186,16 @@ func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
 		if dep.Kind != "tool" || dep.Name == "" || dep.Ref == "" {
 			continue
 		}
-		if dep.Version == "" {
+		version := dep.Version
+		if dep.CurrentValue != "" {
+			version = dep.CurrentValue
+		}
+		if version == "" {
 			continue
 		}
 		out[dep.Name] = LockedTool{
 			Ref:     dep.Ref,
-			Version: dep.Version,
+			Version: version,
 		}
 	}
 	return out
