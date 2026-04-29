@@ -13,20 +13,12 @@ User configs/dotfiles live in `workspaced.cue`. Templates use `{{ .Field }}` syn
   - Use `--verbose` flag to see full interface/provider paths
 
 ## Adding New Config Fields
-When adding new config fields to `pkg/config/config.go`:
-1. Add field to `GlobalConfig` struct with `json:"field_name"` tag
-2. Create corresponding struct (e.g., `FooConfig`) with fields and tags
-3. **CRITICAL**: Add `Merge()` method to new struct (see `PaletteConfig.Merge()` as example)
-4. **CRITICAL**: Call merge in `GlobalConfig.Merge()`: `result.Foo = result.Foo.Merge(other.Foo)`
-5. Add config section to `workspaced.cue`
-6. Templates access via `{{ .Foo.Field }}`
-
-**⚠️ IMPORTANT - Merge Methods:**
-- LoadConfig() creates hardcoded defaults, then loads `workspaced.cue` and merges
-- Without implementing `Merge()` and calling it in `GlobalConfig.Merge()`, the merge doesn't happen
-- Result: values from `workspaced.cue` are ignored, templates generate empty fields
-- Symptom: code compiles OK, config is read, but `{{ .Field }}` returns empty string
-- Always implement Merge() for structs nested in GlobalConfig!
+Config is CUE-first (`pkg/configcue` + `workspaced.cue` layers), not `GlobalConfig.Merge()`-based.
+When adding new config fields:
+1. Add/adjust schema and defaults in `pkg/configcue/schema.cue` and prelude files as needed
+2. Add the section/key in `workspaced.cue`
+3. Decode in Go using `configcue.Config.Decode()` or `ModuleConfig()`
+4. Use templates via `{{ .Field }}` from the evaluated CUE config
 
 ## CLI & Architecture
 - **Intention-based Structure**: Commands are grouped by user intent:
