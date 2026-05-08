@@ -1,0 +1,1 @@
+- 2026-05-08: Use shellcheck disable directives to suppress false positives where expansion in single quotes is actually unintended.
