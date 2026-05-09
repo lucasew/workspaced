@@ -8,6 +8,7 @@ import (
 	"strings"
 	"text/tabwriter"
 	"workspaced/pkg/apply"
+	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/deployer"
 	"workspaced/pkg/dotfiles"
@@ -38,7 +39,7 @@ func GetCommand() *cobra.Command {
 			}
 			_ = action
 
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
+			dryRun := cmdctx.IsDryRun(ctx)
 			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
 			// Carregar configuração
@@ -213,7 +214,6 @@ func GetCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolP("dry-run", "d", false, "Only show what would be done")
 	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
 	return cmd
 }

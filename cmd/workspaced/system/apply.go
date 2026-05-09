@@ -3,6 +3,7 @@ package system
 import (
 	"context"
 	"fmt"
+	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
@@ -14,8 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func RunApply(ctx context.Context, action string, dryRun bool) error {
+func RunApply(ctx context.Context, action string) error {
 	logger := logging.GetLogger(ctx)
+	dryRun := cmdctx.IsDryRun(ctx)
 
 	dotfilesRoot, err := env.GetDotfilesRoot()
 	if err != nil {
@@ -67,11 +69,8 @@ func getApplyCommand() *cobra.Command {
 			if len(args) > 0 {
 				action = args[0]
 			}
-			dryRun, _ := cmd.Flags().GetBool("dry-run")
-			return RunApply(cmd.Context(), action, dryRun)
+			return RunApply(cmd.Context(), action)
 		},
 	}
-
-	cmd.Flags().BoolP("dry-run", "d", false, "Only show what would be done")
 	return cmd
 }

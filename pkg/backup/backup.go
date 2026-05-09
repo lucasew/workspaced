@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
@@ -71,6 +72,11 @@ func RunFullBackup(ctx context.Context) error {
 		n.Progress = float64(i+1) / float64(len(actions))
 		logging.ReportError(ctx, notification.Notify(ctx, n))
 		logger.Info("backup action started", "index", i+1, "total", len(actions), "name", msg, "kind", action.GetKind())
+		if cmdctx.IsDryRun(ctx) {
+			logger.Info("dry-run: skipping backup action execution", "name", msg, "kind", action.GetKind())
+			logger.Info("backup action completed", "name", msg, "kind", action.GetKind())
+			continue
+		}
 		if err := action.Run(ctx, n); err != nil {
 			logger.Error("backup action failed", "name", msg, "kind", action.GetKind(), "error", err)
 			failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, action.GetKind(), err))
