@@ -10,10 +10,11 @@ func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		parent.AddCommand(&cobra.Command{
 			Use:   "run",
-			Short: "Run full backup (rsync)",
+			Short: "Run full backup",
 			RunE: func(c *cobra.Command, args []string) error {
 				return backup.RunFullBackup(c.Context())
 			},
 		})
 	})
 }
+

@@ -68,12 +68,8 @@ package workspaced
 	format:    "tar"
 })
 
-#BackupActionTermuxPackagesSnapshot: #BackupActionBase & close({
-	kind:   "termux_packages_snapshot"
-	output: string
-})
 
-#BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive | #BackupActionTermuxPackagesSnapshot
+#BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive 
 
 workspaced: {
 	inputs?: {

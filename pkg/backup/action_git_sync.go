@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	registerActionProvider[GitRepoSyncAction]("git_sync")
+	registerActionProvider[GitRepoSyncAction]("git_repo_sync")
 
 }
 
