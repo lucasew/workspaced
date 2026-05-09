@@ -2,8 +2,11 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
@@ -24,19 +27,22 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	if strings.TrimSpace(a.Src) == "" || strings.TrimSpace(a.Dst) == "" {
 		return fmt.Errorf("git_repo_sync requires src and dst")
 	}
+	if err := ensureRepoCloned(ctx, a.Src, a.Dst); err != nil {
+		return err
+	}
 	remoteName := "workspaced_backup"
 	hostname, _ := os.Hostname()
-	if err := execdriver.MustRun(ctx, "git", "-C", a.Src, "add", "-A").Run(); err != nil {
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "add", "-A")); err != nil {
 		return fmt.Errorf("git add failed for %s: %w", a.Src, err)
 	}
-	if err := execdriver.MustRun(ctx, "git", "-C", a.Src, "diff-index", "HEAD", "--exit-code").Run(); err != nil {
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "diff-index", "HEAD", "--exit-code")); err != nil {
 		commitMsg := fmt.Sprintf("backup checkpoint %s", hostname)
-		if err := execdriver.MustRun(ctx, "git", "-C", a.Src, "commit", "-sm", commitMsg).Run(); err != nil {
+		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "commit", "-sm", commitMsg)); err != nil {
 			return fmt.Errorf("git commit failed for %s: %w", a.Src, err)
 		}
 	}
-	if err := execdriver.MustRun(ctx, "git", "-C", a.Src, "remote", "add", remoteName, a.Dst).Run(); err != nil {
-		_ = execdriver.MustRun(ctx, "git", "-C", a.Src, "remote", "set-url", remoteName, a.Dst).Run()
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "remote", "add", remoteName, a.Dst)); err != nil {
+		_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "remote", "set-url", remoteName, a.Dst))
 	}
 	branchOut, err := execdriver.MustRun(ctx, "git", "-C", a.Src, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
@@ -46,12 +52,49 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	if branch == "" {
 		return fmt.Errorf("empty current branch for %s", a.Src)
 	}
-	if err := execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", remoteName, branch).Run(); err != nil {
-		_ = execdriver.MustRun(ctx, "git", "-C", a.Src, "rebase", "--abort").Run()
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", remoteName, branch)); err != nil {
+		_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "rebase", "--abort"))
 		return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
 	}
-	if err := execdriver.MustRun(ctx, "git", "-C", a.Src, "push", remoteName, branch).Run(); err != nil {
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "push", remoteName, branch)); err != nil {
 		return fmt.Errorf("git push failed for %s: %w", a.Src, err)
 	}
 	return nil
+}
+
+func ensureRepoCloned(ctx context.Context, repoPath, remoteURL string) error {
+	if _, err := os.Stat(filepath.Join(repoPath, ".git")); err == nil {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(repoPath), 0755); err != nil {
+		return fmt.Errorf("failed to create parent dir for %s: %w", repoPath, err)
+	}
+
+	if info, err := os.Stat(repoPath); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("repo path exists and is not a directory: %s", repoPath)
+		}
+		entries, readErr := os.ReadDir(repoPath)
+		if readErr != nil {
+			return fmt.Errorf("failed to inspect repo path %s: %w", repoPath, readErr)
+		}
+		if len(entries) > 0 {
+			return fmt.Errorf("repo path exists but is not a git repo and is not empty: %s", repoPath)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to inspect repo path %s: %w", repoPath, err)
+	}
+
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "clone", remoteURL, repoPath)); err != nil {
+		return fmt.Errorf("git clone failed for %s from %s: %w", repoPath, remoteURL, err)
+	}
+	return nil
+}
+
+func runCommand(ctx context.Context, cmd *exec.Cmd) error {
+	if verboseOutput(ctx) {
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }

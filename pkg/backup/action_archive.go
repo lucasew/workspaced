@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	execdriver "workspaced/pkg/driver/exec"
@@ -29,5 +30,9 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 	}
 	parent := filepath.Dir(action.InputDir)
 	base := filepath.Base(action.InputDir)
-	return execdriver.MustRun(ctx, "tar", "-cvf", action.Output, "-C", parent, base).Run()
+	cmd := execdriver.MustRun(ctx, "tar", "-cvf", action.Output, "-C", parent, base)
+	if verboseOutput(ctx) {
+		cmd.Stderr = os.Stderr
+	}
+	return cmd.Run()
 }

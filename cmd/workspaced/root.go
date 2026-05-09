@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"workspaced/pkg/configcue"
+	"workspaced/pkg/cmdctx"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/registry"
@@ -57,6 +58,8 @@ func main() {
 		Short:   "workspaced - declarative user environment manager",
 		Version: version.GetBuildID(),
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
+
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
 			}
