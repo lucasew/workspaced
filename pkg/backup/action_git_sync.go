@@ -30,7 +30,6 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	if err := ensureRepoCloned(ctx, a.Src, a.Dst); err != nil {
 		return err
 	}
-	remoteName := "workspaced_backup"
 	hostname, _ := os.Hostname()
 	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "add", "-A")); err != nil {
 		return fmt.Errorf("git add failed for %s: %w", a.Src, err)
@@ -41,8 +40,8 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 			return fmt.Errorf("git commit failed for %s: %w", a.Src, err)
 		}
 	}
-	if err := ensureRemoteURL(ctx, a.Src, remoteName, a.Dst); err != nil {
-		return fmt.Errorf("failed to ensure remote %s for %s: %w", remoteName, a.Src, err)
+	if err := ensureRemoteURL(ctx, a.Src, BackupGitRemoteName, a.Dst); err != nil {
+		return fmt.Errorf("failed to ensure remote %s for %s: %w", BackupGitRemoteName, a.Src, err)
 	}
 	branchOut, err := execdriver.MustRun(ctx, "git", "-C", a.Src, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
@@ -53,14 +52,14 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 		return fmt.Errorf("empty current branch for %s", a.Src)
 	}
 
-	remoteBranchExists := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "ls-remote", "--exit-code", "--heads", remoteName, branch)) == nil
+	remoteBranchExists := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "ls-remote", "--exit-code", "--heads", BackupGitRemoteName, branch)) == nil
 	if remoteBranchExists {
-		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", remoteName, branch)); err != nil {
+		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", BackupGitRemoteName, branch)); err != nil {
 			_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "rebase", "--abort"))
 			return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
 		}
 	}
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "push", "-u", remoteName, branch)); err != nil {
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "push", "-u", BackupGitRemoteName, branch)); err != nil {
 		return fmt.Errorf("git push failed for %s: %w", a.Src, err)
 	}
 	return nil
