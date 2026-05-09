@@ -11,12 +11,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"workspaced/pkg/constants"
 	"workspaced/pkg/driver"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/githubutil"
@@ -471,9 +471,9 @@ func untarxz(src, dest string) error {
 		return err
 	}
 
-	cmd := exec.Command("tar", "-xf", src, "-C", dest)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("tar xf failed: %s: %w", string(output), err)
+	cmd := execdriver.MustRun(context.Background(), "tar", "-xf", src, "-C", dest)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("tar xf failed: %w", err)
 	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/tool/resolution"
 )
 
@@ -23,7 +24,10 @@ func RunTool(ctx context.Context, toolName string, args ...string) (*exec.Cmd, e
 	}
 
 	// Exec
-	cmd := exec.CommandContext(ctx, binPath, args...)
+	cmd, err := execdriver.Run(ctx, binPath, args...)
+	if err != nil {
+		return nil, err
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

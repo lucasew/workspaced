@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	execdriver "workspaced/pkg/driver/exec"
 	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/semver"
 	"workspaced/pkg/tool/provider"
@@ -196,5 +197,5 @@ func EnsureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...stri
 		return nil, fmt.Errorf("failed to ensure tool installed: %w", err)
 	}
 
-	return exec.CommandContext(ctx, binPath, args...), nil
+	return execdriver.Run(ctx, binPath, args...)
 }

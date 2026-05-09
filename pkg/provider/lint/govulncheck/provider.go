@@ -3,9 +3,9 @@ package govulncheck
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
-	stdexec "os/exec"
 	"path/filepath"
 
 	"workspaced/pkg/driver/exec"
@@ -43,16 +43,13 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	return provider.ErrNotApplicable
 }
 
-func (p *Provider) getCommand(ctx context.Context, dir string) (*stdexec.Cmd, error) {
-	if exec.IsBinaryAvailable(ctx, "go") {
-		return exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")
-	}
-	return nil, nil
-}
-
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
-	cmd, err := p.getCommand(ctx, dir)
-	if err != nil || cmd == nil {
+	if !exec.IsBinaryAvailable(ctx, "go") {
+		return nil, fmt.Errorf("go binary not available for govulncheck")
+	}
+
+	cmd, err := exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")
+	if err != nil {
 		slog.Error("failed to setup govulncheck", "err", err)
 		return nil, err
 	}

@@ -289,15 +289,13 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	var cmd *os_exec.Cmd
 	var err error
 
-	switch {
-	case exec.IsBinaryAvailable(ctx, "node"):
+	if exec.IsBinaryAvailable(ctx, "node") {
 		cmd, err = exec.Run(ctx, binPath, "-f", "json", ".")
-	case exec.IsBinaryAvailable(ctx, "bun"):
+	} else if exec.IsBinaryAvailable(ctx, "bun") {
 		cmd, err = exec.Run(ctx, "bun", "run", "--bun", binPath, "-f", "json", ".")
-	default:
+	} else {
 		return nil, ErrBinaryNotFound
 	}
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare eslint command: %w", err)
 	}
@@ -308,10 +306,9 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		var exitErr *os_exec.ExitError
-		// ESLint returns exit code 1 if errors found, which is fine if output is valid JSON.
-		if !errors.As(err, &exitErr) {
-			// Not an exit error (e.g. not found), return error.
+		// ESLint can return non-zero with valid JSON (lint findings).
+		// Only treat as hard failure if no parseable output was produced.
+		if len(bytes.TrimSpace(stdout.Bytes())) == 0 {
 			return nil, fmt.Errorf("eslint execution failed: %w", err)
 		}
 	}

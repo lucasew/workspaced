@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	execdriver "workspaced/pkg/driver/exec"
 )
 
 // EnsureAndRunLazy resolves a lazy tool (respecting workspace config + lockfile)
@@ -13,7 +14,7 @@ func EnsureAndRunLazy(ctx context.Context, lazyName, binName string, args ...str
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve lazy tool %q (%s): %w", lazyName, binName, err)
 	}
-	return exec.CommandContext(ctx, binPath, args...), nil
+	return execdriver.Run(ctx, binPath, args...)
 }
 
 // EnsureAndRunLazyAt resolves a lazy tool using workspace detection rooted at wd.
@@ -22,7 +23,7 @@ func EnsureAndRunLazyAt(ctx context.Context, wd, lazyName, binName string, args 
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve lazy tool %q (%s): %w", lazyName, binName, err)
 	}
-	return exec.CommandContext(ctx, binPath, args...), nil
+	return execdriver.Run(ctx, binPath, args...)
 }
 
 // EnsureAndRunLazyWithFallback first tries lazy resolution, then falls back to
