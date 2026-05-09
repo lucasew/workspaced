@@ -15,4 +15,3 @@ func GetCommand() *cobra.Command {
 	}
 	return Registry.FillCommands(cmd)
 }
-

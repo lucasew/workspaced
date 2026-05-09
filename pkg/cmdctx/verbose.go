@@ -12,4 +12,3 @@ func IsVerbose(ctx context.Context) bool {
 	v, _ := ctx.Value(verboseKey{}).(bool)
 	return v
 }
-

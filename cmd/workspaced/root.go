@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"workspaced/pkg/configcue"
 	"workspaced/pkg/cmdctx"
+	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/registry"
