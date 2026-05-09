@@ -37,6 +37,7 @@ type backupConfig struct {
 }
 
 func RunFullBackup(ctx context.Context) error {
+	logger := logging.GetLogger(ctx)
 	rawCfg, err := configcue.LoadHome()
 	if err != nil {
 		return err
@@ -51,9 +52,10 @@ func RunFullBackup(ctx context.Context) error {
 		return err
 	}
 	if len(actions) == 0 {
-		logging.GetLogger(ctx).Info("no backup actions configured")
+		logger.Info("no backup actions configured")
 		return nil
 	}
+	logger.Info("backup started", "actions", len(actions))
 
 	n := &notification.Notification{
 		ID:          notification.BackupNotificationID,
@@ -71,12 +73,17 @@ func RunFullBackup(ctx context.Context) error {
 		n.Message = msg
 		n.Progress = float64(i+1) / float64(len(actions))
 		logging.ReportError(ctx, notification.Notify(ctx, n))
+		logger.Info("backup action started", "index", i+1, "total", len(actions), "name", msg, "kind", action.GetKind())
 		if err := action.Run(ctx, n); err != nil {
+			logger.Error("backup action failed", "name", msg, "kind", action.GetKind(), "error", err)
 			failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, action.GetKind(), err))
+			continue
 		}
+		logger.Info("backup action completed", "name", msg, "kind", action.GetKind())
 	}
 
 	if len(failures) > 0 {
+		logger.Error("backup finished with failures", "count", len(failures))
 		n.Title = "Backup finalizado com falhas"
 		n.Message = strings.Join(failures, "\n")
 		n.Urgency = "critical"
@@ -88,6 +95,7 @@ func RunFullBackup(ctx context.Context) error {
 	n.Title = "Backup finalizado"
 	n.Progress = 1.0
 	logging.ReportError(ctx, notification.Notify(ctx, n))
+	logger.Info("backup finished successfully")
 	return nil
 }
 
