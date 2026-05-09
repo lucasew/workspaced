@@ -44,6 +44,37 @@ package workspaced
 	}
 }
 
+#BackupActionBase: {
+	name?: string
+}
+
+#BackupActionGitRepoSync: #BackupActionBase & close({
+	kind: "git_repo_sync"
+	src:  string
+	dst:  string
+})
+
+#BackupActionRsync: #BackupActionBase & close({
+	kind: "rsync"
+	src:  string
+	dst:  string
+	excludes?: [...string]
+})
+
+#BackupActionArchive: #BackupActionBase & close({
+	kind:      "archive"
+	input_dir: string
+	output:    string
+	format:    "tar"
+})
+
+#BackupActionTermuxPackagesSnapshot: #BackupActionBase & close({
+	kind:   "termux_packages_snapshot"
+	output: string
+})
+
+#BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive | #BackupActionTermuxPackagesSnapshot
+
 workspaced: {
 	inputs?: {
 		self?: #Input & {
@@ -71,6 +102,11 @@ workspaced: {
 	backup?: {
 		rsyncnet_user?: string
 		remote_path?:   string
+		git_repos?: [...{
+			src: string
+			dst: string
+		}]
+		actions?: [...#BackupAction]
 	}
 	quicksync?: {
 		repo_dir?:    string

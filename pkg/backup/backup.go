@@ -3,25 +3,36 @@ package backup
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/env"
-	"workspaced/pkg/git"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/sudo"
 	"workspaced/pkg/types"
 )
 
+type BackupAction interface {
+	GetName() string
+	GetKind() string
+	Run(ctx context.Context, n *notification.Notification) error
+}
+
+type backupActionBase struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+
+func (a backupActionBase) GetName() string { return a.Name }
+func (a backupActionBase) GetKind() string { return a.Kind }
+
 type backupConfig struct {
 	Backup struct {
-		RsyncnetUser string `json:"rsyncnet_user"`
-		RemotePath   string `json:"remote_path"`
+		Actions []json.RawMessage `json:"actions"`
 	} `json:"backup"`
 }
 
@@ -35,8 +46,14 @@ func RunFullBackup(ctx context.Context) error {
 		return err
 	}
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("starting full backup")
+	actions, err := decodeBackupActions(cfg.Backup.Actions)
+	if err != nil {
+		return err
+	}
+	if len(actions) == 0 {
+		logging.GetLogger(ctx).Info("no backup actions configured")
+		return nil
+	}
 
 	n := &notification.Notification{
 		ID:          notification.BackupNotificationID,
@@ -45,68 +62,51 @@ func RunFullBackup(ctx context.Context) error {
 		HasProgress: true,
 	}
 
-	hostname := env.GetHostname()
-	totalSteps := 2 // Git sync + Final report
-	if hostname == "riverwood" {
-		totalSteps++
-	}
-	if env.IsPhone() {
-		totalSteps += 5 // Camera, Pictures, WA Media, WA Backups, Termux
-	}
-
-	currentStep := 0
-	updateProgress := func(msg string) {
-		currentStep++
+	for i, action := range actions {
+		msg := action.GetName()
+		if strings.TrimSpace(msg) == "" {
+			msg = fmt.Sprintf("Executando ação %d/%d...", i+1, len(actions))
+		}
 		n.Message = msg
-		n.Progress = float64(currentStep) / float64(totalSteps)
+		n.Progress = float64(i+1) / float64(len(actions))
 		logging.ReportError(ctx, notification.Notify(ctx, n))
-	}
-
-	// Always sync git repos first
-	updateProgress("Sincronizando repositórios Git...")
-	_ = git.QuickSync(ctx)
-
-	if hostname == "riverwood" {
-		updateProgress("Sincronizando CANTGIT...")
-		logger.Info("host identified as riverwood, syncing CANTGIT")
-		home, _ := os.UserHomeDir()
-		src := filepath.Join(home, "WORKSPACE/CANTGIT/")
-		dst := cfg.Backup.RemotePath + "/CANTGIT"
-		if _, err := Rsync(ctx, src, dst, n); err != nil {
+		if err := action.Run(ctx, n); err != nil {
 			return err
 		}
 	}
 
-	if env.IsPhone() {
-		logger.Info("host identified as phone, starting android backup")
-		if err := runPhoneBackup(ctx, cfg, updateProgress, n); err != nil {
-			return err
-		}
-	}
-
-	// Final report
-	updateProgress("Finalizando e obtendo status...")
-	logger.Info("fetching remote status from rsync.net")
-	status, _ := getRemoteStatus(ctx, cfg)
 	n.Title = "Backup finalizado"
-	n.Message = status
 	n.Progress = 1.0
 	logging.ReportError(ctx, notification.Notify(ctx, n))
-
-	logger.Info("full backup completed")
 	return nil
 }
 
-func Rsync(ctx context.Context, src, dst string, n *notification.Notification, extraArgs ...string) (string, error) {
-	rawCfg, _ := configcue.LoadForWorkspace("")
-	var cfg backupConfig
-	if rawCfg != nil {
-		_ = rawCfg.Decode("", &cfg)
+func decodeBackupActions(rawActions []json.RawMessage) ([]BackupAction, error) {
+	actions := make([]BackupAction, 0, len(rawActions))
+	for _, raw := range rawActions {
+		var base backupActionBase
+		if err := json.Unmarshal(raw, &base); err != nil {
+			return nil, fmt.Errorf("decode backup action envelope: %w", err)
+		}
+		provider, ok := actionProviders[base.Kind]
+		if !ok {
+			return nil, fmt.Errorf("unknown backup action kind: %s", base.Kind)
+		}
+		action, err := provider(raw)
+		if err != nil {
+			return nil, err
+		}
+		actions = append(actions, action)
 	}
-	remote := fmt.Sprintf("%s:%s", cfg.Backup.RsyncnetUser, dst)
+	return actions, nil
+}
 
-	logging.GetLogger(ctx).Info("rsync sync", "from", src, "to", remote)
-	args := append([]string{"-avP", src, remote}, extraArgs...)
+func Rsync(ctx context.Context, src, dst string, n *notification.Notification, extraArgs ...string) (string, error) {
+	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" {
+		return "", fmt.Errorf("rsync requires src and dst")
+	}
+	logging.GetLogger(ctx).Info("rsync sync", "from", src, "to", dst)
+	args := append([]string{"-avP", src, dst}, extraArgs...)
 	cmd := execdriver.MustRun(ctx, "rsync", args...)
 
 	stdout, err := cmd.StdoutPipe()
@@ -141,73 +141,8 @@ func Rsync(ctx context.Context, src, dst string, n *notification.Notification, e
 	return lastLine, err
 }
 
-func runPhoneBackup(ctx context.Context, cfg backupConfig, updateProgress func(string), n *notification.Notification) error {
-	logger := logging.GetLogger(ctx)
-	// Sync Camera and Pictures
-	logger.Info("syncing media and whatsapp")
-	updateProgress("Sincronizando Câmera...")
-	_, _ = Rsync(ctx, "/sdcard/DCIM/Camera/", cfg.Backup.RemotePath+"/camera", n, "--exclude=.thumbnails")
-	updateProgress("Sincronizando Fotos...")
-	_, _ = Rsync(ctx, "/sdcard/Pictures/", cfg.Backup.RemotePath+"/pictures", n, "--exclude=.thumbnails")
-	updateProgress("Sincronizando Mídia WhatsApp...")
-	_, _ = Rsync(ctx, "/sdcard/Android/media/com.whatsapp/WhatsApp/Media/", cfg.Backup.RemotePath+"/WhatsApp", n, "--exclude=.Links", "--exclude=.Statuses")
-	updateProgress("Sincronizando Backups WhatsApp...")
-	_, _ = Rsync(ctx, "/sdcard/Android/media/com.whatsapp/WhatsApp/Backups/", cfg.Backup.RemotePath+"/WhatsApp", n)
-
-	// Termux config staging
-	updateProgress("Sincronizando Configurações Termux...")
-	logger.Info("staging termux configuration")
-	home, _ := os.UserHomeDir()
-	cacheDir := filepath.Join(home, ".cache/backup/termux")
-	_ = os.MkdirAll(cacheDir, 0755)
-
-	// package list
-	logger.Info("generating package list")
-	pkgList, _ := execdriver.MustRun(ctx, "dpkg-query", "-f", "${binary:Package}\n", "-W").Output()
-	_ = os.WriteFile(filepath.Join(cacheDir, "packages.txt"), pkgList, 0644)
-
-	// sync home files
-	for _, item := range []string{".bashrc", ".bash_history", ".config", ".termux", "workspace"} {
-		src := filepath.Join(home, item)
-		if _, err := os.Stat(src); err == nil {
-			logger.Info("syncing home item", "item", item)
-			_ = execdriver.MustRun(ctx, "rsync", "-avP", src, cacheDir).Run()
-		}
-	}
-
-	tarPath := filepath.Join(home, ".cache/backup/termux.tar")
-	logger.Info("creating tarball", "path", tarPath)
-	_ = execdriver.MustRun(ctx, "tar", "-cvf", tarPath, "-C", filepath.Dir(cacheDir), "termux").Run()
-
-	_, err := Rsync(ctx, tarPath, cfg.Backup.RemotePath, n)
-	return err
-}
-
-func getRemoteStatus(ctx context.Context, cfg backupConfig) (string, error) {
-	user := cfg.Backup.RsyncnetUser
-
-	// Get quota (raw)
-	quotaOut, _ := execdriver.MustRun(ctx, "ssh", user, "quota").Output()
-
-	// Filter out lines with asterisks from quota output
-	var quotaLines []string
-	for line := range strings.SplitSeq(string(quotaOut), "\n") {
-		if !strings.Contains(line, "*") && line != "" {
-			quotaLines = append(quotaLines, line)
-		}
-	}
-	filteredQuota := strings.Join(quotaLines, "\n")
-
-	// Get snapshots (flattened)
-	snapOut, _ := execdriver.MustRun(ctx, "ssh", user, "ls .zfs/snapshot").Output()
-	snapshots := strings.Join(strings.Fields(string(snapOut)), " ")
-
-	return filteredQuota + "\n" + snapshots, nil
-}
-
 func ReplicateZFS(ctx context.Context) error {
 	logger := logging.GetLogger(ctx)
-	// Ported from bin/misc/zfs-backup
 	logger.Info("replicating ZFS vms dataset")
 
 	if os.Getuid() != 0 {
