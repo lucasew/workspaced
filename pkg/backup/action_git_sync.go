@@ -41,8 +41,8 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 			return fmt.Errorf("git commit failed for %s: %w", a.Src, err)
 		}
 	}
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "remote", "add", remoteName, a.Dst)); err != nil {
-		_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "remote", "set-url", remoteName, a.Dst))
+	if err := ensureRemoteURL(ctx, a.Src, remoteName, a.Dst); err != nil {
+		return fmt.Errorf("failed to ensure remote %s for %s: %w", remoteName, a.Src, err)
 	}
 	branchOut, err := execdriver.MustRun(ctx, "git", "-C", a.Src, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	if err != nil {
@@ -52,14 +52,33 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	if branch == "" {
 		return fmt.Errorf("empty current branch for %s", a.Src)
 	}
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", remoteName, branch)); err != nil {
-		_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "rebase", "--abort"))
-		return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
+
+	remoteBranchExists := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "ls-remote", "--exit-code", "--heads", remoteName, branch)) == nil
+	if remoteBranchExists {
+		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", remoteName, branch)); err != nil {
+			_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "rebase", "--abort"))
+			return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
+		}
 	}
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "push", remoteName, branch)); err != nil {
+	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "push", "-u", remoteName, branch)); err != nil {
 		return fmt.Errorf("git push failed for %s: %w", a.Src, err)
 	}
 	return nil
+}
+
+func ensureRemoteURL(ctx context.Context, repoPath, remoteName, remoteURL string) error {
+	currentURLBytes, err := execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "get-url", remoteName).Output()
+	if err != nil {
+		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "add", remoteName, remoteURL)); err != nil {
+			return err
+		}
+		return nil
+	}
+	currentURL := strings.TrimSpace(string(currentURLBytes))
+	if currentURL == remoteURL {
+		return nil
+	}
+	return runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "set-url", remoteName, remoteURL))
 }
 
 func ensureRepoCloned(ctx context.Context, repoPath, remoteURL string) error {
