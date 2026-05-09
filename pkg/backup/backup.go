@@ -5,15 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/sudo"
-	"workspaced/pkg/types"
 )
 
 type BackupAction interface {
@@ -157,30 +154,4 @@ func Rsync(ctx context.Context, src, dst string, n *notification.Notification, e
 
 	err = cmd.Wait()
 	return lastLine, err
-}
-
-func ReplicateZFS(ctx context.Context) error {
-	logger := logging.GetLogger(ctx)
-	logger.Info("replicating ZFS vms dataset")
-
-	if os.Getuid() != 0 {
-		_ = sudo.Enqueue(ctx, &types.SudoCommand{
-			Slug:    "zfs-backup-vms",
-			Command: "syncoid",
-			Args:    []string{"-r", "zroot/vms", "storage/backup/vms"},
-		})
-		logger.Info("replicating ZFS games dataset")
-		_ = sudo.Enqueue(ctx, &types.SudoCommand{
-			Slug:    "zfs-backup-games",
-			Command: "syncoid",
-			Args:    []string{"-r", "zroot/games", "storage/games"},
-		})
-		return nil
-	}
-
-	if err := execdriver.MustRun(ctx, "syncoid", "-r", "zroot/vms", "storage/backup/vms").Run(); err != nil {
-		return err
-	}
-	logger.Info("replicating ZFS games dataset")
-	return execdriver.MustRun(ctx, "syncoid", "-r", "zroot/games", "storage/games").Run()
 }

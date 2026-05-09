@@ -14,10 +14,6 @@ workspaced: {
 	screenshot: {
 		dir: *"\(workspaced.runtime.home)/Pictures/Screenshots" | string
 	}
-	backup: {
-		rsyncnet_user: *"de3163@de3163.rsync.net" | string
-		remote_path:   *"backup/lucasew" | string
-	}
 	quicksync: {
 		repo_dir:    *"\(workspaced.runtime.home)/.personal" | string
 		remote_path: *"/data2/home/de3163/git-personal" | string
