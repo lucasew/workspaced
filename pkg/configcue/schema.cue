@@ -44,24 +44,23 @@ package workspaced
 	}
 }
 
-#BackupActionBase: {
+#BackupActionGitRepoSync: close({
 	name?: string
-}
-
-#BackupActionGitRepoSync: #BackupActionBase & close({
 	kind: "git_repo_sync"
 	src:  string
 	dst:  string
 })
 
-#BackupActionRsync: #BackupActionBase & close({
+#BackupActionRsync: close({
+	name?: string
 	kind: "rsync"
 	src:  string
 	dst:  string
 	excludes?: [...string]
 })
 
-#BackupActionArchive: #BackupActionBase & close({
+#BackupActionArchive: close({
+	name?: string
 	kind:      "archive"
 	input_dir: string
 	output:    string

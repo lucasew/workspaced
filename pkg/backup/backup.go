@@ -37,7 +37,7 @@ type backupConfig struct {
 }
 
 func RunFullBackup(ctx context.Context) error {
-	rawCfg, err := configcue.LoadForWorkspace("")
+	rawCfg, err := configcue.LoadHome()
 	if err != nil {
 		return err
 	}
@@ -61,6 +61,7 @@ func RunFullBackup(ctx context.Context) error {
 		Icon:        "drive-harddisk",
 		HasProgress: true,
 	}
+	failures := []string{}
 
 	for i, action := range actions {
 		msg := action.GetName()
@@ -71,8 +72,17 @@ func RunFullBackup(ctx context.Context) error {
 		n.Progress = float64(i+1) / float64(len(actions))
 		logging.ReportError(ctx, notification.Notify(ctx, n))
 		if err := action.Run(ctx, n); err != nil {
-			return err
+			failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, action.GetKind(), err))
 		}
+	}
+
+	if len(failures) > 0 {
+		n.Title = "Backup finalizado com falhas"
+		n.Message = strings.Join(failures, "\n")
+		n.Urgency = "critical"
+		n.Progress = 1.0
+		logging.ReportError(ctx, notification.Notify(ctx, n))
+		return fmt.Errorf("backup finished with %d failure(s): %s", len(failures), strings.Join(failures, "; "))
 	}
 
 	n.Title = "Backup finalizado"
