@@ -1,7 +1,6 @@
 package open
 
 import (
-	"fmt"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver/opener"
 	"workspaced/pkg/driver/terminal"
@@ -58,10 +57,6 @@ func GetCommand() *cobra.Command {
 			}
 			if len(extraFlags) > 0 {
 				wa.ExtraFlags = append(wa.ExtraFlags, extraFlags...)
-			}
-
-			if wa.URL == "" {
-				return fmt.Errorf("URL is required (use name or --url)")
 			}
 
 			return opener.OpenWebapp(c.Context(), wa)
