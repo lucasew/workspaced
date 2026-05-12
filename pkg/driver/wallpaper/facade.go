@@ -57,7 +57,7 @@ func SetAnimated(ctx context.Context, path string) error {
 	// Simple wrapper for the video logic
 	// Since it uses xrandr and xwinwrap, it's mostly X11
 	// We'll just run it via execdriver.MustRun
-	return execdriver.MustRun(ctx, "sh", "-c", fmt.Sprintf("sd wall video %s", path)).Run()
+	return execdriver.MustRun(ctx, "sd", "wall", "video", path).Run()
 }
 
 type APODResponse struct {
