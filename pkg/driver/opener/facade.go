@@ -41,8 +41,10 @@ func OpenWebapp(ctx context.Context, wa WebappConfig) error {
 	}
 
 	engine := browser.Engine
-	normalizedURL := env.NormalizeURL(wa.URL)
-	args := []string{"--app=" + normalizedURL}
+	args := []string{}
+	if wa.URL != "" {
+		args = append(args, "--app="+env.NormalizeURL(wa.URL))
+	}
 
 	if wa.Profile != "" {
 		home, _ := os.UserHomeDir()
