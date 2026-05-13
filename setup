@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+APPNAME=workspaced
+
+if [[ ! -v DOWNLOAD_DIR ]]; then
+  DOWNLOAD_DIR=$(mktemp -d)
+fi
+mkdir -p "$DOWNLOAD_DIR"
+
+if [[ ! -v VERSION ]]; then
+  VERSION=$(curl -s https://api.github.com/repos/lucasew/workspaced/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')
+fi
+
+if [[ ! -v OS ]]; then
+  OS="$(uname -s)"
+fi
+
+if [[ ! -v ARCH ]]; then
+  ARCH="$(uname -m)"
+fi
+
+URL="https://github.com/lucasew/workspaced/releases/download/$VERSION/workspaced_${OS}_${ARCH}.tar.gz"
+# echo $URL
+# echo $DOWNLOAD_DIR
+if [[ ! -x "$DOWNLOAD_DIR/workspaced" ]]; then
+  curl -sL "$URL"  | tar -xvzf - -C "$DOWNLOAD_DIR"
+fi
+
+"$DOWNLOAD_DIR/workspaced" "$@"
