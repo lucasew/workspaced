@@ -101,28 +101,41 @@ func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig)
 }
 
 func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig, version string) ([]provider.Artifact, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkg.Repo, version)
-	if version == "latest" {
-		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", pkg.Repo)
-	}
-	slog.Debug("fetching release info", "url", url)
+	fetchRelease := func(versionTag string) (*http.Response, error) {
+		url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkg.Repo, versionTag)
+		if versionTag == "latest" {
+			url = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", pkg.Repo)
+		}
+		slog.Debug("fetching release info", "url", url)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		githubutil.ApplyAuth(ctx, req)
+
+		// Use httpclient driver (handles Termux DNS/certs)
+		httpClient, err := driver.Get[httpclient.Driver](ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get http client: %w", err)
+		}
+
+		return httpClient.Client().Do(req)
+	}
+
+	resp, err := fetchRelease(version)
 	if err != nil {
 		return nil, err
 	}
 
-	githubutil.ApplyAuth(ctx, req)
-
-	// Use httpclient driver (handles Termux DNS/certs)
-	httpClient, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get http client: %w", err)
-	}
-
-	resp, err := httpClient.Client().Do(req)
-	if err != nil {
-		return nil, err
+	if resp.StatusCode == http.StatusNotFound && version != "latest" && !strings.HasPrefix(version, "v") {
+		logging.Close(ctx, resp.Body)
+		slog.Debug("release not found, retrying with 'v' prefix", "version", version)
+		resp, err = fetchRelease("v" + version)
+		if err != nil {
+			return nil, err
+		}
 	}
 	defer logging.Close(ctx, resp.Body)
 
