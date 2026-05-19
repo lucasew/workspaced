@@ -3,6 +3,7 @@ package native
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
@@ -21,6 +22,9 @@ func (p *Provider) Name() string {
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	// Always compatible on non-Termux systems
+	if os.Getenv("TERMUX_VERSION") != "" {
+		return fmt.Errorf("%w: native exec driver is incompatible with Termux", driver.ErrIncompatible)
+	}
 	return nil
 }
 
