@@ -20,7 +20,7 @@ builds:
   - binary: workspaced
     main: ./cmd/workspaced
     env:
-      - CGO_ENABLED={{ if eq .Os "android" }}1{{ else }}0{{ end }}
+      - CGO_ENABLED=0 # {{ if eq .Os "android" }}1{{ else }}0{{ end }}
     goos:
       - linux
       - windows
@@ -28,6 +28,11 @@ builds:
       - android
     ldflags:
       - -s -w -X workspaced/pkg/version.version={{ .Version }}
+    ignore:
+      - goos: android
+        goarch: amd64
+      - goos: android
+        goarch: "386"
 
 archives:
   - formats: [tar.gz]
