@@ -20,7 +20,7 @@ builds:
   - binary: workspaced
     main: ./cmd/workspaced
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED={{ if eq .Os "android" }}1{{ else }}0{{ end }}
     goos:
       - linux
       - windows
