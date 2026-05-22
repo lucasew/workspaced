@@ -26,11 +26,18 @@ func (p *Provider) Name() string {
 }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
-	// Check if we're running in Termux
-	if os.Getenv("TERMUX_VERSION") == "" {
-		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
+	// TERMUX_VERSION is not guaranteed to be exported in every shell/session.
+	// Accept additional Termux markers to avoid false negatives.
+	if os.Getenv("TERMUX_VERSION") != "" {
+		return nil
 	}
-	return nil
+	if os.Getenv("TERMUX_APP_PACKAGE") != "" {
+		return nil
+	}
+	if prefix := os.Getenv("PREFIX"); strings.HasPrefix(prefix, "/data/data/com.termux/files/usr") {
+		return nil
+	}
+	return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 }
 
 func (p *Provider) New(ctx context.Context) (execdriver.Driver, error) {

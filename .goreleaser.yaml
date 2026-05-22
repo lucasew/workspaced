@@ -25,6 +25,7 @@ builds:
       - linux
       - windows
       - darwin
+      - android
     ldflags:
       - -s -w -X workspaced/pkg/version.version={{ .Version }}
 
