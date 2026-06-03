@@ -7,11 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 
 	execdriver "workspaced/pkg/driver/exec"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/semver"
 	"workspaced/pkg/tool/provider"
 )
 
@@ -22,23 +20,19 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		return "", err
 	}
 
-	// Handle "latest" version resolution
+	// Handle "latest" version resolution.
+	// In the direct path (used by "workspaced tool with" etc.), "latest"
+	// always queries upstream. We never fall back to locally installed
+	// versions for "latest" here (installed versions are only used when
+	// an explicit non-latest version is not specified in some contexts).
 	actualVersion := spec.Version
 	if spec.Version == "latest" {
-		// Try to find any installed version locally first
-		installed, err := m.FindInstalledVersions(spec)
-		if err == nil && len(installed) > 0 {
-			actualVersion = installed[0]
-			spec.Version = actualVersion
-		} else {
-			// No local version found, resolve from provider
-			resolved, err := m.ResolveLatestVersion(ctx, spec)
-			if err != nil {
-				return "", fmt.Errorf("failed to resolve latest version: %w", err)
-			}
-			actualVersion = resolved
-			spec.Version = actualVersion
+		resolved, err := m.ResolveLatestVersion(ctx, spec)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve latest version: %w", err)
 		}
+		actualVersion = resolved
+		spec.Version = actualVersion
 	}
 	p, err := Get(spec.Provider)
 	if err != nil {
@@ -129,34 +123,6 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	}
 
 	return "", fmt.Errorf("binary %q not found in %s", cmdName, versionDir)
-}
-
-// FindInstalledVersions returns a sorted list of installed versions for a tool.
-func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
-	pkgDir := filepath.Join(m.toolsDir, spec.Dir())
-	entries, err := os.ReadDir(pkgDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var versions semver.SemVers
-	for _, entry := range entries {
-		if entry.IsDir() {
-			versions = append(versions, semver.Parse(entry.Name()))
-		}
-	}
-
-	if len(versions) == 0 {
-		return nil, fmt.Errorf("no installed versions found")
-	}
-
-	sort.Sort(sort.Reverse(versions))
-
-	var result []string
-	for _, v := range versions {
-		result = append(result, v.String())
-	}
-	return result, nil
 }
 
 // ResolveLatestVersion queries the provider to find the latest version of a package.

@@ -106,15 +106,13 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 
 		version := spec.Version
 		if version == "" || version == "latest" {
-			if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
-				version = installed[0]
-			} else {
-				logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-				version, err = mgr.ResolveLatestVersion(ctx, spec)
-				if err != nil {
-					logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-					continue
-				}
+			// Home/lazy tools: if not in lockfile, fill with latest from upstream.
+			// (lockfile-driven for reproducibility; do not fall back to installed)
+			logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+			version, err = mgr.ResolveLatestVersion(ctx, spec)
+			if err != nil {
+				logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
+				continue
 			}
 		}
 
@@ -249,15 +247,14 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 
 	if spec.Version == "" || spec.Version == "latest" {
-		if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
-			spec.Version = installed[0]
-		} else {
-			version, err := mgr.ResolveLatestVersion(ctx, spec)
-			if err != nil {
-				return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
-			}
-			spec.Version = version
+		// Home/lazy tools: resolved from lockfile if present.
+		// If not in lockfile, fill with latest from upstream (not from installed
+		// versions, to keep home tools reproducible via the lockfile).
+		version, err := mgr.ResolveLatestVersion(ctx, spec)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
 		}
+		spec.Version = version
 	}
 
 	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
