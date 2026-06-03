@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"workspaced/pkg/driver/screen"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -51,7 +52,7 @@ func monitorCapsLock(ctx context.Context) {
 
 			screenActive, err := screen.IsDPMSOn(ctx)
 			if err != nil {
-				slog.Error("on checking if screen is active", "error", err)
+				logging.ReportError(ctx, err, slog.String("context", "on checking if screen is active"))
 			}
 			if !capsActive != screenActive {
 				slog.Info("toggling screen", "active", !capsActive)

@@ -12,6 +12,7 @@ import (
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 )
 
@@ -279,7 +280,7 @@ nameserver 1.1.1.1
 
 	// Verify it was written
 	if content, err := os.ReadFile(resolvConfPath); err != nil {
-		slog.Error("failed to verify resolv.conf after writing", "error", err)
+		logging.ReportError(context.Background(), err, slog.String("context", "failed to verify resolv.conf after writing"))
 	} else {
 		slog.Info("resolv.conf content verified", "size", len(content))
 	}

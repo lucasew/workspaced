@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,7 @@ func init() {
 					case <-ticker.C:
 						pid, cmdline, err := getHungryPID(ctx)
 						if err != nil {
-							slog.Error("failed to get hungry PID", "error", err)
+							logging.ReportError(ctx, err, slog.String("context", "failed to get hungry PID"))
 							continue
 						}
 						if pid == "" {

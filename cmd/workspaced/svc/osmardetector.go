@@ -6,6 +6,7 @@ import (
 	"time"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/battery"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +24,7 @@ func init() {
 				slog.Info("osmardetector started")
 				driver, err := driver.Get[battery.Driver](ctx)
 				if err != nil {
-					slog.Error("failed to get battery driver", "error", err)
+					logging.ReportError(ctx, err, slog.String("context", "failed to get battery driver"))
 					return
 				}
 
@@ -34,7 +35,7 @@ func init() {
 					case <-ticker.C:
 						status, err := driver.BatteryStatus(ctx)
 						if err != nil {
-							slog.Error("failed to get battery status", "error", err)
+							logging.ReportError(ctx, err, slog.String("context", "failed to get battery status"))
 							continue
 						}
 						if status == battery.Discharging {

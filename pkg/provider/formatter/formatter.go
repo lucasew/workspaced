@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"workspaced/pkg/logging"
 	"workspaced/pkg/provider"
 )
 
@@ -41,7 +42,7 @@ func RunAll(ctx context.Context, dir string) error {
 
 		slog.Info("Running formatter", "name", f.Name())
 		if err := f.Format(ctx, dir); err != nil {
-			slog.Error("formatter failed", "name", f.Name(), "error", err)
+			logging.ReportError(ctx, err, slog.String("context", "formatter failed"), slog.String("name", f.Name()))
 			errs = append(errs, fmt.Errorf("%s: %w", f.Name(), err))
 		}
 	}

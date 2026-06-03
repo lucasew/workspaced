@@ -82,7 +82,7 @@ var Command = &cobra.Command{
 		}
 
 		if err := RunDaemon(); err != nil && err != http.ErrServerClosed {
-			slog.Error("daemon failure", "error", err)
+			logging.ReportError(context.Background(), err, slog.String("context", "daemon failure"))
 			os.Exit(1)
 		}
 	},
@@ -153,7 +153,7 @@ func RunDaemon() error {
 						slog.Info("tray: triggering apply")
 						_, err := ExecuteViaCobra(ctx, types.Request{Command: "apply", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
-							slog.Error("tray apply failed", "error", err)
+							logging.ReportError(ctx, err, slog.String("context", "tray apply failed"))
 						}
 						if HasBinaryChanged() {
 							slog.Info("binary changed after apply, restarting daemon")
@@ -168,7 +168,7 @@ func RunDaemon() error {
 						slog.Info("tray: triggering sync")
 						_, err := ExecuteViaCobra(ctx, types.Request{Command: "sync", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
-							slog.Error("tray sync failed", "error", err)
+							logging.ReportError(ctx, err, slog.String("context", "tray sync failed"))
 						}
 					},
 				},
@@ -184,7 +184,7 @@ func RunDaemon() error {
 
 		slog.Info("starting tray driver")
 		if err := t.Run(ctx); err != nil {
-			slog.Error("tray driver failed", "error", err)
+			logging.ReportError(ctx, err, slog.String("context", "tray driver failed"))
 		}
 	}()
 
@@ -226,7 +226,7 @@ var upgrader = websocket.Upgrader{
 func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("ws upgrade error", "error", err)
+		logging.ReportError(r.Context(), err, slog.String("context", "ws upgrade error"))
 		return
 	}
 	defer logging.Close(r.Context(), conn)
@@ -243,7 +243,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 		defer close(done)
 		for packet := range outCh {
 			if err := conn.WriteJSON(packet); err != nil {
-				slog.Error("ws write error", "error", err)
+				logging.ReportError(ctx, err, slog.String("context", "ws write error"))
 				cancel()
 				return
 			}
@@ -277,7 +277,7 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 					continue
 				}
 				if err := database.RecordHistory(ctx, event); err != nil {
-					slog.Error("failed to record history", "error", err)
+					logging.ReportError(ctx, err, slog.String("context", "failed to record history"))
 				}
 			}
 		}
@@ -291,14 +291,14 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 		slog.Info("restarting daemon with new binary")
 		exePath, err := os.Executable()
 		if err != nil {
-			slog.Error("failed to get executable path", "error", err)
+			logging.ReportError(ctx, err, slog.String("context", "failed to get executable path"))
 			return
 		}
 
 		// Exec ourselves with daemon argument
 		err = syscall.Exec(exePath, []string{exePath, "daemon"}, os.Environ())
 		if err != nil {
-			slog.Error("failed to exec daemon", "error", err)
+			logging.ReportError(ctx, err, slog.String("context", "failed to exec daemon"))
 		}
 	}
 }
@@ -373,7 +373,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 
 	resp := types.Response{Output: output}
 	if err != nil {
-		slog.Error("command failed", "command", req.Command, "error", err)
+		logging.ReportError(ctx, err, slog.String("context", "command failed"), slog.String("command", req.Command))
 		resp.Error = err.Error()
 	}
 

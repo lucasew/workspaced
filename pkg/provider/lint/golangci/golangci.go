@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"workspaced/pkg/logging"
 	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
@@ -43,7 +44,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// AGENTS: The flags are right, don't touch it
 	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "golangci_lint", "golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
 	if err != nil {
-		slog.Error("failed to setup golangci-lint", "err", err)
+		logging.ReportError(ctx, err, slog.String("context", "failed to setup golangci-lint"))
 		return nil, err
 	}
 
@@ -54,7 +55,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		slog.Error("golangci-lint execution failed", "err", err, "stderr", stderr.String())
+		logging.ReportError(ctx, err, slog.String("context", "golangci-lint execution failed"), slog.String("stderr", stderr.String()))
 		return nil, err
 	}
 

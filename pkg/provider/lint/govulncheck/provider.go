@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 
@@ -50,7 +51,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	cmd, err := exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")
 	if err != nil {
-		slog.Error("failed to setup govulncheck", "err", err)
+		logging.ReportError(ctx, err, slog.String("context", "failed to setup govulncheck"))
 		return nil, err
 	}
 
@@ -61,7 +62,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		slog.Error("govulncheck execution failed", "err", err)
+		logging.ReportError(ctx, err, slog.String("context", "govulncheck execution failed"))
 		return nil, err
 	}
 

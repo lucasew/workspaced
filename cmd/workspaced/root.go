@@ -111,10 +111,10 @@ func main() {
 	if err := cmd.Execute(); err != nil {
 		if stopProfiling != nil {
 			if stopErr := stopProfiling(); stopErr != nil {
-				slog.Error("failed to stop profiling", "err", stopErr)
+				logging.ReportError(context.Background(), stopErr, slog.String("context", "failed to stop profiling"))
 			}
 		}
-		slog.Error("error", "err", err)
+		logging.ReportError(context.Background(), err, slog.String("context", "error"))
 		os.Exit(1)
 	}
 }

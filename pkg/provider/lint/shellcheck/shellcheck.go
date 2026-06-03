@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"workspaced/pkg/logging"
 	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 	"workspaced/pkg/tool"
@@ -99,7 +100,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute shellcheck.
 	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "shellcheck", "shellcheck", args...)
 	if err != nil {
-		slog.Error("failed to setup shellcheck", "err", err)
+		logging.ReportError(ctx, err, slog.String("context", "failed to setup shellcheck"))
 		return nil, err
 	}
 
@@ -116,7 +117,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	if len(output) == 0 {
 		// If no output but stderr has content, likely a real error
 		if stderr.Len() > 0 {
-			slog.Error("shellcheck execution failed", "stderr", stderr.String())
+			logging.ReportError(ctx, fmt.Errorf("shellcheck execution failed: %s", stderr.String()), slog.String("stderr", stderr.String()))
 			return nil, fmt.Errorf("shellcheck failed: %s", stderr.String())
 		}
 		return nil, nil
@@ -124,7 +125,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	var issues []Issue
 	if err := json.Unmarshal(output, &issues); err != nil {
-		slog.Error("failed to parse shellcheck output", "err", err, "output", string(output))
+		logging.ReportError(ctx, err, slog.String("context", "failed to parse shellcheck output"), slog.String("output", string(output)))
 		return nil, err
 	}
 

@@ -505,7 +505,7 @@ func stripTopLevelDir(destPath string) error {
 	tempEntries, err := os.ReadDir(tempDir)
 	if err != nil {
 		if err := os.Rename(tempDir, singleDir); err != nil { // Try to restore
-			slog.Error("failed to restore directory structure", "error", err)
+			logging.ReportError(context.Background(), err, slog.String("context", "failed to restore directory structure"))
 		}
 		return err
 	}

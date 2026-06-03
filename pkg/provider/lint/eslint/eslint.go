@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/provider"
 	"workspaced/pkg/provider/lint"
 
@@ -319,7 +320,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		if len(rawStdout) > 2048 {
 			rawStdout = rawStdout[:2048] + "...(truncated)"
 		}
-		slog.Error("eslint failed to produce valid JSON", "stderr", stderr.String(), "stdout", rawStdout)
+		logging.ReportError(ctx, err, slog.String("context", "eslint failed to produce valid JSON"), slog.String("stderr", stderr.String()), slog.String("stdout", rawStdout))
 		return nil, fmt.Errorf("eslint failed: %w: %s", err, stderr.String())
 	}
 
