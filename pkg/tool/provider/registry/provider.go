@@ -14,6 +14,15 @@ func init() {
 	tool.Register("registry", &Provider{})
 }
 
+var namedTools = map[string]func() (provider.Tool, error){}
+
+func RegisterRegistryTool(name string, f func() (provider.Tool, error)) {
+	if _, ok := namedTools[name]; ok {
+		panic(fmt.Sprintf("registry: tool %s is being defined twice", name))
+	}
+	namedTools[name] = f
+}
+
 // Provider is a placeholder for a future central tool registry.
 // It implements the thin handler interface and can later compose Tools
 // from other backends (github, pypi, etc.) using their exposed constructors.
@@ -35,23 +44,6 @@ func (p *Provider) Tool(ref string) (provider.Tool, error) {
 	}
 
 	return nil, fmt.Errorf("unknown named tool %q (registry only knows curated github tools; use explicit 'mise:' or 'github:' provider instead)", name)
-}
-
-// ParsePackage etc. kept only for any transitional direct use.
-func (p *Provider) ParsePackage(spec string) (provider.PackageConfig, error) {
-	return provider.PackageConfig{}, fmt.Errorf("registry provider not implemented yet - use explicit provider like 'github:%s'", spec)
-}
-
-func (p *Provider) ListVersions(ctx context.Context, pkg provider.PackageConfig) ([]string, error) {
-	return nil, fmt.Errorf("registry provider not implemented")
-}
-
-func (p *Provider) GetArtifacts(ctx context.Context, pkg provider.PackageConfig, version string) ([]provider.Artifact, error) {
-	return nil, fmt.Errorf("registry provider not implemented")
-}
-
-func (p *Provider) Install(ctx context.Context, artifact provider.Artifact, destPath string) error {
-	return fmt.Errorf("registry provider not implemented")
 }
 
 // NewTool constructs a Tool for a named entry in the registry.
@@ -90,4 +82,3 @@ func (t *RegistryTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 // assertions will succeed on the inner value, not on RegistryTool.
 // If you need the registry wrapper to forward the extra interfaces,
 // you can embed or use a more sophisticated wrapper.
-
