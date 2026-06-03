@@ -52,6 +52,7 @@ func writeSumFile(path string, sum *SumFile) error {
 	if err := normalizeDependencies(sum.Dependencies); err != nil {
 		return err
 	}
+
 	onDisk := sumFileDisk{
 		Dependencies: sum.Dependencies,
 	}

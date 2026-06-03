@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -89,6 +90,9 @@ func LoadSumFile(path string) (*SumFile, error) {
 		return nil, err
 	}
 	out.Dependencies = BuildRenovateDependenciesFromLocks(disk.Sources, disk.Tools)
+	if err := normalizeDependencies(out.Dependencies); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -121,6 +125,11 @@ func normalizeDependencies(deps []RenovateDependency) error {
 		}
 		deps[i] = dep
 	}
+
+	// Store dependencies sorted by Ref for deterministic lockfiles.
+	sort.Slice(deps, func(i, j int) bool {
+		return strings.TrimSpace(deps[i].Ref) < strings.TrimSpace(deps[j].Ref)
+	})
 	return nil
 }
 
