@@ -123,8 +123,8 @@ func upsertToolDependency(deps []RenovateDependency, name string, lock LockedToo
 				dep.CurrentValue = lock.Version
 			}
 			// If the caller (live lock from Tool) provided renovate reference data,
-			// use it (this is the preferred path, data comes from Tool.Renovate()).
-			// Otherwise fall back to slim enrich (only ref/version etc).
+			// use it (this is the preferred path, data comes from EnrichLockfile
+			// on the live Tool). Otherwise fall back to slim enrich.
 			if lock.DepName != "" || lock.Datasource != "" {
 				dep.DepName = lock.DepName
 				dep.Datasource = lock.Datasource

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 )
@@ -64,8 +65,8 @@ func NewTool(ref string) (provider.Tool, error) {
 // RegistryTool is a thin wrapper type if someone wants to type-assert the
 // registry origin. In practice we usually return the inner backend Tool
 // directly (so ArtifactTool / BinaryTool assertions work without extra wrappers).
-// We keep a type for documentation / future use. It forwards Renovate()
-// (required on Tool) to the inner.
+// We keep a type for documentation / future use. It forwards EnrichLockfile
+// to the inner.
 type RegistryTool struct {
 	inner provider.Tool
 	name  string
@@ -79,10 +80,10 @@ func (t *RegistryTool) Install(ctx context.Context, version string, destDir stri
 	return t.inner.Install(ctx, version, destDir)
 }
 
-// Renovate forwards to the inner tool (which now always has the method
-// since it's required on Tool).
-func (t *RegistryTool) Renovate() provider.RenovateDescriptor {
-	return t.inner.Renovate()
+// EnrichLockfile forwards to the inner tool. The concrete implementation
+// receives the actual *modfile.RenovateDependency and can mutate it.
+func (t *RegistryTool) EnrichLockfile(entry *modfile.RenovateDependency) {
+	t.inner.EnrichLockfile(entry)
 }
 
 // Note: if the inner tool implements ArtifactTool or BinaryTool, the

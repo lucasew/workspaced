@@ -22,6 +22,7 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/githubutil"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 
@@ -672,14 +673,20 @@ func (t *GitHubTool) InstallArtifact(ctx context.Context, artifact provider.Arti
 	return t.p.Install(ctx, artifact, destDir)
 }
 
-// Renovate implements the required Renovate method on Tool.
-// This provides the "initial object" (the renovate reference descriptor)
-// that the locking/enrichment logic consumes so that github-backed tools
-// (including those reached via short registry: names) store the full
-// renovate data (depName, datasource, ...) by default in the lockfile.
-func (t *GitHubTool) Renovate() provider.RenovateDescriptor {
-	return provider.RenovateDescriptor{
-		DepName:    t.repo,
-		Datasource: "github-releases",
+// EnrichLockfile receives a pointer to the *actual* structure that will be
+// written into the lockfile's dependencies array. The Tool can read the
+// ref (the key the item is referenced by) and any existing values, then
+// mutate fields (Provider, DepName, Datasource, CurrentValue, etc.).
+//
+// This gives the Tool struct complete ownership of its metadata. On next
+// lock update the current version of this method runs and can migrate
+// attributes if the Tool's logic has changed.
+func (t *GitHubTool) EnrichLockfile(entry *modfile.RenovateDependency) {
+	entry.Provider = "github"
+	entry.DepName = t.repo
+	entry.Datasource = "github-releases"
+
+	if strings.TrimSpace(entry.CurrentValue) == "" {
+		entry.CurrentValue = entry.Version
 	}
 }

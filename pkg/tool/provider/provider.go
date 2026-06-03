@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"workspaced/pkg/modfile"
 )
 
 // Provider is the thin handler registered for one tool registry (e.g. "github", "mise").
@@ -29,13 +31,18 @@ type Tool interface {
 	ListVersions(ctx context.Context) ([]string, error)
 	Install(ctx context.Context, version string, destDir string) error
 
-	// Renovate returns the renovate reference descriptor for this tool.
-	// This is now required on all Tools so that lock entries can carry
-	// the update instructions (depName, datasource, etc.) by default.
-	// The descriptor provides the "initial object" used by the locking
-	// paths; enrichToolDependency is now only responsible for filling
-	// the basic ref/version/lock state.
-	Renovate() RenovateDescriptor
+	// EnrichLockfile receives a pointer to the exact RenovateDependency that
+	// will be stored in the lockfile for this tool.
+	//
+	// The Tool can inspect the current state (Name, Ref, Version, any
+	// previously written CurrentValue/DepName etc.) and mutate attributes
+	// directly. The ref is the key the item is referenced by in the lock.
+	//
+	// Because it is a reference to the live structure that gets persisted,
+	// any logic changes or migrations inside the Tool's EnrichLockfile
+	// implementation are applied to the lockfile entry by default on the
+	// next refresh/update of that tool.
+	EnrichLockfile(entry *modfile.RenovateDependency)
 }
 
 // ArtifactTool is an optional extension for Tools that can expose raw
@@ -149,15 +156,5 @@ func scoreArtifactForHint(url string, hint string) int {
 	}
 
 	return score
-}
-
-// RenovateDescriptor is the "renovate reference" for a tool: the metadata
-// (apart from the logical tool name/alias and the locked version) that
-// tells renovate where and how to find newer versions for the lock entry.
-type RenovateDescriptor struct {
-	DepName     string
-	Datasource  string
-	PackageName string
-	Versioning  string
 }
 

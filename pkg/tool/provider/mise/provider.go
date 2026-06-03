@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"workspaced/pkg/miseutil"
+	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 )
@@ -166,11 +167,14 @@ func (t *MiseTool) EnsureBinary(ctx context.Context, version string, cmdName str
 	return t.p.EnsureBinary(ctx, pkg, version, cmdName, destDir)
 }
 
-// Renovate provides the renovate reference. For mise-backed tools this
-// currently returns empty (mise covers many heterogeneous backends).
-// Tools that have a clear renovate identity (e.g. github releases) should
-// be referenced via github: or registry: so that GitHubTool's implementation
-// is used instead.
-func (t *MiseTool) Renovate() provider.RenovateDescriptor {
-	return provider.RenovateDescriptor{}
+// EnrichLockfile receives a pointer to the live lockfile dependency entry
+// for this mise tool. See the interface godoc for why this by-reference
+// design enables automatic migration of metadata when the Tool's logic
+// evolves.
+func (t *MiseTool) EnrichLockfile(entry *modfile.RenovateDependency) {
+	// Mise is a frontend to many backends. Most do not have a single
+	// renovate datasource. If this spec corresponds to something renovate
+	// can manage, set the fields here.
+	//
+	// For now we leave renovate fields empty.
 }

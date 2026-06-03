@@ -13,6 +13,7 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/tool/provider"
 )
 
 type lazyToolConfig struct {
@@ -260,8 +261,55 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 
 	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
+
+	// Obtain the live Tool once so we can Enrich the real structure.
+	var liveTool provider.Tool
+	if p, err := Get(spec.Provider); err == nil {
+		if t, err := p.Tool(spec.Package); err == nil {
+			liveTool = t
+		}
+	}
+
+	// We also directly enrich the actual *RenovateDependency inside the
+	// sum's Dependencies list (the structure referenced by ref). The Tool
+	// receives it by pointer via EnrichLockfile and can mutate attributes.
+	// On save, any logic migrations in the Tool are applied automatically.
 	if changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
-		return sum.EnsureTool(toolName, lt), nil
+		// Find or create the dep entry for this tool name.
+		var dep *modfile.RenovateDependency
+		for i := range sum.Dependencies {
+			d := &sum.Dependencies[i]
+			if d.Kind == "tool" && d.Name == toolName {
+				if d.Ref == "" || d.Ref == lockRef {
+					dep = d
+					break
+				}
+			}
+		}
+		if dep == nil {
+			sum.Dependencies = append(sum.Dependencies, modfile.RenovateDependency{
+				Kind: "tool",
+				Name: toolName,
+			})
+			dep = &sum.Dependencies[len(sum.Dependencies)-1]
+		}
+
+		// Set identity that the Tool should see (the ref is the reference key).
+		dep.Ref = lockRef
+		dep.Version = spec.Version
+		if dep.CurrentValue == "" {
+			dep.CurrentValue = spec.Version
+		}
+
+		// Pass the *actual* structure from the lockfile's Dependencies list
+		// (the item referenced by ref) by pointer to the Tool.
+		if liveTool != nil {
+			liveTool.EnrichLockfile(dep)
+		}
+
+		// Keep the lt path too.
+		_ = sum.EnsureTool(toolName, lt)
+		return true, nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to update tool lock: %w", err)
 	} else if changed {
@@ -326,11 +374,14 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 	return spec, ref, nil
 }
 
-// lockedToolWithRenovate builds the lock entry using renovate reference
-// data coming from the Tool's Renovate() method (the "initial object").
-// Since Renovate is required on the Tool interface, this always obtains
-// the descriptor. This makes the extra renovate fields (depName,
-// datasource etc) be stored by default in the lockfile.
+// lockedToolWithRenovate builds the lock entry. It obtains the live Tool
+// and calls EnrichLockfile on a temporary RenovateDependency (the structure
+// passed by reference). This gives the Tool full control to set/upgrade any
+// attributes (especially renovate metadata) based on the current Ref etc.
+//
+// Because EnrichLockfile mutates the entry in place, any changes to the
+// Tool's enrichment logic are automatically reflected in the lockfile the
+// next time this tool is resolved or refreshed.
 func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec) modfile.LockedTool {
 	lt := modfile.LockedTool{
 		Ref:     lockRef,
@@ -344,10 +395,27 @@ func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec)
 	if terr != nil {
 		return lt
 	}
-	d := tt.Renovate()
-	lt.DepName = d.DepName
-	lt.Datasource = d.Datasource
-	lt.PackageName = d.PackageName
-	lt.Versioning = d.Versioning
+
+	// Create a skeleton of the actual structure that will live in the
+	// lockfile's dependencies list and let the Tool mutate it directly.
+	entry := modfile.RenovateDependency{
+		Kind:    "tool",
+		Name:    "", // the alias; set by caller context if desired
+		Ref:     lockRef,
+		Version: version,
+	}
+	tt.EnrichLockfile(&entry)
+
+	lt.DepName = entry.DepName
+	lt.Datasource = entry.Datasource
+	lt.PackageName = entry.PackageName
+	lt.Versioning = entry.Versioning
+
+	// The Tool had a chance to influence CurrentValue too.
+	if entry.CurrentValue != "" {
+		// We don't store CurrentValue on LockedTool (it lives on the dep),
+		// but the upsert logic will pick it up via other paths if needed.
+	}
+
 	return lt
 }

@@ -17,11 +17,11 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 
 // enrichToolDependency is now minimal: it only fills basic tool lock state
 // (kind, name, ref, version, currentValue, provider). Most logic for the
-// renovate reference (the descriptor with depName/datasource etc.) lives in
-// the Tool implementations themselves (Tool.Renovate() is required on the
-// Tool interface). Callers that have a live Tool (e.g. lazy locking) obtain
-// the descriptor and pass it through LockedTool; this func is mainly for
-// normalizing the common fields.
+// renovate reference (depName/datasource etc.) lives in the Tool
+// implementations (via EnrichLockfile). Callers that have a live Tool
+// (e.g. lazy locking) obtain the data by calling EnrichLockfile on a
+// (temp or real) RenovateDependency; this func is mainly for normalizing
+// the common fields.
 func enrichToolDependency(dep RenovateDependency) RenovateDependency {
 	dep.Kind = "tool"
 	dep.Name = strings.TrimSpace(dep.Name)
@@ -91,10 +91,9 @@ func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools m
 			continue
 		}
 
-		// The renovate reference (depName, datasource, ...) is carried in
-		// the LockedTool from when it was obtained via Tool.Renovate() at
-		// lock time. enrichToolDependency only fills the basic ref/version
-		// lock state now.
+		// The renovate reference (depName, datasource, ...) is populated
+		// by calling EnrichLockfile on the live Tool (at lock time).
+		// enrichToolDependency only fills the basic ref/version lock state.
 		dep := RenovateDependency{
 			Kind:        "tool",
 			Name:        strings.TrimSpace(name),
