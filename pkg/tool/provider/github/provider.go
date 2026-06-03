@@ -671,3 +671,15 @@ func (t *GitHubTool) ListArtifacts(ctx context.Context, version string) ([]provi
 func (t *GitHubTool) InstallArtifact(ctx context.Context, artifact provider.Artifact, destDir string) error {
 	return t.p.Install(ctx, artifact, destDir)
 }
+
+// Renovate implements provider.RenovateReference.
+// This provides the "initial object" (the renovate reference descriptor)
+// that the locking/enrichment logic consumes so that github-backed tools
+// (including those reached via short registry: names) store the full
+// renovate data (depName, datasource, ...) by default in the lockfile.
+func (t *GitHubTool) Renovate() provider.RenovateDescriptor {
+	return provider.RenovateDescriptor{
+		DepName:    t.repo,
+		Datasource: "github-releases",
+	}
+}

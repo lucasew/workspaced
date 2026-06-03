@@ -19,6 +19,14 @@ type LockedSource struct {
 type LockedTool struct {
 	Ref     string `json:"ref"`
 	Version string `json:"version"`
+
+	// Renovate reference fields (populated by default from the Tool's
+	// Renovate() method when locking). These are the "data apart from
+	// toolName and version" that instruct renovate how to fetch updates.
+	DepName     string `json:"depName,omitempty"`
+	Datasource  string `json:"datasource,omitempty"`
+	PackageName string `json:"packageName,omitempty"`
+	Versioning  string `json:"versioning,omitempty"`
 }
 
 type RenovateDependency struct {
@@ -109,6 +117,7 @@ func normalizeDependencies(deps []RenovateDependency) error {
 			if dep.Version == "" {
 				dep.Version = dep.CurrentValue
 			}
+			dep = enrichToolDependency(dep)
 		}
 		deps[i] = dep
 	}
@@ -194,8 +203,12 @@ func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
 			continue
 		}
 		out[dep.Name] = LockedTool{
-			Ref:     dep.Ref,
-			Version: version,
+			Ref:         dep.Ref,
+			Version:     version,
+			DepName:     dep.DepName,
+			Datasource:  dep.Datasource,
+			PackageName: dep.PackageName,
+			Versioning:  dep.Versioning,
 		}
 	}
 	return out

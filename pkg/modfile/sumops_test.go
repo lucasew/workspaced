@@ -7,10 +7,14 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 
 	sum := &SumFile{
 		Dependencies: []RenovateDependency{{
-			Kind:    "tool",
-			Name:    "gh",
-			Ref:     "github:cli/cli",
-			Version: "2.89.0",
+			Kind:         "tool",
+			Name:         "gh",
+			Ref:          "github:cli/cli",
+			Version:      "2.89.0",
+			Provider:     "github",
+			DepName:      "cli/cli",
+			CurrentValue: "2.89.0",
+			Datasource:   "github-releases",
 		}},
 	}
 
@@ -23,9 +27,13 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 	}
 
 	if changed := sum.EnsureTool("gh", LockedTool{Ref: "github:cli/cli", Version: "2.89.0"}); changed {
-		t.Fatal("expected EnsureTool to be idempotent")
+		t.Fatal("expected EnsureTool to be idempotent when passing minimal (no renovate fields)")
 	}
 	if len(sum.Dependencies) != 1 {
 		t.Fatalf("unexpected dependencies count: %d", len(sum.Dependencies))
+	}
+	d := sum.Dependencies[0]
+	if d.Datasource != "github-releases" || d.DepName != "cli/cli" {
+		t.Fatalf("renovate reference data should be preserved on the lock entry: %#v", d)
 	}
 }

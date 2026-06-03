@@ -1,6 +1,10 @@
 package modfile
 
-import "strings"
+import (
+	"strings"
+
+	parsespec "workspaced/pkg/parse/spec"
+)
 
 func updateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, error) {
 	sum, err := LoadSumFile(path)
@@ -57,6 +61,21 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 	}
 	current, ok := s.FindTool(name)
 	changed := !ok || current.Ref != lock.Ref || current.Version != lock.Version
+	// Only consider renovate fields for change detection if the incoming lock
+	// provides them (allows passing minimal LockedTool for idempotency tests
+	// or legacy paths; live paths from Tool always provide when available).
+	if lock.DepName != "" && current.DepName != lock.DepName {
+		changed = true
+	}
+	if lock.Datasource != "" && current.Datasource != lock.Datasource {
+		changed = true
+	}
+	if lock.PackageName != "" && current.PackageName != lock.PackageName {
+		changed = true
+	}
+	if lock.Versioning != "" && current.Versioning != lock.Versioning {
+		changed = true
+	}
 	if !hasToolDependency(s.Dependencies, name, lock.Ref, lock.Version) || changed {
 		s.Dependencies = upsertToolDependency(s.Dependencies, name, lock)
 		changed = true
@@ -103,16 +122,45 @@ func upsertToolDependency(deps []RenovateDependency, name string, lock LockedToo
 			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Version) {
 				dep.CurrentValue = lock.Version
 			}
+			// If the caller (live lock from Tool) provided renovate reference data,
+			// use it (this is the preferred path). Otherwise fall back to ref-based enrich.
+			if lock.DepName != "" || lock.Datasource != "" {
+				dep.DepName = lock.DepName
+				dep.Datasource = lock.Datasource
+				dep.PackageName = lock.PackageName
+				dep.Versioning = lock.Versioning
+				dep.Provider = strings.TrimSpace(dep.Provider)
+				if dep.Provider == "" {
+					// best effort from ref
+					if spec, err := parsespec.Parse(lock.Ref); err == nil {
+						dep.Provider = spec.Provider
+					}
+				}
+			} else {
+				dep = enrichToolDependency(dep)
+			}
 			deps[i] = dep
 			return deps
 		}
 	}
-	return append(deps, RenovateDependency{
+	dep := RenovateDependency{
 		Kind:    "tool",
 		Name:    name,
 		Ref:     lock.Ref,
 		Version: lock.Version,
-	})
+	}
+	if lock.DepName != "" || lock.Datasource != "" {
+		dep.DepName = lock.DepName
+		dep.Datasource = lock.Datasource
+		dep.PackageName = lock.PackageName
+		dep.Versioning = lock.Versioning
+		if spec, err := parsespec.Parse(lock.Ref); err == nil {
+			dep.Provider = spec.Provider
+		}
+	} else {
+		dep = enrichToolDependency(dep)
+	}
+	return append(deps, dep)
 }
 
 func upsertSourceDependency(deps []RenovateDependency, name string, lock LockedSource) []RenovateDependency {
@@ -161,6 +209,9 @@ func hasToolDependency(deps []RenovateDependency, name, ref, version string) boo
 			effectiveVersion = strings.TrimSpace(dep.CurrentValue)
 		}
 		if effectiveVersion == version {
+			if !toolDependencyHasRenovateData(dep) {
+				return false // incomplete renovate data; force upsert to store it by default
+			}
 			return true
 		}
 	}

@@ -142,3 +142,21 @@ func scoreArtifactForHint(url string, hint string) int {
 
 	return score
 }
+
+// RenovateDescriptor is the "renovate reference" for a tool: the metadata
+// (apart from the logical tool name/alias and the locked version) that
+// tells renovate where and how to find newer versions for the lock entry.
+type RenovateDescriptor struct {
+	DepName     string
+	Datasource  string
+	PackageName string
+	Versioning  string
+}
+
+// RenovateReference is an optional interface that a Tool (or the value
+// returned by Provider.Tool) can implement. When implemented, the lazy
+// tool locking code will obtain this descriptor from the Tool and store
+// the renovate data by default in the lockfile entry.
+type RenovateReference interface {
+	Renovate() RenovateDescriptor
+}

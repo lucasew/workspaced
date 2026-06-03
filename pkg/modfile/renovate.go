@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
 	parsespec "workspaced/pkg/parse/spec"
 )
 
@@ -12,6 +13,66 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 		return nil
 	}
 	return BuildRenovateDependenciesFromLocks(sum.SourceLocks(), sum.ToolLocks())
+}
+
+// enrichToolDependency fills provider and the renovate-specific fields (depName,
+// datasource, currentValue, ...) on a tool entry so renovate's custom manager
+// knows where to look for newer versions. This is the fallback path (ref-based).
+// The preferred source for the renovate reference data is the Tool.Renovate()
+// method (see provider.RenovateReference), which is used at live lock time
+// and passed via LockedTool so that registry: shortnames etc also get the data.
+func enrichToolDependency(dep RenovateDependency) RenovateDependency {
+	dep.Kind = "tool"
+	dep.Name = strings.TrimSpace(dep.Name)
+	dep.Ref = strings.TrimSpace(dep.Ref)
+	dep.Version = strings.TrimSpace(dep.Version)
+	dep.Provider = strings.TrimSpace(dep.Provider)
+
+	if dep.Ref == "" || dep.Version == "" {
+		return dep
+	}
+
+	spec, err := parsespec.Parse(dep.Ref)
+	if err != nil {
+		if dep.CurrentValue == "" {
+			dep.CurrentValue = dep.Version
+		}
+		return dep
+	}
+
+	dep.Provider = spec.Provider
+	if dep.CurrentValue == "" || dep.CurrentValue == dep.Version {
+		dep.CurrentValue = dep.Version
+	}
+
+	// Only direct github: refs get renovate fields via this ref-based path.
+	// (registry: and others get it via the Tool method at locking time.)
+	if spec.Provider == "github" {
+		dep.DepName = spec.Package
+		dep.Datasource = "github-releases"
+	}
+
+	return dep
+}
+
+// toolSupportsRenovate reports whether a (direct) tool ref should carry
+// renovate instruction fields via the ref-based enrich.
+func toolSupportsRenovate(ref string) bool {
+	spec, err := parsespec.Parse(ref)
+	if err != nil {
+		return false
+	}
+	return spec.Provider == "github"
+}
+
+// toolDependencyHasRenovateData reports whether the stored dep already has the
+// renovate fields that enrich would produce. Used to force upsert for
+// storing the renovate reference data by default.
+func toolDependencyHasRenovateData(dep RenovateDependency) bool {
+	if !toolSupportsRenovate(dep.Ref) {
+		return true
+	}
+	return strings.TrimSpace(dep.DepName) != "" && strings.TrimSpace(dep.Datasource) != ""
 }
 
 func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools map[string]LockedTool) []RenovateDependency {
@@ -65,23 +126,9 @@ func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools m
 			continue
 		}
 
-		spec, err := parsespec.Parse(ref)
-		if err != nil {
-			deps = append(deps, dep)
-			continue
-		}
-		dep.Provider = strings.TrimSpace(spec.Provider)
+		dep = enrichToolDependency(dep)
 		// Always persist lock state for tools. Renovate fields are optional.
 		deps = append(deps, dep)
-
-		// Keep support strict to proven mappings so Renovate can update safely.
-		switch strings.TrimSpace(spec.Provider) {
-		case "github":
-			dep.DepName = strings.TrimSpace(spec.Package)
-			dep.CurrentValue = version
-			dep.Datasource = "github-releases"
-			deps[len(deps)-1] = dep
-		}
 	}
 
 	sort.Slice(deps, func(i, j int) bool {

@@ -13,6 +13,7 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/tool/provider"
 )
 
 type lazyToolConfig struct {
@@ -117,11 +118,9 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			}
 		}
 
+		lt := lockedToolWithRenovate(lockRef, version, spec)
 		changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
-			return sum.EnsureTool(name, modfile.LockedTool{
-				Ref:     lockRef,
-				Version: version,
-			}), nil
+			return sum.EnsureTool(name, lt), nil
 		})
 		if err != nil {
 			return 0, err
@@ -129,7 +128,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		if changed {
 			logger.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
 			updated++
-			_ = sum.EnsureTool(name, modfile.LockedTool{Ref: lockRef, Version: version})
+			_ = sum.EnsureTool(name, lockedToolWithRenovate(lockRef, version, spec))
 		}
 	}
 	return updated, nil
@@ -261,11 +260,9 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		}
 	}
 
+	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
 	if changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
-		return sum.EnsureTool(toolName, modfile.LockedTool{
-			Ref:     lockRef,
-			Version: spec.Version,
-		}), nil
+		return sum.EnsureTool(toolName, lt), nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to update tool lock: %w", err)
 	} else if changed {
@@ -328,4 +325,32 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		return parsespec.Spec{}, "", err
 	}
 	return spec, ref, nil
+}
+
+// lockedToolWithRenovate builds the lock entry, preferring renovate reference
+// data coming from the Tool's Renovate() method (the "initial object") when
+// the provider supports it. This makes the extra renovate fields (depName,
+// datasource etc) be stored by default in the lockfile for tools that provide
+// them.
+func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec) modfile.LockedTool {
+	lt := modfile.LockedTool{
+		Ref:     lockRef,
+		Version: version,
+	}
+	p, perr := Get(spec.Provider)
+	if perr != nil {
+		return lt
+	}
+	tt, terr := p.Tool(spec.Package)
+	if terr != nil {
+		return lt
+	}
+	if rr, ok := tt.(provider.RenovateReference); ok {
+		d := rr.Renovate()
+		lt.DepName = d.DepName
+		lt.Datasource = d.Datasource
+		lt.PackageName = d.PackageName
+		lt.Versioning = d.Versioning
+	}
+	return lt
 }
