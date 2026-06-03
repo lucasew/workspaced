@@ -5,6 +5,12 @@ import (
 	githubprov "workspaced/pkg/tool/provider/github"
 )
 
+func WrapNewTool(f func(ref string) (provider.Tool, error), ref string) func() (provider.Tool, error) {
+	return func() (provider.Tool, error) {
+		return f(ref)
+	}
+}
+
 // namedTools defines the curated set of "registry applications" (named tools)
 // that the registry provider knows about.
 //
@@ -24,26 +30,22 @@ import (
 // users must use the explicit "mise:" or "github:" provider prefixes.
 var namedTools = map[string]func() (provider.Tool, error){
 	// Curated short names that map to GitHub releases.
-	"uv":            func() (provider.Tool, error) { return githubprov.NewTool("astral-sh/uv") },
-	"ruff":          func() (provider.Tool, error) { return githubprov.NewTool("astral-sh/ruff") },
-	"fzf":           func() (provider.Tool, error) { return githubprov.NewTool("junegunn/fzf") },
-	"ripgrep":       func() (provider.Tool, error) { return githubprov.NewTool("burntsushi/ripgrep") },
-	"rg":            func() (provider.Tool, error) { return githubprov.NewTool("burntsushi/ripgrep") },
-	"fd":            func() (provider.Tool, error) { return githubprov.NewTool("sharkdp/fd") },
-	"golangci-lint": func() (provider.Tool, error) { return githubprov.NewTool("golangci/golangci-lint") },
-	"shellcheck":    func() (provider.Tool, error) { return githubprov.NewTool("koalaman/shellcheck") },
-	"actionlint":    func() (provider.Tool, error) { return githubprov.NewTool("rhysd/actionlint") },
-	"biome":         func() (provider.Tool, error) { return githubprov.NewTool("biomejs/biome") },
-	"shfmt":         func() (provider.Tool, error) { return githubprov.NewTool("patrickvane/shfmt") },
-	"sops":           func() (provider.Tool, error) { return githubprov.NewTool("getsops/sops") },
-	"docker-compose": func() (provider.Tool, error) { return githubprov.NewTool("docker/compose") },
-	"terraform":     func() (provider.Tool, error) { return githubprov.NewTool("hashicorp/terraform") },
-	"tflint":        func() (provider.Tool, error) { return githubprov.NewTool("terraform-linters/tflint") },
-
-	// Additional names from user's workspaced.cue (github-backed)
-	"opencode": func() (provider.Tool, error) { return githubprov.NewTool("anomalyco/opencode") },
-	"rclone":   func() (provider.Tool, error) { return githubprov.NewTool("rclone/rclone") },
-	"rtk":      func() (provider.Tool, error) { return githubprov.NewTool("rtk-ai/rtk") },
-
-	// Add more curated github names here as needed.
+	"uv":             WrapNewTool(githubprov.NewTool, "astral-sh/uv"),
+	"ruff":           WrapNewTool(githubprov.NewTool, "astral-sh/ruff"),
+	"fzf":            WrapNewTool(githubprov.NewTool, "junegunn/fzf"),
+	"ripgrep":        WrapNewTool(githubprov.NewTool, "burntsushi/ripgrep"),
+	"rg":             WrapNewTool(githubprov.NewTool, "burntsushi/ripgrep"),
+	"fd":             WrapNewTool(githubprov.NewTool, "sharkdp/fd"),
+	"golangci-lint":  WrapNewTool(githubprov.NewTool, "golangci/golangci-lint"),
+	"shellcheck":     WrapNewTool(githubprov.NewTool, "koalaman/shellcheck"),
+	"actionlint":     WrapNewTool(githubprov.NewTool, "rhysd/actionlint"),
+	"biome":          WrapNewTool(githubprov.NewTool, "biomejs/biome"),
+	"shfmt":          WrapNewTool(githubprov.NewTool, "patrickvane/shfmt"),
+	"sops":           WrapNewTool(githubprov.NewTool, "getsops/sops"),
+	"docker-compose": WrapNewTool(githubprov.NewTool, "docker/compose"),
+	"terraform":      WrapNewTool(githubprov.NewTool, "hashicorp/terraform"),
+	"tflint":         WrapNewTool(githubprov.NewTool, "terraform-linters/tflint"),
+	"opencode":       WrapNewTool(githubprov.NewTool, "anomalyco/opencode"),
+	"rclone":         WrapNewTool(githubprov.NewTool, "rclone/rclone"),
+	"rtk":            WrapNewTool(githubprov.NewTool, "rtk-ai/rtk"),
 }
