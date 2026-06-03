@@ -20,16 +20,17 @@ If the tool is not installed, it will be installed automatically.
 Tool spec format:
   provider:package@version  (full spec)
   provider:package          (uses latest version)
-  package@version           (uses registry provider - not yet implemented)
-  package                   (uses registry provider and latest version - not yet implemented)
+  package@version           (uses registry provider for curated short names)
+  package                   (uses registry provider + latest; for curated short names e.g. ripgrep, uv)
 
-Note: Currently you must specify the provider explicitly (e.g., github:package@version)
+Bare names (no provider:) default to the registry provider (curated github tools).
+For mise-managed tools (e.g. go, node) or direct github use 'mise:' or 'github:'.
 
 Examples:
   workspaced tool with github:denoland/deno@1.40.0 -- deno run app.ts
-  workspaced tool with denoland/deno -- deno --version
-  workspaced tool with deno@1.40.0 -- deno run app.ts
-  workspaced tool with ripgrep -- rg pattern`,
+  workspaced tool with ripgrep -- rg pattern
+  workspaced tool with uv -- uv --version
+  workspaced tool with mise:go@1.21.0 -- go version`,
 				Args: cobra.MinimumNArgs(2), // Need at least: tool-spec and command
 				RunE: func(cmd *cobra.Command, args []string) error {
 					spec := args[0]

@@ -356,7 +356,7 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		ref = toolName
 	}
 	if !strings.Contains(ref, ":") {
-		ref = "mise:" + ref
+		ref = "registry:" + ref
 	}
 
 	specStr := ref
