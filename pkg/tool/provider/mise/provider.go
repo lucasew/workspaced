@@ -14,12 +14,17 @@ import (
 type Provider struct{}
 
 func init() {
-	tool.RegisterProvider(&Provider{})
+	tool.Register("mise", &Provider{})
 }
 
-func (p *Provider) ID() string   { return "mise" }
 func (p *Provider) Name() string { return "mise" }
 
+// Tool returns a first-class Tool for the given mise ref (e.g. "node", "python").
+func (p *Provider) Tool(ref string) (provider.Tool, error) {
+	return NewTool(ref)
+}
+
+// ParsePackage kept for transitional compatibility.
 func (p *Provider) ParsePackage(spec string) (provider.PackageConfig, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
@@ -98,4 +103,65 @@ func ensureSymlink(destPath, binPath, cmdName string) (string, error) {
 	}
 
 	return linkPath, nil
+}
+
+// ============================================================================
+// MiseTool - exported Tool implementation for the mise provider
+// ============================================================================
+
+// MiseTool is the concrete Tool for packages managed via mise.
+// Exported (with NewTool) for use by a future central registry provider.
+type MiseTool struct {
+	spec string
+	p    *Provider
+}
+
+// NewTool constructs a MiseTool for the given ref (e.g. "node", "deno", "python@3.12").
+// The ref is passed through to mise.
+func NewTool(ref string) (provider.Tool, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return nil, fmt.Errorf("mise ref cannot be empty")
+	}
+	return &MiseTool{spec: ref, p: &Provider{}}, nil
+}
+
+func (t *MiseTool) ListVersions(ctx context.Context) ([]string, error) {
+	// mise provider's ListVersions currently only returns the single "latest"
+	// resolved by the backend. We keep that behavior for the Tool.
+	pkg := provider.PackageConfig{Spec: t.spec}
+	return t.p.ListVersions(ctx, pkg)
+}
+
+func (t *MiseTool) Install(ctx context.Context, version string, destDir string) error {
+	// For mise, Install on the Tool sets up the version and creates a
+	// bin/ layout inside destDir pointing at the mise-managed binary.
+	// We use the primary binary name derived from the spec when possible.
+	// The richer EnsureBinary path is available via BinaryTool.
+	toolSpec := t.spec
+	if !strings.Contains(toolSpec, "@") && version != "" && version != "latest" {
+		toolSpec = toolSpec + "@" + strings.TrimSpace(version)
+	}
+
+	// Delegate the actual mise install.
+	art := provider.Artifact{URL: toolSpec} // the mise path reuses the old Install path
+	if err := t.p.Install(ctx, art, destDir); err != nil {
+		return err
+	}
+
+	// Best-effort: create a bin/ entry for the main command name (first word of spec)
+	// This mirrors what the old manager expected after install.
+	cmdName := t.spec
+	if idx := strings.IndexAny(cmdName, "@:"); idx > 0 {
+		cmdName = cmdName[:idx]
+	}
+	// Use EnsureBinary with the cmdName to populate destDir/bin/cmdName
+	_, err := t.EnsureBinary(ctx, version, cmdName, destDir)
+	return err
+}
+
+// BinaryTool implementation
+func (t *MiseTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
+	pkg := provider.PackageConfig{Spec: t.spec}
+	return t.p.EnsureBinary(ctx, pkg, version, cmdName, destDir)
 }

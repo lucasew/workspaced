@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"workspaced/pkg/constants"
 	"workspaced/pkg/driver"
@@ -28,14 +29,20 @@ import (
 )
 
 func init() {
-	tool.RegisterProvider(&Provider{})
+	tool.Register("github", &Provider{})
 }
 
 type Provider struct{}
 
-func (p *Provider) ID() string   { return "github" }
 func (p *Provider) Name() string { return "GitHub Releases" }
 
+// Tool returns a first-class Tool for the given ref (owner/repo).
+func (p *Provider) Tool(ref string) (provider.Tool, error) {
+	return NewTool(ref)
+}
+
+// ParsePackage is kept for transitional use by code that still talks to the
+// old detailed surface on the concrete provider.
 func (p *Provider) ParsePackage(spec string) (provider.PackageConfig, error) {
 	parts := strings.Split(spec, "/")
 	if len(parts) != 2 {
@@ -596,4 +603,71 @@ func isPathWithinDest(dest, target string) bool {
 	}
 
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
+// ============================================================================
+// GitHubTool - exported Tool implementation for the github provider
+// ============================================================================
+
+// GitHubTool is the concrete Tool for packages distributed via GitHub Releases.
+// It is exported (along with NewTool) so that a future central "registry" provider
+// can construct, wrap, or delegate to GitHub-based tools.
+type GitHubTool struct {
+	repo string
+	p    *Provider // delegate to existing provider logic during migration
+}
+
+// NewTool constructs a GitHubTool for the given ref ("owner/repo").
+// This is the preferred way for external code (including a future registry provider)
+// to obtain a github-backed Tool without going through the handler registration.
+func NewTool(ref string) (provider.Tool, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return nil, fmt.Errorf("github ref cannot be empty (expected owner/repo)")
+	}
+	// Basic validation to match old ParsePackage behavior
+	parts := strings.Split(ref, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("invalid github ref %q (expected owner/repo)", ref)
+	}
+	return &GitHubTool{repo: ref, p: &Provider{}}, nil
+}
+
+func (t *GitHubTool) ListVersions(ctx context.Context) ([]string, error) {
+	pkg := provider.PackageConfig{
+		Spec: t.repo,
+		Repo: t.repo,
+	}
+	return t.p.ListVersions(ctx, pkg)
+}
+
+func (t *GitHubTool) Install(ctx context.Context, version string, destDir string) error {
+	pkg := provider.PackageConfig{
+		Spec: t.repo,
+		Repo: t.repo,
+	}
+	artifacts, err := t.p.GetArtifacts(ctx, pkg, version)
+	if err != nil {
+		return err
+	}
+
+	artifact := provider.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "")
+	if artifact == nil {
+		return fmt.Errorf("no suitable artifact found for %s/%s for github:%s@%s", runtime.GOOS, runtime.GOARCH, t.repo, version)
+	}
+
+	return t.p.Install(ctx, *artifact, destDir)
+}
+
+// ArtifactTool implementation (for selfupdate and other custom artifact needs)
+func (t *GitHubTool) ListArtifacts(ctx context.Context, version string) ([]provider.Artifact, error) {
+	pkg := provider.PackageConfig{
+		Spec: t.repo,
+		Repo: t.repo,
+	}
+	return t.p.GetArtifacts(ctx, pkg, version)
+}
+
+func (t *GitHubTool) InstallArtifact(ctx context.Context, artifact provider.Artifact, destDir string) error {
+	return t.p.Install(ctx, artifact, destDir)
 }

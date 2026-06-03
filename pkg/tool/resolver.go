@@ -40,11 +40,11 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			spec.Version = actualVersion
 		}
 	}
-	p, err := GetProvider(spec.Provider)
+	p, err := Get(spec.Provider)
 	if err != nil {
 		return "", err
 	}
-	pkgConfig, err := p.ParsePackage(spec.Package)
+	t, err := p.Tool(spec.Package)
 	if err != nil {
 		return "", err
 	}
@@ -62,8 +62,8 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
 		slog.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 
-		if bp, ok := p.(provider.BinaryProvider); ok {
-			binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+		if bt, ok := t.(provider.BinaryTool); ok {
+			binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 			if err != nil {
 				return "", fmt.Errorf("failed to install tool: %w", err)
 			}
@@ -87,8 +87,8 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
 	slog.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
-	if bp, ok := p.(provider.BinaryProvider); ok {
-		binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+	if bt, ok := t.(provider.BinaryTool); ok {
+		binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 		if err != nil {
 			return "", err
 		}
@@ -161,17 +161,17 @@ func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
 
 // ResolveLatestVersion queries the provider to find the latest version of a package.
 func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {
-	provider, err := GetProvider(spec.Provider)
+	p, err := Get(spec.Provider)
 	if err != nil {
 		return "", err
 	}
 
-	pkgConfig, err := provider.ParsePackage(spec.Package)
+	t, err := p.Tool(spec.Package)
 	if err != nil {
 		return "", err
 	}
 
-	versions, err := provider.ListVersions(ctx, pkgConfig)
+	versions, err := t.ListVersions(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -180,8 +180,8 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 		return "", fmt.Errorf("no versions found")
 	}
 
-	// Provider returns versions, we assume the first one is relevant (often latest)
-	// TODO: Add proper sorting/semver logic if provider doesn't guarantee order
+	// We assume the first one is relevant (often latest from the provider).
+	// TODO: Add proper sorting/semver logic if provider doesn't guarantee order.
 	return versions[0], nil
 }
 

@@ -18,8 +18,8 @@ import (
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
+	githubprov "workspaced/pkg/tool/provider/github"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -140,19 +140,16 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 // ============================================================================
 
 func updateFromGitHub(ctx context.Context, force bool) error {
-	// Get GitHub provider
-	githubProvider, err := tool.GetProvider("github")
+	// Use the exposed constructor directly. This works even without the old
+	// detailed methods on the thin Provider interface, and demonstrates how
+	// a future registry provider (or other code) can obtain a github Tool.
+	t, err := githubprov.NewTool("lucasew/workspaced")
 	if err != nil {
 		return err
 	}
 
-	pkg, err := githubProvider.ParsePackage("lucasew/workspaced")
-	if err != nil {
-		return err
-	}
-
-	// Get latest version
-	versions, err := githubProvider.ListVersions(ctx, pkg)
+	// Get latest version via the Tool
+	versions, err := t.ListVersions(ctx)
 	if err != nil {
 		return err
 	}
@@ -178,13 +175,19 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		slog.Info("forcing update", "version", latestVersion)
 	}
 
-	// Get artifacts
-	artifacts, err := githubProvider.GetArtifacts(ctx, pkg, latestVersion)
+	// Use ArtifactTool extension for custom selection (selfupdate installs to a
+	// non-versioned location and has its own simple matcher).
+	at, ok := t.(provider.ArtifactTool)
+	if !ok {
+		return fmt.Errorf("github tool does not support ArtifactTool (needed for selfupdate)")
+	}
+
+	artifacts, err := at.ListArtifacts(ctx, latestVersion)
 	if err != nil {
 		return err
 	}
 
-	// Find matching artifact for current platform
+	// Find matching artifact for current platform (selfupdate uses a simple matcher)
 	artifact := findMatchingArtifact(artifacts, runtime.GOOS, runtime.GOARCH)
 	if artifact == nil {
 		available := []string{}
@@ -210,7 +213,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) }, slog.String("path", tmpDir))
 
 	slog.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
-	if err := githubProvider.Install(ctx, *artifact, tmpDir); err != nil {
+	if err := at.InstallArtifact(ctx, *artifact, tmpDir); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
