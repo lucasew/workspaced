@@ -28,6 +28,14 @@ type Provider interface {
 type Tool interface {
 	ListVersions(ctx context.Context) ([]string, error)
 	Install(ctx context.Context, version string, destDir string) error
+
+	// Renovate returns the renovate reference descriptor for this tool.
+	// This is now required on all Tools so that lock entries can carry
+	// the update instructions (depName, datasource, etc.) by default.
+	// The descriptor provides the "initial object" used by the locking
+	// paths; enrichToolDependency is now only responsible for filling
+	// the basic ref/version/lock state.
+	Renovate() RenovateDescriptor
 }
 
 // ArtifactTool is an optional extension for Tools that can expose raw
@@ -153,10 +161,3 @@ type RenovateDescriptor struct {
 	Versioning  string
 }
 
-// RenovateReference is an optional interface that a Tool (or the value
-// returned by Provider.Tool) can implement. When implemented, the lazy
-// tool locking code will obtain this descriptor from the Tool and store
-// the renovate data by default in the lockfile entry.
-type RenovateReference interface {
-	Renovate() RenovateDescriptor
-}

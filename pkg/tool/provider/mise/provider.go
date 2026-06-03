@@ -165,3 +165,12 @@ func (t *MiseTool) EnsureBinary(ctx context.Context, version string, cmdName str
 	pkg := provider.PackageConfig{Spec: t.spec}
 	return t.p.EnsureBinary(ctx, pkg, version, cmdName, destDir)
 }
+
+// Renovate provides the renovate reference. For mise-backed tools this
+// currently returns empty (mise covers many heterogeneous backends).
+// Tools that have a clear renovate identity (e.g. github releases) should
+// be referenced via github: or registry: so that GitHubTool's implementation
+// is used instead.
+func (t *MiseTool) Renovate() provider.RenovateDescriptor {
+	return provider.RenovateDescriptor{}
+}

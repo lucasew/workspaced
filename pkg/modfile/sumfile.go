@@ -21,7 +21,7 @@ type LockedTool struct {
 	Version string `json:"version"`
 
 	// Renovate reference fields (populated by default from the Tool's
-	// Renovate() method when locking). These are the "data apart from
+	// required Renovate() method when locking). These are the "data apart from
 	// toolName and version" that instruct renovate how to fetch updates.
 	DepName     string `json:"depName,omitempty"`
 	Datasource  string `json:"datasource,omitempty"`

@@ -18,7 +18,7 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 		},
 	}
 	tools := map[string]LockedTool{
-		"fd":   {Ref: "github:sharkdp/fd", Version: "v10.3.0"},
+		"fd":   {Ref: "github:sharkdp/fd", Version: "v10.3.0", DepName: "sharkdp/fd", Datasource: "github-releases"},
 		"fzf":  {Ref: "mise:fzf", Version: "0.50.0"},
 		"bad1": {Ref: "", Version: "1.0.0"},
 		"bad2": {Ref: "github:foo/bar", Version: ""},

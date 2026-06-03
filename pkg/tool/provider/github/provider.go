@@ -672,7 +672,7 @@ func (t *GitHubTool) InstallArtifact(ctx context.Context, artifact provider.Arti
 	return t.p.Install(ctx, artifact, destDir)
 }
 
-// Renovate implements provider.RenovateReference.
+// Renovate implements the required Renovate method on Tool.
 // This provides the "initial object" (the renovate reference descriptor)
 // that the locking/enrichment logic consumes so that github-backed tools
 // (including those reached via short registry: names) store the full

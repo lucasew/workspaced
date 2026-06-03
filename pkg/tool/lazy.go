@@ -13,7 +13,6 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/tool/provider"
 )
 
 type lazyToolConfig struct {
@@ -327,11 +326,11 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 	return spec, ref, nil
 }
 
-// lockedToolWithRenovate builds the lock entry, preferring renovate reference
-// data coming from the Tool's Renovate() method (the "initial object") when
-// the provider supports it. This makes the extra renovate fields (depName,
-// datasource etc) be stored by default in the lockfile for tools that provide
-// them.
+// lockedToolWithRenovate builds the lock entry using renovate reference
+// data coming from the Tool's Renovate() method (the "initial object").
+// Since Renovate is required on the Tool interface, this always obtains
+// the descriptor. This makes the extra renovate fields (depName,
+// datasource etc) be stored by default in the lockfile.
 func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec) modfile.LockedTool {
 	lt := modfile.LockedTool{
 		Ref:     lockRef,
@@ -345,12 +344,10 @@ func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec)
 	if terr != nil {
 		return lt
 	}
-	if rr, ok := tt.(provider.RenovateReference); ok {
-		d := rr.Renovate()
-		lt.DepName = d.DepName
-		lt.Datasource = d.Datasource
-		lt.PackageName = d.PackageName
-		lt.Versioning = d.Versioning
-	}
+	d := tt.Renovate()
+	lt.DepName = d.DepName
+	lt.Datasource = d.Datasource
+	lt.PackageName = d.PackageName
+	lt.Versioning = d.Versioning
 	return lt
 }

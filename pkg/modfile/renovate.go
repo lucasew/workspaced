@@ -15,12 +15,13 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 	return BuildRenovateDependenciesFromLocks(sum.SourceLocks(), sum.ToolLocks())
 }
 
-// enrichToolDependency fills provider and the renovate-specific fields (depName,
-// datasource, currentValue, ...) on a tool entry so renovate's custom manager
-// knows where to look for newer versions. This is the fallback path (ref-based).
-// The preferred source for the renovate reference data is the Tool.Renovate()
-// method (see provider.RenovateReference), which is used at live lock time
-// and passed via LockedTool so that registry: shortnames etc also get the data.
+// enrichToolDependency is now minimal: it only fills basic tool lock state
+// (kind, name, ref, version, currentValue, provider). Most logic for the
+// renovate reference (the descriptor with depName/datasource etc.) lives in
+// the Tool implementations themselves (Tool.Renovate() is required on the
+// Tool interface). Callers that have a live Tool (e.g. lazy locking) obtain
+// the descriptor and pass it through LockedTool; this func is mainly for
+// normalizing the common fields.
 func enrichToolDependency(dep RenovateDependency) RenovateDependency {
 	dep.Kind = "tool"
 	dep.Name = strings.TrimSpace(dep.Name)
@@ -32,47 +33,17 @@ func enrichToolDependency(dep RenovateDependency) RenovateDependency {
 		return dep
 	}
 
-	spec, err := parsespec.Parse(dep.Ref)
-	if err != nil {
-		if dep.CurrentValue == "" {
-			dep.CurrentValue = dep.Version
-		}
-		return dep
-	}
-
-	dep.Provider = spec.Provider
 	if dep.CurrentValue == "" || dep.CurrentValue == dep.Version {
 		dep.CurrentValue = dep.Version
 	}
 
-	// Only direct github: refs get renovate fields via this ref-based path.
-	// (registry: and others get it via the Tool method at locking time.)
-	if spec.Provider == "github" {
-		dep.DepName = spec.Package
-		dep.Datasource = "github-releases"
+	if dep.Provider == "" {
+		if spec, err := parsespec.Parse(dep.Ref); err == nil {
+			dep.Provider = spec.Provider
+		}
 	}
 
 	return dep
-}
-
-// toolSupportsRenovate reports whether a (direct) tool ref should carry
-// renovate instruction fields via the ref-based enrich.
-func toolSupportsRenovate(ref string) bool {
-	spec, err := parsespec.Parse(ref)
-	if err != nil {
-		return false
-	}
-	return spec.Provider == "github"
-}
-
-// toolDependencyHasRenovateData reports whether the stored dep already has the
-// renovate fields that enrich would produce. Used to force upsert for
-// storing the renovate reference data by default.
-func toolDependencyHasRenovateData(dep RenovateDependency) bool {
-	if !toolSupportsRenovate(dep.Ref) {
-		return true
-	}
-	return strings.TrimSpace(dep.DepName) != "" && strings.TrimSpace(dep.Datasource) != ""
 }
 
 func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools map[string]LockedTool) []RenovateDependency {
@@ -114,20 +85,28 @@ func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools m
 		}
 	}
 	for name, tool := range tools {
-		dep := RenovateDependency{
-			Kind:    "tool",
-			Name:    strings.TrimSpace(name),
-			Ref:     strings.TrimSpace(tool.Ref),
-			Version: strings.TrimSpace(tool.Version),
-		}
 		ref := strings.TrimSpace(tool.Ref)
 		version := strings.TrimSpace(tool.Version)
 		if ref == "" || version == "" {
 			continue
 		}
 
+		// The renovate reference (depName, datasource, ...) is carried in
+		// the LockedTool from when it was obtained via Tool.Renovate() at
+		// lock time. enrichToolDependency only fills the basic ref/version
+		// lock state now.
+		dep := RenovateDependency{
+			Kind:        "tool",
+			Name:        strings.TrimSpace(name),
+			Ref:         ref,
+			Version:     version,
+			DepName:     strings.TrimSpace(tool.DepName),
+			Datasource:  strings.TrimSpace(tool.Datasource),
+			PackageName: strings.TrimSpace(tool.PackageName),
+			Versioning:  strings.TrimSpace(tool.Versioning),
+		}
 		dep = enrichToolDependency(dep)
-		// Always persist lock state for tools. Renovate fields are optional.
+		// Always persist lock state for tools. Renovate fields come from the Tool.
 		deps = append(deps, dep)
 	}
 
