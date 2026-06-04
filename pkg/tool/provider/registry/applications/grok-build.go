@@ -17,8 +17,6 @@ import (
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool/provider"
 	"workspaced/pkg/tool/provider/registry"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 func init() {
@@ -215,7 +213,7 @@ func (t *grokBuildTool) download(ctx context.Context, url, dest string) error {
 		size = resp.ContentLength
 	}
 
-	progress := t.newDownloadProgressBar(filepath.Base(url), size)
+	progress := newDownloadProgressBar(filepath.Base(url), size)
 	outWriter := io.Writer(outFile)
 	if progress != nil {
 		outWriter = io.MultiWriter(outFile, progress)
@@ -253,30 +251,4 @@ func (t *grokBuildTool) download(ctx context.Context, url, dest string) error {
 		}
 	}
 	return nil
-}
-
-func (t *grokBuildTool) newDownloadProgressBar(name string, size int64) *progressbar.ProgressBar {
-	description := fmt.Sprintf("downloading %s", name)
-	if size > 0 {
-		return progressbar.NewOptions64(
-			size,
-			progressbar.OptionSetDescription(description),
-			progressbar.OptionSetWriter(os.Stderr),
-			progressbar.OptionShowBytes(true),
-			progressbar.OptionSetWidth(24),
-			progressbar.OptionThrottle(65),
-			progressbar.OptionShowCount(),
-			progressbar.OptionClearOnFinish(),
-		)
-	}
-
-	return progressbar.NewOptions64(
-		-1,
-		progressbar.OptionSetDescription(description),
-		progressbar.OptionSetWriter(os.Stderr),
-		progressbar.OptionSetWidth(24),
-		progressbar.OptionThrottle(65),
-		progressbar.OptionSpinnerType(14),
-		progressbar.OptionClearOnFinish(),
-	)
 }

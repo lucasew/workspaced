@@ -23,5 +23,9 @@ workspaced: {
 			ref:  *"github:biomejs/biome" | string
 			bins: *["biome"] | [...string]
 		}
+		nodejs: {
+			ref:  *"registry:nodejs" | string
+			bins: *["node", "npm", "npx"] | [...string]
+		}
 	}
 }
