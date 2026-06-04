@@ -1,11 +1,9 @@
 package registry
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
-	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/provider"
 )
@@ -53,32 +51,3 @@ func NewTool(ref string) (provider.Tool, error) {
 	// named dispatch. This makes `registry.NewTool("uv")` do the right thing.
 	return (&Provider{}).Tool(ref)
 }
-
-// RegistryTool is a thin wrapper type if someone wants to type-assert the
-// registry origin. In practice we usually return the inner backend Tool
-// directly (so ArtifactTool / BinaryTool assertions work without extra wrappers).
-// We keep a type for documentation / future use. It forwards EnrichLockfile
-// to the inner.
-type RegistryTool struct {
-	inner provider.Tool
-	name  string
-}
-
-func (t *RegistryTool) ListVersions(ctx context.Context) ([]string, error) {
-	return t.inner.ListVersions(ctx)
-}
-
-func (t *RegistryTool) Install(ctx context.Context, version string, destDir string) error {
-	return t.inner.Install(ctx, version, destDir)
-}
-
-// EnrichLockfile forwards to the inner tool. The concrete implementation
-// receives the actual *modfile.RenovateDependency and can mutate it.
-func (t *RegistryTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	t.inner.EnrichLockfile(entry)
-}
-
-// Note: if the inner tool implements ArtifactTool or BinaryTool, the
-// assertions will succeed on the inner value, not on RegistryTool.
-// If you need the registry wrapper to forward the extra interfaces,
-// you can embed or use a more sophisticated wrapper.

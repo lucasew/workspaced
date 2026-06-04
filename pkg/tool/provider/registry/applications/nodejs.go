@@ -1,9 +1,6 @@
 package apps
 
 import (
-	"archive/tar"
-	"archive/zip"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -15,21 +12,21 @@ import (
 	"strings"
 
 	"workspaced/pkg/driver"
-	fetchurldriver "workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool/provider"
+	providerinstall "workspaced/pkg/tool/provider/install"
 	"workspaced/pkg/tool/provider/registry"
 )
 
 func init() {
-	registry.RegisterRegistryTool("nodejs", WrapNewTool(newNodejs, ""))
+	registry.RegisterRegistryTool("nodejs", newNodejs)
 }
 
 type nodejsTool struct{}
 
-func newNodejs(_ string) (provider.Tool, error) {
+func newNodejs() (provider.Tool, error) {
 	return &nodejsTool{}, nil
 }
 
@@ -101,87 +98,7 @@ func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]provi
 }
 
 func (t *nodejsTool) InstallArtifact(ctx context.Context, artifact provider.Artifact, destDir string) error {
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return err
-	}
-
-	tmpDir := destDir + ".tmp"
-	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
-		return err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	archiveName := filepath.Base(artifact.URL)
-	archivePath := filepath.Join(tmpDir, archiveName)
-
-	// Set up file + progress bar (wrapped Out) so fetchurl path gets progress updates
-	// (matching how github provider always wraps progress around fetchurl/direct downloads).
-	// Size unknown upfront -> spinner; direct fallback will use ContentLength for better bar.
-	outFile, err := os.Create(archivePath)
-	if err != nil {
-		return err
-	}
-	progress := newDownloadProgressBar(archiveName, 0)
-	outWriter := io.Writer(outFile)
-	if progress != nil {
-		outWriter = io.MultiWriter(outFile, progress)
-	}
-
-	usedFetchurl := false
-	if artifact.Hash != "" {
-		if fetcher, err := driver.Get[fetchurldriver.Driver](ctx); err == nil {
-			algo, h := "sha256", artifact.Hash
-			if strings.Contains(artifact.Hash, ":") {
-				parts := strings.SplitN(artifact.Hash, ":", 2)
-				algo, h = parts[0], parts[1]
-			}
-			opts := fetchurldriver.FetchOptions{
-				URLs: []string{artifact.URL},
-				Algo: algo,
-				Hash: h,
-				Out:  outWriter,
-			}
-			if ferr := fetcher.Fetch(ctx, opts); ferr == nil {
-				usedFetchurl = true
-				if progress != nil {
-					_ = progress.Finish()
-				}
-			}
-		}
-	}
-
-	outFile.Close()
-
-	if !usedFetchurl {
-		// remove any partial from failed fetchurl attempt
-		_ = os.Remove(archivePath)
-		// Direct with progress bar (same style as github tools and our grok-build).
-		if err := t.downloadRaw(ctx, artifact.URL, archivePath); err != nil {
-			return err
-		}
-	}
-
-	// Extract to a subdir then strip the top-level "node-vX.Y.Z-xxx/" directory.
-	extractDir := filepath.Join(tmpDir, "extract")
-	if err := os.MkdirAll(extractDir, 0o755); err != nil {
-		return err
-	}
-
-	if err := t.extractArchive(archivePath, extractDir); err != nil {
-		return fmt.Errorf("extract %s: %w", archiveName, err)
-	}
-
-	_ = stripTopLevel(extractDir)
-
-	// Move resulting tree into destDir
-	ents, _ := os.ReadDir(extractDir)
-	for _, e := range ents {
-		src := filepath.Join(extractDir, e.Name())
-		dst := filepath.Join(destDir, e.Name())
-		_ = os.Rename(src, dst)
-	}
-
-	return nil
+	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
 }
 
 func (t *nodejsTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
@@ -290,162 +207,4 @@ func (t *nodejsTool) nodePlatformAndExt() (osPart, archPart, ext string) {
 	}
 
 	return osPart, archPart, ext
-}
-
-func (t *nodejsTool) downloadRaw(ctx context.Context, url, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return err
-	}
-	tmp := dest + ".tmp"
-	outFile, err := os.Create(tmp)
-	if err != nil {
-		return err
-	}
-
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		outFile.Close()
-		_ = os.Remove(tmp)
-		return err
-	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		outFile.Close()
-		_ = os.Remove(tmp)
-		return err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		outFile.Close()
-		_ = os.Remove(tmp)
-		return fmt.Errorf("download %s: %s", url, resp.Status)
-	}
-
-	size := resp.ContentLength
-	progress := newDownloadProgressBar(filepath.Base(url), size)
-	outWriter := io.Writer(outFile)
-	if progress != nil {
-		outWriter = io.MultiWriter(outFile, progress)
-	}
-
-	if _, err := io.Copy(outWriter, resp.Body); err != nil {
-		outFile.Close()
-		_ = os.Remove(tmp)
-		return err
-	}
-	if progress != nil {
-		_ = progress.Finish()
-	}
-	outFile.Close()
-
-	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
-}
-
-func (t *nodejsTool) extractArchive(archive, dest string) error {
-	if strings.HasSuffix(archive, ".zip") {
-		return unzip(archive, dest)
-	}
-	return untargz(archive, dest)
-}
-
-func untargz(src, dest string) error {
-	f, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	gzr, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	defer gzr.Close()
-	tr := tar.NewReader(gzr)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dest, hdr.Name)
-		switch hdr.Typeflag {
-		case tar.TypeDir:
-			if err := os.MkdirAll(target, 0755); err != nil {
-				return err
-			}
-		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-				return err
-			}
-			out, err := os.Create(target)
-			if err != nil {
-				return err
-			}
-			if _, err := io.Copy(out, tr); err != nil {
-				out.Close()
-				return err
-			}
-			out.Close()
-			_ = os.Chmod(target, os.FileMode(hdr.Mode))
-		}
-	}
-}
-
-func unzip(src, dest string) error {
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	for _, f := range r.File {
-		fpath := filepath.Join(dest, f.Name)
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(fpath, 0755)
-			continue
-		}
-		os.MkdirAll(filepath.Dir(fpath), 0755)
-		out, err := os.Create(fpath)
-		if err != nil {
-			return err
-		}
-		rc, err := f.Open()
-		if err != nil {
-			out.Close()
-			return err
-		}
-		_, _ = io.Copy(out, rc)
-		rc.Close()
-		out.Close()
-		if f.Mode().Perm()&0111 != 0 {
-			_ = os.Chmod(fpath, 0755)
-		}
-	}
-	return nil
-}
-
-func stripTopLevel(dir string) error {
-	ents, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	for _, e := range ents {
-		if e.IsDir() {
-			inner := filepath.Join(dir, e.Name())
-			children, _ := os.ReadDir(inner)
-			for _, ch := range children {
-				src := filepath.Join(inner, ch.Name())
-				dst := filepath.Join(dir, ch.Name())
-				_ = os.Rename(src, dst)
-			}
-			_ = os.RemoveAll(inner)
-			return nil
-		}
-	}
-	return nil
 }

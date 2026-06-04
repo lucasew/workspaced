@@ -16,16 +16,17 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool/provider"
+	providerinstall "workspaced/pkg/tool/provider/install"
 	"workspaced/pkg/tool/provider/registry"
 )
 
 func init() {
-	registry.RegisterRegistryTool("grok-build", WrapNewTool(newGrokBuild, ""))
+	registry.RegisterRegistryTool("grok-build", newGrokBuild)
 }
 
 type grokBuildTool struct{}
 
-func newGrokBuild(_ string) (provider.Tool, error) {
+func newGrokBuild() (provider.Tool, error) {
 	return &grokBuildTool{}, nil
 }
 
@@ -83,18 +84,27 @@ func (t *grokBuildTool) InstallArtifact(ctx context.Context, art provider.Artifa
 	if runtime.GOOS == "windows" {
 		bin = "grok.exe"
 	}
-	p := filepath.Join(destDir, bin)
-	if err := t.download(ctx, art.URL, p); err != nil {
-		fb := strings.Replace(art.URL, "https://x.ai/cli/", "https://storage.googleapis.com/grok-build-public-artifacts/cli/", 1)
-		if fb != art.URL {
-			if err = t.download(ctx, fb, p); err != nil {
-				return fmt.Errorf("primary and fallback failed: %w", err)
-			}
-		} else {
-			return err
+	path := filepath.Join(destDir, bin)
+
+	urls := []string{art.URL}
+	fallback := strings.Replace(art.URL, "https://x.ai/cli/", "https://storage.googleapis.com/grok-build-public-artifacts/cli/", 1)
+	if fallback != art.URL {
+		urls = append(urls, fallback)
+	}
+	if err := providerinstall.DownloadFirst(ctx, urls, path, providerinstall.DownloadOptions{Mode: 0o755}); err != nil {
+		return err
+	}
+
+	if cmd, err := execdriver.Run(ctx, path, "--version"); err == nil {
+		cmd.Stdin = strings.NewReader("")
+		cmd.Stdout = io.Discard
+		cmd.Stderr = io.Discard
+		if err := cmd.Run(); err != nil {
+			_ = os.Remove(path)
+			return fmt.Errorf("smoke test failed: %w", err)
 		}
 	}
-	// Also expose "agent" (official installer creates both)
+
 	agent := "agent"
 	if runtime.GOOS == "windows" {
 		agent = "agent.exe"
@@ -164,91 +174,4 @@ func (t *grokBuildTool) grokPlatform() string {
 		arch = "aarch64"
 	}
 	return osn + "-" + arch
-}
-
-func (t *grokBuildTool) download(ctx context.Context, url, dest string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-		return err
-	}
-
-	tmp := dest + ".tmp"
-	outFile, err := os.Create(tmp)
-	if err != nil {
-		return err
-	}
-
-	// Determine size for progress (ContentLength preferred)
-	size := int64(0)
-	// We'll set progress after we have the response
-
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return err
-	}
-
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return err
-	}
-	defer logging.Close(ctx, resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return fmt.Errorf("GET %s: %s", url, resp.Status)
-	}
-
-	if resp.ContentLength > 0 {
-		size = resp.ContentLength
-	}
-
-	progress := newDownloadProgressBar(filepath.Base(url), size)
-	outWriter := io.Writer(outFile)
-	if progress != nil {
-		outWriter = io.MultiWriter(outFile, progress)
-	}
-
-	if _, err := io.Copy(outWriter, resp.Body); err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return err
-	}
-
-	if progress != nil {
-		_ = progress.Finish()
-	}
-
-	logging.Close(ctx, outFile)
-
-	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-
-	if err := os.Chmod(dest, 0o755); err != nil {
-		return err
-	}
-
-	// smoke test using driver (per guidelines)
-	if c, err := execdriver.Run(ctx, dest, "--version"); err == nil {
-		c.Stdin = strings.NewReader("")
-		c.Stdout = io.Discard
-		c.Stderr = io.Discard
-		if verr := c.Run(); verr != nil {
-			_ = os.Remove(dest)
-			return fmt.Errorf("smoke test failed: %w", verr)
-		}
-	}
-	return nil
 }
