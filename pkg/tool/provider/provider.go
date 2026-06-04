@@ -157,4 +157,3 @@ func scoreArtifactForHint(url string, hint string) int {
 
 	return score
 }
-
