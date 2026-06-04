@@ -35,7 +35,7 @@ func (t *nodejsTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *nodejsTool) Install(ctx context.Context, version string, destDir string) error {
-	v := strings.TrimSpace(version)
+	v := normalizeNodejsVersion(version)
 	if v == "" || v == "latest" {
 		vers, err := t.listVersions(ctx)
 		if err != nil {
@@ -66,7 +66,7 @@ func (t *nodejsTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]provider.Artifact, error) {
-	v := strings.TrimSpace(version)
+	v := normalizeNodejsVersion(version)
 	if v == "" || v == "latest" {
 		vers, err := t.listVersions(ctx)
 		if err != nil {
@@ -154,6 +154,7 @@ func (t *nodejsTool) listVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *nodejsTool) fetchShasums(ctx context.Context, ver string) (map[string]string, error) {
+	ver = normalizeNodejsVersion(ver)
 	u := fmt.Sprintf("https://nodejs.org/dist/%s/SHASUMS256.txt", ver)
 	hc, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
@@ -207,4 +208,12 @@ func (t *nodejsTool) nodePlatformAndExt() (osPart, archPart, ext string) {
 	}
 
 	return osPart, archPart, ext
+}
+
+func normalizeNodejsVersion(version string) string {
+	v := strings.TrimSpace(version)
+	if v == "" || v == "latest" || strings.HasPrefix(v, "v") {
+		return v
+	}
+	return "v" + v
 }
