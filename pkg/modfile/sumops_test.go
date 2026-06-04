@@ -37,3 +37,34 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 		t.Fatalf("renovate reference data should be preserved on the lock entry: %#v", d)
 	}
 }
+
+func TestUpsertToolRefreshesStaleCurrentValue(t *testing.T) {
+	sum := &SumFile{Dependencies: []RenovateDependency{{
+		Kind:         "tool",
+		Name:         "tirith",
+		Ref:          "registry:tirith",
+		Version:      "v0.3.1",
+		CurrentValue: "threatdb-26874685865-1",
+		DepName:      "sheeki03/tirith",
+		Datasource:   "github-releases",
+	}}}
+
+	changed := sum.EnsureTool("tirith", LockedTool{
+		Ref:        "registry:tirith",
+		Version:    "v0.3.1",
+		DepName:    "sheeki03/tirith",
+		Datasource: "github-releases",
+		Versioning: "semver",
+	})
+	if !changed {
+		t.Fatal("expected stale currentValue to be refreshed")
+	}
+
+	dep := sum.Dependencies[0]
+	if dep.CurrentValue != "v0.3.1" {
+		t.Fatalf("CurrentValue = %q, want %q", dep.CurrentValue, "v0.3.1")
+	}
+	if dep.Versioning != "semver" {
+		t.Fatalf("Versioning = %q, want semver", dep.Versioning)
+	}
+}

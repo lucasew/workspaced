@@ -205,7 +205,7 @@ func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
 			continue
 		}
 		version := dep.Version
-		if dep.CurrentValue != "" {
+		if version == "" {
 			version = dep.CurrentValue
 		}
 		if version == "" {

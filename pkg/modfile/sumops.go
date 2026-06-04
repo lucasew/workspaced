@@ -61,6 +61,9 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 	}
 	current, ok := s.FindTool(name)
 	changed := !ok || current.Ref != lock.Ref || current.Version != lock.Version
+	if currentValue := dependencyCurrentValue(s.Dependencies, "tool", name); currentValue != "" && currentValue != lock.Version {
+		changed = true
+	}
 	// Only consider renovate fields for change detection if the incoming lock
 	// provides them (allows passing minimal LockedTool for idempotency tests
 	// or legacy paths; live paths from Tool always provide when available).
@@ -112,6 +115,15 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	return changed
 }
 
+func dependencyCurrentValue(deps []RenovateDependency, kind, name string) string {
+	for _, dep := range deps {
+		if strings.TrimSpace(dep.Kind) == kind && strings.TrimSpace(dep.Name) == name {
+			return strings.TrimSpace(dep.CurrentValue)
+		}
+	}
+	return ""
+}
+
 func upsertToolDependency(deps []RenovateDependency, name string, lock LockedTool) []RenovateDependency {
 	for i, dep := range deps {
 		if strings.TrimSpace(dep.Kind) == "tool" && strings.TrimSpace(dep.Name) == name {
@@ -119,9 +131,7 @@ func upsertToolDependency(deps []RenovateDependency, name string, lock LockedToo
 			dep.Name = name
 			dep.Ref = lock.Ref
 			dep.Version = lock.Version
-			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Version) {
-				dep.CurrentValue = lock.Version
-			}
+			dep.CurrentValue = lock.Version
 			// If the caller (live lock from Tool) provided renovate reference data,
 			// use it (this is the preferred path, data comes from EnrichLockfile
 			// on the live Tool). Otherwise fall back to slim enrich.
@@ -145,10 +155,11 @@ func upsertToolDependency(deps []RenovateDependency, name string, lock LockedToo
 		}
 	}
 	dep := RenovateDependency{
-		Kind:    "tool",
-		Name:    name,
-		Ref:     lock.Ref,
-		Version: lock.Version,
+		Kind:         "tool",
+		Name:         name,
+		Ref:          lock.Ref,
+		Version:      lock.Version,
+		CurrentValue: lock.Version,
 	}
 	if lock.DepName != "" || lock.Datasource != "" {
 		dep.DepName = lock.DepName
@@ -175,9 +186,7 @@ func upsertSourceDependency(deps []RenovateDependency, name string, lock LockedS
 			dep.Ref = lock.Ref
 			dep.URL = lock.URL
 			dep.Hash = lock.Hash
-			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Ref) {
-				dep.CurrentValue = lock.Ref
-			}
+			dep.CurrentValue = lock.Ref
 			deps[i] = dep
 			return deps
 		}

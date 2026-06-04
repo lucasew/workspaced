@@ -33,9 +33,7 @@ func enrichToolDependency(dep RenovateDependency) RenovateDependency {
 		return dep
 	}
 
-	if dep.CurrentValue == "" || dep.CurrentValue == dep.Version {
-		dep.CurrentValue = dep.Version
-	}
+	dep.CurrentValue = dep.Version
 
 	if dep.Provider == "" {
 		if spec, err := parsespec.Parse(dep.Ref); err == nil {
