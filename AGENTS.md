@@ -20,6 +20,7 @@
 - **Network**: use the `fetchurl` driver when you have a hash; otherwise the `httpclient` driver. Never touch `http.DefaultClient` directly.
 - **Tool backends**: scope on backends (github, mise, catalog), never on individual tools. Prefer the word "backend".
 - **Zero intermediate files**: module processing must stream in-memory.
+- **Avoid having potentially stale information in Markdown files**: code is king, docs is consequence, prefer having references to code on docs instead of duplicating stuff around.
 
 ## Driver System (minimal)
 
