@@ -1,65 +1,51 @@
 # Workspaced Development
 
-This file consolidates project conventions and guidelines.
+**Essential reading order for agents**:
+1. [README.md](README.md) — one-sentence terms + minimal architecture.
+2. [CODEMAP.md](CODEMAP.md) — quick navigation + how to find things.
+3. This file — hard rules and gotchas.
+4. [TEMPLATES.md](TEMPLATES.md) — **critical** before touching any templates.
 
-**For AI agents**: Start by reading [CODEMAP.md](CODEMAP.md). It is the primary navigation aid (mental model, directory responsibilities, how to find things, registration points, and term overload warnings).
+## Hard Rules (break these and things will be wrong)
 
-## Overview
-User configs/dotfiles live in `workspaced.cue`. Templates use `{{ .Field }}` syntax.
-- **⚠️ CRITICAL**: See `TEMPLATES.md` for complete template system documentation (5 types: static, simple, multi-file, index, .d.tmpl)
+- **Config is CUE-first only**. Never fall back to `GlobalConfig.Merge()` patterns.
+- **Adding config fields** (always in this order):
+  1. Update schema + defaults in `pkg/configcue/schema.cue` (and preambles if needed).
+  2. Add the key in the user's `workspaced.cue`.
+  3. Decode with `configcue.Config.Decode()` or `ModuleConfig()`.
+  4. Consume via `{{ .Field }}` in templates.
+- **No lists** in module configs. Only deep-merge friendly shapes.
+- **Driver preloads**: import `_ "workspaced/pkg/driver/prelude"` **only** from `cmd/workspaced/root.go`. Never duplicate in subcommands.
+- **Process execution**: always use `pkg/driver/exec` outside of driver implementations.
+- **Network**: use the `fetchurl` driver when you have a hash; otherwise the `httpclient` driver. Never touch `http.DefaultClient` directly.
+- **Tool backends**: scope on backends (github, mise, catalog), never on individual tools. Prefer the word "backend".
+- **Zero intermediate files**: module processing must stream in-memory.
 
-## Common Commands
-- **Apply**: `workspaced apply` (builds Go code and applies configs)
-- **Plan**: `workspaced plan` (dry-run, shows what would change)
-- **Doctor**: `workspaced doctor` (check driver status)
-  - Use `--verbose` flag to see full interface/provider paths
+## Driver System (minimal)
 
-## Adding New Config Fields
-Config is CUE-first (`pkg/configcue` + `workspaced.cue` layers), not `GlobalConfig.Merge()`-based.
-When adding new config fields:
-1. Add/adjust schema and defaults in `pkg/configcue/schema.cue` and prelude files as needed
-2. Add the section/key in `workspaced.cue`
-3. Decode in Go using `configcue.Config.Decode()` or `ModuleConfig()`
-4. Use templates via `{{ .Field }}` from the evaluated CUE config
+Drivers implement `DriverProvider[T]`:
+- `ID()`, `Name()`, `CheckCompatibility()`, `New()`
 
-## CLI & Architecture
-- **Intention-based Structure**: Commands are grouped by user intent:
-  - `input`: User interaction (`text`, `confirm`, `choose`, `menu`).
-  - `open`: Resource launching (`webapp`, `terminal`, generic URLs/files).
-  - `system`: Hardware and session state (`audio`, `brightness`, `power`, `screen`).
-  - `state`: Dotfiles lifecycle (`apply`, `plan`, `sync`, `doctor`).
-- **Local-First**: CLI binary executes hardware/system logic locally whenever possible. Daemon handles shared state, tray, watchers, and cross-client coordination (OSD IDs).
-- **Module System**:
-  - Located in `modules/`. Atomic, parametric, and strictly unique (no claim collisions).
-  - Uses `module.cue` for metadata and config validation.
-  - **Zero-Intermediate**: Files are processed in-memory and streamed directly to targets.
-- **Lazy Processing**: `source.File` interface delays content reading/rendering until strictly needed.
-- **Strict Config**: No lists in module configs. Deep merge with zero substitution policy between different modules.
-- **Top-level Aliases**: `sync`, `apply`, `plan`, and `open` are mirrored at root for ergonomics.
-- **Tool backends / registries**: Instead of scoping on tools, scope on registries/backends. Ex: `uv` and `pip` shouldn't be backends, `pypi` and `pyx` should. Prefer the term "backend" in new code (see CODEMAP Terminology).
+Selection is done by `driver.Get[T](ctx)` using weights from `workspaced.cue`.
 
-## Driver System
-- Drivers provide platform-specific implementations for various features (audio, clipboard, notifications, etc.)
-- Each driver implements a DriverProvider[T] interface with:
-  - `ID()`: Unique slug (e.g., "audio_pulse")
-  - `Name()`: User-friendly name (e.g., "PulseAudio")
-  - `DefaultWeight()`: Priority (0-100)
-  - `CheckCompatibility()`: Verify if driver can run
-  - `New()`: Create instance
-- Use `workspaced doctor` to see all drivers and their status
-- Configure driver weights in `workspaced.cue` under `workspaced.drivers`
+Register by importing the impl package from the central prelude.
 
-## Runtime Guidelines
-- **Network access**:
-  - If an expected hash is available, use `fetchurl` driver.
-  - If no expected hash is available, use `httpclient` driver.
-  - Avoid direct `http.DefaultClient` usage outside driver implementations.
-- **Process execution**:
-  - Prefer `pkg/driver/exec` instead of direct `os/exec` in feature code.
-  - Direct `os/exec` is acceptable only inside exec driver implementations.
-- **Driver preload**:
-  - Keep driver prelude import centralized in root command (`cmd/workspaced/root.go`).
-  - Avoid duplicate `_ "workspaced/pkg/driver/prelude"` imports in subcommands.
-- **Module lock model**:
-  - `workspaced.cue`: declarative inputs, modules, and config.
-  - `workspaced.lock.json`: resolved lock state (including source URL/hash and module version/source pins).
+## When Adding Things
+
+- **New driver category**: create `pkg/driver/<cat>/driver.go` (interface) + `facade.go`, one impl dir, add import to `pkg/driver/prelude/prelude.go`, and CLI bits under `cmd/workspaced/driver/<cat>/`.
+- **New tool backend**: add under `pkg/tool/backend/<name>/`. For curated short names, put in `catalog/applications/`.
+- **New module source**: implement in `pkg/modfile/sourceprovider/`.
+
+## Module Lock Model
+
+- `workspaced.cue` = declarative inputs.
+- `workspaced.lock.json` = resolved pins (source URLs, hashes, tool versions).
+
+## Anti-Patterns
+
+- Duplicating prelude imports.
+- Using raw `os/exec` or `http.DefaultClient` in feature code.
+- Treating tools as first-class backends instead of going through registries/backends.
+- Putting lists in module config.
+
+See CODEMAP.md for the short "how to locate X" recipes.
