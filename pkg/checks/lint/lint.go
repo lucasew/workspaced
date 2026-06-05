@@ -12,7 +12,7 @@ import (
 
 // Linter extends the base Provider interface for static analysis tools.
 type Linter interface {
-	provider.Provider
+	checks.Provider
 
 	// Run executes the linter and returns a SARIF Run object.
 	// If no issues are found, it may return an empty Run or nil.
@@ -22,7 +22,7 @@ type Linter interface {
 // Register adds a linter to the global provider registry.
 // This is typically called in init() functions of provider packages.
 func Register(l Linter) {
-	provider.Register[Linter](l)
+	checks.Register[Linter](l)
 }
 
 // RunAll executes all globally registered linters against a directory and aggregates results.
@@ -33,12 +33,12 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	}
 
 	// Retrieve all registered Linter implementations
-	linters := provider.List[Linter]()
+	linters := checks.List[Linter]()
 
 	for _, l := range linters {
 		// 1. Check if the linter applies.
 		err := l.Detect(ctx, dir)
-		if errors.Is(err, provider.ErrNotApplicable) {
+		if errors.Is(err, checks.ErrNotApplicable) {
 			slog.Info("linter skipped", "linter", l.Name(), "reason", "not applicable")
 			continue
 		}

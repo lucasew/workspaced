@@ -42,7 +42,7 @@ func (p *Provider) Name() string {
 func (p *Provider) Detect(_ context.Context, dir string) error {
 	path := filepath.Join(dir, "node_modules", ".bin", "eslint")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 
 	return nil

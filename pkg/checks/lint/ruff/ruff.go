@@ -33,7 +33,7 @@ func (p *Provider) Name() string {
 func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if uv.lock exists
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 	return nil
 }

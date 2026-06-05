@@ -49,10 +49,10 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	})
 	if err != nil {
 		// Preserve previous behavior: ignore detection errors and skip provider.
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 	if !found {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 	return nil
 }

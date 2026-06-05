@@ -36,7 +36,7 @@ func (p *Provider) Detect(_ context.Context, dir string) error {
 	// Applies if node_modules/.bin/prettier exists
 	path := filepath.Join(dir, "node_modules", ".bin", "prettier")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 
 	return nil

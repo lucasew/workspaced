@@ -25,11 +25,11 @@ The CLI is built with Cobra + a small `CommandRegistry` so subcommand packages c
 | `pkg/driver/` | Pluggable host abstraction system (the biggest architectural win). | `driver.go` (generic `Register[T]`, `Get[T]`, `Doctor`), `prelude/prelude.go` (central import of all impls) |
 | `pkg/driver/<cap>/` | One capability (audio, clipboard, notification, ...). | `driver.go` = interface only<br>`facade.go` = convenience funcs that call `driver.Get[Driver](ctx)`<br>`show.go`<br>`<impl>/driver.go` = concrete impl + `init(){ driver.Register[...] }` |
 | `pkg/tool/` | External tool/binary manager. | `manager.go`, `resolver.go`, `lazy.go`, `tool.go` (the Register/Get for providers) |
-| `pkg/tool/provider/` | Thin "provider" abstraction for tools. | `provider.go` (defines `Provider` and `Tool` interfaces — **core**) |
+| `pkg/tool/provider/` | Thin "provider" abstraction for tools (interfaces + impls). | `provider.go` (defines `Provider` and `Tool` interfaces — **core**) |
 | `pkg/tool/provider/github/` | GitHub Releases backend. | `GitHubTool` implements full `Tool` + `ArtifactTool` |
 | `pkg/tool/provider/mise/` | mise backend | |
-| `pkg/tool/provider/registry/` | "Bare name" → concrete (the curated short names). | `registry/provider.go` (the dispatcher), `applications/` (or curated) |
-| `pkg/tool/provider/registry/applications/` | Curated named tools with custom behavior (version filtering etc). | `tirith.go`, `claude_code.go`, `nodejs.go`, ... each does `registry.RegisterRegistryTool` in init |
+| `pkg/tool/provider/registry/` | The "registry" provider (maps bare names like "uv" to concrete tools). | `provider.go` (dispatcher), plus `applications/` for ones with custom logic |
+| `pkg/tool/provider/registry/applications/` | Curated tools (tirith, claude-code, etc) that often wrap github + filter versions. | Each registers via `registry.RegisterRegistryTool` in init() |
 | `pkg/modfile/` | Lockfile model, sources, renovate-style deps, workspace. | Very state-heavy. `workspace.go`, `lockfile.go`, `renovate.go`, `source_ref.go` |
 | `pkg/source/` | The lazy rendering pipeline + plugins. | `pipeline.go`, `lazy_file.go`, `plugin_*.go` (dotd, template, module, provider, scanner) |
 | `pkg/module/` + `pkg/modulecue/` | Module loading and cue integration. | |
@@ -37,7 +37,7 @@ The CLI is built with Cobra + a small `CommandRegistry` so subcommand packages c
 | `pkg/apply/` | The apply engine. | `engine.go` |
 | `pkg/dotfiles/` | Dotfiles manager. | `manager.go` |
 | `pkg/deployer/` | Execution planner for modules. | `planner.go`, `executor.go` |
-| `pkg/provider/` | **Lint + formatter** providers (not tool providers!). | Another pluggable system. See `provider.go` + `lint/`, `formatter/`. Term collision. |
+| `pkg/checks/` | Base for aggregated "checks" (lint + formatter providers). | Unlike drivers (select 1), these aggregate all that apply. See `lint/`, `formatter/`, and the base in `provider.go` (package checks). |
 | `pkg/cmdregistry/` | Cobra subcommand aggregation helper (for modular CLI wiring without cycles). | `command.go` |
 | `pkg/parse/spec/` | Tool spec parser (`github:...`, `mise:...`). | |
 | `pkg/driver/exec/` | The sanctioned way to run processes (use this instead of `os/exec`). | |
@@ -50,6 +50,7 @@ Other notable:
 - **Driver system**: `pkg/driver/driver.go` — generic over interface type using reflection + weights.
 - **Tool system**: `pkg/tool/provider/provider.go` — `Provider` (thin factory) + `Tool` (ListVersions + Install + EnrichLockfile). Optional `ArtifactTool`, `BinaryTool`.
 - **Command wiring**: `pkg/cmdregistry/command.go` + per-subdir `root.go` that returns a `*cobra.Command` and calls `Registry.FillCommands`.
+- **Lint/Format providers**: `pkg/checks/` (base aggregation) + `lint/` and `formatter/` subpackages.
 - **Config**: `pkg/configcue` + user `workspaced.cue`.
 - **Lock / state for tools & sources**: `pkg/modfile/`.
 - **Rendering**: `pkg/source/pipeline.go` + `source.File`.
@@ -80,9 +81,9 @@ Use `workspaced doctor --verbose` at runtime to see the full interface + provide
 ## Term Overloads (Watch Out)
 
 - **provider**:
-  - Tool provider (`pkg/tool/provider`)
+  - Tool provider (`pkg/tool/provider` — the thin interface for github/mise/etc)
   - Driver provider (the `DriverProvider[T]` interface)
-  - Lint/format provider (`pkg/provider/`)
+  - (the old `pkg/provider` was renamed to `pkg/checks` to reduce confusion)
 - **registry**:
   - `pkg/cmdregistry` (cobra command wiring helper)
   - Tool registry provider (`pkg/tool/provider/registry`)

@@ -38,13 +38,13 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	workflowsDir := filepath.Join(dir, ".github", "workflows")
 	entries, err := os.ReadDir(workflowsDir)
 	if os.IsNotExist(err) {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 	if err != nil {
 		return err
 	}
 	if len(entries) == 0 {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 	return nil
 }

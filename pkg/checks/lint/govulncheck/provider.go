@@ -35,12 +35,12 @@ func (p *Provider) Name() string {
 func (p *Provider) Detect(ctx context.Context, dir string) error {
 	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
-		return provider.ErrNotApplicable
+		return checks.ErrNotApplicable
 	}
 	if exec.IsBinaryAvailable(ctx, "go") {
 		return nil
 	}
-	return provider.ErrNotApplicable
+	return checks.ErrNotApplicable
 }
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {

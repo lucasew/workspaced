@@ -11,7 +11,7 @@ import (
 
 // Formatter extends the base Provider interface for code formatting tools.
 type Formatter interface {
-	provider.Provider
+	checks.Provider
 
 	// Format applies formatting changes to files in the directory.
 	Format(ctx context.Context, dir string) error
@@ -19,19 +19,19 @@ type Formatter interface {
 
 // Register adds a formatter to the global registry.
 func Register(f Formatter) {
-	provider.Register[Formatter](f)
+	checks.Register[Formatter](f)
 }
 
 // RunAll executes all applicable formatters.
 func RunAll(ctx context.Context, dir string) error {
-	formatters := provider.List[Formatter]()
+	formatters := checks.List[Formatter]()
 	slog.Info("Running formatters", "count", len(formatters), "dir", dir)
 
 	var errs []error
 
 	for _, f := range formatters {
 		err := f.Detect(ctx, dir)
-		if errors.Is(err, provider.ErrNotApplicable) {
+		if errors.Is(err, checks.ErrNotApplicable) {
 			continue
 		}
 		if err != nil {

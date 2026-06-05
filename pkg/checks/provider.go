@@ -1,4 +1,13 @@
-package provider
+// Package checks provides the base "aggregated provider" mechanism used for
+// linting and formatting tools (and potentially other discoverable code actions).
+//
+// Unlike the driver system (which selects one implementation by weight/compatibility),
+// these providers are *aggregated*: all registered implementations that Detect()
+// successfully are used together (see lint.RunAll, formatter.RunAll).
+//
+// Implementations live under the lint/ and formatter/ subpackages and register
+// themselves via checks.Register or the category-specific Register helpers.
+package checks
 
 import (
 	"context"
