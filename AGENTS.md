@@ -2,6 +2,8 @@
 
 This file consolidates project conventions and guidelines.
 
+**For AI agents**: Start by reading [CODEMAP.md](CODEMAP.md). It is the primary navigation aid (mental model, directory responsibilities, how to find things, registration points, and term overload warnings).
+
 ## Overview
 User configs/dotfiles live in `workspaced.cue`. Templates use `{{ .Field }}` syntax.
 - **⚠️ CRITICAL**: See `TEMPLATES.md` for complete template system documentation (5 types: static, simple, multi-file, index, .d.tmpl)
