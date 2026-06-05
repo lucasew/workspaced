@@ -1,0 +1,33 @@
+# Warning: Do not unify this file with others. Keep tool definitions localized.
+[tools]
+go = "1.26.3"
+"go:golang.org/x/tools/gopls" = "0.21.1"
+goreleaser = "2.15.4"
+svu = "3.3.0"
+
+[tasks.lint]
+run = "go run ./cmd/workspaced codebase lint"
+
+[tasks.fmt]
+run = "go run ./cmd/workspaced codebase format"
+
+[tasks.codegen]
+depends = ["fmt"]
+
+[tasks.ci]
+depends = ["lint"]
+
+[tasks.release]
+description = "Run a release"
+depends = ["codegen", "ci"]
+wait_for = ["codegen"]
+usage = '''
+arg "<version>" help="New version" {
+  choices "next" "major" "minor" "patch"
+  default "next"
+}
+'''
+run = '''
+git tag $(svu ${usage_version})
+goreleaser release --clean
+'''

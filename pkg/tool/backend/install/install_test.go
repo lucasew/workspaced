@@ -1,0 +1,106 @@
+package install
+
+import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestStripTopLevelDir(t *testing.T) {
+	root := t.TempDir()
+	top := filepath.Join(root, "tool-v1.0.0")
+	if err := os.MkdirAll(filepath.Join(top, "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(top, "bin", "tool"), []byte("ok"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := StripTopLevelDir(root); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "bin", "tool")); err != nil {
+		t.Fatalf("expected stripped file: %v", err)
+	}
+	if _, err := os.Stat(top); !os.IsNotExist(err) {
+		t.Fatalf("expected top-level directory to be removed, got %v", err)
+	}
+}
+
+func TestExtractZipRejectsPathTraversal(t *testing.T) {
+	root := t.TempDir()
+	archive := filepath.Join(root, "bad.zip")
+	outside := filepath.Join(root, "outside")
+	dest := filepath.Join(root, "dest")
+
+	file, err := os.Create(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := zip.NewWriter(file)
+	entry, err := writer.Create("../outside")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write([]byte("bad")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Extract(context.Background(), archive, dest); err == nil {
+		t.Fatal("expected path traversal error")
+	}
+	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+		t.Fatalf("path traversal wrote outside destination: %v", err)
+	}
+}
+
+func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
+	root := t.TempDir()
+	archive := filepath.Join(root, "bad.tar.gz")
+	outside := filepath.Join(root, "outside")
+	dest := filepath.Join(root, "dest")
+
+	file, err := os.Create(archive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gzipWriter := gzip.NewWriter(file)
+	tarWriter := tar.NewWriter(gzipWriter)
+	if err := tarWriter.WriteHeader(&tar.Header{
+		Name: "../outside",
+		Mode: 0o644,
+		Size: int64(len("bad")),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tarWriter.Write([]byte("bad")); err != nil {
+		t.Fatal(err)
+	}
+	if err := tarWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gzipWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Extract(context.Background(), archive, dest); err == nil {
+		t.Fatal("expected path traversal error")
+	}
+	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+		t.Fatalf("path traversal wrote outside destination: %v", err)
+	}
+}

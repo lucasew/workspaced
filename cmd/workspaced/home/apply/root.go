@@ -1,0 +1,219 @@
+package apply
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"text/tabwriter"
+	"workspaced/pkg/apply"
+	"workspaced/pkg/cmdctx"
+	"workspaced/pkg/configcue"
+	"workspaced/pkg/deployer"
+	"workspaced/pkg/dotfiles"
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/env"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
+	"workspaced/pkg/source"
+	"workspaced/pkg/template"
+	"workspaced/pkg/tool"
+
+	"github.com/spf13/cobra"
+)
+
+func GetCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "apply [action]",
+		Short: "Declaratively apply system and user configurations",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			logger := logging.GetLogger(ctx)
+
+			action := "switch"
+			if len(args) > 0 {
+				action = args[0]
+			}
+			_ = action
+
+			dryRun := cmdctx.IsDryRun(ctx)
+			showNoop, _ := cmd.Flags().GetBool("show-noop")
+
+			// Carregar configuração
+			cfg, err := configcue.LoadHome()
+			if err != nil {
+				return fmt.Errorf("failed to load config: %w", err)
+			}
+
+			// Obter dotfiles root
+			dotfilesRoot, err := env.GetDotfilesRoot()
+			if err != nil {
+				return fmt.Errorf("failed to get dotfiles root: %w", err)
+			}
+			ws := modfile.NewWorkspace(dotfilesRoot)
+			lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg)
+			if err != nil {
+				return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
+			}
+			logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
+
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("failed to get home directory: %w", err)
+			}
+
+			// Criar template engine compartilhada
+			engine := template.NewEngine(ctx)
+
+			// Configurar pipeline de plugins
+			configDir := filepath.Join(dotfilesRoot, "config")
+			pipeline := source.NewPipeline()
+
+			// 1. Provider dconf (legacy)
+			pipeline.AddPlugin(source.NewProviderPlugin(&apply.DconfProvider{}, 50))
+
+			// 2. Scanner - descobre arquivos em config/
+			if _, err := os.Stat(configDir); err == nil {
+				scanner, err := source.NewScannerPlugin(source.ScannerConfig{
+					Name:       "legacy-config",
+					BaseDir:    configDir,
+					TargetBase: home,
+					Priority:   50, // Legacy has lower priority than modules
+				})
+				if err != nil {
+					return fmt.Errorf("failed to create scanner: %w", err)
+				}
+				pipeline.AddPlugin(scanner)
+			}
+
+			// 2.5 Modules Scanner
+			modulesDir := ws.ModulesBaseDir()
+			if _, err := os.Stat(modulesDir); err == nil {
+				pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg, 100))
+			}
+
+			// 3. TemplateExpander - renderiza .tmpl (inclui multi-file)
+			pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg))
+
+			// 4. DotDProcessor - concatena .d.tmpl/
+			pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg))
+
+			// 5. StrictConflictResolver - garante unicidade total
+			pipeline.AddPlugin(source.NewStrictConflictResolverPlugin())
+
+			// StateStore
+			stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json")
+			if err != nil {
+				return fmt.Errorf("failed to create state store: %w", err)
+			}
+
+			// Hooks
+			hooks := []dotfiles.Hook{
+				&dotfiles.FuncHook{
+					AfterFn: func(ctx context.Context, actions []deployer.Action, execErr error) error {
+						if execErr != nil {
+							return nil
+						}
+						needsDconfApply := false
+						for _, action := range actions {
+							if action.Type != deployer.ActionCreate && action.Type != deployer.ActionUpdate {
+								continue
+							}
+							if action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(os.Getenv("HOME"), ".config", "workspaced", "dconf.marker") {
+								needsDconfApply = true
+								break
+							}
+						}
+						if !needsDconfApply {
+							return nil
+						}
+						return apply.ApplyHomeDconf(ctx)
+					},
+				},
+				// Hook para reload GTK theme
+				&dotfiles.FuncHook{
+					AfterFn: func(ctx context.Context, actions []deployer.Action, execErr error) error {
+						if execErr != nil {
+							return nil // Não executar se houve erro
+						}
+						if env.IsPhone() {
+							return nil // Não executar em phone
+						}
+
+						home, _ := os.UserHomeDir()
+						dummyTheme := home + "/.local/share/themes/dummy"
+						if _, err := os.Stat(dummyTheme); err == nil {
+							targetTheme := "adw-gtk3-dark"
+							if readCmd, err := execdriver.Run(ctx, "dconf", "read", "/org/gnome/desktop/interface/gtk-theme"); err == nil {
+								if out, err := readCmd.Output(); err == nil {
+									if v := strings.Trim(strings.TrimSpace(string(out)), "'"); v != "" {
+										targetTheme = v
+									}
+								}
+							}
+							// Switch to dummy and back to force GTK reload
+							if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", "'dummy'"); err == nil {
+								if err := cmd.Run(); err != nil {
+									logger.Warn("failed to switch to dummy theme", "error", err)
+								}
+							}
+							if cmd, err := execdriver.Run(ctx, "dconf", "write", "/org/gnome/desktop/interface/gtk-theme", fmt.Sprintf("'%s'", targetTheme)); err == nil {
+								if err := cmd.Run(); err != nil {
+									logger.Warn("failed to restore gtk theme", "theme", targetTheme, "error", err)
+								}
+							}
+						}
+						return nil
+					},
+				},
+			}
+
+			// Criar manager com pipeline
+			mgr, err := dotfiles.NewManager(dotfiles.Config{
+				Pipeline:   pipeline,
+				StateStore: stateStore,
+				Hooks:      hooks,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create manager: %w", err)
+			}
+
+			// Aplicar configurações
+			result, err := mgr.Apply(ctx, dotfiles.ApplyOptions{
+				DryRun: dryRun,
+			})
+			if err != nil {
+				return err
+			}
+
+			// Mostrar resultado
+			if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
+				orderedActions := deployer.SortActions(result.Actions)
+				w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+				for _, a := range orderedActions {
+					if a.Type == deployer.ActionNoop && !showNoop {
+						continue
+					}
+					sourceInfo := ""
+					if a.Desired.File != nil {
+						sourceInfo = a.Desired.File.SourceInfo()
+					}
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, a.Target, sourceInfo)
+				}
+				_ = w.Flush()
+				cmd.Printf("\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
+				if showNoop {
+					cmd.Printf(", %d no-op", result.FilesNoOp)
+				}
+				cmd.Printf("\n")
+			}
+
+			return nil
+		},
+	}
+	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
+	return cmd
+}

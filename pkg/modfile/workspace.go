@@ -1,0 +1,60 @@
+package modfile
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"workspaced/pkg/env"
+	"workspaced/pkg/git"
+)
+
+type Workspace struct {
+	Root string
+}
+
+func NewWorkspace(root string) *Workspace {
+	return &Workspace{Root: filepath.Clean(root)}
+}
+
+func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
+	currentDir := wd
+	if currentDir == "" {
+		var err error
+		currentDir, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if root, err := git.GetRoot(ctx, currentDir); err == nil && root != "" {
+		return NewWorkspace(root), nil
+	}
+
+	root, err := env.GetDotfilesRoot()
+	if err != nil {
+		return nil, fmt.Errorf("failed to detect workspace root from git and dotfiles root: %w", err)
+	}
+	return NewWorkspace(root), nil
+}
+
+func (w *Workspace) EnsureFiles() error {
+	_, err := EnsureLockFile(w.Root)
+	return err
+}
+
+func (w *Workspace) LoadSumFile() (*SumFile, error) {
+	return LoadSumFile(w.SumPath())
+}
+
+func (w *Workspace) UpdateSumFile(mutate func(sum *SumFile) (bool, error)) (bool, error) {
+	return updateSumFile(w.SumPath(), mutate)
+}
+
+func (w *Workspace) SumPath() string {
+	return filepath.Join(w.Root, "workspaced.lock.json")
+}
+
+func (w *Workspace) ModulesBaseDir() string {
+	return filepath.Join(w.Root, "modules")
+}

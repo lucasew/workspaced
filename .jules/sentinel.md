@@ -1,0 +1,1 @@
+- 2026-05-12: [Command Injection] Avoid using shell interpreters (like 'sh -c') with interpolated variables; pass arguments discretely to command execution wrappers.
