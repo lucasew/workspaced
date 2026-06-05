@@ -3,6 +3,7 @@
 ## 🌳 Árvore de Decisão
 
 ```mermaid
+%%{init: {"theme": "neutral"}}%%
 flowchart TD
     Start["Preciso configurar um arquivo em ~/"] --> Q1["Precisa de variáveis dinâmicas? (ex: {{ .Palette.Base00 }})"]
 
@@ -20,8 +21,12 @@ flowchart TD
 
     Q4 -- NÃO --> Index["INDEX (sem subpasta)<br/>📁 config/_index.tmpl → ~/app1, ~/app2"]
 
-    Q3 -- "DIRETÓRIO (arquivos modulares)" --> Concat["CONCATENAÇÃO .d.tmpl/<br/>📁 config/.bashrc.d.tmpl/<br/>├─ 10-env.sh<br/>├─ 20-aliases.sh.tmpl<br/>└─ 30-functions.sh → ~/.bashrc (tudo concatenado)"]
+    Q3 -- "DIRETÓRIO (arquivos modulares)" --> Concat["CONCATENAÇÃO .d.tmpl/<br/>📁 config/.bashrc.d.tmpl/<br/>├─ 10-env.sh<br/>├─ 20-aliases.sh.tmpl<br/>└─ 30-functions.sh<br/>→ ~/.bashrc (tudo concatenado)"]
 
+    classDef node fill:#fafafa,color:#1a1a1a,stroke:#666666,stroke-width:1px
+    classDef decision fill:#fff3e0,color:#1a1a1a,stroke:#e65100,stroke-width:2px
+    class Start,Q1,Q2,Q3,Q4,Static,Simple,Multi,Index,Concat node
+    class Q2,Q3,Q4 decision
 ```
 
 ---
