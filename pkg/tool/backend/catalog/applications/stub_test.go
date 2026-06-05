@@ -6,7 +6,7 @@ import (
 	"workspaced/pkg/modfile"
 )
 
-// stubTool is a minimal implementation of provider.Tool for use in tests,
+// stubTool is a minimal implementation of backend.Tool for use in tests,
 // particularly for testing wrappers like tirithTool that decorate another Tool.
 type stubTool struct {
 	versions []string

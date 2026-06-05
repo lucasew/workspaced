@@ -1,8 +1,8 @@
 package prelude
 
 import (
-	_ "workspaced/pkg/tool/provider/github"
-	_ "workspaced/pkg/tool/provider/mise"
-	_ "workspaced/pkg/tool/provider/registry"
-	_ "workspaced/pkg/tool/provider/registry/applications"
+	_ "workspaced/pkg/tool/backend/github"
+	_ "workspaced/pkg/tool/backend/mise"
+	_ "workspaced/pkg/tool/backend/catalog"
+	_ "workspaced/pkg/tool/backend/catalog/applications"
 )

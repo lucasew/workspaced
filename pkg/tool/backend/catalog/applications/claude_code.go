@@ -14,15 +14,15 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
-	"workspaced/pkg/tool/provider"
-	providerinstall "workspaced/pkg/tool/provider/install"
-	"workspaced/pkg/tool/provider/registry"
+	"workspaced/pkg/tool/backend"
+	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/backend/catalog"
 )
 
 const claudeCodeReleasesBaseURL = "https://downloads.claude.ai/claude-code-releases"
 
 func init() {
-	registry.RegisterRegistryTool("claude-code", newClaudeCode)
+	catalog.RegisterTool("claude-code", newClaudeCode)
 }
 
 type claudeCodeTool struct {
@@ -41,7 +41,7 @@ type claudeCodePlatformInfo struct {
 	Size     int64  `json:"size"`
 }
 
-func newClaudeCode() (provider.Tool, error) {
+func newClaudeCode() (backend.Tool, error) {
 	return &claudeCodeTool{baseURL: claudeCodeReleasesBaseURL}, nil
 }
 
@@ -91,7 +91,7 @@ func (t *claudeCodeTool) Install(ctx context.Context, version string, destDir st
 		return err
 	}
 
-	artifact := provider.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "claude")
+	artifact := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "claude")
 	if artifact == nil {
 		return fmt.Errorf("no suitable artifact found for %s/%s for registry:claude-code@%s", runtime.GOOS, runtime.GOARCH, version)
 	}
@@ -107,7 +107,7 @@ func (t *claudeCodeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 	}
 }
 
-func (t *claudeCodeTool) ListArtifacts(ctx context.Context, version string) ([]provider.Artifact, error) {
+func (t *claudeCodeTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
 	resolvedVersion, err := t.ResolveVersion(ctx, version)
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func (t *claudeCodeTool) ListArtifacts(ctx context.Context, version string) ([]p
 	}
 
 	url := fmt.Sprintf("%s/%s/%s/%s", t.baseURL, resolvedVersion, platformKey, platformInfo.Binary)
-	return []provider.Artifact{{
+	return []backend.Artifact{{
 		OS:   runtime.GOOS,
 		Arch: runtime.GOARCH,
 		URL:  url,
@@ -134,7 +134,7 @@ func (t *claudeCodeTool) ListArtifacts(ctx context.Context, version string) ([]p
 	}}, nil
 }
 
-func (t *claudeCodeTool) InstallArtifact(ctx context.Context, artifact provider.Artifact, destDir string) error {
+func (t *claudeCodeTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{Mode: 0o755})
 }
 

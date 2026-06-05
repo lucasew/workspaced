@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	_ "workspaced/pkg/driver/httpclient/native"
-	_ "workspaced/pkg/tool/provider/github"
+	_ "workspaced/pkg/tool/backend/github"
 )
 
 func TestRun(t *testing.T) {

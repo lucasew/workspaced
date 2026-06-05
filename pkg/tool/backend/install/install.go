@@ -19,7 +19,7 @@ import (
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/backend"
 
 	"github.com/schollz/progressbar/v3"
 )
@@ -31,7 +31,7 @@ type DownloadOptions struct {
 	ConfigureRequest func(*http.Request)
 }
 
-func InstallArtifact(ctx context.Context, artifact provider.Artifact, destDir string, opts DownloadOptions) error {
+func InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string, opts DownloadOptions) error {
 	if opts.Hash == "" {
 		opts.Hash = artifact.Hash
 	}

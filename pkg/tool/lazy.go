@@ -13,7 +13,7 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/backend"
 )
 
 type lazyToolConfig struct {
@@ -260,7 +260,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
 
 	// Obtain the live Tool once so we can Enrich the real structure.
-	var liveTool provider.Tool
+	var liveTool backend.Tool
 	if p, err := Get(spec.Provider); err == nil {
 		if t, err := p.Tool(spec.Package); err == nil {
 			liveTool = t

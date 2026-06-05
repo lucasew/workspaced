@@ -15,18 +15,18 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
-	"workspaced/pkg/tool/provider"
-	providerinstall "workspaced/pkg/tool/provider/install"
-	"workspaced/pkg/tool/provider/registry"
+	"workspaced/pkg/tool/backend"
+	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/backend/catalog"
 )
 
 func init() {
-	registry.RegisterRegistryTool("nodejs", newNodejs)
+	catalog.RegisterTool("nodejs", newNodejs)
 }
 
 type nodejsTool struct{}
 
-func newNodejs() (provider.Tool, error) {
+func newNodejs() (backend.Tool, error) {
 	return &nodejsTool{}, nil
 }
 
@@ -65,7 +65,7 @@ func (t *nodejsTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 	// verification at install time via fetchurl.
 }
 
-func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]provider.Artifact, error) {
+func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
 	v := normalizeNodejsVersion(version)
 	if v == "" || v == "latest" {
 		vers, err := t.listVersions(ctx)
@@ -89,7 +89,7 @@ func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]provi
 		hash = "sha256:" + h
 	}
 
-	return []provider.Artifact{{
+	return []backend.Artifact{{
 		OS:   runtime.GOOS,
 		Arch: runtime.GOARCH,
 		URL:  url,
@@ -97,7 +97,7 @@ func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]provi
 	}}, nil
 }
 
-func (t *nodejsTool) InstallArtifact(ctx context.Context, artifact provider.Artifact, destDir string) error {
+func (t *nodejsTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
 }
 

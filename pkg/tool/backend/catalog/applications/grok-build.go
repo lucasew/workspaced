@@ -15,18 +15,18 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
-	"workspaced/pkg/tool/provider"
-	providerinstall "workspaced/pkg/tool/provider/install"
-	"workspaced/pkg/tool/provider/registry"
+	"workspaced/pkg/tool/backend"
+	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/backend/catalog"
 )
 
 func init() {
-	registry.RegisterRegistryTool("grok-build", newGrokBuild)
+	catalog.RegisterTool("grok-build", newGrokBuild)
 }
 
 type grokBuildTool struct{}
 
-func newGrokBuild() (provider.Tool, error) {
+func newGrokBuild() (backend.Tool, error) {
 	return &grokBuildTool{}, nil
 }
 
@@ -52,7 +52,7 @@ func (t *grokBuildTool) Install(ctx context.Context, version string, destDir str
 	if runtime.GOOS == "windows" {
 		url += ".exe"
 	}
-	return t.InstallArtifact(ctx, provider.Artifact{URL: url, OS: runtime.GOOS, Arch: runtime.GOARCH}, destDir)
+	return t.InstallArtifact(ctx, backend.Artifact{URL: url, OS: runtime.GOOS, Arch: runtime.GOARCH}, destDir)
 }
 
 func (t *grokBuildTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -62,7 +62,7 @@ func (t *grokBuildTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 	}
 }
 
-func (t *grokBuildTool) ListArtifacts(ctx context.Context, version string) ([]provider.Artifact, error) {
+func (t *grokBuildTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
 	v := strings.TrimSpace(version)
 	if v == "" || v == "latest" {
 		var err error
@@ -76,10 +76,10 @@ func (t *grokBuildTool) ListArtifacts(ctx context.Context, version string) ([]pr
 	if runtime.GOOS == "windows" {
 		u += ".exe"
 	}
-	return []provider.Artifact{{OS: runtime.GOOS, Arch: runtime.GOARCH, URL: u}}, nil
+	return []backend.Artifact{{OS: runtime.GOOS, Arch: runtime.GOARCH, URL: u}}, nil
 }
 
-func (t *grokBuildTool) InstallArtifact(ctx context.Context, art provider.Artifact, destDir string) error {
+func (t *grokBuildTool) InstallArtifact(ctx context.Context, art backend.Artifact, destDir string) error {
 	bin := "grok"
 	if runtime.GOOS == "windows" {
 		bin = "grok.exe"

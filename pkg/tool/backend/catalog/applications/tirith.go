@@ -5,20 +5,20 @@ import (
 	"strings"
 
 	"workspaced/pkg/modfile"
-	"workspaced/pkg/tool/provider"
-	"workspaced/pkg/tool/provider/github"
-	"workspaced/pkg/tool/provider/registry"
+	"workspaced/pkg/tool/backend"
+	"workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/tool/backend/catalog"
 )
 
 func init() {
-	registry.RegisterRegistryTool("tirith", newTirith)
+	catalog.RegisterTool("tirith", newTirith)
 }
 
 type tirithTool struct {
-	inner provider.Tool
+	inner backend.Tool
 }
 
-func newTirith() (provider.Tool, error) {
+func newTirith() (backend.Tool, error) {
 	inner, err := github.NewTool("sheeki03/tirith")
 	if err != nil {
 		return nil, err

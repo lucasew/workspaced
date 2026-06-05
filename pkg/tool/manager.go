@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strings"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/backend"
 )
 
 type Manager struct {
@@ -74,10 +74,10 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 
 	// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
 	if binaryHint != "" {
-		if at, ok := t.(provider.ArtifactTool); ok {
+		if at, ok := t.(backend.ArtifactTool); ok {
 			artifacts, err := at.ListArtifacts(ctx, version)
 			if err == nil {
-				if chosen := provider.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
+				if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
 					slog.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
 					if err := at.InstallArtifact(ctx, *chosen, destPath); err != nil {
 						return fmt.Errorf("installation failed: %w", err)

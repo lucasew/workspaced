@@ -10,7 +10,7 @@ import (
 
 	execdriver "workspaced/pkg/driver/exec"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/backend"
 )
 
 // EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
@@ -56,7 +56,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
 		slog.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 
-		if bt, ok := t.(provider.BinaryTool); ok {
+		if bt, ok := t.(backend.BinaryTool); ok {
 			binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 			if err != nil {
 				return "", fmt.Errorf("failed to install tool: %w", err)
@@ -81,7 +81,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
 	slog.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
-	if bt, ok := t.(provider.BinaryTool); ok {
+	if bt, ok := t.(backend.BinaryTool); ok {
 		binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 		if err != nil {
 			return "", err

@@ -18,8 +18,8 @@ import (
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/tool/provider"
-	githubprov "workspaced/pkg/tool/provider/github"
+	"workspaced/pkg/tool/backend"
+	githubprov "workspaced/pkg/tool/backend/github"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -177,7 +177,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 
 	// Use ArtifactTool extension for custom selection (selfupdate installs to a
 	// non-versioned location and has its own simple matcher).
-	at, ok := t.(provider.ArtifactTool)
+	at, ok := t.(backend.ArtifactTool)
 	if !ok {
 		return fmt.Errorf("github tool does not support ArtifactTool (needed for selfupdate)")
 	}
@@ -245,7 +245,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	return createWorkspacedShim(ctx, installPath)
 }
 
-func findMatchingArtifact(artifacts []provider.Artifact, os, arch string) *provider.Artifact {
+func findMatchingArtifact(artifacts []backend.Artifact, os, arch string) *backend.Artifact {
 	for i := range artifacts {
 		if artifacts[i].OS == os && artifacts[i].Arch == arch {
 			return &artifacts[i]

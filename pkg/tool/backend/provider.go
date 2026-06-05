@@ -1,19 +1,17 @@
-// Package provider defines the thin provider + tool abstraction used by the
-// external tool management system.
+// Package backend defines the tool backends (previously called "providers").
 //
-// A Provider is a "registry" (github, mise, or the internal "registry" for
-// curated short names). Calling Provider.Tool(ref) yields a Tool.
+// A Backend (e.g. GitHub Releases, mise, or the internal catalog) knows how to
+// turn a reference string into a concrete Tool.
 //
-// A Tool is the minimum viable handle for one specific package:
+// A Tool is the minimum viable handle for one specific external package/binary:
 //   - ListVersions
 //   - Install(version, destDir)
-//   - EnrichLockfile (mutates the lock entry for renovate-style metadata)
+//   - EnrichLockfile (mutates the RenovateDependency entry in the lockfile)
 //
 // Optional richer interfaces: ArtifactTool and BinaryTool.
 //
-// This package is deliberately small; concrete implementations live in sibling
-// directories (github, mise, registry).
-package provider
+// Concrete backends live in sibling directories: github, mise, catalog.
+package backend
 
 import (
 	"context"
@@ -24,21 +22,22 @@ import (
 	"workspaced/pkg/modfile"
 )
 
-// Provider is the thin handler registered for one tool registry (e.g. "github", "mise").
-// It is looked up by the ID used at registration time (the "provider" part of "provider:ref").
-// The handler's only job for the MVA is to produce a Tool for a given ref string.
-type Provider interface {
-	// Name is a human-friendly description of the registry ("GitHub Releases", "mise").
+// Backend is the thin handler registered for one tool source/registry
+// (e.g. "github", "mise", or the internal catalog for short names).
+// It is registered under an ID and is what appears before the ':' in specs
+// like "github:cli/cli" or bare "uv".
+type Backend interface {
+	// Name is a human-friendly description ("GitHub Releases", "mise").
 	Name() string
 
-	// Tool performs the simple ref lookup and returns the Tool for that package.
-	// ref is the provider-specific package identifier:
+	// Tool performs the ref lookup and returns the Tool for that package.
+	// ref is backend-specific:
 	//   - "owner/repo" for github
 	//   - "node", "deno", "python" for mise
 	Tool(ref string) (Tool, error)
 }
 
-// Tool represents one specific tool/package obtained via a provider ref.
+// Tool represents one specific tool/package obtained via a backend.
 // It is the minimum viable "one tool":
 // - it can list versions (the version lookuper)
 // - it can install itself into a caller-provided directory (the install handler)
@@ -61,7 +60,7 @@ type Tool interface {
 }
 
 // ArtifactTool is an optional extension for Tools that can expose raw
-// artifacts (primarily useful for GitHub-style providers and tools like selfupdate
+// artifacts (primarily useful for GitHub-style backends and tools like selfupdate
 // that need to do custom platform selection or install to non-standard locations).
 type ArtifactTool interface {
 	Tool

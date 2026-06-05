@@ -1,9 +1,9 @@
 package apps
 
 import (
-	"workspaced/pkg/tool/provider"
-	"workspaced/pkg/tool/provider/github"
-	"workspaced/pkg/tool/provider/registry"
+	"workspaced/pkg/tool/backend"
+	"workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/tool/backend/catalog"
 )
 
 var githubTools = map[string]string{
@@ -30,7 +30,7 @@ var githubTools = map[string]string{
 func init() {
 	for name, repo := range githubTools {
 		repo := repo
-		registry.RegisterRegistryTool(name, func() (provider.Tool, error) {
+		catalog.RegisterTool(name, func() (backend.Tool, error) {
 			return github.NewTool(repo)
 		})
 	}
