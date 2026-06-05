@@ -1,3 +1,18 @@
+// Package provider defines the thin provider + tool abstraction used by the
+// external tool management system.
+//
+// A Provider is a "registry" (github, mise, or the internal "registry" for
+// curated short names). Calling Provider.Tool(ref) yields a Tool.
+//
+// A Tool is the minimum viable handle for one specific package:
+//   - ListVersions
+//   - Install(version, destDir)
+//   - EnrichLockfile (mutates the lock entry for renovate-style metadata)
+//
+// Optional richer interfaces: ArtifactTool and BinaryTool.
+//
+// This package is deliberately small; concrete implementations live in sibling
+// directories (github, mise, registry).
 package provider
 
 import (

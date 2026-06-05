@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"workspaced/pkg/provider"
+	"workspaced/pkg/checks"
 )
 
 // Formatter extends the base Provider interface for code formatting tools.

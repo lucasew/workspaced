@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"workspaced/pkg/provider"
+	"workspaced/pkg/checks"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )

@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/provider"
-	"workspaced/pkg/provider/formatter"
+	"workspaced/pkg/checks"
+	"workspaced/pkg/checks/formatter"
 	"workspaced/pkg/tool"
 )
 

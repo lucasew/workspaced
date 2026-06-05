@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/pkg/provider"
-	"workspaced/pkg/provider/lint"
+	"workspaced/pkg/checks"
+	"workspaced/pkg/checks/lint"
 	"workspaced/pkg/tool"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"

@@ -1,19 +1,20 @@
-package ruff
+package gofmt
 
 import (
 	"context"
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/provider"
-	"workspaced/pkg/provider/formatter"
-	"workspaced/pkg/tool"
+	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/checks"
+	"workspaced/pkg/checks/formatter"
 )
 
-// Provider implements the formatter.Formatter interface for Python projects using Ruff.
+// Provider implements the formatter.Formatter interface for Go projects.
+// It executes 'gofmt -w .' in the target directory.
 type Provider struct{}
 
-// New creates a new Ruff provider.
+// New creates a new gofmt provider.
 func New() formatter.Formatter {
 	return &Provider{}
 }
@@ -23,19 +24,19 @@ func init() {
 }
 
 func (p *Provider) Name() string {
-	return "ruff"
+	return "gofmt"
 }
 
 func (p *Provider) Detect(ctx context.Context, dir string) error {
-	// Applies if uv.lock exists
-	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
+	// Applies if go.mod exists
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
 		return provider.ErrNotApplicable
 	}
 	return nil
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {
-	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "ruff", "ruff", "format", ".")
+	cmd, err := exec.Run(ctx, "gofmt", "-w", ".")
 	if err != nil {
 		return err
 	}

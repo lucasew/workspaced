@@ -1,3 +1,8 @@
+// Package tool manages installation and execution of external command-line tools
+// (the things users reference as "uv", "github:cli/cli", "mise:node", etc.).
+//
+// It is built around a small set of registered providers (see pkg/tool/provider).
+// The main entry points are NewManager, Ensure, and the lazy tool machinery.
 package tool
 
 import (
