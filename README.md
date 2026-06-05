@@ -10,6 +10,7 @@
 - Tool: something that lists available versions and install a scoped program from a version. One tool version normally has assets and at least one executable binary
 - Tool backend: something that takes a ref and gives a Tool. Ex: the backend of GitHub takes owner/repo as ref
 - Module: a part of the cue configuration that is defined somewhere else, along with the templates of files
+- CUE: a JSON-like language that converges towards the most specific typing, allows validation together with data
 
 # TODO
 - [ ] Rename DriverProvider to something less provider

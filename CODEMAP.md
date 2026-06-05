@@ -2,130 +2,69 @@
 
 This document is the primary navigation aid for AI agents and humans. Read this before making changes.
 
-## Mental Model (Read This First)
+## Mental Model (Read First)
 
-Workspaced is a **local-first declarative user environment tool**.
+Workspaced is a local-first declarative user environment tool.
 
-- **Config is CUE-first**: `workspaced.cue` (user) + `pkg/configcue` (schema + loading). Templates render from the evaluated config.
-- **Everything that touches the host is a Driver**: audio, clipboard, WM, notifications, power, etc. Selected dynamically by weight + `CheckCompatibility`.
-- **Modules** are the unit of reusable dotfiles. They declare claims (files they own) and are processed with zero intermediate files (in-memory streaming).
-- **Tools** manage external binaries (the `tool` subcommand and lazy tools). Specs are `github:owner/repo`, `mise:foo`, or bare curated names (`uv`, `tirith`).
-- **Lazy + streaming**: `source.File` and templates delay work until needed.
-- **Two registries** (unfortunate name overlap — see below):
-  - Driver registry (`pkg/driver`)
-  - Tool provider registry (`pkg/tool/provider` + `pkg/tool/tool.go`)
+- Config is CUE-first (`workspaced.cue` + `pkg/configcue`). Templates render from it.
+- Everything that touches the host goes through **Drivers** (`pkg/driver`).
+- External tools are handled by **Backends** (`pkg/tool/backend`).
+- Dotfiles live as **Modules** processed via the lazy source pipeline (`pkg/source` + `pkg/module`).
+- All registration (drivers, backends, CLI commands) happens via `init()` + central preludes.
 
-The CLI is built with Cobra + a small `CommandRegistry` so subcommand packages can register themselves without import cycles.
+## Key Locations (short)
 
-## Directory Responsibilities (Concise)
+- `cmd/workspaced/` — CLI (intention-grouped subcommands + generated wiring).
+- `pkg/driver/` — Host capability system. Interface per cap + impls + `driver.go` (the generic registry).
+- `pkg/tool/backend/` — Tool backends + `Tool` interface. `github/`, `mise/`, `catalog/`.
+- `pkg/checks/` — Aggregated checks (`lint/`, `formatter/`).
+- `pkg/modfile/` — Lockfile, sources, workspace state.
+- `pkg/source/` — Lazy file pipeline + plugins.
+- `pkg/configcue/` — CUE loading + schema.
+- `pkg/apply/`, `pkg/dotfiles/`, `pkg/deployer/` — Apply flow.
+- `pkg/cmdregistry/` — Only for Cobra subcommand wiring.
 
-| Path | Purpose | Key Files / Notes |
-|------|---------|-------------------|
-| `cmd/workspaced/` | CLI surface. Intention-grouped (see AGENTS.md). | `root.go` (preloads + setup), `driver/prelude.go` (generated), subdirs like `driver/audio/`, `home/apply/`, `tool/` |
-| `pkg/driver/` | Pluggable host abstraction system (the biggest architectural win). | `driver.go` (generic `Register[T]`, `Get[T]`, `Doctor`), `prelude/prelude.go` (central import of all impls) |
-| `pkg/driver/<cap>/` | One capability (audio, clipboard, notification, ...). | `driver.go` = interface only<br>`facade.go` = convenience funcs that call `driver.Get[Driver](ctx)`<br>`show.go`<br>`<impl>/driver.go` = concrete impl + `init(){ driver.Register[...] }` |
-| `pkg/tool/` | External tool/binary manager. | `manager.go`, `resolver.go`, `lazy.go`, `tool.go` (the Register/Get for providers) |
-| `pkg/tool/backend/` | Tool backends (the explicit name for what used to be called "tool providers"). | `provider.go` (defines `Backend` and `Tool` interfaces — **core**) |
-| `pkg/tool/backend/github/` | GitHub Releases backend. | `GitHubTool` implements full `Tool` + `ArtifactTool` |
-| `pkg/tool/backend/mise/` | mise backend | |
-| `pkg/tool/backend/catalog/` | The catalog backend (maps bare/curated names like "uv", "tirith" to concrete tools, with possible custom version logic). | `provider.go` (dispatcher) + `applications/` (the curated ones) |
-| `pkg/tool/backend/catalog/applications/` | Curated tools with special behavior (tirith filters threatdb versions, etc.). | Register via `catalog.RegisterTool` in their init() |
-| `pkg/modfile/` | Lockfile model, sources, renovate-style deps, workspace. | Very state-heavy. `workspace.go`, `lockfile.go`, `renovate.go`, `source_ref.go` |
-| `pkg/source/` | The lazy rendering pipeline + plugins. | `pipeline.go`, `lazy_file.go`, `plugin_*.go` (dotd, template, module, provider, scanner) |
-| `pkg/module/` + `pkg/modulecue/` | Module loading and cue integration. | |
-| `pkg/configcue/` | CUE loading, schema, preambles. | `schema.cue`, `loader.go` |
-| `pkg/apply/` | The apply engine. | `engine.go` |
-| `pkg/dotfiles/` | Dotfiles manager. | `manager.go` |
-| `pkg/deployer/` | Execution planner for modules. | `planner.go`, `executor.go` |
-| `pkg/checks/` | Base for aggregated "checks" (lint + formatter providers). | Unlike drivers (select 1), these aggregate all that apply. See `lint/`, `formatter/`, and the base in `provider.go` (package checks). |
-| `pkg/cmdregistry/` | Cobra subcommand aggregation helper (for modular CLI wiring without cycles). | `command.go` |
-| `pkg/parse/spec/` | Tool spec parser (`github:...`, `mise:...`). | |
-| `pkg/driver/exec/` | The sanctioned way to run processes (use this instead of `os/exec`). | |
+See full details and "how to find X" recipes below.
 
-Other notable:
-- `pkg/backup/`, `pkg/db/`, `pkg/icons/`, `pkg/palette/`, `pkg/shellgen/`, `pkg/template/`
+## Core Abstractions
 
-## Core Abstractions & Their Homes
+- Driver system: `pkg/driver/driver.go` (generic `Register[T]` / `Get[T]`).
+- Tool backends: `pkg/tool/backend/backend.go` (`Backend` + `Tool` interfaces).
+- Checks: `pkg/checks/check.go`.
+- Config + modules: `pkg/configcue`, `pkg/module`, `pkg/source`.
+- State: `pkg/modfile`.
 
-- **Driver system**: `pkg/driver/driver.go` — generic over interface type using reflection + weights.
-- **Tool system**: `pkg/tool/provider/provider.go` — `Provider` (thin factory) + `Tool` (ListVersions + Install + EnrichLockfile). Optional `ArtifactTool`, `BinaryTool`.
-- **Command wiring**: `pkg/cmdregistry/command.go` + per-subdir `root.go` that returns a `*cobra.Command` and calls `Registry.FillCommands`.
-- **Lint/Format providers**: `pkg/checks/` (base aggregation) + `lint/` and `formatter/` subpackages.
-- **Config**: `pkg/configcue` + user `workspaced.cue`.
-- **Lock / state for tools & sources**: `pkg/modfile/`.
-- **Rendering**: `pkg/source/pipeline.go` + `source.File`.
+## Registration Points
 
-## Registration / "Magic" Points (Critical for AI)
+All via `init()` + preludes:
 
-All use `init()` side effects:
+- Drivers: `driver.Register[T](...)` from impls (imported via `pkg/driver/prelude`).
+- Tool backends: `tool.Register("github", ...)` (via `pkg/tool/prelude`).
+- Curated tools: `catalog.RegisterTool(...)` in `catalog/applications`.
+- CLI commands: `GetCommand()` + generated wiring in `cmd/workspaced/*/prelude.go`.
 
-1. **Drivers**: Concrete impl calls `driver.Register[SomeInterface](&Provider{})`. All impl packages are imported from `pkg/driver/prelude/prelude.go`. The root command imports the prelude.
-2. **Tool backends**: `tool.Register("github", &Provider{})` (or `&backend{}`) etc. Wired via `pkg/tool/prelude/prelude.go`.
-3. **Curated catalog tools**: `catalog.RegisterTool("tirith", newTirith)` inside the applications packages (under catalog).
-4. **CLI subcommands**: `cmd/workspaced/*/root.go` define `GetCommand()`. A devtool (`pkg/devtools/autoregistry`) scans for them and generates `cmd/workspaced/driver/prelude.go` (and recursively).
+**Rule**: Only import driver/tool preludes from the main `cmd/workspaced/root.go`.
 
-**Rule** (from AGENTS.md): Driver and tool preludes are imported **only** from the main root command. Never duplicate the blank imports.
+## How to Find Things
 
-## How to Locate Things Quickly (Recipes)
+- Audio / host feature → `pkg/driver/<feature>/` + matching `cmd/workspaced/driver/<feature>/`.
+- New curated tool → `pkg/tool/backend/catalog/applications/`.
+- New driver → add impl + import in `pkg/driver/prelude/prelude.go`.
+- Lockfile/tool metadata → the `Tool.EnrichLockfile` in the relevant backend.
+- Apply logic → `pkg/apply/`, `pkg/source/`, `pkg/deployer/`.
 
-- "I need to change audio behavior" → `pkg/driver/audio/` (interface + facade) + the impl you care about + `cmd/workspaced/driver/audio/`.
-- "Add support for a new curated tool 'foo'" → Add under `pkg/tool/backend/catalog/applications/` (register with `catalog.RegisterTool`). For plain GitHub, just reference it; no new code needed.
-- "Add a new driver category (e.g. 'bluetooth')" → Create `pkg/driver/bluetooth/driver.go` (interface), `facade.go`, impl dir, add import to `pkg/driver/prelude/prelude.go`, add CLI bits under `cmd/workspaced/driver/bluetooth/`.
-- "The lockfile is wrong for a tool" → Look at the specific `Tool.EnrichLockfile` implementation (in github or the curated wrapper), and `pkg/modfile/renovate.go`.
-- "Where is the actual file writing?" → `pkg/source/` pipeline + the target module's processing.
-- "CUE schema change" → `pkg/configcue/schema.cue` + relevant prelude + Go decoding site.
-- "Find all places that call a specific driver" → `driver.Get[SomeDriver](ctx)` (grep for that pattern).
+Use `workspaced doctor --verbose` to see active drivers.
 
-Use `workspaced doctor --verbose` at runtime to see the full interface + provider type paths.
+## Terminology
 
-## Terminology (Authoritative — use these words)
+See the clean one-sentence definitions in [README.md](README.md).
 
-The project deliberately tries to use precise language to avoid the historical overuse of "provider".
+The project actively reduces "provider" overload:
+- Old `pkg/registry` → `pkg/cmdregistry`
+- Old `pkg/provider` (checks) → `pkg/checks`
+- Tool layer → `pkg/tool/backend` + `Backend` interface + `catalog/`
 
-- **Driver**: A pluggable implementation for interacting with a local host capability (audio volume, clipboard copy, notifications, window manager, power, screenshots, terminals, etc.).
-  - Always use "driver" for this concept.
-  - The registration interface is `DriverProvider[T]` (a thing that can produce an instance of a `Driver` interface after compatibility checks).
-  - Concrete code lives in `pkg/driver/<capability>/<impl>/` and registers via `driver.Register[T](...)`.
-  - Selection: `driver.Get[SomeDriver](ctx)` picks one (by weight + CheckCompatibility).
-
-- **Tool Backend** (or **Backend**; preferred term — avoid bare "provider"):
-  - Something that knows how to list versions and install a specific external CLI tool/binary.
-  - The interface lives in `pkg/tool/backend`.
-  - Examples: GitHub Releases backend, mise backend, the internal catalog backend.
-  - User syntax: `github:owner/repo`, `mise:node`, or bare name (resolved via the catalog).
-  - A `Backend` produces `Tool` handles.
-  - Registered in `pkg/tool/tool.go` via `tool.Register("github", backend)`.
-
-- **Tool** (or **Managed Tool**): A specific installable package obtained from a backend. Implements `ListVersions` + `Install` + `EnrichLockfile`. Optional `ArtifactTool` / `BinaryTool`.
-
-- **Catalog** (or Curated Catalog): The backend that maps short names ("uv", "tirith", "claude-code") to concrete GitHub-based tools, sometimes with custom version filtering (see `pkg/tool/backend/catalog`).
-
-- **Check** / **Checks**:
-  - Base concept for discoverable, directory-applicable actions that produce side effects or reports (linters and formatters).
-  - Package: `pkg/checks`.
-  - Base interface: `Check` (Name + Detect).
-  - Extended by `Linter` (produces SARIF) and `Formatter`.
-  - All matching checks are *aggregated* (unlike drivers, which select one).
-
-- **Module**:
-  - A reusable, claim-declaring unit of configuration (user's `modules/` or built-in).
-  - Resolved by a `module.Provider` (core, local, etc.).
-
-- **Source** / **Source Provider**:
-  - For resolving module references like `github:foo/bar` or local paths.
-  - See `pkg/modfile` source providers and `pkg/source`.
-
-- **Registry** (use qualified):
-  - `cmdregistry`: The small helper for wiring Cobra subcommands (`pkg/cmdregistry`).
-  - Module registry: user's `workspaced` config declaring modules.
-  - Avoid bare "registry" for tool backends.
-
-**Current state of cleanup (as of this doc):**
-- Old bare `pkg/registry` → `pkg/cmdregistry`
-- Old bare `pkg/provider` (lint/format) → `pkg/checks`
-- Tool "provider" concept → `pkg/tool/backend` + `Backend` interface + `catalog` for the curated short names. "provider" word is now mostly confined to concrete implementation structs inside their packages (e.g. `github.Provider`).
-
-When writing code or comments, prefer the long form on first use: "the GitHub Releases tool backend", "the PulseAudio driver implementation", "the Ruff linter check".
+Prefer explicit phrases in new code/comments.
 
 ## Documentation Style This Project Likes
 
