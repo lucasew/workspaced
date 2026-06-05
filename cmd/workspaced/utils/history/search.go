@@ -6,14 +6,14 @@ import (
 	"time"
 	"workspaced/pkg/db"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/registry"
+	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/types"
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/spf13/cobra"
 )
 
-var Registry registry.CommandRegistry
+var Registry cmdregistry.CommandRegistry
 
 func init() {
 	Registry.Register(func(c *cobra.Command) {

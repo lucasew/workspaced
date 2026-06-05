@@ -1,13 +1,13 @@
 package tool
 
 import (
-	"workspaced/pkg/registry"
+	"workspaced/pkg/cmdregistry"
 	_ "workspaced/pkg/tool/prelude"
 
 	"github.com/spf13/cobra"
 )
 
-var Registry registry.CommandRegistry
+var Registry cmdregistry.CommandRegistry
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{

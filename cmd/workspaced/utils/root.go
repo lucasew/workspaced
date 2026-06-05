@@ -12,7 +12,7 @@ import (
 
 	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/registry"
+	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/types"
 
 	"github.com/gorilla/websocket"
@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Registry registry.CommandRegistry
+var Registry cmdregistry.CommandRegistry
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{

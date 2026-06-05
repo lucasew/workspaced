@@ -1,4 +1,13 @@
-package registry
+// Package cmdregistry provides the CommandRegistry helper used to wire up
+// Cobra subcommands in a modular way across many small packages under
+// cmd/workspaced/* without creating import cycles.
+//
+// Each subcommand group (e.g. driver/audio, tool, home/apply) defines a
+// GetCommand() function that returns its *cobra.Command (after attaching its
+// own children via its local Registry.FillCommands).
+//
+// The root command and the generated preludes use this to assemble the full tree.
+package cmdregistry
 
 import "github.com/spf13/cobra"
 
