@@ -4,28 +4,28 @@
 
 ```mermaid
 flowchart TD
-    Start[Preciso configurar um arquivo em ~/] --> Q1{Precisa de variáveis dinâmicas?<br/>ex: {{ .Palette.Base00 }}}
+    Start["Preciso configurar um arquivo em ~/"] --> Q1["Precisa de variáveis dinâmicas?<br/>ex: {{ .Palette.Base00 }}"]
 
-    Q1 -- NÃO --> Static["ARQUIVO ESTÁTICO<br/>📄 config/.gitconfig → ~/.gitconfig<br/>symlink direto"]
+    Q1 -- NÃO --> Static["ARQUIVO ESTÁTICO<br/>📄 config/.gitconfig → ~/.gitconfig<br/>(symlink direto)"]
 
-    Q1 -- SIM --> Q2{Gera múltiplos arquivos?}
+    Q1 -- SIM --> Q2["Gera múltiplos arquivos?"]
 
-    Q2 -- NÃO --> Simple["TEMPLATE SIMPLES .tmpl<br/>📄 config/.bashrc.tmpl → ~/.bashrc<br/>renderizado"]
+    Q2 -- NÃO --> Simple["TEMPLATE SIMPLES .tmpl<br/>📄 config/.bashrc.tmpl → ~/.bashrc<br/>(renderizado)"]
 
-    Q2 -- SIM --> Q3{De onde vem os arquivos?}
+    Q2 -- SIM --> Q3["De onde vem os arquivos?"]
 
-    Q3 -- "LOOP no config<br/>ex: range .Webapps" --> Q4{Quer subpasta?}
+    Q3 -- "LOOP no config<br/>ex: range .Webapps" --> Q4["Quer subpasta?"]
 
     Q4 -- SIM --> Multi["MULTI-FILE<br/>📁 config/apps.tmpl<br/>→ ~/apps/app1, ~/apps/app2"]
 
-    Q4 -- NÃO --> Index["INDEX sem subpasta<br/>📁 config/_index.tmpl<br/>→ ~/app1, ~/app2"]
+    Q4 -- NÃO --> Index["INDEX (sem subpasta)<br/>📁 config/_index.tmpl<br/>→ ~/app1, ~/app2"]
 
-    Q3 -- "DIRETÓRIO arquivos modulares" --> Concat["CONCATENAÇÃO .d.tmpl/<br/>📁 config/.bashrc.d.tmpl/<br/>├─ 10-env.sh<br/>├─ 20-aliases.sh.tmpl<br/>└─ 30-functions.sh<br/>→ ~/.bashrc tudo concatenado"]
+    Q3 -- "DIRETÓRIO (arquivos modulares)" --> Concat["CONCATENAÇÃO .d.tmpl/<br/>📁 config/.bashrc.d.tmpl/<br/>├─ 10-env.sh<br/>├─ 20-aliases.sh.tmpl<br/>└─ 30-functions.sh<br/>→ ~/.bashrc (tudo concatenado)"]
 
-    classDef decision fill:#e3f2fd,stroke:#1976d2
-    classDef leaf fill:#e8f5e9,stroke:#388e3c
-    class Q1,Q2,Q3,Q4 decision
-    class Static,Simple,Multi,Index,Concat leaf
+    classDef question fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef outcome fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px
+    class Q1,Q2,Q3,Q4 question
+    class Static,Simple,Multi,Index,Concat outcome
 ```
 
 ---
