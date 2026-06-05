@@ -9,15 +9,15 @@ import (
 	"workspaced/pkg/checks"
 )
 
-// Formatter extends the base Provider interface for code formatting tools.
+// Formatter extends the base Check for code formatting tools.
 type Formatter interface {
-	checks.Provider
+	checks.Check
 
 	// Format applies formatting changes to files in the directory.
 	Format(ctx context.Context, dir string) error
 }
 
-// Register adds a formatter to the global registry.
+// Register adds a formatter to the global checks registry.
 func Register(f Formatter) {
 	checks.Register[Formatter](f)
 }

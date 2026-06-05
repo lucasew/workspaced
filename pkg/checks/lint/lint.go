@@ -10,17 +10,17 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// Linter extends the base Provider interface for static analysis tools.
+// Linter extends the base Check for static analysis tools.
 type Linter interface {
-	checks.Provider
+	checks.Check
 
 	// Run executes the linter and returns a SARIF Run object.
-	// If no issues are found, it may return an empty Run or nil.
+	// If no issues found, it may return an empty Run or nil.
 	Run(ctx context.Context, dir string) (*sarif.Run, error)
 }
 
-// Register adds a linter to the global provider registry.
-// This is typically called in init() functions of provider packages.
+// Register adds a linter to the global checks registry.
+// This is typically called in init() functions of check implementations.
 func Register(l Linter) {
 	checks.Register[Linter](l)
 }

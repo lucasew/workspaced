@@ -60,8 +60,8 @@ Other notable:
 All use `init()` side effects:
 
 1. **Drivers**: Concrete impl calls `driver.Register[SomeInterface](&Provider{})`. All impl packages are imported from `pkg/driver/prelude/prelude.go`. The root command imports the prelude.
-2. **Tool providers**: `tool.Register("github", &Provider{})` etc. Wired via `pkg/tool/prelude/prelude.go`.
-3. **Curated registry tools**: `registry.RegisterRegistryTool("tirith", newTirith)` inside the applications packages.
+2. **Tool backends**: `tool.Register("github", &Provider{})` (or `&backend{}`) etc. Wired via `pkg/tool/prelude/prelude.go`.
+3. **Curated catalog tools**: `catalog.RegisterTool("tirith", newTirith)` inside the applications packages (under catalog).
 4. **CLI subcommands**: `cmd/workspaced/*/root.go` define `GetCommand()`. A devtool (`pkg/devtools/autoregistry`) scans for them and generates `cmd/workspaced/driver/prelude.go` (and recursively).
 
 **Rule** (from AGENTS.md): Driver and tool preludes are imported **only** from the main root command. Never duplicate the blank imports.
@@ -69,7 +69,7 @@ All use `init()` side effects:
 ## How to Locate Things Quickly (Recipes)
 
 - "I need to change audio behavior" → `pkg/driver/audio/` (interface + facade) + the impl you care about + `cmd/workspaced/driver/audio/`.
-- "Add support for a new tool 'foo'" → If it's a plain github release, just use it. For special version logic or curated short name, add under `pkg/tool/backend/catalog/applications/`.
+- "Add support for a new curated tool 'foo'" → Add under `pkg/tool/backend/catalog/applications/` (register with `catalog.RegisterTool`). For plain GitHub, just reference it; no new code needed.
 - "Add a new driver category (e.g. 'bluetooth')" → Create `pkg/driver/bluetooth/driver.go` (interface), `facade.go`, impl dir, add import to `pkg/driver/prelude/prelude.go`, add CLI bits under `cmd/workspaced/driver/bluetooth/`.
 - "The lockfile is wrong for a tool" → Look at the specific `Tool.EnrichLockfile` implementation (in github or the curated wrapper), and `pkg/modfile/renovate.go`.
 - "Where is the actual file writing?" → `pkg/source/` pipeline + the target module's processing.
@@ -88,9 +88,9 @@ The project deliberately tries to use precise language to avoid the historical o
   - Concrete code lives in `pkg/driver/<capability>/<impl>/` and registers via `driver.Register[T](...)`.
   - Selection: `driver.Get[SomeDriver](ctx)` picks one (by weight + CheckCompatibility).
 
-- **Tool Backend** (preferred term; avoid calling this just "provider"):
+- **Tool Backend** (or **Backend**; preferred term — avoid bare "provider"):
   - Something that knows how to list versions and install a specific external CLI tool/binary.
-  - The interface lives in `pkg/tool/backend` (currently still `provider` during transition — see below).
+  - The interface lives in `pkg/tool/backend`.
   - Examples: GitHub Releases backend, mise backend, the internal catalog backend.
   - User syntax: `github:owner/repo`, `mise:node`, or bare name (resolved via the catalog).
   - A `Backend` produces `Tool` handles.
@@ -101,7 +101,7 @@ The project deliberately tries to use precise language to avoid the historical o
 - **Catalog** (or Curated Catalog): The backend that maps short names ("uv", "tirith", "claude-code") to concrete GitHub-based tools, sometimes with custom version filtering (see `pkg/tool/backend/catalog`).
 
 - **Check** / **Checks**:
-  - Base concept for discoverable, directory-applicable tools that produce side effects or reports (currently linters and formatters).
+  - Base concept for discoverable, directory-applicable actions that produce side effects or reports (linters and formatters).
   - Package: `pkg/checks`.
   - Base interface: `Check` (Name + Detect).
   - Extended by `Linter` (produces SARIF) and `Formatter`.
@@ -109,7 +109,7 @@ The project deliberately tries to use precise language to avoid the historical o
 
 - **Module**:
   - A reusable, claim-declaring unit of configuration (user's `modules/` or built-in).
-  - Has a `module.Provider` (core, local, etc.) that can resolve its files.
+  - Resolved by a `module.Provider` (core, local, etc.).
 
 - **Source** / **Source Provider**:
   - For resolving module references like `github:foo/bar` or local paths.
@@ -123,7 +123,7 @@ The project deliberately tries to use precise language to avoid the historical o
 **Current state of cleanup (as of this doc):**
 - Old bare `pkg/registry` → `pkg/cmdregistry`
 - Old bare `pkg/provider` (lint/format) → `pkg/checks`
-- The tool one (`pkg/tool/provider`) is the next target for "backend" language to further reduce "provider" overuse.
+- Tool "provider" concept → `pkg/tool/backend` + `Backend` interface + `catalog` for the curated short names. "provider" word is now mostly confined to concrete implementation structs inside their packages (e.g. `github.Provider`).
 
 When writing code or comments, prefer the long form on first use: "the GitHub Releases tool backend", "the PulseAudio driver implementation", "the Ruff linter check".
 
