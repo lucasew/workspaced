@@ -4,28 +4,12 @@ import (
 	"context"
 	"slices"
 	"testing"
-
-	"workspaced/pkg/modfile"
 )
-
-type stubVersionTool struct {
-	versions []string
-}
-
-func (t stubVersionTool) ListVersions(context.Context) ([]string, error) {
-	return append([]string(nil), t.versions...), nil
-}
-
-func (t stubVersionTool) Install(context.Context, string, string) error {
-	return nil
-}
-
-func (t stubVersionTool) EnrichLockfile(*modfile.RenovateDependency) {}
 
 func TestTirithListVersionsSkipsThreatDatabaseReleases(t *testing.T) {
 	t.Parallel()
 
-	tool := tirithTool{inner: stubVersionTool{versions: []string{
+	tool := tirithTool{inner: stubTool{versions: []string{
 		"threatdb-26940486720-1",
 		"threatdb-26874685865-1",
 		"v0.3.1",
