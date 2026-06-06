@@ -2,8 +2,8 @@ package input
 
 import (
 	"fmt"
-	"workspaced/pkg/driver/dialog"
 	"workspaced/pkg/cmdregistry"
+	"workspaced/pkg/driver/dialog"
 
 	"github.com/spf13/cobra"
 )

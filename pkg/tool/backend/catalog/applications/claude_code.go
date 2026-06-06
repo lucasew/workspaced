@@ -15,8 +15,8 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool/backend"
-	providerinstall "workspaced/pkg/tool/backend/install"
 	"workspaced/pkg/tool/backend/catalog"
+	providerinstall "workspaced/pkg/tool/backend/install"
 )
 
 const claudeCodeReleasesBaseURL = "https://downloads.claude.ai/claude-code-releases"

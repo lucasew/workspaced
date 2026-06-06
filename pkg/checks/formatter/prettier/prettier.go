@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/formatter"
+	"workspaced/pkg/driver/exec"
 )
 
 // ErrBinaryNotFound is returned when neither node nor bun are found in PATH.

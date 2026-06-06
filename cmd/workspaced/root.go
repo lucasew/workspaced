@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"workspaced/pkg/cmdctx"
+	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/shellgen"
 	_ "workspaced/pkg/tool/prelude"
 	"workspaced/pkg/version"

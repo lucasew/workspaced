@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
+	"workspaced/pkg/driver/exec"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )

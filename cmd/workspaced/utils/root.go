@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/types"
 
 	"github.com/gorilla/websocket"
