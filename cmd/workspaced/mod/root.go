@@ -1,8 +1,8 @@
 package mod
 
 import (
-	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/cmdregistry"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 
 	"github.com/spf13/cobra"
 )

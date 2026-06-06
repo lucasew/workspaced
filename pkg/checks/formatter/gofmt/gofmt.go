@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/formatter"
+	"workspaced/pkg/driver/exec"
 )
 
 // Provider implements the formatter.Formatter interface for Go projects.

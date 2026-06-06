@@ -6,8 +6,8 @@ import (
 
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool/backend"
-	"workspaced/pkg/tool/backend/github"
 	"workspaced/pkg/tool/backend/catalog"
+	"workspaced/pkg/tool/backend/github"
 )
 
 func init() {
