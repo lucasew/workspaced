@@ -7,8 +7,9 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 )
 
-// EnsureAndRunLazy resolves a lazy tool (respecting workspace config + lockfile)
-// and returns an exec.Cmd ready to run.
+// EnsureAndRunLazy handles the lifecycle for a tool configured dynamically in a workspace.
+// It resolves the alias against the workspace configuration, checks the lockfile for version
+// pinning to ensure reproducibility, downloads if necessary, and returns a configured *exec.Cmd.
 func EnsureAndRunLazy(ctx context.Context, lazyName, binName string, args ...string) (*exec.Cmd, error) {
 	binPath, err := ResolveLazyTool(ctx, lazyName, binName)
 	if err != nil {
@@ -17,7 +18,8 @@ func EnsureAndRunLazy(ctx context.Context, lazyName, binName string, args ...str
 	return execdriver.Run(ctx, binPath, args...)
 }
 
-// EnsureAndRunLazyAt resolves a lazy tool using workspace detection rooted at wd.
+// EnsureAndRunLazyAt mirrors EnsureAndRunLazy but forces workspace detection to anchor
+// at a specific directory (wd) rather than the default process context.
 func EnsureAndRunLazyAt(ctx context.Context, wd, lazyName, binName string, args ...string) (*exec.Cmd, error) {
 	binPath, err := ResolveLazyToolAt(ctx, wd, lazyName, binName)
 	if err != nil {
@@ -26,8 +28,10 @@ func EnsureAndRunLazyAt(ctx context.Context, wd, lazyName, binName string, args 
 	return execdriver.Run(ctx, binPath, args...)
 }
 
-// EnsureAndRunLazyWithFallback first tries lazy resolution, then falls back to
-// an explicit tool spec to preserve behavior when lazy_tools is not configured.
+// EnsureAndRunLazyWithFallback attempts to resolve a tool via workspace configuration first.
+// If the tool alias is unmapped in the workspace, it falls back to installing and executing
+// an explicitly provided universal tool spec (e.g. "github:cli/cli@latest"), bridging dynamic
+// environments with global defaults.
 func EnsureAndRunLazyWithFallback(ctx context.Context, lazyName, binName, fallbackSpec string, args ...string) (*exec.Cmd, error) {
 	cmd, err := EnsureAndRunLazy(ctx, lazyName, binName, args...)
 	if err == nil {
