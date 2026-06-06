@@ -13,7 +13,10 @@ import (
 	"workspaced/pkg/tool/backend"
 )
 
-// EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
+// EnsureInstalled resolves the binary path for a requested tool, triggering a dynamic
+// installation if the tool or its explicit version is missing locally. It checks "latest"
+// tags against upstream providers and gracefully falls back to hinted installations
+// if artifact boundaries are ambiguous.
 func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
 	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
@@ -100,7 +103,9 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	return binPath, nil
 }
 
-// ResolveBinary attempts to find the executable binary for a specific tool version.
+// ResolveBinary attempts to locate the executable binary for an already-installed tool.
+// It searches standard bin paths within the localized version directory, accounting for
+// platform-specific extensions like ".exe" on Windows.
 func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, error) {
 	normalizedVersion := normalizeVersion(spec.Version)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
@@ -125,7 +130,9 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	return "", fmt.Errorf("binary %q not found in %s", cmdName, versionDir)
 }
 
-// ResolveLatestVersion queries the provider to find the latest version of a package.
+// ResolveLatestVersion delegates to the underlying tool provider to query the remote
+// registry for the most recent valid version. It assumes the first returned version
+// is the latest, matching standard provider behaviors.
 func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {
 	p, err := Get(spec.Provider)
 	if err != nil {
@@ -151,7 +158,9 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 	return versions[0], nil
 }
 
-// EnsureAndRun simplifies running a tool by ensuring it's installed and returning an exec.Cmd.
+// EnsureAndRun serves as a top-level helper to both resolve (and potentially install)
+// a tool, and immediately bind it to an *exec.Cmd configured with the given arguments.
+// This is the common entry point for direct, non-lazy tool invocations.
 func EnsureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...string) (*exec.Cmd, error) {
 	m, err := NewManager()
 	if err != nil {

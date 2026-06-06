@@ -12,10 +12,15 @@ import (
 	"workspaced/pkg/tool/backend"
 )
 
+// Manager orchestrates the lifecycle, installation, and storage mapping for external tools.
+// It maps abstract tool specs (e.g., "github:cli/cli@v2.0.0") to concrete local directories,
+// delegating artifact fetching to registered backend providers.
 type Manager struct {
 	toolsDir string
 }
 
+// NewManager initializes a tool manager, determining the localized root directory
+// where all tool artifacts will be stored. Returns an error if the path cannot be resolved.
 func NewManager() (*Manager, error) {
 	toolsDir, err := GetToolsDir()
 	if err != nil {
@@ -26,10 +31,17 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
+// Install parses the tool specification and persists the tool to the localized directory.
+// It fetches the artifact via the underlying provider, resolving "latest" versions against
+// upstream registries if needed.
 func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
 	return m.installWithHint(ctx, toolSpecStr, "")
 }
 
+// installWithHint executes the core installation flow, optionally taking a binaryHint
+// (such as an expected executable name). When a hint is provided, it attempts an optimized
+// artifact selection (via ArtifactTool) before falling back to standard backend.Tool logic.
+// The hint helps disambiguate platforms where an archive might contain multiple binaries.
 func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binaryHint string) error {
 	slog.Debug("installing tool", "input", toolSpecStr)
 	spec, err := parsespec.Parse(toolSpecStr)
@@ -102,12 +114,17 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	return nil
 }
 
+// InstalledTool represents a discrete version of a tool that has been physically
+// persisted to the local system by the Manager.
 type InstalledTool struct {
 	Name    string
 	Version string
 	Path    string
 }
 
+// ListInstalled scans the localized tools directory and returns all present tool versions.
+// This is an offline operation based on directory structure, and may include versions
+// installed directly without a lockfile.
 func (m *Manager) ListInstalled() ([]InstalledTool, error) {
 	var tools []InstalledTool
 
