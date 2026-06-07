@@ -75,14 +75,14 @@ var Command = &cobra.Command{
 			socketPath := getSocketPath()
 			conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
 			if err == nil {
-				logging.Close(context.Background(), conn)
+				logging.Close(c.Context(), conn)
 				slog.Info("daemon already running, exiting")
 				os.Exit(0)
 			}
 		}
 
 		if err := RunDaemon(); err != nil && err != http.ErrServerClosed {
-			logging.ReportError(context.Background(), err, slog.String("context", "daemon failure"))
+			logging.ReportError(c.Context(), err, slog.String("context", "daemon failure"))
 			os.Exit(1)
 		}
 	},
