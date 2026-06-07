@@ -2,7 +2,7 @@
 [tools]
 go = "1.26.4"
 "go:golang.org/x/tools/gopls" = "0.22.0"
-goreleaser = "2.15.4"
+goreleaser = "2.16.0"
 svu = "3.3.0"
 
 [tasks.lint]
