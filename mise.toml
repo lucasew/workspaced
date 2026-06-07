@@ -4,6 +4,7 @@ go = "1.26.4"
 "go:golang.org/x/tools/gopls" = "0.22.0"
 goreleaser = "2.16.0"
 svu = "3.3.0"
+sqlc = "1.28.0"
 
 [tasks.lint]
 run = "go run ./cmd/workspaced codebase lint"
@@ -11,8 +12,17 @@ run = "go run ./cmd/workspaced codebase lint"
 [tasks.fmt]
 run = "go run ./cmd/workspaced codebase format"
 
+[tasks."codegen:sqlc"]
+description = "Generate Go code from SQL using sqlc"
+run = "sqlc generate"
+
+[tasks."codegen:autoregistry"]
+description = "Regenerate cmd/workspaced/**/prelude.go files for CLI subcommand wiring"
+run = "go run ./pkg/devtools/autoregistry"
+
 [tasks.codegen]
-depends = ["fmt"]
+description = "Run all code generators"
+depends = ["codegen:*"]
 
 [tasks.ci]
 depends = ["lint"]
