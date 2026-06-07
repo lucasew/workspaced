@@ -57,7 +57,7 @@ type Driver struct {
 }
 
 func (d *Driver) MoveWorkspaceToOutput(ctx context.Context, workspace string, output string) error {
-	return execdriver.MustRun(ctx, d.Binary, fmt.Sprintf("[workspace=\"%s\"] move workspace to output %s", workspace, output)).Run()
+	return execdriver.MustRun(ctx, d.Binary, fmt.Sprintf("[workspace=%q] move workspace to output %q", workspace, output)).Run()
 }
 
 func (d *Driver) SwitchToWorkspace(ctx context.Context, ws string, move bool) error {
