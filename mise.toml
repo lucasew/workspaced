@@ -9,7 +9,7 @@ sqlc = "1.28.0"
 [tasks.lint]
 run = "go run ./cmd/workspaced codebase lint"
 
-[tasks.fmt]
+[tasks.format]
 run = "go run ./cmd/workspaced codebase format"
 
 [tasks."codegen:sqlc"]
