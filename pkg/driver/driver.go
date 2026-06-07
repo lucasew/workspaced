@@ -1,3 +1,15 @@
+// Package driver provides the generic pluggable driver system.
+//
+// All interaction with the host system (audio, clipboard, notifications, window
+// managers, power, screenshots, terminals, etc.) goes through capability
+// interfaces defined under subdirectories. Concrete implementations register
+// themselves using driver.Register[T] (usually from an init function).
+//
+// Selection happens via driver.Get[T](ctx), which respects configured weights
+// (from workspaced.cue) and calls CheckCompatibility on candidates.
+//
+// The central list of all driver implementations is pulled in via the
+// pkg/driver/prelude package (imported with blank import from cmd/workspaced/root.go).
 package driver
 
 import (

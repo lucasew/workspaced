@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -19,6 +20,14 @@ type LockedSource struct {
 type LockedTool struct {
 	Ref     string `json:"ref"`
 	Version string `json:"version"`
+
+	// Renovate reference fields (populated by default via EnrichLockfile
+	// on the live Tool when locking). These are the "data apart from
+	// toolName and version" that instruct renovate how to fetch updates.
+	DepName     string `json:"depName,omitempty"`
+	Datasource  string `json:"datasource,omitempty"`
+	PackageName string `json:"packageName,omitempty"`
+	Versioning  string `json:"versioning,omitempty"`
 }
 
 type RenovateDependency struct {
@@ -81,6 +90,9 @@ func LoadSumFile(path string) (*SumFile, error) {
 		return nil, err
 	}
 	out.Dependencies = BuildRenovateDependenciesFromLocks(disk.Sources, disk.Tools)
+	if err := normalizeDependencies(out.Dependencies); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -109,9 +121,15 @@ func normalizeDependencies(deps []RenovateDependency) error {
 			if dep.Version == "" {
 				dep.Version = dep.CurrentValue
 			}
+			dep = enrichToolDependency(dep)
 		}
 		deps[i] = dep
 	}
+
+	// Store dependencies sorted by Ref for deterministic lockfiles.
+	sort.Slice(deps, func(i, j int) bool {
+		return strings.TrimSpace(deps[i].Ref) < strings.TrimSpace(deps[j].Ref)
+	})
 	return nil
 }
 
@@ -187,15 +205,19 @@ func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
 			continue
 		}
 		version := dep.Version
-		if dep.CurrentValue != "" {
+		if version == "" {
 			version = dep.CurrentValue
 		}
 		if version == "" {
 			continue
 		}
 		out[dep.Name] = LockedTool{
-			Ref:     dep.Ref,
-			Version: version,
+			Ref:         dep.Ref,
+			Version:     version,
+			DepName:     dep.DepName,
+			Datasource:  dep.Datasource,
+			PackageName: dep.PackageName,
+			Versioning:  dep.Versioning,
 		}
 	}
 	return out

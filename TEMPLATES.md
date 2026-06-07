@@ -1,57 +1,46 @@
-# Workspaced Template System - Guia Rápido
+# Workspaced Template System - Quick Guide
 
-## 🌳 Árvore de Decisão
+## 🌳 Decision Tree
 
-```
-Preciso configurar um arquivo em ~/
-│
-├─❓ Precisa de variáveis dinâmicas? (ex: {{ .Palette.Base00 }})
-│  │
-│  ├─ NÃO ──→ ARQUIVO ESTÁTICO
-│  │          📄 config/.gitconfig → ~/.gitconfig (symlink direto)
-│  │
-│  └─ SIM ──→ ❓ Gera múltiplos arquivos?
-│             │
-│             ├─ NÃO ──→ TEMPLATE SIMPLES (.tmpl)
-│             │         📄 config/.bashrc.tmpl → ~/.bashrc (renderizado)
-│             │
-│             └─ SIM ──→ ❓ De onde vem os arquivos?
-│                        │
-│                        ├─ LOOP no config ──→ ❓ Quer subpasta?
-│                        │  (ex: range .Webapps)
-│                        │  │
-│                        │  ├─ SIM ──→ MULTI-FILE
-│                        │  │         📁 config/apps.tmpl
-│                        │  │         → ~/apps/app1, ~/apps/app2
-│                        │  │
-│                        │  └─ NÃO ──→ INDEX
-│                        │            📁 config/_index.tmpl
-│                        │            → ~/app1, ~/app2
-│                        │
-│                        └─ DIRETÓRIO (arquivos modulares) ──→ CONCATENAÇÃO
-│                           📁 config/.bashrc.d.tmpl/
-│                              ├─ 10-env.sh
-│                              ├─ 20-aliases.sh.tmpl
-│                              └─ 30-functions.sh
-│                           → ~/.bashrc (tudo concatenado)
+```mermaid
+%%{init: {"theme": "neutral"}}%%
+flowchart TD
+    Start["I need to configure a file in ~/"] --> Q1["Needs dynamic variables?<br/>e.g. {{ .Palette.Base00 }}"]
+
+    Q1 -- NO --> Static["STATIC FILE<br/>📄 config/.gitconfig → ~/.gitconfig (direct symlink)"]
+
+    Q1 -- YES --> Q2["Generates multiple files?"]
+
+    Q2 -- NO --> Simple["SIMPLE TEMPLATE .tmpl<br/>📄 config/.bashrc.tmpl → ~/.bashrc (rendered)"]
+
+    Q2 -- YES --> Q3["Where do the files come from?"]
+
+    Q3 -- "LOOP in config<br/>(e.g. range .Webapps)" --> Q4["Want subfolder?"]
+
+    Q4 -- YES --> Multi["MULTI-FILE<br/>📁 config/apps.tmpl → ~/apps/app1, ~/apps/app2"]
+
+    Q4 -- NO --> Index["INDEX (no subfolder)<br/>📁 config/_index.tmpl → ~/app1, ~/app2"]
+
+    Q3 -- "DIRECTORY (modular files)" --> Concat["CONCATENATION .d.tmpl/<br/>📁 config/.bashrc.d.tmpl/<br/>├─ 10-env.sh<br/>├─ 20-aliases.sh.tmpl<br/>└─ 30-functions.sh<br/>→ ~/.bashrc (all concatenated)"]
+
 ```
 
 ---
 
-## 📋 Tipos (Referência Rápida)
+## 📋 Types (Quick Reference)
 
-### 1️⃣ Arquivo Estático
+### 1️⃣ Static File
 ```
 config/.gitconfig
 ```
 → `~/.gitconfig` (symlink)
 
-### 2️⃣ Template Simples
+### 2️⃣ Simple Template
 ```bash
 # config/.bashrc.tmpl
 source {{ dotfiles }}/bin/source_me
 ```
-→ `~/.bashrc` (renderizado)
+→ `~/.bashrc` (rendered)
 
 ### 3️⃣ Multi-File
 ```go
@@ -65,7 +54,7 @@ Name={{ .name }}
 ```
 → `~/apps/app1.desktop`, `~/apps/app2.desktop`
 
-### 4️⃣ Index (sem subpasta)
+### 4️⃣ Index (no subfolder)
 ```go
 # config/_index.tmpl
 {{- file "app1.desktop" }}...{{- endfile }}
@@ -73,27 +62,27 @@ Name={{ .name }}
 ```
 → `~/app1.desktop`, `~/app2.desktop`
 
-### 5️⃣ Concatenação (.d.tmpl/)
+### 5️⃣ Concatenation (.d.tmpl/)
 ```
 config/.bashrc.d.tmpl/
 ├─ 10-env.sh
 ├─ 20-aliases.sh.tmpl
 └─ 30-functions.sh
 ```
-→ `~/.bashrc` (tudo junto, ordem alfabética)
+→ `~/.bashrc` (all together, alphabetical order)
 
 ---
 
-## 🔧 Funções Essenciais
+## 🔧 Essential Functions
 
-### Controle
+### Control
 ```go
-{{ skip }}                          # Não gera este arquivo
-{{ file "nome" "0755" }}            # Inicia arquivo (mode opcional)
-{{ endfile }}                       # Termina arquivo (opcional)
+{{ skip }}                          # Do not generate this file
+{{ file "name" "0755" }}            # Start file (mode optional)
+{{ endfile }}                       # End file (optional)
 ```
 
-### Condições
+### Conditionals
 ```go
 {{- if cond }}...{{- end }}
 {{- if not isPhone }}{{ skip }}{{ end }}
@@ -115,28 +104,28 @@ config/.bashrc.d.tmpl/
 ```go
 {{ split "a:b" ":" }}               # ["a", "b"]
 {{ join .Array "," }}               # "a,b,c"
-{{ last .Array }}                   # último elemento
+{{ last .Array }}                   # last element
 {{ titleCase "foo" }}               # "Foo"
 {{ replace .Text "old" "new" }}
 ```
 
-### Listas
+### Lists
 ```go
 {{ list "a" "b" }}                  # ["a", "b"]
-{{ default "fallback" .Value }}     # .Value ou fallback se vazio
+{{ default "fallback" .Value }}     # .Value or fallback if empty
 ```
 
-### Sistema
+### System
 ```go
-{{ readDir "/path" }}               # lista arquivos
-{{ isPhone }}                       # true em Android
-{{ isWayland }}                     # true em Wayland
-{{ favicon "https://..." }}         # baixa favicon, retorna path
+{{ readDir "/path" }}               # list files
+{{ isPhone }}                       # true on Android
+{{ isWayland }}                     # true on Wayland
+{{ favicon "https://..." }}         # download favicon, returns path
 ```
 
 ---
 
-## ⚡ Exemplos Práticos
+## ⚡ Practical Examples
 
 ### Desktop File
 ```
@@ -147,7 +136,7 @@ Exec=workspaced home backup run
 Terminal=true
 ```
 
-### Webapps (múltiplos)
+### Webapps (multiple)
 ```go
 # config/.local/share/applications/_index.tmpl
 {{- range $name, $wa := .Webapps }}
@@ -182,58 +171,58 @@ config/.bashrc.d.tmpl/
 
 ---
 
-## ⚠️ Armadilhas
+## ⚠️ Pitfalls
 
-| ❌ Errado | ✅ Correto | Por quê |
-|-----------|------------|---------|
-| `{{ file "x" }}` | `{{- file "x" }}` | `-` remove espaços |
-| `foo.tmpl` multi-file | `_index.tmpl` | `foo` vira pasta extra |
-| `.bashrc.d/` concatena | `.bashrc.d.tmpl/` | `.d/` faz symlinks |
-| `{{ file "script" }}` | `{{ file "script" "0755" }}` | Scripts precisam +x |
-| `{{ skip }}` no meio | `{{- if cond }}{{ skip }}{{- end }}` no início | Parser quebra |
+| ❌ Wrong | ✅ Correct | Why |
+|----------|------------|-----|
+| `{{ file "x" }}` | `{{- file "x" }}` | `-` removes whitespace |
+| `foo.tmpl` multi-file | `_index.tmpl` | `foo` becomes extra folder |
+| `.bashrc.d/` concatenates | `.bashrc.d.tmpl/` | `.d/` creates symlinks |
+| `{{ file "script" }}` | `{{ file "script" "0755" }}` | Scripts need +x |
+| `{{ skip }}` in the middle | `{{- if cond }}{{ skip }}{{- end }}` at the beginning | Parser breaks | |
 
 ---
 
-## 🎯 Fluxo Interno
+## 🎯 Internal Flow
 
-1. `SymlinkProvider` varre `config/`
-2. **Diretório `.d.tmpl/`** → concatena, skip recursão
-3. **Arquivo `.tmpl`** → renderiza
-4. **Marcador `<<<WORKSPACED_FILE:..>>>`** → multi-file
-5. **Arquivo normal** → symlink
-6. Compara com `~/.local/share/workspaced/state.json`
-7. Aplica: create/update/delete
+1. `SymlinkProvider` scans `config/`
+2. **Directory `.d.tmpl/`** → concatenates, skips recursion
+3. **File `.tmpl`** → renders
+4. **Marker `<<<WORKSPACED_FILE:..>>>`** → multi-file
+5. **Normal file** → symlink
+6. Compares with `~/.local/share/workspaced/state.json`
+7. Applies: create/update/delete
 
 ---
 
 ## 🚀 Generator Bundle Fast-Path
 
-Para módulos geradores (ex.: ícones), o provider deve incluir um fingerprint de bundle no `SourceInfo`.
+For generator modules (e.g.: icons), the provider must include a bundle fingerprint in the `SourceInfo`.
 
-Formato recomendado:
+Recommended format:
 
 ```text
-module:<nome> bundle:<fingerprint> (<arquivo-relativo>)
+module:<name> bundle:<fingerprint> (<relative-file>)
 ```
 
-Com isso, o planner pode pular comparação pesada de conteúdo por arquivo quando:
+With this, the planner can skip heavy content comparison per file when:
 
 1. `managed == true`
 2. `current.SourceInfo == desired.SourceInfo`
-3. `SourceInfo` contém `bundle:`
+3. `SourceInfo` contains `bundle:`
 
-Resultado: `noop` massivo cai de segundos para milissegundos quando o bundle não mudou.
+Result: massive `noop` drops from seconds to milliseconds when the bundle hasn't changed.
 
-Boas práticas para o fingerprint:
+Best practices for the fingerprint:
 
-1. incluir versão do engine (`v1`, `v2`, ...)
-2. incluir config efetiva do módulo (`sizes`, `map_scheme`, etc.)
-3. incluir palette/tema (ex.: base16)
-4. incluir snapshot da source (`count`, `size`, `max_mtime` ou hash de arquivos)
+1. include engine version (`v1`, `v2`, ...)
+2. include effective module config (`sizes`, `map_scheme`, etc.)
+3. include palette/theme (e.g.: base16)
+4. include source snapshot (`count`, `size`, `max_mtime` or file hash)
 
 ---
 
-## 🧪 Testar
+## 🧪 Test
 
 ```bash
 workspaced home apply --dry-run
@@ -241,7 +230,7 @@ workspaced home apply --dry-run
 
 ---
 
-## 📚 Ref
+## 📚 References
 
 - Go templates: https://pkg.go.dev/text/template
-- Código: `nix/pkgs/workspaced/pkg/apply/provider_symlink.go`
+- Code: `nix/pkgs/workspaced/pkg/apply/provider_symlink.go`

@@ -7,16 +7,20 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/backend"
 )
 
+// Manager orchestrates the lifecycle, installation, and storage mapping for external tools.
+// It maps abstract tool specs (e.g., "github:cli/cli@v2.0.0") to concrete local directories,
+// delegating artifact fetching to registered backend providers.
 type Manager struct {
 	toolsDir string
 }
 
+// NewManager initializes a tool manager, determining the localized root directory
+// where all tool artifacts will be stored. Returns an error if the path cannot be resolved.
 func NewManager() (*Manager, error) {
 	toolsDir, err := GetToolsDir()
 	if err != nil {
@@ -27,10 +31,17 @@ func NewManager() (*Manager, error) {
 	}, nil
 }
 
+// Install parses the tool specification and persists the tool to the localized directory.
+// It fetches the artifact via the underlying provider, resolving "latest" versions against
+// upstream registries if needed.
 func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
 	return m.installWithHint(ctx, toolSpecStr, "")
 }
 
+// installWithHint executes the core installation flow, optionally taking a binaryHint
+// (such as an expected executable name). When a hint is provided, it attempts an optimized
+// artifact selection (via ArtifactTool) before falling back to standard backend.Tool logic.
+// The hint helps disambiguate platforms where an archive might contain multiple binaries.
 func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binaryHint string) error {
 	slog.Debug("installing tool", "input", toolSpecStr)
 	spec, err := parsespec.Parse(toolSpecStr)
@@ -39,12 +50,12 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	}
 	slog.Debug("parsed spec", "spec", spec)
 
-	p, err := GetProvider(spec.Provider)
+	p, err := Get(spec.Provider)
 	if err != nil {
 		return err
 	}
 
-	pkgConfig, err := p.ParsePackage(spec.Package)
+	t, err := p.Tool(spec.Package)
 	if err != nil {
 		return err
 	}
@@ -53,33 +64,17 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	version := spec.Version
 	if version == "latest" {
 		slog.Debug("resolving latest version", "pkg", spec.Package)
-		versions, err := p.ListVersions(ctx, pkgConfig)
+		versions, err := t.ListVersions(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list versions: %w", err)
 		}
 		if len(versions) == 0 {
 			return fmt.Errorf("no versions found for package %s", spec.Package)
 		}
-		// Assuming ListVersions returns unsorted or sorted?
-		// GitHub provider returns in API order (usually desc time).
 		version = versions[0]
 		slog.Debug("resolved latest version", "version", version)
 	}
 
-	slog.Debug("fetching artifacts", "version", version)
-	artifacts, err := p.GetArtifacts(ctx, pkgConfig, version)
-	if err != nil {
-		return fmt.Errorf("failed to get artifacts: %w", err)
-	}
-	slog.Debug("found artifacts", "count", len(artifacts))
-
-	artifact := findArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint)
-	if artifact == nil {
-		return fmt.Errorf("no artifact found for platform %s/%s", runtime.GOOS, runtime.GOARCH)
-	}
-	slog.Debug("selected artifact", "url", artifact.URL, "os", artifact.OS, "arch", artifact.Arch)
-
-	// Normalize version by removing 'v' prefix for storage
 	normalizedVersion := normalizeVersion(version)
 	slog.Debug("normalized version", "original", version, "normalized", normalizedVersion)
 
@@ -89,8 +84,26 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		return err
 	}
 
-	slog.Debug("installing artifact", "dest", destPath)
-	if err := p.Install(ctx, *artifact, destPath); err != nil {
+	// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
+	if binaryHint != "" {
+		if at, ok := t.(backend.ArtifactTool); ok {
+			artifacts, err := at.ListArtifacts(ctx, version)
+			if err == nil {
+				if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
+					slog.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
+					if err := at.InstallArtifact(ctx, *chosen, destPath); err != nil {
+						return fmt.Errorf("installation failed: %w", err)
+					}
+					slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
+					return nil
+				}
+			}
+		}
+	}
+
+	// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
+	slog.Debug("installing tool via Tool.Install", "dest", destPath)
+	if err := t.Install(ctx, version, destPath); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 	slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
@@ -101,12 +114,17 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	return nil
 }
 
+// InstalledTool represents a discrete version of a tool that has been physically
+// persisted to the local system by the Manager.
 type InstalledTool struct {
 	Name    string
 	Version string
 	Path    string
 }
 
+// ListInstalled scans the localized tools directory and returns all present tool versions.
+// This is an offline operation based on directory structure, and may include versions
+// installed directly without a lockfile.
 func (m *Manager) ListInstalled() ([]InstalledTool, error) {
 	var tools []InstalledTool
 
@@ -144,71 +162,6 @@ func (m *Manager) ListInstalled() ([]InstalledTool, error) {
 	}
 
 	return tools, nil
-}
-
-func findArtifact(artifacts []provider.Artifact, osName, arch string, binaryHint string) *provider.Artifact {
-	var candidates []provider.Artifact
-	for _, a := range artifacts {
-		if a.OS == osName && a.Arch == arch {
-			if strings.HasSuffix(a.URL, ".deb") {
-				continue
-			}
-			if strings.HasSuffix(a.URL, ".rpm") {
-				continue
-			}
-			candidates = append(candidates, a)
-		}
-	}
-
-	if len(candidates) == 0 {
-		return nil
-	}
-
-	hint := strings.ToLower(strings.TrimSpace(binaryHint))
-	sort.Slice(candidates, func(i, j int) bool {
-		si := scoreArtifactForHint(candidates[i].URL, hint)
-		sj := scoreArtifactForHint(candidates[j].URL, hint)
-		if si != sj {
-			return si > sj
-		}
-		return len(candidates[i].URL) < len(candidates[j].URL)
-	})
-
-	return &candidates[0]
-}
-
-func scoreArtifactForHint(url string, hint string) int {
-	if hint == "" {
-		return 0
-	}
-
-	base := strings.ToLower(filepath.Base(url))
-	score := 0
-
-	// Strong matches for tokenized binary names (resvg-*, *_resvg_*, etc.)
-	for _, sep := range []string{"-", "_", "."} {
-		if strings.Contains(base, hint+sep) || strings.Contains(base, sep+hint+sep) || strings.Contains(base, sep+hint+".") {
-			score += 120
-			break
-		}
-	}
-
-	// Generic match fallback
-	if strings.Contains(base, hint) {
-		score += 60
-	}
-
-	// Slightly prefer common distributable archives for CLI tools
-	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") {
-		score += 10
-	}
-
-	// Avoid obvious debug/minimal artifacts when possible
-	if strings.Contains(base, "debug") {
-		score -= 20
-	}
-
-	return score
 }
 
 // normalizeVersion removes the 'v' prefix from versions for consistent storage

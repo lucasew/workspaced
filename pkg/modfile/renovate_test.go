@@ -18,15 +18,15 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 		},
 	}
 	tools := map[string]LockedTool{
-		"fd":   {Ref: "github:sharkdp/fd", Version: "v10.3.0"},
+		"fd":   {Ref: "github:sharkdp/fd", Version: "v10.3.0", DepName: "sharkdp/fd", Datasource: "github-releases"},
 		"fzf":  {Ref: "mise:fzf", Version: "0.50.0"},
 		"bad1": {Ref: "", Version: "1.0.0"},
 		"bad2": {Ref: "github:foo/bar", Version: ""},
 	}
 
 	got := BuildRenovateDependenciesFromLocks(sources, tools)
-	if len(got) != 3 {
-		t.Fatalf("expected 3 dependencies, got=%d", len(got))
+	if len(got) != 4 {
+		t.Fatalf("expected 4 dependencies (2 sources + github tool + mise tool), got=%d (%#v)", len(got), got)
 	}
 	byName := map[string]RenovateDependency{}
 	for _, dep := range got {
@@ -52,6 +52,28 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	if toolDep.CurrentValue != "v10.3.0" {
 		t.Fatalf("currentValue mismatch for tool dep: got=%q", toolDep.CurrentValue)
 	}
+	if toolDep.Datasource != "github-releases" || toolDep.Provider != "github" {
+		t.Fatalf("tool dep missing renovate fields: %#v", toolDep)
+	}
+
+	// mise tool should still be persisted (for lock state) but without renovate datasource
+	var fzfDep *RenovateDependency
+	for i := range got {
+		if got[i].Name == "fzf" && got[i].Ref == "mise:fzf" {
+			fzfDep = &got[i]
+			break
+		}
+	}
+	if fzfDep == nil {
+		t.Fatalf("expected fzf tool dep to be included for lock state")
+	}
+	if fzfDep.Provider != "mise" {
+		t.Fatalf("expected fzf provider=mise, got=%s", fzfDep.Provider)
+	}
+	if fzfDep.Datasource != "" {
+		t.Fatalf("mise tool should not have renovate datasource, got=%s", fzfDep.Datasource)
+	}
+
 	themeDep, ok := byName["catppuccin/gtk"]
 	if !ok {
 		t.Fatalf("missing source dependency for catppuccin/gtk: %#v", got)
@@ -73,8 +95,14 @@ func TestBuildRenovateDependenciesSkipsHeadWithoutResolvedURL(t *testing.T) {
 	}
 
 	got := BuildRenovateDependenciesFromLocks(sources, nil)
-	if len(got) != 0 {
-		t.Fatalf("expected 0 dependencies, got=%d (%#v)", len(got), got)
+	// We always persist the lock state entry for the source (renovate fields
+	// are optional / best-effort). The "skip" is only for attaching renovate
+	// update instructions when we have no usable ref/URL for the datasource.
+	if len(got) != 1 {
+		t.Fatalf("expected 1 (lock state) dependency, got=%d (%#v)", len(got), got)
+	}
+	if got[0].Kind != "source" || got[0].DepName != "" {
+		t.Fatalf("expected basic source lock state without renovate fields, got=%#v", got[0])
 	}
 }
 

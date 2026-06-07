@@ -1,13 +1,13 @@
 package mod
 
 import (
+	"workspaced/pkg/cmdregistry"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
-	"workspaced/pkg/registry"
 
 	"github.com/spf13/cobra"
 )
 
-var Registry registry.CommandRegistry
+var Registry cmdregistry.CommandRegistry
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{

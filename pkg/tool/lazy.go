@@ -13,6 +13,7 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/tool/backend"
 )
 
 type lazyToolConfig struct {
@@ -24,10 +25,16 @@ type lazyToolConfig struct {
 	Bins    []string `json:"bins"`
 }
 
+// ResolveLazyTool maps an abstract tool alias (e.g., "fmt") to a localized binary path,
+// respecting the configuration context of the current working directory or falling back to home.
+// It uses an empty working directory to trigger auto-detection of the workspace.
 func ResolveLazyTool(ctx context.Context, toolName, binName string) (string, error) {
 	return ResolveLazyToolAt(ctx, "", toolName, binName)
 }
 
+// ResolveLazyToolAt binds an abstract alias to an executable path using the explicit
+// working directory to anchor workspace detection. If the localized workspace lacks
+// the tool, it cascades resolution to the global dotfiles/home workspace context.
 func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (string, error) {
 	logger := logging.GetLogger(ctx)
 	currentWS, currentErr := selectLazyToolWorkspaceFrom(ctx, false, wd)
@@ -54,6 +61,8 @@ func ResolveLazyToolAt(ctx context.Context, wd, toolName, binName string) (strin
 	return resolveLazyToolInWorkspace(ctx, homeWS, toolName, binName)
 }
 
+// ResolveHomeLazyTool forces resolution of a lazy tool explicitly within the context
+// of the global user dotfiles workspace, bypassing local workspace overrides.
 func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string, error) {
 	ws, err := selectLazyToolWorkspaceFrom(ctx, true, "")
 	if err != nil {
@@ -62,6 +71,9 @@ func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string,
 	return resolveLazyToolInWorkspace(ctx, ws, toolName, binName)
 }
 
+// RefreshLazyToolLocks synchronizes the configuration mapping of lazy tools with the
+// modfile lockfile, resolving latest versions if missing, and enriching lock metadata
+// to ensure CI reproducible executions. Returns the count of updated tool definitions.
 func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (int, error) {
 	if ws == nil {
 		return 0, fmt.Errorf("workspace is nil")
@@ -105,23 +117,19 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 
 		version := spec.Version
 		if version == "" || version == "latest" {
-			if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
-				version = installed[0]
-			} else {
-				logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-				version, err = mgr.ResolveLatestVersion(ctx, spec)
-				if err != nil {
-					logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-					continue
-				}
+			// Home/lazy tools: if not in lockfile, fill with latest from upstream.
+			// (lockfile-driven for reproducibility; do not fall back to installed)
+			logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+			version, err = mgr.ResolveLatestVersion(ctx, spec)
+			if err != nil {
+				logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
+				continue
 			}
 		}
 
+		lt := lockedToolWithRenovate(lockRef, version, spec)
 		changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
-			return sum.EnsureTool(name, modfile.LockedTool{
-				Ref:     lockRef,
-				Version: version,
-			}), nil
+			return sum.EnsureTool(name, lt), nil
 		})
 		if err != nil {
 			return 0, err
@@ -129,17 +137,20 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		if changed {
 			logger.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
 			updated++
-			_ = sum.EnsureTool(name, modfile.LockedTool{Ref: lockRef, Version: version})
+			_ = sum.EnsureTool(name, lockedToolWithRenovate(lockRef, version, spec))
 		}
 	}
 	return updated, nil
 }
 
+// LockRefreshResult captures the volume of locking state mutated during a refresh pass.
 type LockRefreshResult struct {
 	Sources int
 	Tools   int
 }
 
+// RefreshWorkspaceLocks orchestrates a full update of both source (dependency) locks
+// and tool (execution) locks, effectively aligning the workspace modfile with the configured states.
 func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (LockRefreshResult, error) {
 	if ws == nil {
 		return LockRefreshResult{}, fmt.Errorf("workspace is nil")
@@ -250,22 +261,66 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 
 	if spec.Version == "" || spec.Version == "latest" {
-		if installed, findErr := mgr.FindInstalledVersions(spec); findErr == nil && len(installed) > 0 {
-			spec.Version = installed[0]
-		} else {
-			version, err := mgr.ResolveLatestVersion(ctx, spec)
-			if err != nil {
-				return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
-			}
-			spec.Version = version
+		// Home/lazy tools: resolved from lockfile if present.
+		// If not in lockfile, fill with latest from upstream (not from installed
+		// versions, to keep home tools reproducible via the lockfile).
+		version, err := mgr.ResolveLatestVersion(ctx, spec)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
+		}
+		spec.Version = version
+	}
+
+	lt := lockedToolWithRenovate(lockRef, spec.Version, spec)
+
+	// Obtain the live Tool once so we can Enrich the real structure.
+	var liveTool backend.Tool
+	if p, err := Get(spec.Provider); err == nil {
+		if t, err := p.Tool(spec.Package); err == nil {
+			liveTool = t
 		}
 	}
 
+	// We also directly enrich the actual *RenovateDependency inside the
+	// sum's Dependencies list (the structure referenced by ref). The Tool
+	// receives it by pointer via EnrichLockfile and can mutate attributes.
+	// On save, any logic migrations in the Tool are applied automatically.
 	if changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
-		return sum.EnsureTool(toolName, modfile.LockedTool{
-			Ref:     lockRef,
-			Version: spec.Version,
-		}), nil
+		// Find or create the dep entry for this tool name.
+		var dep *modfile.RenovateDependency
+		for i := range sum.Dependencies {
+			d := &sum.Dependencies[i]
+			if d.Kind == "tool" && d.Name == toolName {
+				if d.Ref == "" || d.Ref == lockRef {
+					dep = d
+					break
+				}
+			}
+		}
+		if dep == nil {
+			sum.Dependencies = append(sum.Dependencies, modfile.RenovateDependency{
+				Kind: "tool",
+				Name: toolName,
+			})
+			dep = &sum.Dependencies[len(sum.Dependencies)-1]
+		}
+
+		// Set identity that the Tool should see (the ref is the reference key).
+		dep.Ref = lockRef
+		dep.Version = spec.Version
+		if dep.CurrentValue == "" {
+			dep.CurrentValue = spec.Version
+		}
+
+		// Pass the *actual* structure from the lockfile's Dependencies list
+		// (the item referenced by ref) by pointer to the Tool.
+		if liveTool != nil {
+			liveTool.EnrichLockfile(dep)
+		}
+
+		// Keep the lt path too.
+		_ = sum.EnsureTool(toolName, lt)
+		return true, nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to update tool lock: %w", err)
 	} else if changed {
@@ -315,7 +370,7 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		ref = toolName
 	}
 	if !strings.Contains(ref, ":") {
-		ref = "mise:" + ref
+		ref = "registry:" + ref
 	}
 
 	specStr := ref
@@ -328,4 +383,50 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		return parsespec.Spec{}, "", err
 	}
 	return spec, ref, nil
+}
+
+// lockedToolWithRenovate builds the lock entry. It obtains the live Tool
+// and calls EnrichLockfile on a temporary RenovateDependency (the structure
+// passed by reference). This gives the Tool full control to set/upgrade any
+// attributes (especially renovate metadata) based on the current Ref etc.
+//
+// Because EnrichLockfile mutates the entry in place, any changes to the
+// Tool's enrichment logic are automatically reflected in the lockfile the
+// next time this tool is resolved or refreshed.
+func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec) modfile.LockedTool {
+	lt := modfile.LockedTool{
+		Ref:     lockRef,
+		Version: version,
+	}
+	p, perr := Get(spec.Provider)
+	if perr != nil {
+		return lt
+	}
+	tt, terr := p.Tool(spec.Package)
+	if terr != nil {
+		return lt
+	}
+
+	// Create a skeleton of the actual structure that will live in the
+	// lockfile's dependencies list and let the Tool mutate it directly.
+	entry := modfile.RenovateDependency{
+		Kind:    "tool",
+		Name:    "", // the alias; set by caller context if desired
+		Ref:     lockRef,
+		Version: version,
+	}
+	tt.EnrichLockfile(&entry)
+
+	lt.DepName = entry.DepName
+	lt.Datasource = entry.Datasource
+	lt.PackageName = entry.PackageName
+	lt.Versioning = entry.Versioning
+
+	// The Tool had a chance to influence CurrentValue too.
+	if entry.CurrentValue != "" {
+		// We don't store CurrentValue on LockedTool (it lives on the dep),
+		// but the upsert logic will pick it up via other paths if needed.
+	}
+
+	return lt
 }

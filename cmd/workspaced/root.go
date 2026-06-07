@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"workspaced/pkg/cmdctx"
+	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/registry"
 	"workspaced/pkg/shellgen"
 	_ "workspaced/pkg/tool/prelude"
 	"workspaced/pkg/version"
@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Registry registry.CommandRegistry
+var Registry cmdregistry.CommandRegistry
 
 func main() {
 	if os.Getenv("REBUILD_TEST") != "" {

@@ -1,6 +1,10 @@
 package modfile
 
-import "strings"
+import (
+	"strings"
+
+	parsespec "workspaced/pkg/parse/spec"
+)
 
 func updateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, error) {
 	sum, err := LoadSumFile(path)
@@ -57,6 +61,24 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 	}
 	current, ok := s.FindTool(name)
 	changed := !ok || current.Ref != lock.Ref || current.Version != lock.Version
+	if currentValue := dependencyCurrentValue(s.Dependencies, "tool", name); currentValue != "" && currentValue != lock.Version {
+		changed = true
+	}
+	// Only consider renovate fields for change detection if the incoming lock
+	// provides them (allows passing minimal LockedTool for idempotency tests
+	// or legacy paths; live paths from Tool always provide when available).
+	if lock.DepName != "" && current.DepName != lock.DepName {
+		changed = true
+	}
+	if lock.Datasource != "" && current.Datasource != lock.Datasource {
+		changed = true
+	}
+	if lock.PackageName != "" && current.PackageName != lock.PackageName {
+		changed = true
+	}
+	if lock.Versioning != "" && current.Versioning != lock.Versioning {
+		changed = true
+	}
 	if !hasToolDependency(s.Dependencies, name, lock.Ref, lock.Version) || changed {
 		s.Dependencies = upsertToolDependency(s.Dependencies, name, lock)
 		changed = true
@@ -93,6 +115,15 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	return changed
 }
 
+func dependencyCurrentValue(deps []RenovateDependency, kind, name string) string {
+	for _, dep := range deps {
+		if strings.TrimSpace(dep.Kind) == kind && strings.TrimSpace(dep.Name) == name {
+			return strings.TrimSpace(dep.CurrentValue)
+		}
+	}
+	return ""
+}
+
 func upsertToolDependency(deps []RenovateDependency, name string, lock LockedTool) []RenovateDependency {
 	for i, dep := range deps {
 		if strings.TrimSpace(dep.Kind) == "tool" && strings.TrimSpace(dep.Name) == name {
@@ -100,19 +131,48 @@ func upsertToolDependency(deps []RenovateDependency, name string, lock LockedToo
 			dep.Name = name
 			dep.Ref = lock.Ref
 			dep.Version = lock.Version
-			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Version) {
-				dep.CurrentValue = lock.Version
+			dep.CurrentValue = lock.Version
+			// If the caller (live lock from Tool) provided renovate reference data,
+			// use it (this is the preferred path, data comes from EnrichLockfile
+			// on the live Tool). Otherwise fall back to slim enrich.
+			if lock.DepName != "" || lock.Datasource != "" {
+				dep.DepName = lock.DepName
+				dep.Datasource = lock.Datasource
+				dep.PackageName = lock.PackageName
+				dep.Versioning = lock.Versioning
+				dep.Provider = strings.TrimSpace(dep.Provider)
+				if dep.Provider == "" {
+					// best effort from ref
+					if spec, err := parsespec.Parse(lock.Ref); err == nil {
+						dep.Provider = spec.Provider
+					}
+				}
+			} else {
+				dep = enrichToolDependency(dep)
 			}
 			deps[i] = dep
 			return deps
 		}
 	}
-	return append(deps, RenovateDependency{
-		Kind:    "tool",
-		Name:    name,
-		Ref:     lock.Ref,
-		Version: lock.Version,
-	})
+	dep := RenovateDependency{
+		Kind:         "tool",
+		Name:         name,
+		Ref:          lock.Ref,
+		Version:      lock.Version,
+		CurrentValue: lock.Version,
+	}
+	if lock.DepName != "" || lock.Datasource != "" {
+		dep.DepName = lock.DepName
+		dep.Datasource = lock.Datasource
+		dep.PackageName = lock.PackageName
+		dep.Versioning = lock.Versioning
+		if spec, err := parsespec.Parse(lock.Ref); err == nil {
+			dep.Provider = spec.Provider
+		}
+	} else {
+		dep = enrichToolDependency(dep)
+	}
+	return append(deps, dep)
 }
 
 func upsertSourceDependency(deps []RenovateDependency, name string, lock LockedSource) []RenovateDependency {
@@ -126,9 +186,7 @@ func upsertSourceDependency(deps []RenovateDependency, name string, lock LockedS
 			dep.Ref = lock.Ref
 			dep.URL = lock.URL
 			dep.Hash = lock.Hash
-			if strings.TrimSpace(dep.CurrentValue) == "" || strings.TrimSpace(dep.CurrentValue) == strings.TrimSpace(dep.Ref) {
-				dep.CurrentValue = lock.Ref
-			}
+			dep.CurrentValue = lock.Ref
 			deps[i] = dep
 			return deps
 		}

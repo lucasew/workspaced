@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
-	"workspaced/pkg/provider/lint"
-	_ "workspaced/pkg/provider/prelude"
+	"workspaced/pkg/checks/lint"
+	_ "workspaced/pkg/checks/prelude"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 	"github.com/spf13/cobra"

@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"workspaced/pkg/checks/formatter"
+	_ "workspaced/pkg/checks/prelude"
 	"workspaced/pkg/git"
-	"workspaced/pkg/provider/formatter"
-	_ "workspaced/pkg/provider/prelude"
 
 	"github.com/spf13/cobra"
 )

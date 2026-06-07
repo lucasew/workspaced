@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
 	parsespec "workspaced/pkg/parse/spec"
 )
 
@@ -12,6 +13,35 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 		return nil
 	}
 	return BuildRenovateDependenciesFromLocks(sum.SourceLocks(), sum.ToolLocks())
+}
+
+// enrichToolDependency is now minimal: it only fills basic tool lock state
+// (kind, name, ref, version, currentValue, provider). Most logic for the
+// renovate reference (depName/datasource etc.) lives in the Tool
+// implementations (via EnrichLockfile). Callers that have a live Tool
+// (e.g. lazy locking) obtain the data by calling EnrichLockfile on a
+// (temp or real) RenovateDependency; this func is mainly for normalizing
+// the common fields.
+func enrichToolDependency(dep RenovateDependency) RenovateDependency {
+	dep.Kind = "tool"
+	dep.Name = strings.TrimSpace(dep.Name)
+	dep.Ref = strings.TrimSpace(dep.Ref)
+	dep.Version = strings.TrimSpace(dep.Version)
+	dep.Provider = strings.TrimSpace(dep.Provider)
+
+	if dep.Ref == "" || dep.Version == "" {
+		return dep
+	}
+
+	dep.CurrentValue = dep.Version
+
+	if dep.Provider == "" {
+		if spec, err := parsespec.Parse(dep.Ref); err == nil {
+			dep.Provider = spec.Provider
+		}
+	}
+
+	return dep
 }
 
 func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools map[string]LockedTool) []RenovateDependency {
@@ -53,35 +83,28 @@ func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools m
 		}
 	}
 	for name, tool := range tools {
-		dep := RenovateDependency{
-			Kind:    "tool",
-			Name:    strings.TrimSpace(name),
-			Ref:     strings.TrimSpace(tool.Ref),
-			Version: strings.TrimSpace(tool.Version),
-		}
 		ref := strings.TrimSpace(tool.Ref)
 		version := strings.TrimSpace(tool.Version)
 		if ref == "" || version == "" {
 			continue
 		}
 
-		spec, err := parsespec.Parse(ref)
-		if err != nil {
-			deps = append(deps, dep)
-			continue
+		// The renovate reference (depName, datasource, ...) is populated
+		// by calling EnrichLockfile on the live Tool (at lock time).
+		// enrichToolDependency only fills the basic ref/version lock state.
+		dep := RenovateDependency{
+			Kind:        "tool",
+			Name:        strings.TrimSpace(name),
+			Ref:         ref,
+			Version:     version,
+			DepName:     strings.TrimSpace(tool.DepName),
+			Datasource:  strings.TrimSpace(tool.Datasource),
+			PackageName: strings.TrimSpace(tool.PackageName),
+			Versioning:  strings.TrimSpace(tool.Versioning),
 		}
-		dep.Provider = strings.TrimSpace(spec.Provider)
-		// Always persist lock state for tools. Renovate fields are optional.
+		dep = enrichToolDependency(dep)
+		// Always persist lock state for tools. Renovate fields come from the Tool.
 		deps = append(deps, dep)
-
-		// Keep support strict to proven mappings so Renovate can update safely.
-		switch strings.TrimSpace(spec.Provider) {
-		case "github":
-			dep.DepName = strings.TrimSpace(spec.Package)
-			dep.CurrentValue = version
-			dep.Datasource = "github-releases"
-			deps[len(deps)-1] = dep
-		}
 	}
 
 	sort.Slice(deps, func(i, j int) bool {

@@ -16,14 +16,15 @@ func init() {
 Tool spec format:
   provider:package@version  (full spec)
   provider:package          (uses latest version)
-  package@version           (uses registry provider - not yet implemented)
-  package                   (uses registry provider and latest version - not yet implemented)
+  package@version           (uses registry provider for curated short names)
+  package                   (uses registry provider + latest; for curated short names e.g. ripgrep, uv)
 
-Note: Currently you must specify the provider explicitly (e.g., github:package@version)`,
+Bare names (no provider:) default to the registry provider (curated github tools).
+For mise-managed tools (e.g. go, node) or direct github use 'mise:' or 'github:'.`,
 			Example: `  workspaced tool install github:denoland/deno@1.40.0
-  workspaced tool install denoland/deno@latest
-  workspaced tool install deno
-  workspaced tool install ripgrep@14.0.0`,
+  workspaced tool install ripgrep@14.0.0
+  workspaced tool install uv
+  workspaced tool install mise:go@latest`,
 			Args: cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				manager, err := tool.NewManager()

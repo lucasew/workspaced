@@ -7,10 +7,14 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 
 	sum := &SumFile{
 		Dependencies: []RenovateDependency{{
-			Kind:    "tool",
-			Name:    "gh",
-			Ref:     "github:cli/cli",
-			Version: "2.89.0",
+			Kind:         "tool",
+			Name:         "gh",
+			Ref:          "github:cli/cli",
+			Version:      "2.89.0",
+			Provider:     "github",
+			DepName:      "cli/cli",
+			CurrentValue: "2.89.0",
+			Datasource:   "github-releases",
 		}},
 	}
 
@@ -23,9 +27,44 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 	}
 
 	if changed := sum.EnsureTool("gh", LockedTool{Ref: "github:cli/cli", Version: "2.89.0"}); changed {
-		t.Fatal("expected EnsureTool to be idempotent")
+		t.Fatal("expected EnsureTool to be idempotent when passing minimal (no renovate fields)")
 	}
 	if len(sum.Dependencies) != 1 {
 		t.Fatalf("unexpected dependencies count: %d", len(sum.Dependencies))
+	}
+	d := sum.Dependencies[0]
+	if d.Datasource != "github-releases" || d.DepName != "cli/cli" {
+		t.Fatalf("renovate reference data should be preserved on the lock entry: %#v", d)
+	}
+}
+
+func TestUpsertToolRefreshesStaleCurrentValue(t *testing.T) {
+	sum := &SumFile{Dependencies: []RenovateDependency{{
+		Kind:         "tool",
+		Name:         "tirith",
+		Ref:          "registry:tirith",
+		Version:      "v0.3.1",
+		CurrentValue: "threatdb-26874685865-1",
+		DepName:      "sheeki03/tirith",
+		Datasource:   "github-releases",
+	}}}
+
+	changed := sum.EnsureTool("tirith", LockedTool{
+		Ref:        "registry:tirith",
+		Version:    "v0.3.1",
+		DepName:    "sheeki03/tirith",
+		Datasource: "github-releases",
+		Versioning: "semver",
+	})
+	if !changed {
+		t.Fatal("expected stale currentValue to be refreshed")
+	}
+
+	dep := sum.Dependencies[0]
+	if dep.CurrentValue != "v0.3.1" {
+		t.Fatalf("CurrentValue = %q, want %q", dep.CurrentValue, "v0.3.1")
+	}
+	if dep.Versioning != "semver" {
+		t.Fatalf("Versioning = %q, want semver", dep.Versioning)
 	}
 }

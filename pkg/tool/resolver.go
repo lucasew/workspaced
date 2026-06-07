@@ -7,44 +7,41 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 
 	execdriver "workspaced/pkg/driver/exec"
 	parsespec "workspaced/pkg/parse/spec"
-	"workspaced/pkg/semver"
-	"workspaced/pkg/tool/provider"
+	"workspaced/pkg/tool/backend"
 )
 
-// EnsureInstalled ensures the tool is installed and returns the path to the executable binary.
+// EnsureInstalled resolves the binary path for a requested tool, triggering a dynamic
+// installation if the tool or its explicit version is missing locally. It checks "latest"
+// tags against upstream providers and gracefully falls back to hinted installations
+// if artifact boundaries are ambiguous.
 func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
 	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
 		return "", err
 	}
 
-	// Handle "latest" version resolution
+	// Handle "latest" version resolution.
+	// In the direct path (used by "workspaced tool with" etc.), "latest"
+	// always queries upstream. We never fall back to locally installed
+	// versions for "latest" here (installed versions are only used when
+	// an explicit non-latest version is not specified in some contexts).
 	actualVersion := spec.Version
 	if spec.Version == "latest" {
-		// Try to find any installed version locally first
-		installed, err := m.FindInstalledVersions(spec)
-		if err == nil && len(installed) > 0 {
-			actualVersion = installed[0]
-			spec.Version = actualVersion
-		} else {
-			// No local version found, resolve from provider
-			resolved, err := m.ResolveLatestVersion(ctx, spec)
-			if err != nil {
-				return "", fmt.Errorf("failed to resolve latest version: %w", err)
-			}
-			actualVersion = resolved
-			spec.Version = actualVersion
+		resolved, err := m.ResolveLatestVersion(ctx, spec)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve latest version: %w", err)
 		}
+		actualVersion = resolved
+		spec.Version = actualVersion
 	}
-	p, err := GetProvider(spec.Provider)
+	p, err := Get(spec.Provider)
 	if err != nil {
 		return "", err
 	}
-	pkgConfig, err := p.ParsePackage(spec.Package)
+	t, err := p.Tool(spec.Package)
 	if err != nil {
 		return "", err
 	}
@@ -62,8 +59,8 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
 		slog.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 
-		if bp, ok := p.(provider.BinaryProvider); ok {
-			binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+		if bt, ok := t.(backend.BinaryTool); ok {
+			binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 			if err != nil {
 				return "", fmt.Errorf("failed to install tool: %w", err)
 			}
@@ -87,8 +84,8 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
 	slog.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
-	if bp, ok := p.(provider.BinaryProvider); ok {
-		binPath, err := bp.EnsureBinary(ctx, pkgConfig, actualVersion, cmdName, versionDir)
+	if bt, ok := t.(backend.BinaryTool); ok {
+		binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 		if err != nil {
 			return "", err
 		}
@@ -106,7 +103,9 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	return binPath, nil
 }
 
-// ResolveBinary attempts to find the executable binary for a specific tool version.
+// ResolveBinary attempts to locate the executable binary for an already-installed tool.
+// It searches standard bin paths within the localized version directory, accounting for
+// platform-specific extensions like ".exe" on Windows.
 func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, error) {
 	normalizedVersion := normalizeVersion(spec.Version)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
@@ -131,47 +130,21 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	return "", fmt.Errorf("binary %q not found in %s", cmdName, versionDir)
 }
 
-// FindInstalledVersions returns a sorted list of installed versions for a tool.
-func (m *Manager) FindInstalledVersions(spec parsespec.Spec) ([]string, error) {
-	pkgDir := filepath.Join(m.toolsDir, spec.Dir())
-	entries, err := os.ReadDir(pkgDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var versions semver.SemVers
-	for _, entry := range entries {
-		if entry.IsDir() {
-			versions = append(versions, semver.Parse(entry.Name()))
-		}
-	}
-
-	if len(versions) == 0 {
-		return nil, fmt.Errorf("no installed versions found")
-	}
-
-	sort.Sort(sort.Reverse(versions))
-
-	var result []string
-	for _, v := range versions {
-		result = append(result, v.String())
-	}
-	return result, nil
-}
-
-// ResolveLatestVersion queries the provider to find the latest version of a package.
+// ResolveLatestVersion delegates to the underlying tool provider to query the remote
+// registry for the most recent valid version. It assumes the first returned version
+// is the latest, matching standard provider behaviors.
 func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {
-	provider, err := GetProvider(spec.Provider)
+	p, err := Get(spec.Provider)
 	if err != nil {
 		return "", err
 	}
 
-	pkgConfig, err := provider.ParsePackage(spec.Package)
+	t, err := p.Tool(spec.Package)
 	if err != nil {
 		return "", err
 	}
 
-	versions, err := provider.ListVersions(ctx, pkgConfig)
+	versions, err := t.ListVersions(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -180,12 +153,14 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 		return "", fmt.Errorf("no versions found")
 	}
 
-	// Provider returns versions, we assume the first one is relevant (often latest)
-	// TODO: Add proper sorting/semver logic if provider doesn't guarantee order
+	// We assume the first one is relevant (often latest from the provider).
+	// TODO: Add proper sorting/semver logic if provider doesn't guarantee order.
 	return versions[0], nil
 }
 
-// EnsureAndRun simplifies running a tool by ensuring it's installed and returning an exec.Cmd.
+// EnsureAndRun serves as a top-level helper to both resolve (and potentially install)
+// a tool, and immediately bind it to an *exec.Cmd configured with the given arguments.
+// This is the common entry point for direct, non-lazy tool invocations.
 func EnsureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...string) (*exec.Cmd, error) {
 	m, err := NewManager()
 	if err != nil {
