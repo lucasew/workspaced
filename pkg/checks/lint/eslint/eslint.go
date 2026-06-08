@@ -15,8 +15,8 @@ import (
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
-	"workspaced/pkg/logging"
 	"workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
