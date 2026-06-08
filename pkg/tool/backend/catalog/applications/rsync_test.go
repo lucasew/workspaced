@@ -11,7 +11,8 @@ func TestCompareVersions(t *testing.T) {
 	v1 := "3.4.4"
 	v2 := "3.2.7"
 
-	if compareVersions(v1, v2) <= 0 {
+	tool := &rsyncTool{}
+	if tool.compareVersions(v1, v2) <= 0 {
 		t.Fatalf("expected %s > %s", v1, v2)
 	}
 }

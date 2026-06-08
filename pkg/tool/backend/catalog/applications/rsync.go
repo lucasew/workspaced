@@ -184,7 +184,7 @@ func (t *rsyncTool) listVersions(ctx context.Context) ([]string, error) {
 
 	// Simple semver sorting without importing semver package
 	sort.Slice(versions, func(i, j int) bool {
-		return compareVersions(versions[i], versions[j]) > 0 // Descending
+		return t.compareVersions(versions[i], versions[j]) > 0 // Descending
 	})
 
 	return versions, nil
@@ -211,7 +211,7 @@ func (t *rsyncTool) rsyncPlatformFolder() (string, error) {
 	return "", fmt.Errorf("unsupported platform for rsync precompiled binaries: %s/%s", osn, arch)
 }
 
-func compareVersions(v1, v2 string) int {
+func (t *rsyncTool) compareVersions(v1, v2 string) int {
 	parts1 := strings.Split(v1, ".")
 	parts2 := strings.Split(v2, ".")
 
