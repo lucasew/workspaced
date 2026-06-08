@@ -15,6 +15,7 @@ import (
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/driver/exec"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -319,7 +320,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		if len(rawStdout) > 2048 {
 			rawStdout = rawStdout[:2048] + "...(truncated)"
 		}
-		slog.Error("eslint failed to produce valid JSON", "stderr", stderr.String(), "stdout", rawStdout)
+		logging.ReportError(ctx, err, slog.String("stderr", stderr.String()), slog.String("stdout", rawStdout), slog.String("context", "eslint failed to produce valid JSON"))
 		return nil, fmt.Errorf("eslint failed: %w: %s", err, stderr.String())
 	}
 

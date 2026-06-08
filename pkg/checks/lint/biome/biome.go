@@ -9,6 +9,7 @@ import (
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/tool"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -44,7 +45,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// This automatically handles installation and version resolution.
 	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "biome", "biome", "lint", "--reporter=sarif", ".")
 	if err != nil {
-		slog.Error("failed to setup biome", "err", err)
+		logging.ReportError(ctx, err, slog.String("context", "failed to setup biome"))
 		return nil, err
 	}
 
@@ -64,7 +65,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Parse SARIF output
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
-		slog.Error("failed to parse sarif output from biome", "err", err, "stdout", stdout.String())
+		logging.ReportError(ctx, err, slog.String("stdout", stdout.String()), slog.String("context", "failed to parse sarif output from biome"))
 		// If command failed and we couldn't parse SARIF, return the command error
 		if runErr != nil {
 			return nil, runErr

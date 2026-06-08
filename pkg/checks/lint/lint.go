@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"workspaced/pkg/checks"
+	"workspaced/pkg/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
@@ -50,7 +51,7 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 		// 2. Run the linter
 		run, err := l.Run(ctx, dir)
 		if err != nil {
-			slog.Error("linter failed", "linter", l.Name(), "error", err)
+			logging.ReportError(ctx, err, slog.String("linter", l.Name()), slog.String("context", "linter failed"))
 			continue
 		}
 		resultCount := 0
