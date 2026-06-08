@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"workspaced/pkg/checks"
+	"workspaced/pkg/logging"
 )
 
 // Formatter extends the base Check for code formatting tools.
@@ -41,7 +42,7 @@ func RunAll(ctx context.Context, dir string) error {
 
 		slog.Info("Running formatter", "name", f.Name())
 		if err := f.Format(ctx, dir); err != nil {
-			slog.Error("formatter failed", "name", f.Name(), "error", err)
+			logging.ReportError(ctx, err, slog.String("name", f.Name()), slog.String("context", "formatter failed"))
 			errs = append(errs, fmt.Errorf("%s: %w", f.Name(), err))
 		}
 	}

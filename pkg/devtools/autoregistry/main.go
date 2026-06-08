@@ -144,6 +144,6 @@ var cmd = &cobra.Command{
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		slog.Error("fatal error", "error", err)
+		logging.ReportError(context.Background(), err, slog.String("context", "fatal error"))
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 )
 
@@ -89,7 +90,7 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 // runWithProot wraps command execution in proot with termux-chroot-like setup
 func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []string, prefix string) *exec.Cmd {
 	// Setup resolv.conf and SSL certs for proot environment
-	if resolvPath, err := ensureResolvConf(); err != nil {
+	if resolvPath, err := ensureResolvConf(ctx); err != nil {
 		slog.Warn("failed to setup resolv.conf", "error", err)
 	} else {
 		slog.Debug("resolv.conf configured", "path", resolvPath)
@@ -238,7 +239,7 @@ func setupTermuxEnv(prefix string) []string {
 }
 
 // ensureResolvConf creates /etc/resolv.conf in Termux PREFIX if it doesn't exist or is broken
-func ensureResolvConf() (string, error) {
+func ensureResolvConf(ctx context.Context) (string, error) {
 	// Get Termux PREFIX (usually /data/data/com.termux/files/usr)
 	prefix := os.Getenv("PREFIX")
 	if prefix == "" {
@@ -279,7 +280,7 @@ nameserver 1.1.1.1
 
 	// Verify it was written
 	if content, err := os.ReadFile(resolvConfPath); err != nil {
-		slog.Error("failed to verify resolv.conf after writing", "error", err)
+		logging.ReportError(ctx, err, slog.String("context", "failed to verify resolv.conf after writing"))
 	} else {
 		slog.Info("resolv.conf content verified", "size", len(content))
 	}
