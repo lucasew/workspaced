@@ -18,10 +18,10 @@ func init() {
 
 type RsyncAction struct {
 	backupActionBase
-	Src        string   `json:"src"`
-	Dst        string   `json:"dst"`
-	Excludes   []string `json:"excludes"`
-	SkipChmod  bool     `json:"skip_chmod"`
+	Src              string   `json:"src"`
+	Dst              string   `json:"dst"`
+	Excludes         []string `json:"excludes"`
+	SkipPermissions  bool     `json:"skip_permissions"`
 }
 
 func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) error {
@@ -29,7 +29,7 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 	for _, x := range a.Excludes {
 		extraArgs = append(extraArgs, "--exclude="+x)
 	}
-	if a.SkipChmod {
+	if a.SkipPermissions {
 		extraArgs = append(extraArgs, "--no-perms")
 	}
 	_, err := func() (string, error) {

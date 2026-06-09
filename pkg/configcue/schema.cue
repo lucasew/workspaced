@@ -57,7 +57,7 @@ package workspaced
 	src:  string
 	dst:  string
 	excludes?: [...string]
-	skip_chmod?: bool
+	skip_permissions?: bool
 })
 
 #BackupActionArchive: close({
