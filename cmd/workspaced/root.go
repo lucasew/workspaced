@@ -56,7 +56,6 @@ func main() {
 	var stopProfiling func() error
 	var rootGroup *taskgroup.Group
 
-
 	cmd := &cobra.Command{
 		Use:     "workspaced",
 		Short:   "workspaced - declarative user environment manager",
