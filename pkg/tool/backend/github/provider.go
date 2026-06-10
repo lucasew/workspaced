@@ -172,39 +172,30 @@ func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destP
 	})
 }
 
-func containsAnyOf(haystack string, needles ...string) bool {
-	for _, needle := range needles {
-		if strings.Contains(haystack, needle) {
-			return true
-		}
-	}
-	return false
-}
-
 func parseAssetName(name string) (osName, arch string, ok bool) {
 	name = strings.ToLower(name)
 
 	// OS Detection
-	if containsAnyOf(name, "android") {
+	if backend.ContainsAnyOf(name, "android") {
 		osName = "android"
-	} else if containsAnyOf(name, "linux") {
+	} else if backend.ContainsAnyOf(name, "linux") {
 		osName = "linux"
-	} else if containsAnyOf(name, "darwin", "macos", "apple") {
+	} else if backend.ContainsAnyOf(name, "darwin", "macos", "apple") {
 		osName = "darwin"
-	} else if containsAnyOf(name, "windows") {
+	} else if backend.ContainsAnyOf(name, "windows") {
 		osName = "windows"
 	} else {
 		return "", "", false
 	}
 
 	// Arch Detection
-	if containsAnyOf(name, "amd64", "x86_64", "x64") {
+	if backend.ContainsAnyOf(name, "amd64", "x86_64", "x64") {
 		arch = "amd64"
-	} else if containsAnyOf(name, "arm64", "aarch64") {
+	} else if backend.ContainsAnyOf(name, "arm64", "aarch64") {
 		arch = "arm64"
-	} else if containsAnyOf(name, "386", "x86") {
+	} else if backend.ContainsAnyOf(name, "386", "x86") {
 		arch = "386"
-	} else if containsAnyOf(name, "riscv") {
+	} else if backend.ContainsAnyOf(name, "riscv") {
 		arch = "riscv"
 	} else {
 		return "", "", false

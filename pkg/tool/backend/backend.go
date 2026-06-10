@@ -104,20 +104,41 @@ type Artifact struct {
 	Size int64
 }
 
+// ContainsAnyOf reports whether any of the needles is a substring of haystack.
+// It short-circuits on the first match.
+func ContainsAnyOf(haystack string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(haystack, needle) {
+			return true
+		}
+	}
+	return false
+}
+
 // SelectArtifact chooses the best artifact for the given OS/arch from the list,
 // applying optional binary hint scoring (used by both the manager and
 // provider Tool implementations during the migration).
+//
+// For android, if no android-specific artifact is found for the arch, it
+// falls back to trying linux artifacts (many projects do not publish
+// dedicated Android builds).
 func SelectArtifact(artifacts []Artifact, osName, arch, binaryHint string) *Artifact {
+	// Build ordered list of OSes to try. Android falls back to linux.
+	oses := []string{osName}
+	if osName == "android" {
+		oses = append(oses, "linux")
+	}
+
 	var candidates []Artifact
 	for _, a := range artifacts {
-		if strings.HasSuffix(a.URL, ".deb") {
+		if ContainsAnyOf(a.URL, ".deb", ".rpm") {
 			continue
 		}
-		if strings.HasSuffix(a.URL, ".rpm") {
-			continue
-		}
-		if a.OS == osName && a.Arch == arch {
-			candidates = append(candidates, a)
+		for _, candidateOS := range oses {
+			if a.OS == candidateOS && a.Arch == arch {
+				candidates = append(candidates, a)
+				break
+			}
 		}
 	}
 
