@@ -5,15 +5,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -80,7 +81,7 @@ func (d *Driver) Client() *http.Client {
 					return dialer.DialContext(ctx, network, addr)
 				},
 				TLSClientConfig: &tls.Config{
-					RootCAs: loadTermuxCerts(),
+					RootCAs: loadTermuxCerts(context.Background()),
 				},
 				ForceAttemptHTTP2:     true,
 				MaxIdleConns:          100,
@@ -109,7 +110,7 @@ func getAndroidDNS() string {
 	return dnsServers[0]
 }
 
-func loadTermuxCerts() *x509.CertPool {
+func loadTermuxCerts(ctx context.Context) *x509.CertPool {
 	pool := x509.NewCertPool()
 
 	// Termux-specific certificate locations
@@ -157,6 +158,7 @@ func loadTermuxCerts() *x509.CertPool {
 	}
 
 	// Last resort: return empty pool
-	slog.Warn("could not load any CA certificates for Termux")
+	logger := logging.GetLogger(ctx)
+	logger.Warn("could not load any CA certificates for Termux")
 	return pool
 }

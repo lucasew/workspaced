@@ -56,3 +56,4 @@ See CODEMAP.md for the short "how to locate X" recipes.
 - `logger = logging.GetLogger(ctx)`. Never use log/slog directly.
 - Make sure a inner scope is not getting a logger or ctx from the outer scope.
 - Prefer to use channels  over shared mutable state with a lock if it makes stuff simpler, which is often.
+- All context.Background and alike situations must have a good reason. Just not having a context in scope is not a good reason.

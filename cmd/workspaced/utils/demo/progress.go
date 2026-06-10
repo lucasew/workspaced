@@ -2,11 +2,12 @@ package demo
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
-	"workspaced/pkg/driver/notification"
 
 	"github.com/spf13/cobra"
+
+	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -27,14 +28,16 @@ func init() {
 					n.ID = 69
 					n.Progress = float64(percent) / 100.0
 					if err := notification.Notify(ctx, n); err != nil {
-						slog.Error("error sending progress notification", "error", err)
+						logger := logging.GetLogger(ctx)
+						logger.Error("error sending progress notification", "error", err)
 					}
 					time.Sleep(time.Second)
 				}
 				n.Message = "Demo concluída!"
 				n.Progress = 1.0
 				if err := notification.Notify(ctx, n); err != nil {
-					slog.Error("error sending final notification", "error", err)
+					logger := logging.GetLogger(ctx)
+					logger.Error("error sending final notification", "error", err)
 				}
 			},
 		})

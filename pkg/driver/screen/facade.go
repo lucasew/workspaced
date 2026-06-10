@@ -8,16 +8,18 @@ import (
 )
 
 func Lock(ctx context.Context) error {
-	logging.GetLogger(ctx).Info("locking session")
+	logger := logging.GetLogger(ctx)
+	logger.Info("locking session")
 	return power.Lock(ctx)
 }
 
 func SetDPMS(ctx context.Context, on bool) error {
+	logger := logging.GetLogger(ctx)
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("setting DPMS", "on", on)
+	logger.Info("setting DPMS", "on", on)
 	return d.SetDPMS(ctx, on)
 }
 
@@ -42,10 +44,11 @@ func IsDPMSOn(ctx context.Context) (bool, error) {
 }
 
 func Reset(ctx context.Context) error {
+	logger := logging.GetLogger(ctx)
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("resetting screen layout")
+	logger.Info("resetting screen layout")
 	return d.Reset(ctx)
 }

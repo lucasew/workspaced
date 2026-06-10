@@ -3,9 +3,9 @@ package genetic
 import (
 	"context"
 	"image"
-	"log/slog"
 	"math/rand"
 
+	"workspaced/pkg/logging"
 	"workspaced/pkg/palette/api"
 )
 
@@ -24,18 +24,19 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	if len(colors) == 0 {
 		return nil, ctx.Err()
 	}
-	slog.Info("sampled colors from image", "unique_colors", len(colors))
+	logger := logging.GetLogger(ctx)
+	logger.Info("sampled colors from image", "unique_colors", len(colors))
 
 	// 2. Convert to LAB color space
 	labColors := make([]api.LAB, len(colors))
 	for i, c := range colors {
 		labColors[i] = api.RGBToLAB(c)
 	}
-	slog.Info("converted to LAB color space")
+	logger.Info("converted to LAB color space")
 
 	// 3. Initialize population
 	population := initPopulation(rng, labColors, opts.ColorCount, numSurvivors+numNewborns)
-	slog.Info("initialized population", "size", len(population), "colors_per_palette", opts.ColorCount)
+	logger.Info("initialized population", "size", len(population), "colors_per_palette", opts.ColorCount)
 
 	// 4. Evolution loop
 	generation := 0
@@ -55,13 +56,13 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 
 		// Check convergence (fitness stopped improving)
 		bestFitness := scored[0].fitness
-		slog.Info("generation completed",
+		logger.Info("generation completed",
 			"generation", generation,
 			"best_fitness", bestFitness,
 			"population_size", len(population))
 
 		if generation > 0 && bestFitness == prevBestFitness {
-			slog.Info("converged - fitness unchanged", "generations", generation)
+			logger.Info("converged - fitness unchanged", "generations", generation)
 			break
 		}
 		prevBestFitness = bestFitness
@@ -81,11 +82,11 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	// 5. Get best individual
 	scored := scorePop(population, labColors, opts.Polarity)
 	best := scored[0].individual
-	slog.Info("evolution complete", "final_fitness", scored[0].fitness, "total_generations", generation)
+	logger.Info("evolution complete", "final_fitness", scored[0].fitness, "total_generations", generation)
 
 	// 6. Map to base16/base24 palette
 	pal := mapToPalette(best, opts.ColorCount)
-	slog.Info("palette generated successfully")
+	logger.Info("palette generated successfully")
 	return pal, nil
 }
 

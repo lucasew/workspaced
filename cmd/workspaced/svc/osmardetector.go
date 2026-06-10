@@ -2,12 +2,13 @@ package svc
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/battery"
 
 	"github.com/spf13/cobra"
+
+	"workspaced/pkg/driver"
+	"workspaced/pkg/driver/battery"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -20,10 +21,12 @@ func init() {
 				ticker := time.NewTicker(1 * time.Second)
 				defer ticker.Stop()
 
-				slog.Info("osmardetector started")
+				logger := logging.GetLogger(ctx)
+				logger.Info("osmardetector started")
 				driver, err := driver.Get[battery.Driver](ctx)
 				if err != nil {
-					slog.Error("failed to get battery driver", "error", err)
+					logger := logging.GetLogger(ctx)
+					logger.Error("failed to get battery driver", "error", err)
 					return
 				}
 
@@ -34,7 +37,8 @@ func init() {
 					case <-ticker.C:
 						status, err := driver.BatteryStatus(ctx)
 						if err != nil {
-							slog.Error("failed to get battery status", "error", err)
+							logger := logging.GetLogger(ctx)
+							logger.Error("failed to get battery status", "error", err)
 							continue
 						}
 						if status == battery.Discharging {

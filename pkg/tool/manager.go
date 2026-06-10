@@ -98,6 +98,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 				artifacts, err := at.ListArtifacts(ctx, version)
 				if err == nil {
 					if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
+						logger := logging.GetLogger(ctx)
 						logger.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
 						return at.InstallArtifact(ctx, *chosen, destPath)
 					}
@@ -106,6 +107,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		}
 
 		// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
+		logger := logging.GetLogger(ctx)
 		logger.Debug("installing tool via Tool.Install", "dest", destPath)
 		return t.Install(ctx, version, destPath)
 	}

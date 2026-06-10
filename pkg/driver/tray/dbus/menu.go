@@ -1,13 +1,12 @@
 package dbus
 
 import (
-	"context"
-	"log/slog"
 	"sync"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
+
 	"workspaced/pkg/logging"
 )
 
@@ -275,7 +274,8 @@ func (m *DBusMenu) handleEvent(id int32, eventId string, data dbus.Variant, time
 		if idx >= 0 && idx < len(m.driver.state.Menu) {
 			item := m.driver.state.Menu[idx]
 			if item.Callback != nil {
-				slog.Info("executing menu callback", "label", item.Label)
+				logger := logging.GetLogger(m.driver.ctx)
+				logger.Info("executing menu callback", "label", item.Label)
 				go item.Callback()
 			}
 		}
@@ -294,7 +294,7 @@ func (m *DBusMenu) EmitLayoutUpdated() {
 
 	if m.driver.conn != nil {
 		if err := m.driver.conn.Emit("/MenuBar", "com.canonical.dbusmenu.LayoutUpdated", rev, int32(0)); err != nil {
-			logging.ReportError(context.Background(), err)
+			logging.ReportError(m.driver.ctx, err)
 		}
 	}
 }

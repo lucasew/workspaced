@@ -1,8 +1,8 @@
 package shellgen
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"workspaced/pkg/logging"
 )
 
 // Generator is a function that generates shell code
@@ -32,7 +34,7 @@ var generators = map[string]Generator{
 }
 
 // Generate executes all generators in parallel and returns ordered output
-func Generate() (string, error) {
+func Generate(ctx context.Context) (string, error) {
 	profile := os.Getenv("WORKSPACED_PROFILE") == "1"
 
 	type result struct {
@@ -74,7 +76,8 @@ func Generate() (string, error) {
 		resultMap[r.key] = r.output
 		timings[r.key] = r.duration
 		if profile {
-			slog.Info("shell generator timing", "generator", r.key, "duration", r.duration)
+			logger := logging.GetLogger(ctx)
+			logger.Info("shell generator timing", "generator", r.key, "duration", r.duration)
 		}
 	}
 

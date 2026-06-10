@@ -3,11 +3,11 @@ package dbus
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"sync"
 
 	"github.com/godbus/dbus/v5"
+
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/tray"
 	"workspaced/pkg/logging"
@@ -95,12 +95,13 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 
 	// Emit NewMenu signal to let watcher know we have a menu
+	logger := logging.GetLogger(ctx)
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewMenu"); err != nil {
-		slog.Warn("failed to emit NewMenu signal", "error", err)
+		logger.Warn("failed to emit NewMenu signal", "error", err)
 	}
 
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewStatus", "Active"); err != nil {
-		slog.Warn("failed to emit NewStatus signal", "error", err)
+		logger.Warn("failed to emit NewStatus signal", "error", err)
 	}
 
 	// Register with watcher

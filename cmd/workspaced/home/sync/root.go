@@ -2,12 +2,13 @@ package sync
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/env"
 
 	"github.com/spf13/cobra"
+
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/env"
+	"workspaced/pkg/logging"
 )
 
 func GetCommand() *cobra.Command {
@@ -21,7 +22,8 @@ func GetCommand() *cobra.Command {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
 
-			slog.Info("==> Pulling dotfiles changes...")
+			logger := logging.GetLogger(ctx)
+			logger.Info("==> Pulling dotfiles changes...")
 			pullCmd := execdriver.MustRun(ctx, "git", "-C", root, "pull")
 			pullCmd.Stdout = os.Stdout
 			pullCmd.Stderr = os.Stderr

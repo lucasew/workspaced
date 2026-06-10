@@ -94,6 +94,7 @@ func Wake(ctx context.Context, host string) error {
 		return fmt.Errorf("failed to send magic packet: %w", err)
 	}
 
-	logging.GetLogger(ctx).Info("sent Wake-on-LAN magic packet", "host", host, "mac", macStr)
+	logger := logging.GetLogger(ctx)
+	logger.Info("sent Wake-on-LAN magic packet", "host", host, "mac", macStr)
 	return nil
 }

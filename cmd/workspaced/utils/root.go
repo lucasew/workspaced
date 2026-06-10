@@ -45,9 +45,10 @@ func getSocketPath() string {
 	return filepath.Join(runtimeDir, "workspaced.sock")
 }
 
-func TryRemoteRaw(cmdName string, args []string) (string, bool, error) {
+func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, bool, error) {
 	socketPath := getSocketPath()
-	slog.Info("connecting to daemon", "socket", socketPath, "cmd", cmdName, "args", args)
+	logger := logging.GetLogger(ctx)
+	logger.Info("connecting to daemon", "socket", socketPath, "cmd", cmdName, "args", args)
 
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
@@ -57,10 +58,11 @@ func TryRemoteRaw(cmdName string, args []string) (string, bool, error) {
 
 	conn, _, err := dialer.Dial("ws://localhost/ws", nil)
 	if err != nil {
-		slog.Info("daemon not reachable, running locally", "error", err)
+		logger := logging.GetLogger(ctx)
+		logger.Info("daemon not reachable, running locally", "error", err)
 		return "", false, nil
 	}
-	defer logging.Close(context.Background(), conn, slog.String("socket", socketPath))
+	defer logging.Close(ctx, conn, slog.String("socket", socketPath))
 
 	// Get client binary hash
 	clientHash, _ := executil.GetBinaryHash()
@@ -87,7 +89,8 @@ func TryRemoteRaw(cmdName string, args []string) (string, bool, error) {
 		var packet types.StreamPacket
 		if err := conn.ReadJSON(&packet); err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				slog.Debug("ws read error", "error", err)
+				logger := logging.GetLogger(ctx)
+				logger.Debug("ws read error", "error", err)
 			}
 			return "", true, fmt.Errorf("failed to read response: %w", err)
 		}
@@ -111,7 +114,8 @@ func TryRemoteRaw(cmdName string, args []string) (string, bool, error) {
 			for k, v := range entry.Attrs {
 				attrs = append(attrs, slog.Any(k, v))
 			}
-			slog.Log(context.Background(), level, entry.Message, attrs...)
+			l := logging.GetLogger(ctx)
+			l.Log(ctx, level, entry.Message, attrs...)
 		case "stdout":
 			var out string
 			if err := json.Unmarshal(packet.Payload, &out); err == nil {
@@ -130,7 +134,8 @@ func TryRemoteRaw(cmdName string, args []string) (string, bool, error) {
 			if resp.Error != "" {
 				// Check if daemon is restarting itself
 				if resp.Error == "DAEMON_RESTARTING" || resp.Error == "DAEMON_RESTART_NEEDED" {
-					slog.Info("daemon restarting with new binary, retrying locally")
+					logger := logging.GetLogger(ctx)
+					logger.Info("daemon restarting with new binary, retrying locally")
 
 					// Daemon is exec'ing itself, just wait a bit and run locally
 					// Next command will connect to the new daemon

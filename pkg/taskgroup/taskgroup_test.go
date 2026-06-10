@@ -130,7 +130,8 @@ func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
 	})
 
 	g.Go("fetch", Internet, func(ctx context.Context, s *Status) error {
-		logging.GetLogger(ctx).Info("http response", "status", "200 OK")
+		logger := logging.GetLogger(ctx)
+		logger.Info("http response", "status", "200 OK")
 		return nil
 	})
 	if err := g.Wait(); err != nil {

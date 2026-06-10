@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log/slog"
+
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/env"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/modulecue"
 
 	"cuelang.org/go/cue"
@@ -105,6 +106,7 @@ func ExportJSON(opts DiscoverOptions) ([]byte, error) {
 }
 
 func ExportCUE(opts DiscoverOptions) ([]byte, error) {
+	ctx := context.Background()
 	discovered, err := DiscoverLayers(opts)
 	if err != nil {
 		return nil, err
@@ -118,10 +120,11 @@ func ExportCUE(opts DiscoverOptions) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return formatWorkspacedValue(configValue, paths, discovered.Layers)
+	return formatWorkspacedValue(ctx, configValue, paths, discovered.Layers)
 }
 
 func ExportDef(opts DiscoverOptions) ([]byte, error) {
+	ctx := context.Background()
 	discovered, err := DiscoverLayers(opts)
 	if err != nil {
 		return nil, err
@@ -135,7 +138,7 @@ func ExportDef(opts DiscoverOptions) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return formatWorkspacedDef(configValue, paths, discovered.Layers)
+	return formatWorkspacedDef(ctx, configValue, paths, discovered.Layers)
 }
 
 func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
@@ -162,11 +165,12 @@ func ExportJSONFromPaths(paths []string) ([]byte, error) {
 }
 
 func exportJSONFromPaths(paths []string, discovered []Layer, homeMode bool) ([]byte, error) {
+	ctx := context.Background()
 	configValue, err := buildWorkspacedValue(paths, discovered, homeMode)
 	if err != nil {
 		return nil, err
 	}
-	return marshalWorkspacedValue(configValue, paths, discovered)
+	return marshalWorkspacedValue(ctx, configValue, paths, discovered)
 }
 
 func buildWorkspacedValue(paths []string, discovered []Layer, homeMode bool) (cue.Value, error) {
@@ -592,12 +596,14 @@ func resolveLocalSourceSpec(workspaceRoot, modulePath, spec string) (string, boo
 	return filepath.Join(workspaceRoot, filepath.FromSlash(ref)), true, nil
 }
 
-func marshalWorkspacedValue(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+func marshalWorkspacedValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
-			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
 		} else if len(paths) > 0 {
-			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
 		}
 		return json.Marshal(map[string]any{})
 	}
@@ -606,19 +612,23 @@ func marshalWorkspacedValue(configValue cue.Value, paths []string, discovered []
 		return nil, fmt.Errorf("marshal cue config to json: %w", err)
 	}
 	if string(b) == "{}" && len(discovered) > 0 {
-		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "layers", discovered)
+		logger := logging.GetLogger(ctx)
+		logger.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "layers", discovered)
 	} else if string(b) == "{}" && len(paths) > 0 {
-		slog.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "paths", paths)
+		logger := logging.GetLogger(ctx)
+		logger.Warn("experimental cue export produced empty result", "reason", "workspaced resolved to empty object", "paths", paths)
 	}
 	return b, nil
 }
 
-func formatWorkspacedValue(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+func formatWorkspacedValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
-			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
 		} else if len(paths) > 0 {
-			slog.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
 		}
 		return []byte("{}\n"), nil
 	}
@@ -639,12 +649,14 @@ func formatWorkspacedValue(configValue cue.Value, paths []string, discovered []L
 	return append(out, '\n'), nil
 }
 
-func formatWorkspacedDef(configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
+func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
 	if !configValue.Exists() {
 		if len(discovered) > 0 {
-			slog.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "layers", discovered)
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "layers", discovered)
 		} else if len(paths) > 0 {
-			slog.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "paths", paths)
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "paths", paths)
 		}
 		return []byte("{}\n"), nil
 	}

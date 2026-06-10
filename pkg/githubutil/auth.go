@@ -19,14 +19,15 @@ var (
 
 func Token(ctx context.Context) string {
 	tokenOnce.Do(func() {
+		logger := logging.GetLogger(ctx)
 		if envToken := strings.TrimSpace(os.Getenv("GITHUB_TOKEN")); envToken != "" {
-			logging.GetLogger(ctx).Info("using github token from environment")
+			logger.Info("using github token from environment")
 			token = envToken
 			return
 		}
 
 		if !execdriver.IsBinaryAvailable(ctx, "gh") {
-			logging.GetLogger(ctx).Warn("github token unavailable: gh not found in PATH, using anonymous requests")
+			logger.Warn("github token unavailable: gh not found in PATH, using anonymous requests")
 			return
 		}
 
@@ -35,7 +36,7 @@ func Token(ctx context.Context) string {
 
 		cmd, err := execdriver.Run(ghCtx, "gh", "auth", "token")
 		if err != nil {
-			logging.GetLogger(ctx).Warn("github token unavailable: failed to create gh auth token command, using anonymous requests", "error", err)
+			logger.Warn("github token unavailable: failed to create gh auth token command, using anonymous requests", "error", err)
 			return
 		}
 		cmd.Env = append(os.Environ(),
@@ -44,15 +45,15 @@ func Token(ctx context.Context) string {
 		)
 		out, err := cmd.Output()
 		if err != nil {
-			logging.GetLogger(ctx).Warn("github token unavailable: gh auth token failed, using anonymous requests", "error", err)
+			logger.Warn("github token unavailable: gh auth token failed, using anonymous requests", "error", err)
 			return
 		}
 		token = strings.TrimSpace(string(out))
 		if token == "" {
-			logging.GetLogger(ctx).Warn("github token unavailable: gh auth token returned empty output, using anonymous requests")
+			logger.Warn("github token unavailable: gh auth token returned empty output, using anonymous requests")
 			return
 		}
-		logging.GetLogger(ctx).Info("using github token from gh auth token")
+		logger.Info("using github token from gh auth token")
 	})
 	return token
 }

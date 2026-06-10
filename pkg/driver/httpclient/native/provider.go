@@ -4,15 +4,16 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -56,7 +57,7 @@ func (d *Driver) Client() *http.Client {
 					return dialer.DialContext(ctx, network, addr)
 				},
 				TLSClientConfig: &tls.Config{
-					RootCAs: loadSystemCerts(),
+					RootCAs: loadSystemCerts(context.Background()),
 				},
 				ForceAttemptHTTP2:     true,
 				MaxIdleConns:          100,
@@ -70,7 +71,7 @@ func (d *Driver) Client() *http.Client {
 }
 
 // loadSystemCerts attempts to load system CA certificates from multiple locations
-func loadSystemCerts() *x509.CertPool {
+func loadSystemCerts(ctx context.Context) *x509.CertPool {
 	// Try to load system cert pool first (works on most platforms)
 	if pool, err := x509.SystemCertPool(); err == nil && pool != nil {
 		return pool
@@ -107,6 +108,7 @@ func loadSystemCerts() *x509.CertPool {
 
 	// Last resort: return the pool even if empty.
 	// The TLS library may still work with built-in roots.
-	slog.Warn("could not load system CA certificates from known locations")
+	logger := logging.GetLogger(ctx)
+	logger.Warn("could not load system CA certificates from known locations")
 	return pool
 }

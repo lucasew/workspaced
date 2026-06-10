@@ -65,13 +65,15 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
 			alreadyInstalled = true
-			logging.GetLogger(ctx).Info("already installed", "path", installPath)
+			logger := logging.GetLogger(ctx)
+			logger.Info("already installed", "path", installPath)
 		}
 	}
 
 	// Copy binary (unless already installed and not forcing)
 	if !alreadyInstalled {
-		logging.GetLogger(ctx).Info("installing workspaced", "version", currentVersion, "path", installPath, "force", force)
+		logger := logging.GetLogger(ctx)
+		logger.Info("installing workspaced", "version", currentVersion, "path", installPath, "force", force)
 
 		if err := os.MkdirAll(installDir, 0755); err != nil {
 			return fmt.Errorf("failed to create install directory: %w", err)
@@ -85,25 +87,26 @@ func runSelfInstall(ctx context.Context, force bool) error {
 			return fmt.Errorf("failed to set permissions: %w", err)
 		}
 
-		logging.GetLogger(ctx).Info("binary installed", "path", installPath)
+		logger.Info("binary installed", "path", installPath)
 	}
 
 	// Always regenerate shims (even if binary already installed)
-	logging.GetLogger(ctx).Info("regenerating shims")
+	logger := logging.GetLogger(ctx)
+	logger.Info("regenerating shims")
 
 	if err := createWorkspacedShim(ctx, installPath); err != nil {
 		return fmt.Errorf("failed to create shim: %w", err)
 	}
 
 	if err := createMiseShim(ctx); err != nil {
-		logging.GetLogger(ctx).Warn("failed to create mise shim", "error", err)
+		logger.Warn("failed to create mise shim", "error", err)
 	}
 
-	logging.GetLogger(ctx).Info("workspaced installed successfully", "version", currentVersion)
+	logger.Info("workspaced installed successfully", "version", currentVersion)
 	if alreadyInstalled {
-		logging.GetLogger(ctx).Info("shims regenerated (use --force to reinstall binary)")
+		logger.Info("shims regenerated (use --force to reinstall binary)")
 	}
-	logging.GetLogger(ctx).Info("add ~/.local/bin to your PATH if not already added")
+	logger.Info("add ~/.local/bin to your PATH if not already added")
 
 	return nil
 }
@@ -126,7 +129,8 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 		return err
 	}
 
-	logging.GetLogger(ctx).Info("created shim", "path", shimPath, "target", workspacedPath)
+	logger := logging.GetLogger(ctx)
+	logger.Info("created shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
 
@@ -151,7 +155,8 @@ func createMiseShim(ctx context.Context) error {
 		return err
 	}
 
-	logging.GetLogger(ctx).Info("created mise shim", "path", shimPath, "target", misePath)
+	logger := logging.GetLogger(ctx)
+	logger.Info("created mise shim", "path", shimPath, "target", misePath)
 	return nil
 }
 

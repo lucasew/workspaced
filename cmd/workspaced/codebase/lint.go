@@ -1,9 +1,9 @@
 package codebase
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -13,6 +13,8 @@ import (
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 	"github.com/spf13/cobra"
+
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -60,24 +62,32 @@ func saveSarifToCI(report *sarif.Report) {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				slog.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
+				c := context.Background()
+	logger := logging.GetLogger(c)
+				logger.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
 				continue
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			file, err := os.Create(sarifPath)
 			if err != nil {
-				slog.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
+				c := context.Background()
+	logger := logging.GetLogger(c)
+				logger.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
 				continue
 			}
 
 			encoder := json.NewEncoder(file)
 			encoder.SetIndent("", "  ")
 			if err := encoder.Encode(report); err != nil {
-				slog.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
+				c := context.Background()
+	logger := logging.GetLogger(c)
+				logger.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
 			if err := file.Close(); err != nil {
-				slog.Warn("failed to close SARIF report file", "sarif_path", sarifPath, "error", err)
+				c := context.Background()
+	logger := logging.GetLogger(c)
+				logger.Warn("failed to close SARIF report file", "sarif_path", sarifPath, "error", err)
 			}
 		}
 	}

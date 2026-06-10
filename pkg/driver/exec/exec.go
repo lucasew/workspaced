@@ -2,9 +2,10 @@ package exec
 
 import (
 	"context"
-	"log/slog"
 	"os/exec"
+
 	"workspaced/pkg/driver"
+	"workspaced/pkg/logging"
 )
 
 // Driver provides platform-specific command execution.
@@ -28,7 +29,8 @@ func IsBinaryAvailable(ctx context.Context, name string) bool {
 
 // Run creates an exec.Cmd using the selected driver.
 func Run(ctx context.Context, name string, args ...string) (*exec.Cmd, error) {
-	slog.Debug("running command", "name", name, "args", args)
+	logger := logging.GetLogger(ctx)
+	logger.Debug("running command", "name", name, "args", args)
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {
 		return nil, err

@@ -3,9 +3,10 @@ package github
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 	"strings"
+
+	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/modfile/sourceprovider/common"
 )
@@ -58,8 +59,9 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 		return "", fmt.Errorf("source alias %q (github) requires repo", alias)
 	}
 
-	slog.Info("resolving github source", "alias", s.Alias, "repo", s.Repo(), "ref", s.Ref(), "url", s.Config.URL)
-	return common.EnsureCachedDir("github", s.CacheKey(), func(tmpDir string) error {
+	logger := logging.GetLogger(ctx)
+	logger.Info("resolving github source", "alias", s.Alias, "repo", s.Repo(), "ref", s.Ref(), "url", s.Config.URL)
+	return common.EnsureCachedDir(ctx, "github", s.CacheKey(), func(tmpDir string) error {
 		meta, err := downloadAndExtractTarball(ctx, s, tmpDir, "")
 		if err != nil {
 			return fmt.Errorf("failed to fetch source %q: %w", alias, err)
@@ -67,7 +69,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 		if err := s.WriteMeta(tmpDir, meta); err != nil {
 			return fmt.Errorf("failed to write source metadata: %w", err)
 		}
-		slog.Info("fetched github source", "alias", s.Alias, "url", meta.URL, "sha256", meta.Hash)
+		logger.Info("fetched github source", "alias", s.Alias, "url", meta.URL, "sha256", meta.Hash)
 		return nil
 	})
 }

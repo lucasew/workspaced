@@ -28,6 +28,7 @@ import (
 var Registry cmdregistry.CommandRegistry
 
 func main() {
+	baseCtx := context.Background()
 	if os.Getenv("REBUILD_TEST") != "" {
 		exe, err := os.Executable()
 		if err != nil {
@@ -38,15 +39,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		defer logging.Close(context.Background(), f, "path", exe)
+		defer logging.Close(baseCtx, f, "path", exe)
 		if _, err = io.Copy(h, f); err != nil {
 			panic(err)
 		}
-		logging.GetLogger(context.Background()).Info("build time", "t", h.Sum(nil))
+		logging.GetLogger(baseCtx).Info("build time", "t", h.Sum(nil))
 	}
 	// Load home config early to set driver weights.
 	if _, err := configcue.LoadHome(); err != nil {
-		logging.GetLogger(context.Background()).Debug("failed to load config", "error", err)
+		logging.GetLogger(baseCtx).Debug("failed to load config", "error", err)
 	}
 
 	var verbose bool
@@ -92,7 +93,8 @@ func main() {
 			var err error
 			stopProfiling, err = startProfiling(cpuPath, memPath)
 			if err == nil && (cpuPath != "" || memPath != "") {
-				logging.GetLogger(context.Background()).Info("profiling started", "cpu", cpuPath, "mem", memPath)
+				logger := logging.GetLogger(baseCtx)
+				logger.Info("profiling started", "cpu", cpuPath, "mem", memPath)
 			}
 			return err
 		},
@@ -102,7 +104,8 @@ func main() {
 			// g.RunBubbleTea and are ignored on dumb terminals).
 			if rootGroup != nil {
 				if err := rootGroup.Wait(); err != nil {
-					logging.GetLogger(context.Background()).Error("task group error", "err", err)
+					logger := logging.GetLogger(baseCtx)
+					logger.Error("task group error", "err", err)
 				}
 			}
 
@@ -111,7 +114,8 @@ func main() {
 			}
 			err := stopProfiling()
 			if err == nil && (cpuProfilePath != "" || memProfilePath != "" || os.Getenv("WORKSPACED_CPUPROFILE") != "" || os.Getenv("WORKSPACED_MEMPROFILE") != "") {
-				logging.GetLogger(context.Background()).Info("profiling finished")
+				logger := logging.GetLogger(baseCtx)
+				logger.Info("profiling finished")
 			}
 			stopProfiling = nil
 			return err
@@ -131,10 +135,12 @@ func main() {
 	if err := cmd.Execute(); err != nil {
 		if stopProfiling != nil {
 			if stopErr := stopProfiling(); stopErr != nil {
-				logging.GetLogger(context.Background()).Error("failed to stop profiling", "err", stopErr)
+				logger := logging.GetLogger(baseCtx)
+				logger.Error("failed to stop profiling", "err", stopErr)
 			}
 		}
-		logging.GetLogger(context.Background()).Error("error", "err", err)
+		logger := logging.GetLogger(baseCtx)
+		logger.Error("error", "err", err)
 		os.Exit(1)
 	}
 }
@@ -157,7 +163,8 @@ func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error)
 			return nil, fmt.Errorf("failed to create cpuprofile file: %w", err)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			logging.Close(context.Background(), f, slog.String("path", cpuProfilePath))
+			pctx := context.Background()
+			logging.Close(pctx, f, slog.String("path", cpuProfilePath))
 			return nil, fmt.Errorf("failed to start CPU profile: %w", err)
 		}
 		cpuFile = f
@@ -180,7 +187,8 @@ func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error)
 			}
 			runtime.GC()
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				logging.Close(context.Background(), f, slog.String("path", memProfilePath))
+				pctx := context.Background()
+				logging.Close(pctx, f, slog.String("path", memProfilePath))
 				return fmt.Errorf("failed to write heap profile: %w", err)
 			}
 			if err := f.Close(); err != nil {
