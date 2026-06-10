@@ -28,19 +28,21 @@ func init() {
 		parent.AddCommand(&cobra.Command{
 			Use:   "plain",
 			Short: "Run tasks under the root group; observe plain-style rendering behavior",
-			Long: `Schedules some work on a SubGroup. The actual rendering is performed by
-the renderer started in the root command's PersistentPreRunE.
+			Long: `Schedules some work on the group from context but deliberately does NOT
+call g.RunBubbleTea().
 
-You will see "plain" output when the root renderer chose plain mode
-(i.e. when stdout/stderr is not a tty, when TERM=dumb, CI=1, or NO_COLOR
-is set). This is the same renderer (output.Plain) that the root selects
-via output.Auto.`,
+This produces plain structured slog output for the logs emitted from inside
+the tasks (via logging.GetLogger(ctx).Info etc). To force this plain path
+on a tty you can set TERM=dumb (or CI=1 or NO_COLOR).
+
+This demonstrates the default (no TUI) behavior that all non-demo commands
+use: they schedule work via the primitives and never start bubbletea.`,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				g := taskgroup.MustFromContext(cmd.Context())
 				logger := logging.GetLogger(cmd.Context())
 				logger.Info("Group obtained with MustFromContext (enforced rule).")
-				logger.Info("Work runs under the root task group + its renderer.")
-				logger.Info("Pipe the command or set TERM=dumb/CI=1 to force plain mode.")
+				logger.Info("This demo does not call RunBubbleTea, so you get plain slog output.")
+				logger.Info("Pipe the command or set TERM=dumb/CI=1/NO_COLOR to observe plain behavior on tty.")
 
 				g.Go("fetch", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 					logger := logging.GetLogger(ctx)
@@ -74,11 +76,7 @@ via output.Auto.`,
 					return nil
 				}, "process")
 
-				if err := g.Wait(); err != nil {
-					return err
-				}
-				logger.Info("\n(tasks finished; root renderer (plain or interactive) drove the output above)")
-				return nil
+				return g.RunBubbleTea()
 			},
 		})
 	})
@@ -130,6 +128,11 @@ func init() {
 				})
 
 				time.Sleep(30 * time.Millisecond)
+
+				// Showcase: opt into bubbletea renderer via the group method.
+				// Child subgroup bars are not on the parent snapshot (by design),
+				// but logs still flow and the parent "bundle" task will show a bar.
+				_ = g.RunBubbleTea()
 				return nil
 			},
 		})
@@ -140,16 +143,16 @@ func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		parent.AddCommand(&cobra.Command{
 			Use:   "loop",
-			Short: "Demo a 5-iteration loop using the taskgroup primitive + Bubble Tea UI (in pkg/taskgroup)",
-			Long: `Cmd is a thin entrypoint.
-It gets the group from context (spread by root), schedules work using the task primitive
-(g.Go + s.Update/s.Progress for the progressbar thing, plus context logger which feeds
-the group's log buffers via recorder + onLog), then calls the Bubble Tea renderer from the
-group system (taskgroup.Run) to render it. The taskgroup (with Status) is the core primitive.`,
+			Short: "Demo a 5-iteration loop (like the other demos: schedule on group from context and return)",
+			Long: `Uses exactly the same primitives as "tasks", "plain", and "nested":
+- g := taskgroup.MustFromContext(cmd.Context())
+- g.Go("loop-demo", ..., func(ctx, s) { logger := ...; logger.Info(...); s.Update(...); s.Progress(...) })
+- g.RunBubbleTea()  (opt-in; the group method starts the bubbletea UI for this demo
+  only, and is a no-op on TERM=dumb / non-tty. Other commands never call it.)`,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				g := taskgroup.MustFromContext(cmd.Context())
 
-				// Schedule using the task primitive. Only uses group's progress API and context logger.
+				// Schedule using the task primitive (same as all other demos).
 				g.Go("loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 					logger := logging.GetLogger(ctx)
 					for i := 1; i <= 5; i++ {
@@ -161,10 +164,9 @@ group system (taskgroup.Run) to render it. The taskgroup (with Status) is the co
 					return nil
 				})
 
-				// Delegate to the Bubble Tea renderer that is part of the taskgroup
-				// system. It observes the group (Snapshot for progressbar state from
-				// Status, logs from the buffers fed by context logger).
-				return taskgroup.Run(g)
+				// Kick in bubbletea (group method). Ignored automatically on dumb term.
+				// This is what makes the demo show live bars + logs scrolling above them.
+				return g.RunBubbleTea()
 			},
 		})
 	})

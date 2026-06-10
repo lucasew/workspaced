@@ -18,18 +18,21 @@ func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "demo",
 		Short: "Showcase the output rendering and task system",
-		Long: `The demo command exercises the taskgroup execution engine and the
-interactive/plain output renderers that were recently added.
+		Long: `The demo command exercises the taskgroup primitive (g.Go + Status + context slog)
+and the opt-in bubbletea renderer (a Group method).
+
+All demos use the exact same rules as production code:
+- only root may New the group; everything else does MustFromContext
+- schedule with g.Go(..., func(ctx, s){ logger:=logging.GetLogger(ctx); ... s.Update/Progress })
+- bubbletea UI is opt-in via g.RunBubbleTea() (demos call it; normal cmds never do)
+- RunBubbleTea is a no-op (plain Wait + normal slog) when TERM=dumb / CI / non-tty
 
 Run subcommands to see different aspects:
-  workspaced demo          - default: runs the tasks showcase (same as "tasks")
-  workspaced demo tasks    - schedules work directly on the root group from context
-  workspaced demo plain    - runs tasks under the root group; root renderer appears
-                             "plain" on non-ttys, pipes, CI, TERM=dumb, etc.
-  workspaced demo nested   - demonstrates creating a SubGroup from the one in context
-  workspaced demo loop     - thin cmd entrypoint: gets group from context, schedules task
-                             using the primitive (g.Go + s.Update/Progress + context logger),
-                             then calls taskgroup.Run (Bubble Tea in the group system) to render`,
+  workspaced demo          - default tasks showcase (calls RunBubbleTea)
+  workspaced demo tasks    - same as above
+  workspaced demo plain    - schedules but does NOT call RunBubbleTea (plain transcript)
+  workspaced demo nested   - SubGroup + explicit RunBubbleTea
+  workspaced demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare "demo" runs the main tasks showcase for convenience.
 			return runTasksDemo(cmd)
@@ -47,7 +50,7 @@ func runTasksDemo(cmd *cobra.Command) error {
 	logger := logging.GetLogger(cmd.Context())
 
 	logger.Info("Scheduling work on the task group obtained via MustFromContext.")
-	logger.Info("Watch the progress UI on stderr (managed by root.go + output renderer).")
+	logger.Info("This demo calls g.RunBubbleTea() to kick in the (opt-in) bubbletea UI.")
 	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
 
 	// Internet task with determinate progress + logs.
@@ -134,5 +137,9 @@ func runTasksDemo(cmd *cobra.Command) error {
 		return fmt.Errorf("simulated 503 from registry (demo failure)")
 	}, "build")
 
+	// Opt-in to the bubbletea renderer (the group method). This is ignored
+	// automatically if TERM=dumb / non-tty / CI. Normal commands never call
+	// this, so bubbletea does not run for them.
+	_ = g.RunBubbleTea()
 	return nil
 }

@@ -17,7 +17,6 @@ import (
 	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/output"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/taskgroup"
 	_ "workspaced/pkg/tool/prelude"
@@ -56,7 +55,7 @@ func main() {
 	var memProfilePath string
 	var stopProfiling func() error
 	var rootGroup *taskgroup.Group
-	var renderDone chan struct{}
+
 
 	cmd := &cobra.Command{
 		Use:     "workspaced",
@@ -74,18 +73,6 @@ func main() {
 			var groupCtx context.Context
 			rootGroup, groupCtx = taskgroup.New(c.Context(), limits)
 			c.SetContext(groupCtx)
-
-			// Start Bubble Tea based renderer (replaces the old ANSI one).
-			// Logs from the taskgroup (via context logger) are printed using
-			// the tea program's Printf (the file under the hood), so they are
-			// coordinated with the TUI renders. The bar is re-rendered after
-			// each log (moved down).
-			renderDone = make(chan struct{})
-			go func() {
-				defer close(renderDone)
-				r := output.NewBubbleTeaRenderer(os.Stderr)
-				_ = r.Run(rootGroup)
-			}()
 
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -111,14 +98,13 @@ func main() {
 			return err
 		},
 		PersistentPostRunE: func(c *cobra.Command, args []string) error {
-			// Wait for any root-level tasks to complete and the renderer to finish.
+			// Wait for any root-level tasks (the group is the source of truth
+			// for work; renderers like bubbletea are opt-in per-command via
+			// g.RunBubbleTea and are ignored on dumb terminals).
 			if rootGroup != nil {
 				if err := rootGroup.Wait(); err != nil {
 					slog.Error("task group error", "err", err)
 				}
-			}
-			if renderDone != nil {
-				<-renderDone
 			}
 
 			if stopProfiling == nil {

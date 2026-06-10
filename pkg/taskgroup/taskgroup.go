@@ -243,6 +243,11 @@ type Group struct {
 	wg sync.WaitGroup
 
 	onLog func(taskName, msg string)
+
+	// usingBubbleTea is set while a bubbletea renderer (RunBubbleTea) is active
+	// for this group. It tells per-task logRecorders to skip normal slog delegate
+	// (the renderer owns visible emission via prog.Printf) to avoid duplicate lines.
+	usingBubbleTea bool
 }
 
 // New creates a root Group with the given pool limits.
@@ -272,6 +277,21 @@ func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
 	g.mu.Unlock()
+}
+
+// setUsingBubbleTea marks that a bubbletea renderer is driving output for this
+// group (used by logRecorder to decide whether to skip normal delegate).
+func (g *Group) setUsingBubbleTea(v bool) {
+	g.mu.Lock()
+	g.usingBubbleTea = v
+	g.mu.Unlock()
+}
+
+// isUsingBubbleTea reports whether a bubbletea renderer currently owns emission.
+func (g *Group) isUsingBubbleTea() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.usingBubbleTea
 }
 
 // MustFromContext is like FromContext but panics if no Group is present in
@@ -323,13 +343,15 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 }
 
 // logRecorder is a slog.Handler wrapper used for task execution.
-// It delegates to the real handler (so full structured logs still go to
-// slog sinks) and also appends a formatted version (message + attrs) to
-// the task's log buffer. This makes logs from inside tasks appear in the
-// renderer's log area with similar formatting to standard slog output.
+// It appends a formatted version (message + attrs) to the task's log buffer
+// (for Snapshot + any attached renderer) and delegates to the real handler
+// for normal slog output. When a bubbletea renderer is active on the group
+// (see RunBubbleTea), it skips the delegate and lets the renderer's
+// prog.Printf path own the visible emission (prevents duplicate lines).
 type logRecorder struct {
 	slog.Handler
-	append func(string)
+	append         func(string)
+	group          *Group // for runtime isUsingBubbleTea check (supports opt-in after schedule)
 }
 
 func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
@@ -354,10 +376,17 @@ func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 		})
 		r.append(b.String())
 	}
-	// Do not delegate to the real handler. This way, task logs are only
-	// output through the renderer's mechanism (e.g. prog.Printf when using
-	// Bubble Tea), so the log writer uses the file that tea.Printf uses
-	// under the hood.
+	// Skip normal delegate while a bubbletea renderer owns visible output
+	// (it uses prog.Printf on the tea writer so logs scroll naturally and
+	// bars are redrawn below). This prevents duplicate prints for TUI demos.
+	// When no renderer is active (normal commands), we always delegate so
+	// context-logger calls inside tasks produce real slog output.
+	if r.group != nil && r.group.isUsingBubbleTea() {
+		return nil
+	}
+	if r.Handler != nil {
+		return r.Handler.Handle(ctx, rec)
+	}
 	return nil
 }
 
@@ -365,6 +394,7 @@ func (r *logRecorder) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &logRecorder{
 		Handler: r.Handler.WithAttrs(attrs),
 		append:  r.append,
+		group:   r.group,
 	}
 }
 
@@ -372,6 +402,7 @@ func (r *logRecorder) WithGroup(name string) slog.Handler {
 	return &logRecorder{
 		Handler: r.Handler.WithGroup(name),
 		append:  r.append,
+		group:   r.group,
 	}
 }
 
@@ -427,6 +458,7 @@ func (g *Group) runTask(t *taskEntry) {
 		tagged := base.With("task", t.name)
 		rec := &logRecorder{
 			Handler: tagged.Handler(),
+			group:   g,
 			append: func(msg string) {
 				t.status.mu.Lock()
 				t.status.logs = append(t.status.logs, msg)
@@ -485,11 +517,12 @@ func (g *Group) Snapshot() []TaskState {
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	child := &Group{
-		byName: make(map[string]*taskEntry),
-		pools:  g.pools, // shared pools
-		ctx:    ctx,
-		cancel: cancel,
-		onLog:  g.onLog,
+		byName:         make(map[string]*taskEntry),
+		pools:          g.pools, // shared pools
+		ctx:            ctx,
+		cancel:         cancel,
+		onLog:          g.onLog,
+		usingBubbleTea: g.usingBubbleTea,
 	}
 	return child, context.WithValue(ctx, contextKey{}, child)
 }

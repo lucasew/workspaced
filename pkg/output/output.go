@@ -24,6 +24,6 @@ type WriterRenderer interface {
 	Writer() io.Writer
 }
 
-// Note: Auto(), NewBubbleTeaRenderer, and the renderers are now implemented
-// in bubbletea.go using Bubble Tea (replacing the old ANSI versions).
-// The old interactive/plain ANSI code has been removed.
+// Note: Auto() and NewBubbleTeaRenderer are thin wrappers. The real
+// implementation (including the opt-in Group method, dumb-term guard and
+// natural log scrolling) lives in pkg/taskgroup as RunBubbleTea.

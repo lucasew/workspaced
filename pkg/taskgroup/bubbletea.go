@@ -1,166 +1,115 @@
 package taskgroup
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
-// BubbleTeaModel is a Bubble Tea model that observes a Group (the core
-// primitive for concurrent work + progress reporting via Status).
-// It drives progress bars from Snapshot (using Current/Total and Message
-// from Status) and logs from the per-task log buffers (populated when using
-// the context logger inside tasks, or via SetLogHandler / Status.Log).
-// This is part of the group system, usable by any UI layer (replacing or
-// alongside the ANSI renderer in pkg/output).
-//
-// Cmd entrypoints obtain the group from context (spread from root), schedule
-// work on it using the task primitive (g.Go + s.Update/s.Progress + context
-// logger), then call Run or use the model.
-type BubbleTeaModel struct {
-	progress map[string]progress.Model // per-task progress bars, using the group's Status primitive
-	logs     []string
-	status   string
-	done     bool
-
-	group    *Group
-	lastLogs map[string]int
-	updates  chan tea.Msg
-}
-
-var (
-	btTitleStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	btLogStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-)
-
-// NewBubbleTeaModel returns a model for the given group.
-func NewBubbleTeaModel(g *Group) BubbleTeaModel {
-	return BubbleTeaModel{
-		progress: make(map[string]progress.Model),
-		status:   "running...",
-		group:    g,
-		lastLogs: make(map[string]int),
-		updates:  make(chan tea.Msg, 32),
-	}
-}
-
-// Run starts a Bubble Tea program for the group (AltScreen).
+// Run starts a Bubble Tea renderer for the group. It is a convenience wrapper
+// around g.RunBubbleTea(). See RunBubbleTea for the opt-in behavior and
+// TERM=dumb handling.
 func Run(g *Group) error {
-	m := NewBubbleTeaModel(g)
-	// No AltScreen: no fullscreen takeover. The program renders the current
-	// bars (from group's Status) and logs (fed by context logger via buffers/handler)
-	// inline. Logs via the handler use prog.Printf to go through tea's output.
-	p := tea.NewProgram(m)
-	_, err := p.Run()
-	return err
+	if g == nil {
+		return nil
+	}
+	return g.RunBubbleTea()
 }
 
-type (
-	btLogMsg      string
-	btProgressMsg struct {
-		percent float64
-		status  string
+// isInteractiveTerminal returns false for TERM=dumb, NO_COLOR, CI, or when
+// stderr is not a character device. This is the guard so the bubbletea
+// kick-in becomes a plain Wait() for non-ttys / CI etc.
+func isInteractiveTerminal() bool {
+	if os.Getenv("TERM") == "dumb" {
+		return false
 	}
-	btDoneMsg struct{}
-)
-
-func (m BubbleTeaModel) Init() tea.Cmd {
-	if m.group != nil {
-		m.group.SetLogHandler(func(name, msg string) {
-			m.updates <- btLogMsg(fmt.Sprintf("[%s] %s", name, msg))
-		})
+	if os.Getenv("NO_COLOR") != "" {
+		return false
 	}
-	return tea.Batch(
-		m.waitForLogs(),
-		m.poll(),
-	)
+	if os.Getenv("CI") != "" {
+		return false
+	}
+	fi, err := os.Stderr.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
-func (m BubbleTeaModel) waitForLogs() tea.Cmd {
-	return func() tea.Msg {
-		return <-m.updates
+type refreshMsg struct{}
+
+type bubbleModel struct {
+	group    *Group
+	progress map[string]progress.Model
+	statuses map[string]string
+}
+
+func newBubbleModel(g *Group) bubbleModel {
+	return bubbleModel{
+		group:    g,
+		progress: make(map[string]progress.Model),
+		statuses: make(map[string]string),
 	}
 }
 
-func (m BubbleTeaModel) poll() tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+type tickMsg time.Time
+
+func (m bubbleModel) Init() tea.Cmd {
+	return m.tick()
+}
+
+func (m bubbleModel) tick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case tea.KeyMsg:
+		km := msg.(tea.KeyMsg)
+		if km.String() == "q" || km.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+	case tickMsg, refreshMsg:
 		if m.group == nil {
-			return nil
+			return m, m.tick()
 		}
 		snap := m.group.Snapshot()
-		for _, t := range snap {
-			// General for any tasks (the primitive). Use Status data for progress.
-			if t.State == Running || t.State == Pending {
-				if _, ok := m.progress[t.Name]; !ok {
-					m.progress[t.Name] = progress.New(progress.WithDefaultGradient())
-				}
-				p := m.progress[t.Name]
-				pct := 0.0
-				if t.Total > 0 {
-					pct = float64(t.Current) / float64(t.Total)
-				}
-				p.SetPercent(pct)
-				m.progress[t.Name] = p
-				last := m.lastLogs[t.Name]
-				if len(t.Logs) > last {
-					for _, line := range t.Logs[last:] {
-						m.updates <- btLogMsg(fmt.Sprintf("[%s] %s", t.Name, line))
-					}
-					m.lastLogs[t.Name] = len(t.Logs)
-				}
-				return btProgressMsg{
-					percent: pct,
-					status:  t.Message,
-				}
-			}
-		}
-		// Check if all done
 		allDone := true
 		for _, t := range snap {
 			if t.State != Done && t.State != Failed {
 				allDone = false
-				break
+			}
+			if t.State == Running {
+				if _, ok := m.progress[t.Name]; !ok {
+					m.progress[t.Name] = progress.New(progress.WithDefaultGradient())
+				}
+				p := m.progress[t.Name]
+				if t.Total > 0 {
+					pct := float64(t.Current) / float64(t.Total)
+					p.SetPercent(pct)
+					m.progress[t.Name] = p
+				}
+				m.statuses[t.Name] = t.Message
+			} else {
+				delete(m.progress, t.Name)
+				delete(m.statuses, t.Name)
 			}
 		}
 		if allDone && len(snap) > 0 {
-			return btDoneMsg{}
-		}
-		return nil
-	})
-}
-
-func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "q" || msg.String() == "ctrl+c" || msg.String() == "esc" {
 			return m, tea.Quit
 		}
-	case btLogMsg:
-		m.logs = append(m.logs, string(msg))
-		if len(m.logs) > 12 {
-			m.logs = m.logs[len(m.logs)-12:]
-		}
-		return m, m.waitForLogs()
-	case btProgressMsg:
-		// The poll already updates the per-task progress map using the group's Status.
-		if msg.status != "" {
-			m.status = msg.status
-		}
-		if msg.percent >= 1.0 {
-			m.done = true
-			m.status = "Done! Press q to quit."
-			return m, nil
-		}
-		return m, m.poll()
-	case btDoneMsg:
-		m.done = true
-		m.status = "All done! Press q to quit."
-		return m, nil
+		return m, m.tick()
 	}
-	// Forward to all progress components for animation etc.
+
+	// Forward animation ticks etc to the progress bubbles.
 	for name, p := range m.progress {
 		pi, cmd := p.Update(msg)
 		m.progress[name] = pi.(progress.Model)
@@ -169,23 +118,77 @@ func (m BubbleTeaModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m BubbleTeaModel) View() string {
-	s := btTitleStyle.Render("workspaced taskgroup progress (bubbletea renderer)") + "\n\n"
-	// General: show progress bars for tasks using the group's Status data (the primitive).
+func (m bubbleModel) View() string {
+	s := ""
 	for name, p := range m.progress {
-		st := m.status
-		s += fmt.Sprintf("%s: %s\n", name, st)
-		s += p.View() + "\n\n"
-	}
-	if m.status != "" {
-		s += m.status + "\n\n"
-	}
-	s += "Logs (from taskgroup + context logger):\n"
-	for _, l := range m.logs {
-		s += "  " + btLogStyle.Render(l) + "\n"
-	}
-	if !m.done {
-		s += "\n" + btLogStyle.Render("press q to quit")
+		st := m.statuses[name]
+		if st == "" {
+			st = "running"
+		}
+		s += fmt.Sprintf("%s: %s %s\n", name, p.View(), st)
 	}
 	return s
+}
+
+// RunBubbleTea is the group method that kicks in the bubbletea progress+log
+// system for this Group.
+//
+// It is opt-in only: normal commands (self-update, backup, etc) never call it,
+// so bubbletea does not run for them.
+//
+// If the terminal is "dumb" (TERM=dumb, NO_COLOR, CI, or stderr is not a tty),
+// this becomes a no-op that simply waits for the group to finish (plain
+// transcript via normal slog from the context loggers inside tasks).
+//
+// When interactive, it starts a tea.Program (no AltScreen), wires task logs
+// (from the context logger inside Go funcs) through prog.Printf so they use
+// the same output file as tea and naturally scroll above the bars; after each
+// log it sends a refresh so the progress bars are re-rendered below the new
+// line ("bar moved down").
+//
+// Call it from showcase commands after you have done your g.Go(...) scheduling,
+// e.g. at the end of a demo RunE: return g.RunBubbleTea()
+func (g *Group) RunBubbleTea() error {
+	if g == nil {
+		return nil
+	}
+	if !isInteractiveTerminal() {
+		// Dumb/non-tty: plain behavior, just wait. No TUI side effects.
+		return g.Wait()
+	}
+
+	model := newBubbleModel(g)
+	prog := tea.NewProgram(model, tea.WithOutput(os.Stderr))
+
+	// Wire logs from tasks (via the onLog hook that the recorder calls)
+	// to go through prog.Printf. This makes the log writer be the file
+	// that tea uses under the hood, producing natural "print log then bar below".
+	g.SetLogHandler(func(taskName, msg string) {
+		// Emit using standard slog text formatting (same as outside groups).
+		rec := slog.NewRecord(time.Now(), slog.LevelInfo, msg, 0)
+		rec.AddAttrs(slog.String("task", taskName))
+		var buf bytes.Buffer
+		h := slog.NewTextHandler(&buf, &slog.HandlerOptions{})
+		_ = h.Handle(context.Background(), rec)
+		prog.Printf("%s", buf.String())
+		prog.Send(refreshMsg{})
+	})
+
+	g.setUsingBubbleTea(true)
+	defer g.setUsingBubbleTea(false)
+
+	_, err := prog.Run()
+
+	// Clear handler after exit.
+	g.SetLogHandler(nil)
+
+	// Surface any task error (the prog just waits for done state; Wait
+	// returns the first error if any). Demos often ignore it to match
+	// previous behavior where failure was observed in PostRun.
+	if werr := g.Wait(); werr != nil {
+		if err == nil {
+			err = werr
+		}
+	}
+	return err
 }
