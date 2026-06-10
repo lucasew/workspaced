@@ -121,6 +121,31 @@ func TestSnapshot(t *testing.T) {
 	}
 }
 
+func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
+	g, _ := New(context.Background(), DefaultLimits())
+	var got []string
+	g.SetLogHandler(func(taskName, msg string) {
+		got = append(got, msg)
+	})
+
+	g.Go("fetch", Internet, func(ctx context.Context, s *Status) error {
+		logging.GetLogger(ctx).Info("http response", "status", "200 OK")
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	const want = `INFO http response task=fetch status="200 OK"`
+	if len(got) != 1 || got[0] != want {
+		t.Fatalf("log line = %#v, want [%q]", got, want)
+	}
+	snap := g.Snapshot()
+	if len(snap) != 1 || len(snap[0].Logs) != 1 || snap[0].Logs[0] != want {
+		t.Fatalf("snapshot logs = %#v, want [%q]", snap, want)
+	}
+}
+
 func TestSubGroup(t *testing.T) {
 	// Pool size must be >= 2: parent holds one CPU slot, child needs another.
 	g, ctx := New(context.Background(), Limits{IO: 2, CPU: 2, Internet: 2})

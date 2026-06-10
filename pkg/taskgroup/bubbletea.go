@@ -1,10 +1,7 @@
 package taskgroup
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -197,13 +194,7 @@ func (g *Group) RunBubbleTea() error {
 	// The bar rendering + animation + Snapshot polling still goes through the
 	// tea program and bubbles/progress.
 	g.SetLogHandler(func(taskName, msg string) {
-		// Emit using standard slog text formatting (same as outside groups).
-		rec := slog.NewRecord(time.Now(), slog.LevelInfo, msg, 0)
-		rec.AddAttrs(slog.String("task", taskName))
-		var buf bytes.Buffer
-		h := slog.NewTextHandler(&buf, &slog.HandlerOptions{})
-		_ = h.Handle(context.Background(), rec)
-		prog.Printf("%s", strings.TrimSpace(buf.String()))
+		prog.Printf("%s", strings.TrimSpace(msg))
 		prog.Send(refreshMsg{})
 	})
 

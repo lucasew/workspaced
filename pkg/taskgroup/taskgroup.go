@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -104,9 +105,9 @@ type Status struct {
 	message string
 	current int64
 	total   int64
-	logs  []string
-	onLog func(taskName, msg string)
-	name  string
+	logs    []string
+	onLog   func(taskName, msg string)
+	name    string
 }
 
 // Update sets the current status message (shown in the progress bar).
@@ -361,31 +362,14 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 // prog.Printf path own the visible emission (prevents duplicate lines).
 type logRecorder struct {
 	slog.Handler
-	append         func(string)
-	group          *Group // for runtime isUsingBubbleTea check (supports opt-in after schedule)
+	append func(string)
+	group  *Group // for runtime isUsingBubbleTea check (supports opt-in after schedule)
+	attrs  []slog.Attr
 }
 
 func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 	if r.append != nil {
-		// Format the log similarly to standard slog output (message + attrs
-		// as key=value) so the same information appears in the renderer's
-		// managed log area (the "up there" logs above progress bars or in
-		// the plain transcript), not just the bare message.
-		var b strings.Builder
-		b.WriteString(rec.Message)
-		rec.Attrs(func(a slog.Attr) bool {
-			if a.Key == "task" {
-				// The renderer already prefixes with [taskname], so skip
-				// to avoid redundancy in the UI log line.
-				return true
-			}
-			b.WriteString(" ")
-			b.WriteString(a.Key)
-			b.WriteString("=")
-			fmt.Fprintf(&b, "%v", a.Value.Any())
-			return true
-		})
-		r.append(b.String())
+		r.append(formatPlainLogRecord(rec, r.attrs))
 	}
 	// Skip normal delegate while a bubbletea renderer owns visible output
 	// (it uses prog.Printf on the tea writer so logs scroll naturally and
@@ -402,10 +386,14 @@ func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 }
 
 func (r *logRecorder) WithAttrs(attrs []slog.Attr) slog.Handler {
+	nextAttrs := make([]slog.Attr, 0, len(r.attrs)+len(attrs))
+	nextAttrs = append(nextAttrs, r.attrs...)
+	nextAttrs = append(nextAttrs, attrs...)
 	return &logRecorder{
 		Handler: r.Handler.WithAttrs(attrs),
 		append:  r.append,
 		group:   r.group,
+		attrs:   nextAttrs,
 	}
 }
 
@@ -414,7 +402,61 @@ func (r *logRecorder) WithGroup(name string) slog.Handler {
 		Handler: r.Handler.WithGroup(name),
 		append:  r.append,
 		group:   r.group,
+		attrs:   r.attrs,
 	}
+}
+
+func formatPlainLogRecord(rec slog.Record, leadingAttrs []slog.Attr) string {
+	var b strings.Builder
+	b.WriteString(rec.Level.String())
+	if rec.Message != "" {
+		b.WriteByte(' ')
+		b.WriteString(rec.Message)
+	}
+	for _, a := range leadingAttrs {
+		appendPlainLogAttr(&b, a)
+	}
+	rec.Attrs(func(a slog.Attr) bool {
+		appendPlainLogAttr(&b, a)
+		return true
+	})
+	return b.String()
+}
+
+func appendPlainLogAttr(b *strings.Builder, a slog.Attr) {
+	a.Value = a.Value.Resolve()
+	if a.Equal(slog.Attr{}) {
+		return
+	}
+	b.WriteByte(' ')
+	b.WriteString(a.Key)
+	b.WriteByte('=')
+	b.WriteString(formatPlainLogValue(a.Value))
+}
+
+func formatPlainLogValue(v slog.Value) string {
+	v = v.Resolve()
+	switch v.Kind() {
+	case slog.KindString:
+		return quotePlainLogString(v.String())
+	case slog.KindBool:
+		return strconv.FormatBool(v.Bool())
+	case slog.KindInt64:
+		return strconv.FormatInt(v.Int64(), 10)
+	case slog.KindUint64:
+		return strconv.FormatUint(v.Uint64(), 10)
+	case slog.KindFloat64:
+		return strconv.FormatFloat(v.Float64(), 'g', -1, 64)
+	default:
+		return quotePlainLogString(fmt.Sprint(v.Any()))
+	}
+}
+
+func quotePlainLogString(s string) string {
+	if s == "" || strings.ContainsAny(s, " \t\r\n=\"") {
+		return strconv.Quote(s)
+	}
+	return s
 }
 
 func (g *Group) runTask(t *taskEntry) {
@@ -470,6 +512,7 @@ func (g *Group) runTask(t *taskEntry) {
 		rec := &logRecorder{
 			Handler: tagged.Handler(),
 			group:   g,
+			attrs:   []slog.Attr{slog.String("task", t.name)},
 			append: func(msg string) {
 				t.status.mu.Lock()
 				t.status.logs = append(t.status.logs, msg)
