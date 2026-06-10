@@ -38,7 +38,7 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 			return "", fmt.Errorf("rsync requires src and dst")
 		}
 		logging.GetLogger(ctx).Info("rsync sync", "from", a.Src, "to", a.Dst)
-		args := append([]string{"-avP", a.Src, a.Dst}, extraArgs...)
+		args := append(extraArgs, "-avP", a.Src, a.Dst)
 		cmd := execdriver.MustRun(ctx, "rsync", args...)
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
