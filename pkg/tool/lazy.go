@@ -140,7 +140,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		// Internet pool with per-tool Status updates and proper logging attribution.
 		_, mapErr := taskgroup.Map(ctx, taskgroup.Internet, needsWork,
 			func(i int, name string) string { return "tool:" + name },
-			func(cctx context.Context, s *taskgroup.Status, name string) (struct{}, error) {
+			func(ctx context.Context, s *taskgroup.Status, name string) (struct{}, error) {
 				toolCfg := lazyTools[name]
 				spec, lockRef, err := lazyToolSpec(name, toolCfg)
 				if err != nil {
@@ -150,9 +150,9 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 				version := spec.Version
 				if version == "" || version == "latest" {
 					s.Update("resolving latest for " + name)
-					l := logging.GetLogger(cctx)
+					l := logging.GetLogger(ctx)
 					l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-					v, err := mgr.ResolveLatestVersion(cctx, spec)
+					v, err := mgr.ResolveLatestVersion(ctx, spec)
 					if err != nil {
 						l.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
 						return struct{}{}, err

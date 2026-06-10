@@ -219,7 +219,10 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 		// Use group's progress system directly (s.Progress calls) with manual
 		// read loop -- no custom progress writer types.
 		done := make(chan error, 1)
-		g.Go("fetch:"+name, taskgroup.Internet, func(cctx context.Context, s *taskgroup.Status) error {
+		g.Go("fetch:"+name, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+			l := logging.GetLogger(ctx) // fresh from inner ctx; never inherit/capture a logger var from the enclosing scope into a group.Go block
+			l.Debug("fetch task starting", "url", url, "name", name)
+
 			s.Update("fetching " + name)
 
 			tmp := dest + ".tmp"
@@ -229,17 +232,17 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 				return err
 			}
 
-			httpClient, err := driver.Get[httpclient.Driver](cctx)
+			httpClient, err := driver.Get[httpclient.Driver](ctx)
 			if err != nil {
-				logging.Close(cctx, outFile)
+				logging.Close(ctx, outFile)
 				_ = os.Remove(tmp)
 				done <- err
 				return fmt.Errorf("failed to get http client: %w", err)
 			}
 
-			req, err := http.NewRequestWithContext(cctx, http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 			if err != nil {
-				logging.Close(cctx, outFile)
+				logging.Close(ctx, outFile)
 				_ = os.Remove(tmp)
 				done <- err
 				return err
@@ -250,15 +253,15 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 
 			resp, err := httpClient.Client().Do(req)
 			if err != nil {
-				logging.Close(cctx, outFile)
+				logging.Close(ctx, outFile)
 				_ = os.Remove(tmp)
 				done <- err
 				return err
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				logging.Close(cctx, resp.Body)
-				logging.Close(cctx, outFile)
+				logging.Close(ctx, resp.Body)
+				logging.Close(ctx, outFile)
 				_ = os.Remove(tmp)
 				err = fmt.Errorf("GET %s: %s", url, resp.Status)
 				done <- err
@@ -279,8 +282,8 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 				n, rerr := resp.Body.Read(buf)
 				if n > 0 {
 					if _, werr := outFile.Write(buf[:n]); werr != nil {
-						logging.Close(cctx, resp.Body)
-						logging.Close(cctx, outFile)
+						logging.Close(ctx, resp.Body)
+						logging.Close(ctx, outFile)
 						_ = os.Remove(tmp)
 						done <- werr
 						return werr
@@ -296,8 +299,8 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 				}
 				if rerr != nil {
 					if rerr != io.EOF {
-						logging.Close(cctx, resp.Body)
-						logging.Close(cctx, outFile)
+						logging.Close(ctx, resp.Body)
+						logging.Close(ctx, outFile)
 						_ = os.Remove(tmp)
 						done <- rerr
 						return rerr
@@ -306,7 +309,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 				}
 			}
 			if err := resp.Body.Close(); err != nil {
-				logging.Close(cctx, outFile)
+				logging.Close(ctx, outFile)
 				_ = os.Remove(tmp)
 				done <- err
 				return err
@@ -322,6 +325,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 			}
 
 			s.Progress(size, size)
+			l.Debug("fetch task completed", "url", url, "bytes", written)
 			done <- nil
 			return nil
 		})

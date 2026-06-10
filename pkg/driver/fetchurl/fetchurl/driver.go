@@ -8,6 +8,7 @@ import (
 	"workspaced/pkg/driver"
 	fetchurldriver "workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/lucasew/fetchurl"
@@ -65,7 +66,10 @@ func (d *Driver) Fetch(ctx context.Context, opts fetchurldriver.FetchOptions) er
 	// progress bar / status in the group system.
 	done := make(chan error, 1)
 	name := "fetch:" + filepath.Base(opts.URLs[0])
-	g.Go(name, taskgroup.Internet, func(cctx context.Context, s *taskgroup.Status) error {
+	g.Go(name, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		l := logging.GetLogger(ctx) // always re-fetch inside the inner task block; do not inherit/capture logger var from outer scope
+		l.Debug("fetch task starting", "name", name)
+
 		s.Update("fetching " + name)
 		s.Progress(0, -1) // the fetch task itself provides the progress item
 
@@ -75,7 +79,12 @@ func (d *Driver) Fetch(ctx context.Context, opts fetchurldriver.FetchOptions) er
 			Hash: opts.Hash,
 			Out:  opts.Out,
 		}
-		err := d.fetcher.Fetch(cctx, fetchOpts)
+		err := d.fetcher.Fetch(ctx, fetchOpts)
+		if err != nil {
+			l.Error("fetch task failed", "name", name, "error", err)
+		} else {
+			l.Debug("fetch task completed", "name", name)
+		}
 		s.Progress(1, 1)
 		done <- err
 		return err

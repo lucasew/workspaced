@@ -91,15 +91,15 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	// When a taskgroup.Group is present in the context we schedule it as a
 	// child task under the Internet pool so it gets its own named entry,
 	// Status updates, and captured logs in the progress system.
-	doInstall := func(cctx context.Context) error {
+	doInstall := func(ctx context.Context) error {
 		// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
 		if binaryHint != "" {
 			if at, ok := t.(backend.ArtifactTool); ok {
-				artifacts, err := at.ListArtifacts(cctx, version)
+				artifacts, err := at.ListArtifacts(ctx, version)
 				if err == nil {
 					if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
 						logger.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
-						return at.InstallArtifact(cctx, *chosen, destPath)
+						return at.InstallArtifact(ctx, *chosen, destPath)
 					}
 				}
 			}
@@ -107,16 +107,16 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 
 		// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
 		logger.Debug("installing tool via Tool.Install", "dest", destPath)
-		return t.Install(cctx, version, destPath)
+		return t.Install(ctx, version, destPath)
 	}
 
 	if parent := taskgroup.FromContext(ctx); parent != nil {
 		child, _ := parent.SubGroup(ctx)
 		var installErr error
-		child.Go("install:"+spec.String(), taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
+		child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 			s.Update("installing " + normalizedVersion)
 			s.Progress(0, 1)
-			installErr = doInstall(cc)
+			installErr = doInstall(ctx)
 			s.Progress(1, 1)
 			return installErr
 		})

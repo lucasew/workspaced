@@ -67,10 +67,10 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			var installErr error
 			if parent := taskgroup.FromContext(ctx); parent != nil {
 				child, _ := parent.SubGroup(ctx)
-				child.Go("install:"+spec.String(), taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
+				child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("installing " + normalizedVersion)
 					s.Progress(0, 1)
-					binPath, installErr = bt.EnsureBinary(cc, actualVersion, cmdName, versionDir)
+					binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 					s.Progress(1, 1)
 					return installErr
 				})
@@ -108,10 +108,10 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		var installErr error
 		if parent := taskgroup.FromContext(ctx); parent != nil {
 			child, _ := parent.SubGroup(ctx)
-			child.Go("install:"+spec.String(), taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
+			child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 				s.Update("installing " + normalizedVersion)
 				s.Progress(0, 1)
-				binPath, installErr = bt.EnsureBinary(cc, actualVersion, cmdName, versionDir)
+				binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 				s.Progress(1, 1)
 				return installErr
 			})
