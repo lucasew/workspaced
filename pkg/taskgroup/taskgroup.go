@@ -239,8 +239,8 @@ func (p *pools) release(kind PoolKind) {
 
 // Group coordinates dependency-aware task execution with pool limits.
 type Group struct {
-	mu    sync.Mutex
-	tasks []*taskEntry
+	mu     sync.Mutex
+	tasks  []*taskEntry
 	byName map[string]*taskEntry
 
 	pools  *pools
