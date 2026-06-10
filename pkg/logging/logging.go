@@ -67,9 +67,9 @@ func (h *ChannelLogHandler) WithGroup(name string) slog.Handler {
 
 // ReportError logs an unexpected error using the logger from the context.
 // It serves as the centralized error reporting function.
-func ReportError(ctx context.Context, err error, attrs ...slog.Attr) {
+func ReportError(ctx context.Context, err error, attrs ...slog.Attr) bool {
 	if err == nil {
-		return
+		return false
 	}
 	args := make([]any, len(attrs)+1)
 	args[0] = slog.Any("error", err)
@@ -77,4 +77,5 @@ func ReportError(ctx context.Context, err error, attrs ...slog.Attr) {
 		args[i+1] = a
 	}
 	GetLogger(ctx).Error("unexpected error", args...)
+	return true
 }
