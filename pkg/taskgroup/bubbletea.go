@@ -53,6 +53,11 @@ type bubbleModel struct {
 	group    *Group
 	progress map[string]progress.Model
 	statuses map[string]string
+	// percents stores the desired fill (from task Current/Total) so we can
+	// use ViewAs for exact, instant rendering without depending on the
+	// progress model's internal animation state (which requires specific
+	// frame messages we weren't reliably forwarding).
+	percents map[string]float64
 }
 
 func newBubbleModel(g *Group) bubbleModel {
@@ -60,6 +65,7 @@ func newBubbleModel(g *Group) bubbleModel {
 		group:    g,
 		progress: make(map[string]progress.Model),
 		statuses: make(map[string]string),
+		percents: make(map[string]float64),
 	}
 }
 
@@ -92,29 +98,62 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if t.State != Done && t.State != Failed {
 				allDone = false
 			}
-			if t.State == Running {
+
+			// Capture the latest progress values from the snapshot for this
+			// task name. We do this for both Running and just-completed
+			// tasks so that a final Progress(total, total) written right
+			// before the task fn returns is guaranteed to be seen and
+			// rendered at 100% via ViewAs.
+			if t.Total > 0 {
+				pct := float64(t.Current) / float64(t.Total)
 				if _, ok := m.progress[t.Name]; !ok {
-					m.progress[t.Name] = progress.New(progress.WithDefaultGradient())
+					// Create the styled progress renderer for Running tasks
+					// or for ones that just hit 100% so they can be shown
+					// finishing.
+					if t.State == Running || pct >= 0.999 {
+						m.progress[t.Name] = progress.New(progress.WithDefaultGradient())
+					}
 				}
-				p := m.progress[t.Name]
-				if t.Total > 0 {
-					pct := float64(t.Current) / float64(t.Total)
+				if p, has := m.progress[t.Name]; has {
 					p.SetPercent(pct)
 					m.progress[t.Name] = p
 				}
+				m.percents[t.Name] = pct
 				m.statuses[t.Name] = t.Message
 			} else {
-				delete(m.progress, t.Name)
-				delete(m.statuses, t.Name)
+				m.percents[t.Name] = 0
+			}
+
+			if t.State != Running {
+				// Keep entries for tasks that reached 100% so the bar
+				// visibly finishes at full width (with the completion
+				// message) instead of disappearing at 90% or 99%.
+				if lastPct, ok := m.percents[t.Name]; ok && lastPct >= 0.999 {
+					// keep for final 100% render
+				} else {
+					delete(m.progress, t.Name)
+					delete(m.statuses, t.Name)
+					delete(m.percents, t.Name)
+				}
 			}
 		}
 		if allDone && len(snap) > 0 {
 			return m, tea.Quit
 		}
+
+		// Forward the tick/refresh to the progress models so they can
+		// animate their visual fill toward the target percents we just
+		// set from the Snapshot (Current/Total on the task Statuses).
+		// Without this, SetPercent has no visible effect and bars stay at 0%.
+		for name, p := range m.progress {
+			pi, cmd := p.Update(msg)
+			m.progress[name] = pi.(progress.Model)
+			_ = cmd
+		}
 		return m, m.tick()
 	}
 
-	// Forward animation ticks etc to the progress bubbles.
+	// Forward animation ticks etc to the progress bubbles (for other msgs).
 	for name, p := range m.progress {
 		pi, cmd := p.Update(msg)
 		m.progress[name] = pi.(progress.Model)
@@ -130,7 +169,15 @@ func (m bubbleModel) View() string {
 		if st == "" {
 			st = "running"
 		}
-		fmt.Fprintf(&s, "%s: %s %s\n", name, p.View(), st)
+		// Use ViewAs with the exact pct from the task snapshot (Current/Total).
+		// This renders the bar at the reported progress immediately, without
+		// waiting for the progress model's animation (which was causing bars
+		// to stay at 0% even as messages and percents were updated).
+		if pct, ok := m.percents[name]; ok {
+			fmt.Fprintf(&s, "%s: %s %s\n", name, p.ViewAs(pct), st)
+		} else {
+			fmt.Fprintf(&s, "%s: %s %s\n", name, p.View(), st)
+		}
 	}
 	return s.String()
 }

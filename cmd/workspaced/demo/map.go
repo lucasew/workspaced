@@ -95,6 +95,13 @@ This is the recommended way to turn "for each X do Y" into group-scheduled work.
 						return err
 					}
 
+					// Explicitly set 100% on the outer task's status *after* Map returns.
+					// This guarantees that while the "map" task is still Running,
+					// a subsequent snapshot will see Current == Total, so the
+					// bubbletea bar (via ViewAs) renders at full 100% before
+					// the task completes and is removed from the model.
+					total := int64(len(items))
+					s.Progress(total, total)
 					s.Update(fmt.Sprintf("map complete — collected %d results in order", len(results)))
 					logger.Info("map finished", "count", len(results), "first", results[0], "last", results[len(results)-1])
 					return nil
