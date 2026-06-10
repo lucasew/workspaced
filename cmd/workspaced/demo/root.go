@@ -49,6 +49,8 @@ func runTasksDemo(cmd *cobra.Command) error {
 
 	// Internet task with determinate progress + logs.
 	g.Go("download", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		logging.GetLogger(ctx).Info("starting download")
+
 		s.Update("resolving")
 		time.Sleep(120 * time.Millisecond)
 		s.Log("GET https://cdn.example.com/bundle.tar.gz")

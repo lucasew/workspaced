@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+
+	"workspaced/pkg/logging"
 )
 
 // PoolKind identifies which resource pool a task consumes a slot from.
@@ -47,10 +49,7 @@ type Limits struct {
 
 // DefaultLimits returns sensible defaults: IO=4, CPU=NumCPU, Internet=4.
 func DefaultLimits() Limits {
-	cpus := runtime.NumCPU()
-	if cpus < 1 {
-		cpus = 1
-	}
+	cpus := max(runtime.NumCPU(), 1)
 	return Limits{
 		IO:       4,
 		CPU:      cpus,
@@ -124,7 +123,9 @@ func (s *Status) Progress(current, total int64) {
 	s.mu.Unlock()
 }
 
-// Log emits a log line that the renderer can display above the progress area.
+// Log appends a message to the per-task log buffer (used by renderers for
+// live output above progress bars or in plain transcripts). The message is
+// also forwarded to slog via the onLog handler.
 func (s *Status) Log(msg string) {
 	s.mu.Lock()
 	s.logs = append(s.logs, msg)
@@ -265,6 +266,15 @@ func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 		ctx:    ctx,
 		cancel: cancel,
 	}
+
+	// Bridge Status.Log messages to slog using the logger from the
+	// creation context (so task logs participate in the app's logging).
+	if l := logging.GetLogger(ctx); l != nil {
+		g.onLog = func(taskName, msg string) {
+			l.Info(msg, "task", taskName)
+		}
+	}
+
 	return g, context.WithValue(ctx, contextKey{}, g)
 }
 
@@ -274,14 +284,8 @@ func FromContext(ctx context.Context) *Group {
 	return g
 }
 
-// MustFromContext is like FromContext but panics with a clear message if no
-// Group is present in the context.
-//
-// Only the top-level command (cmd/workspaced/root.go) is allowed to create
-// a root Group via New. All other code — including other commands under cmd/
-// and all packages under pkg/ — must obtain the group exclusively through the
-// context passed down from the root. This ensures a single source of truth
-// for limits, cancellation, and progress rendering.
+// MustFromContext is like FromContext but panics if no Group is present in
+// the context.
 func MustFromContext(ctx context.Context) *Group {
 	if g := FromContext(ctx); g != nil {
 		return g
@@ -298,12 +302,21 @@ func (g *Group) Context() context.Context {
 	return g.ctx
 }
 
-// SetLogHandler sets a callback invoked whenever a task calls Status.Log.
-// Must be called before Go.
+// SetLogHandler sets or chains a callback invoked for Status.Log calls.
+// Used by the automatic slog bridge in New (and available for other
+// observers).
 func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
-	g.onLog = fn
-	g.mu.Unlock()
+	defer g.mu.Unlock()
+	if g.onLog == nil {
+		g.onLog = fn
+		return
+	}
+	prev := g.onLog
+	g.onLog = func(name, msg string) {
+		prev(name, msg)
+		fn(name, msg)
+	}
 }
 
 // Go schedules a named task to run in the given pool after its dependencies complete.
@@ -374,9 +387,18 @@ func (g *Group) runTask(t *taskEntry) {
 	}
 	defer g.pools.release(t.pool)
 
-	// Run.
+	// Run the task.
+	// Derive a ctx carrying a logger pre-attached with the task name so that
+	// normal logging.GetLogger(ctx) calls inside the task automatically get
+	// the "task" attribute.
 	t.setState(Running)
-	err := t.fn(g.ctx, t.status)
+
+	taskCtx := g.ctx
+	if l := logging.GetLogger(g.ctx); l != nil {
+		taskCtx = logging.ContextWithLogger(g.ctx, l.With("task", t.name))
+	}
+
+	err := t.fn(taskCtx, t.status)
 	if err != nil {
 		t.setError(err)
 		g.recordError(err)

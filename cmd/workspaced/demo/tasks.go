@@ -43,9 +43,10 @@ via output.Auto.`,
 				logger.Info("Pipe the command or set TERM=dumb/CI=1 to force plain mode.")
 
 				g.Go("fetch", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
 					s.Update("contacting API")
 					time.Sleep(80 * time.Millisecond)
-					s.Log("200 OK")
+					logger.Info("200 OK")
 					s.Progress(0, 4)
 					for i := 1; i <= 4; i++ {
 						s.Progress(int64(i), 4)
@@ -56,18 +57,20 @@ via output.Auto.`,
 				})
 
 				g.Go("process", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
 					s.Update("crunching numbers")
 					for i := range 3 {
-						s.Log(fmt.Sprintf("batch %d processed", i))
+						logger.Info(fmt.Sprintf("batch %d processed", i))
 						time.Sleep(110 * time.Millisecond)
 					}
 					return nil
 				}, "fetch")
 
 				g.Go("write", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
 					s.Update("writing artifacts")
 					time.Sleep(150 * time.Millisecond)
-					s.Log("fsync complete")
+					logger.Info("fsync complete")
 					return nil
 				}, "process")
 

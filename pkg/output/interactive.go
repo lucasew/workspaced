@@ -28,8 +28,9 @@ func NewInteractive(w *os.File) Renderer {
 func (r *interactiveRenderer) Run(g *taskgroup.Group) error {
 	lastLogCount := map[string]int{}
 
-	// Install log handler to capture logs as they happen.
-	// We'll also poll Snapshot for the progress bars.
+	// We poll Snapshot for both progress bars and new task logs (diffed via
+	// lastLogCount). Task logs are also forwarded to slog via the handler
+	// installed by the root command (see cmd/workspaced/root.go).
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
