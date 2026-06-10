@@ -14,7 +14,7 @@ require (
 	github.com/owenrumney/go-sarif/v3 v3.3.0
 	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/image v0.41.0
+	golang.org/x/image v0.42.0
 	modernc.org/sqlite v1.52.0
 )
 
@@ -48,7 +48,7 @@ require (
 	golang.org/x/net v0.52.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/term v0.41.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.72.3 // indirect
