@@ -50,3 +50,9 @@ Register by importing the impl package from the central prelude.
 - Putting lists in module config.
 
 See CODEMAP.md for the short "how to locate X" recipes.
+
+## Patterns
+- The context argument is **always** ctx
+- `logger = logging.GetLogger(ctx)`. Never use log/slog directly.
+- Make sure a inner scope is not getting a logger or ctx from the outer scope.
+- Prefer to use channels  over shared mutable state with a lock if it makes stuff simpler, which is often.
