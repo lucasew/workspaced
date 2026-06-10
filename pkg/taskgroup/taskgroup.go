@@ -580,3 +580,75 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	}
 	return child, context.WithValue(ctx, contextKey{}, child)
 }
+
+// Map executes the handler for every item in the slice, using the task Group
+// from ctx (via MustFromContext). Items run concurrently subject to the chosen
+// pool's concurrency limit. Results are returned in the same order as items.
+//
+// This is the core "parallel map" primitive over the taskgroup system.
+// The length of the input list is the natural progress total ("progressbar hint").
+//
+//   - pool: which resource pool to consume slots from (CPU / IO / Internet).
+//   - taskName: produces a stable name for the per-item task (shown in logs,
+//     Snapshot(), and the bubbletea renderer). Return "" for a default.
+//   - handler: receives its own per-item *Status. Use s.Update(...) for messages
+//     and s.Progress(cur, tot) for item-specific progress (the Map wrapper seeds
+//     Progress(0, 1) as a unit-of-work hint).
+//
+// Progress hint usage (typical pattern when Map is called from inside another task):
+//
+//	s.Progress(0, int64(len(items))) // outer bar knows the total
+//	outs, err := Map(ctx, IO, items, func(i int, it T) string { return "work:" + it.Name }, handler)
+//	// on return the outer status can be advanced to len(outs) if desired
+//
+// The per-item tasks will each have a small progress total so the TUI can draw
+// bars for the currently in-flight work items (bounded by the pool size).
+func Map[T any, U any](
+	ctx context.Context,
+	pool PoolKind,
+	items []T,
+	taskName func(int, T) string,
+	handler func(ctx context.Context, s *Status, item T) (U, error),
+) ([]U, error) {
+	if len(items) == 0 {
+		return []U{}, nil
+	}
+
+	parent := MustFromContext(ctx)
+	g, _ := parent.SubGroup(ctx)
+
+	results := make([]U, len(items))
+
+	for i := range items {
+		i := i
+		item := items[i]
+
+		name := ""
+		if taskName != nil {
+			name = taskName(i, item)
+		}
+		if name == "" {
+			name = fmt.Sprintf("map:%d", i)
+		}
+
+		g.Go(name, pool, func(ctx context.Context, s *Status) error {
+			// Seed a unit total so progress bars have something to show for this item.
+			// Individual handlers can call s.Progress with more specific (bytes, total)
+			// numbers if the work item itself is incremental.
+			s.Progress(0, 1)
+
+			u, err := handler(ctx, s, item)
+			if err != nil {
+				return err
+			}
+			results[i] = u
+			s.Progress(1, 1)
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
