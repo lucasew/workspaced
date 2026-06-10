@@ -128,7 +128,7 @@ func RunDaemon(ctx context.Context) error {
 		logger.Info("config loaded successfully")
 	}
 
-	database, err := db.Open()
+	database, err := db.Open(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
@@ -346,7 +346,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 
 	// Check if binary changed - if so, signal restart needed
 	if req.BinaryHash != "" {
-		daemonHash, err := executil.GetBinaryHash()
+		daemonHash, err := executil.GetBinaryHash(ctx)
 		if err == nil && daemonHash != req.BinaryHash {
 			logger := logging.GetLogger(ctx)
 			logger.Warn("binary hash mismatch, daemon will exec itself",

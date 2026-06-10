@@ -59,7 +59,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
 			return "", closeErr
 		}
-		if err := extractTarGzFromPath(archivePath, destDir); err != nil {
+		if err := extractTarGzFromPath(ctx, archivePath, destDir); err != nil {
 			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
 			return "", err
 		}
@@ -85,27 +85,27 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	}
 
 	h := sha256.New()
-	if err := extractTarGz(io.TeeReader(resp.Body, h), destDir); err != nil {
+	if err := extractTarGz(ctx, io.TeeReader(resp.Body, h), destDir); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func extractTarGzFromPath(path string, destDir string) error {
+func extractTarGzFromPath(ctx context.Context, path string, destDir string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(context.Background(), f)
-	return extractTarGz(f, destDir)
+	defer logging.Close(ctx, f)
+	return extractTarGz(ctx, f, destDir)
 }
 
-func extractTarGz(r io.Reader, destDir string) error {
+func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(context.Background(), gzr)
+	defer logging.Close(ctx, gzr)
 
 	tr := tar.NewReader(gzr)
 	for {

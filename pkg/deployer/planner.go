@@ -67,7 +67,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 				return Action{}, fmt.Errorf("failed to get reader for %s: %w", d.File.SourceInfo(), err)
 			}
 			desiredHash, err := calculateHash(reader)
-			logging.Close(context.Background(), reader)
+			logging.Close(logging.NewRootContext(nil), reader)
 			if err != nil {
 				return Action{}, err
 			}
@@ -77,7 +77,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 				needsUpdate = true
 			} else {
 				actualHash, err := calculateHash(targetFile)
-				logging.Close(context.Background(), targetFile)
+				logging.Close(logging.NewRootContext(nil), targetFile)
 				if err != nil {
 					return Action{}, err
 				}

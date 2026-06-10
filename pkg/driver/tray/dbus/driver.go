@@ -117,7 +117,7 @@ func (d *Driver) Close() {
 		d.cancel()
 		if d.conn != nil {
 			if err := d.conn.Close(); err != nil {
-				logging.ReportError(context.Background(), err)
+				logging.ReportError(d.ctx, err)
 			}
 		}
 	})

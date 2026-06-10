@@ -44,7 +44,7 @@ func init() {
 				}
 
 				// Check for CI environment variables to save SARIF report
-				saveSarifToCI(report)
+				saveSarifToCI(cmd.Context(), report)
 
 				return printReport(report, format)
 			},
@@ -56,14 +56,13 @@ func init() {
 	})
 }
 
-func saveSarifToCI(report *sarif.Report) {
+func saveSarifToCI(ctx context.Context, report *sarif.Report) {
 	sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
 	for _, envVar := range sarifEnvVars {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
 			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				c := context.Background()
-	logger := logging.GetLogger(c)
+				logger := logging.GetLogger(ctx)
 				logger.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
 				continue
 			}
@@ -71,8 +70,7 @@ func saveSarifToCI(report *sarif.Report) {
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
 			file, err := os.Create(sarifPath)
 			if err != nil {
-				c := context.Background()
-	logger := logging.GetLogger(c)
+				logger := logging.GetLogger(ctx)
 				logger.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
 				continue
 			}
@@ -80,13 +78,11 @@ func saveSarifToCI(report *sarif.Report) {
 			encoder := json.NewEncoder(file)
 			encoder.SetIndent("", "  ")
 			if err := encoder.Encode(report); err != nil {
-				c := context.Background()
-	logger := logging.GetLogger(c)
+				logger := logging.GetLogger(ctx)
 				logger.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
 			}
 			if err := file.Close(); err != nil {
-				c := context.Background()
-	logger := logging.GetLogger(c)
+				logger := logging.GetLogger(ctx)
 				logger.Warn("failed to close SARIF report file", "sarif_path", sarifPath, "error", err)
 			}
 		}

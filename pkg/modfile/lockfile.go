@@ -45,7 +45,7 @@ func BuildSourceLockEntries(modFile *ModFile) map[string]LockedSource {
 	return out
 }
 
-func writeSumFile(path string, sum *SumFile) error {
+func writeSumFile(ctx context.Context, path string, sum *SumFile) error {
 	if sum == nil {
 		sum = &SumFile{}
 	}
@@ -70,7 +70,7 @@ func writeSumFile(path string, sum *SumFile) error {
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(onDisk); err != nil {
-		logging.Close(context.Background(), f)
+		logging.Close(ctx, f)
 		return err
 	}
 

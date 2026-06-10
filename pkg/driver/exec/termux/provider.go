@@ -72,7 +72,7 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 	if inProot == "1" {
 		logger.Info("already inside proot, running directly", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
-		cmd.Env = setupTermuxEnv(prefix)
+		cmd.Env = setupTermuxEnv(ctx, prefix)
 		return cmd
 	}
 
@@ -80,7 +80,7 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 	if os.Getenv("WORKSPACED_NO_PROOT") == "1" {
 		logger.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
-		cmd.Env = setupTermuxEnv(prefix)
+		cmd.Env = setupTermuxEnv(ctx, prefix)
 		return cmd
 	}
 
@@ -193,7 +193,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 }
 
 // setupTermuxEnv creates environment variables for Termux binaries
-func setupTermuxEnv(prefix string) []string {
+func setupTermuxEnv(ctx context.Context, prefix string) []string {
 	env := os.Environ()
 	envMap := make(map[string]string)
 
@@ -224,7 +224,7 @@ func setupTermuxEnv(prefix string) []string {
 
 	// Fix HOME for Termux (mise and other tools use this for shims)
 	// Use env driver to get correct home (handles chroot)
-	if actualHome, err := envdriver.GetHomeDir(context.Background()); err == nil {
+	if actualHome, err := envdriver.GetHomeDir(ctx); err == nil {
 		envMap["HOME"] = actualHome
 
 		// Configure mise to use correct paths

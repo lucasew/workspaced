@@ -77,7 +77,7 @@ func runInit(ctx context.Context, force bool) error {
 	}
 
 	fmt.Printf("\n📝 Generating config from template...\n")
-	if err := generateConfig(configPath); err != nil {
+	if err := generateConfig(ctx, configPath); err != nil {
 		return fmt.Errorf("failed to generate config: %w", err)
 	}
 	fmt.Printf("   ✓ Config created: %s\n", configPath)
@@ -100,7 +100,7 @@ func runInit(ctx context.Context, force bool) error {
 	return nil
 }
 
-func generateConfig(configPath string) error {
+func generateConfig(ctx context.Context, configPath string) error {
 	// Read embedded template
 	tmplContent, err := templatesFS.ReadFile("templates/init/workspaced.cue.tmpl")
 	if err != nil {
@@ -139,7 +139,7 @@ func generateConfig(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
-	defer logging.Close(context.Background(), f)
+	defer logging.Close(ctx, f)
 
 	if err := tmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)

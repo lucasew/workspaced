@@ -23,7 +23,7 @@ func init() {
 				database, ok := c.Context().Value(types.DBKey).(*db.DB)
 				if !ok {
 					var err error
-					database, err = db.Open()
+					database, err = db.Open(c.Context())
 					if err != nil {
 						return err
 					}

@@ -29,14 +29,14 @@ func GetCommand() *cobra.Command {
 	return cmd
 }
 
-func ingestBash() ([]types.HistoryEvent, error) {
+func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, ".bash_history")
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer logging.Close(context.Background(), file, slog.String("path", path))
+	defer logging.Close(ctx, file, slog.String("path", path))
 
 	var events []types.HistoryEvent
 	scanner := bufio.NewScanner(file)
@@ -64,7 +64,7 @@ func ingestBash() ([]types.HistoryEvent, error) {
 	return events, scanner.Err()
 }
 
-func ingestAtuin() ([]types.HistoryEvent, error) {
+func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	home, _ := os.UserHomeDir()
 	dbPath := filepath.Join(home, ".local/share/atuin/history.db")
 
@@ -73,13 +73,13 @@ func ingestAtuin() ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open atuin database: %w", err)
 	}
-	defer logging.Close(context.Background(), dbConn, slog.String("path", dbPath))
+	defer logging.Close(ctx, dbConn, slog.String("path", dbPath))
 
 	rows, err := dbConn.Query("SELECT command, cwd, timestamp, exit, duration FROM history")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query atuin database: %w", err)
 	}
-	defer logging.Close(context.Background(), rows)
+	defer logging.Close(ctx, rows)
 
 	var events []types.HistoryEvent
 	for rows.Next() {
@@ -114,7 +114,7 @@ func getSocketPath() string {
 	return filepath.Join(runtimeDir, "workspaced.sock")
 }
 
-func sendHistoryEvent(event types.HistoryEvent) error {
+func sendHistoryEvent(ctx context.Context, event types.HistoryEvent) error {
 	socketPath := getSocketPath()
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
@@ -126,7 +126,7 @@ func sendHistoryEvent(event types.HistoryEvent) error {
 	if err != nil {
 		return err // Return error so caller can fallback
 	}
-	defer logging.Close(context.Background(), conn, slog.String("socket", socketPath))
+	defer logging.Close(ctx, conn, slog.String("socket", socketPath))
 
 	_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
 	payload, _ := json.Marshal(event)

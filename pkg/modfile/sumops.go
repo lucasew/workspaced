@@ -1,12 +1,13 @@
 package modfile
 
 import (
+	"context"
 	"strings"
 
 	parsespec "workspaced/pkg/parse/spec"
 )
 
-func updateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, error) {
+func updateSumFile(ctx context.Context, path string, mutate func(sum *SumFile) (bool, error)) (bool, error) {
 	sum, err := LoadSumFile(path)
 	if err != nil {
 		return false, err
@@ -21,7 +22,7 @@ func updateSumFile(path string, mutate func(sum *SumFile) (bool, error)) (bool, 
 	if !changed {
 		return false, nil
 	}
-	if err := writeSumFile(path, sum); err != nil {
+	if err := writeSumFile(ctx, path, sum); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -23,7 +23,7 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 		return LockResult{}, fmt.Errorf("failed to load config: config is nil")
 	}
 
-	if err := ws.EnsureFiles(); err != nil {
+	if err := ws.EnsureFiles(ctx); err != nil {
 		return LockResult{}, err
 	}
 
@@ -35,7 +35,7 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 	if err := PopulateSourceLockHashes(ctx, mod, ws.ModulesBaseDir(), sourceEntries); err != nil {
 		return LockResult{}, err
 	}
-	_, err = ws.UpdateSumFile(func(sum *SumFile) (bool, error) {
+	_, err = ws.UpdateSumFile(ctx, func(sum *SumFile) (bool, error) {
 		beforeSources := len(sum.SourceLocks())
 		changed := false
 		for name, entry := range sourceEntries {

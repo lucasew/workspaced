@@ -37,7 +37,7 @@ func GetEnv(ctx context.Context, key string) string {
 }
 
 // GetBinaryHash returns the SHA256 hash of the current executable
-func GetBinaryHash() (string, error) {
+func GetBinaryHash(ctx context.Context) (string, error) {
 	exePath, err := os.Executable()
 	if err != nil {
 		return "", fmt.Errorf("failed to get executable path: %w", err)
@@ -47,7 +47,7 @@ func GetBinaryHash() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open executable: %w", err)
 	}
-	defer logging.Close(context.Background(), file)
+	defer logging.Close(ctx, file)
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {

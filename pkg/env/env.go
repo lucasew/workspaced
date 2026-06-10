@@ -53,8 +53,9 @@ func IsPhone(ctx context.Context) bool {
 }
 
 // IsInStore checks if the dotfiles root is located inside the Nix store.
-func IsInStore() bool {
-	root, err := GetDotfilesRoot(context.Background())
+// Deprecated: Use envdriver.IsInStore(ctx) instead
+func IsInStore(ctx context.Context) bool {
+	root, err := GetDotfilesRoot(ctx)
 	if err != nil {
 		return false
 	}

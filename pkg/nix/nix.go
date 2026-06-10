@@ -236,7 +236,7 @@ func Rebuild(ctx context.Context, action string, flake string) error {
 		flake = root
 	}
 
-	if env.IsInStore() {
+	if env.IsInStore(ctx) {
 		flake = "github:lucasew/nixcfg"
 	}
 
@@ -285,7 +285,7 @@ func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
 		flake = root
 	}
 
-	if env.IsInStore() {
+	if env.IsInStore(ctx) {
 		flake = "github:lucasew/nixcfg"
 	}
 

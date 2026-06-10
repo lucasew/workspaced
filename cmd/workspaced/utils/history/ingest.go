@@ -24,7 +24,7 @@ func init() {
 				database, ok := c.Context().Value(types.DBKey).(*db.DB)
 				if !ok {
 					var err error
-					database, err = db.Open()
+					database, err = db.Open(c.Context())
 					if err != nil {
 						return err
 					}
@@ -36,9 +36,9 @@ func init() {
 
 				switch source {
 				case "bash":
-					events, err = ingestBash()
+					events, err = ingestBash(c.Context())
 				case "atuin":
-					events, err = ingestAtuin()
+					events, err = ingestAtuin(c.Context())
 				default:
 					return fmt.Errorf("%w: %s", ErrUnknownSource, source)
 				}

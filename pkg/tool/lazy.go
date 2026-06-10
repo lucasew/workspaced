@@ -84,7 +84,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	if cfg == nil {
 		return 0, fmt.Errorf("config is nil")
 	}
-	if err := ws.EnsureFiles(); err != nil {
+	if err := ws.EnsureFiles(ctx); err != nil {
 		return 0, err
 	}
 
@@ -207,7 +207,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		lockRef := lt.Ref
 		version := lt.Version
 
-		changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
+		changed, err := ws.UpdateSumFile(ctx, func(sum *modfile.SumFile) (bool, error) {
 			return sum.EnsureTool(name, lt), nil
 		})
 		if err != nil {
@@ -298,7 +298,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	if err != nil {
 		return "", fmt.Errorf("failed to load workspace config: %w", err)
 	}
-	if err := ws.EnsureFiles(); err != nil {
+	if err := ws.EnsureFiles(ctx); err != nil {
 		return "", err
 	}
 
@@ -366,7 +366,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	// sum's Dependencies list (the structure referenced by ref). The Tool
 	// receives it by pointer via EnrichLockfile and can mutate attributes.
 	// On save, any logic migrations in the Tool are applied automatically.
-	if changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
+	if changed, err := ws.UpdateSumFile(ctx, func(sum *modfile.SumFile) (bool, error) {
 		// Find or create the dep entry for this tool name.
 		var dep *modfile.RenovateDependency
 		for i := range sum.Dependencies {

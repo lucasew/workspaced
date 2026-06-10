@@ -25,8 +25,8 @@ type DB struct {
 	Queries *sqlc.Queries
 }
 
-func Open() (*DB, error) {
-	dataDir, err := env.GetUserDataDir(context.Background())
+func Open(ctx context.Context) (*DB, error) {
+	dataDir, err := env.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
 	}

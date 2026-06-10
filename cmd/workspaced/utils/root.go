@@ -65,7 +65,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 	defer logging.Close(ctx, conn, slog.String("socket", socketPath))
 
 	// Get client binary hash
-	clientHash, _ := executil.GetBinaryHash()
+	clientHash, _ := executil.GetBinaryHash(ctx)
 
 	req := types.Request{
 		Command:    cmdName,
