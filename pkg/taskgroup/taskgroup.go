@@ -270,12 +270,23 @@ func FromContext(ctx context.Context) *Group {
 	return g
 }
 
-// SetLogHandler sets a callback invoked whenever Status.Log is called (or bridged
-// from context logger via the recorder). Useful for real-time observers (e.g. TUI
-// renderers) in addition to the Logs slice in snapshots.
+// SetLogHandler sets a callback invoked whenever a log is recorded for a task
+// (via the context logger inside the task func, which feeds the recorder).
+// The callback is useful for real-time observers (e.g. TUI renderers like
+// RunBubbleTea) in addition to the per-task Logs slices in Snapshot().
+//
+// It updates both the group and any already-created task Status objects so
+// that the callback takes effect even for tasks that were scheduled (via g.Go)
+// *before* the handler was attached. This is required for the opt-in pattern
+// where a command does its g.Go calls and then calls g.RunBubbleTea().
 func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
+	for _, t := range g.tasks {
+		if t.status != nil {
+			t.status.onLog = fn
+		}
+	}
 	g.mu.Unlock()
 }
 

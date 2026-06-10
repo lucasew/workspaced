@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
@@ -25,7 +26,14 @@ func Run(g *Group) error {
 // isInteractiveTerminal returns false for TERM=dumb, NO_COLOR, CI, or when
 // stderr is not a character device. This is the guard so the bubbletea
 // kick-in becomes a plain Wait() for non-ttys / CI etc.
+//
+// For testing the TUI code path in this harness (or CI), you can set
+// WORKSPACED_FORCE_TUI=1 to bypass the tty check (the bubbletea branch will
+// still run its model even if output is captured).
 func isInteractiveTerminal() bool {
+	if os.Getenv("WORKSPACED_FORCE_TUI") != "" {
+		return true
+	}
 	if os.Getenv("TERM") == "dumb" {
 		return false
 	}
@@ -119,15 +127,15 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m bubbleModel) View() string {
-	s := ""
+	var s strings.Builder
 	for name, p := range m.progress {
 		st := m.statuses[name]
 		if st == "" {
 			st = "running"
 		}
-		s += fmt.Sprintf("%s: %s %s\n", name, p.View(), st)
+		fmt.Fprintf(&s, "%s: %s %s\n", name, p.View(), st)
 	}
-	return s
+	return s.String()
 }
 
 // RunBubbleTea is the group method that kicks in the bubbletea progress+log
@@ -158,11 +166,36 @@ func (g *Group) RunBubbleTea() error {
 	}
 
 	model := newBubbleModel(g)
-	prog := tea.NewProgram(model, tea.WithOutput(os.Stderr))
+	// WithInput(nil) + WithoutSignalHandler: we don't need interactive key
+	// input for this use (the primary quit is when the group is all done).
+	// This also avoids requiring /dev/tty when forcing the TUI path in
+	// test harnesses, pipes, or certain CI setups (the guard already
+	// prevents entry unless WORKSPACED_FORCE_TUI or a real tty).
+	prog := tea.NewProgram(model,
+		tea.WithOutput(os.Stderr),
+		tea.WithInput(nil),
+		tea.WithoutSignalHandler(),
+	)
 
-	// Wire logs from tasks (via the onLog hook that the recorder calls)
-	// to go through prog.Printf. This makes the log writer be the file
-	// that tea uses under the hood, producing natural "print log then bar below".
+	// Activate the renderer flag first so that any concurrent logs from
+	// already-running (or about-to-run) tasks will skip the normal slog
+	// delegate (preventing dups). Then attach the handler (SetLogHandler
+	// now also pushes the fn into any pre-existing task Status objects,
+	// because tasks capture the onLog at g.Go time and the append closure
+	// reads the per-Status value).
+	g.setUsingBubbleTea(true)
+	defer g.setUsingBubbleTea(false)
+
+	// Wire logs by writing them directly to the same writer we passed to
+	// tea.WithOutput (os.Stderr). This advances the terminal cursor past the
+	// log line (committing it to scrollback). We then Send(refresh) so the
+	// model re-renders the progress bar(s) at the *new* bottom position after
+	// the log. This produces the desired "logs over bar, bar moves down on
+	// each print" without the cursor compensation that prog.Printf performs
+	// (which was causing logs to fight the bar region).
+	//
+	// The bar rendering + animation + Snapshot polling still goes through the
+	// tea program and bubbles/progress.
 	g.SetLogHandler(func(taskName, msg string) {
 		// Emit using standard slog text formatting (same as outside groups).
 		rec := slog.NewRecord(time.Now(), slog.LevelInfo, msg, 0)
@@ -170,12 +203,9 @@ func (g *Group) RunBubbleTea() error {
 		var buf bytes.Buffer
 		h := slog.NewTextHandler(&buf, &slog.HandlerOptions{})
 		_ = h.Handle(context.Background(), rec)
-		prog.Printf("%s", buf.String())
+		prog.Printf("%s", strings.TrimSpace(buf.String()))
 		prog.Send(refreshMsg{})
 	})
-
-	g.setUsingBubbleTea(true)
-	defer g.setUsingBubbleTea(false)
 
 	_, err := prog.Run()
 
