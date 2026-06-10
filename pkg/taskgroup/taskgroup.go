@@ -274,6 +274,22 @@ func FromContext(ctx context.Context) *Group {
 	return g
 }
 
+// MustFromContext is like FromContext but panics with a clear message if no
+// Group is present in the context.
+//
+// Only the top-level command (cmd/workspaced/root.go) is allowed to create
+// a root Group via New. All other code — including other commands under cmd/
+// and all packages under pkg/ — must obtain the group exclusively through the
+// context passed down from the root. This ensures a single source of truth
+// for limits, cancellation, and progress rendering.
+func MustFromContext(ctx context.Context) *Group {
+	if g := FromContext(ctx); g != nil {
+		return g
+	}
+	panic("taskgroup: no Group present in context; " +
+		"only the top-level command may call New, everything else must receive it via context")
+}
+
 // Context returns the group's internal context. The context is cancelled
 // when Wait returns or when the first task error occurs (first-error-wins).
 // Renderers and other observers can select on this to know when the group

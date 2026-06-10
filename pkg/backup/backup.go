@@ -76,12 +76,9 @@ func RunFullBackup(ctx context.Context) error {
 		}
 	}
 
-	var g *taskgroup.Group
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		g, ctx = parent.SubGroup(ctx)
-	} else {
-		g, ctx = taskgroup.New(ctx, taskgroup.DefaultLimits())
-	}
+	// Task group must be provided via context from the top-level command.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
 	for i, action := range actions {
 		idx := i

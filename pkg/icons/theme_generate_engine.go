@@ -78,12 +78,9 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	var written int64
 
 	// Use taskgroup for parallel icon processing.
-	var g *taskgroup.Group
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		g, ctx = parent.SubGroup(ctx)
-	} else {
-		g, ctx = taskgroup.New(ctx, taskgroup.DefaultLimits())
-	}
+	// Must come from the context passed down by the top-level command.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
 	totalPaths := int64(len(paths))
 	for _, path := range paths {

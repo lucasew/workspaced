@@ -59,12 +59,10 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	}
 
 	// Run applicable linters in parallel using taskgroup.
-	var g *taskgroup.Group
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		g, ctx = parent.SubGroup(ctx)
-	} else {
-		g, ctx = taskgroup.New(ctx, taskgroup.DefaultLimits())
-	}
+	// The group must be present in the context (initialized only at the top
+	// command and passed down).
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
 	var mu sync.Mutex
 	for _, l := range applicable {

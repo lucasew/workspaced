@@ -105,14 +105,11 @@ func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState
 		desiredMap[d.Target()] = d
 	}
 
-	// Use a child taskgroup if one is available on the context, otherwise
-	// create a standalone group for this planning phase.
-	var g *taskgroup.Group
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		g, ctx = parent.SubGroup(ctx)
-	} else {
-		g, ctx = taskgroup.New(ctx, taskgroup.DefaultLimits())
-	}
+	// A task group must be present in the context (provided by the top-level
+	// command). We use a SubGroup so that this planning work participates in
+	// the parent's pool limits and cancellation.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
 	for i, d := range desired {
 		idx := i

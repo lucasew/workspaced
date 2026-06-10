@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"workspaced/pkg/cmdregistry"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
@@ -22,9 +23,10 @@ interactive/plain output renderers that were recently added.
 
 Run subcommands to see different aspects:
   workspaced demo          - default: runs the tasks showcase (same as "tasks")
-  workspaced demo tasks    - runs tasks using the ambient root task group (full integration)
-  workspaced demo plain    - forces a plain renderer against a local group
-  workspaced demo nested   - demonstrates SubGroup nesting under a parent task`,
+  workspaced demo tasks    - schedules work directly on the root group from context
+  workspaced demo plain    - runs tasks under the root group; root renderer appears
+                             "plain" on non-ttys, pipes, CI, TERM=dumb, etc.
+  workspaced demo nested   - demonstrates creating a SubGroup from the one in context`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare "demo" runs the main tasks showcase for convenience.
 			return runTasksDemo(cmd)
@@ -36,19 +38,14 @@ Run subcommands to see different aspects:
 
 // runTasksDemo is the body used by both bare "demo" and "demo tasks".
 func runTasksDemo(cmd *cobra.Command) error {
-	ctx := cmd.Context()
-	g := taskgroup.FromContext(ctx)
-	if g == nil {
-		cmd.PrintErrln("warning: no taskgroup in context, creating a local one (UI may not be attached)")
-		var localCtx context.Context
-		g, localCtx = taskgroup.New(ctx, taskgroup.DefaultLimits())
-		_ = localCtx
-	}
+	// All non-root code must get the group from the context provided by the
+	// top-level command. MustFromContext panics if it is absent.
+	g := taskgroup.MustFromContext(cmd.Context())
+	logger := logging.GetLogger(cmd.Context())
 
-	cmd.Println("=== workspaced demo: tasks ===")
-	cmd.Println("Scheduling work on the task group. Watch the progress UI on stderr.")
-	cmd.Println("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
-	cmd.Println()
+	logger.Info("Scheduling work on the task group obtained via MustFromContext.")
+	logger.Info("Watch the progress UI on stderr (managed by root.go + output renderer).")
+	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
 
 	// Internet task with determinate progress + logs.
 	g.Go("download", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
@@ -126,7 +123,5 @@ func runTasksDemo(cmd *cobra.Command) error {
 		return fmt.Errorf("simulated 503 from registry (demo failure)")
 	}, "build")
 
-	// Give the renderer a moment to paint the first frames even if we return quickly.
-	time.Sleep(50 * time.Millisecond)
 	return nil
 }

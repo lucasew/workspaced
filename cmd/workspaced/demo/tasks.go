@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"workspaced/pkg/output"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
@@ -27,21 +27,20 @@ func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		parent.AddCommand(&cobra.Command{
 			Use:   "plain",
-			Short: "Run a self-contained demo using output.NewPlain against a local task group",
+			Short: "Run tasks under the root group; observe plain-style rendering behavior",
+			Long: `Schedules some work on a SubGroup. The actual rendering is performed by
+the renderer started in the root command's PersistentPreRunE.
+
+You will see "plain" output when the root renderer chose plain mode
+(i.e. when stdout/stderr is not a tty, when TERM=dumb, CI=1, or NO_COLOR
+is set). This is the same renderer (output.Plain) that the root selects
+via output.Auto.`,
 			RunE: func(cmd *cobra.Command, args []string) error {
-				cmd.Println("=== workspaced demo: plain renderer (standalone) ===")
-				cmd.Println("This exercises pkg/output/plain.go and pkg/taskgroup directly.")
-				cmd.Println()
-
-				g, _ := taskgroup.New(context.Background(), taskgroup.Limits{IO: 2, CPU: 2, Internet: 2})
-				r := output.NewPlain(cmd.ErrOrStderr())
-
-				// Start renderer in background like the real root does.
-				done := make(chan struct{})
-				go func() {
-					defer close(done)
-					_ = r.Run(g)
-				}()
+				g := taskgroup.MustFromContext(cmd.Context())
+				logger := logging.GetLogger(cmd.Context())
+				logger.Info("Group obtained with MustFromContext (enforced rule).")
+				logger.Info("Work runs under the root task group + its renderer.")
+				logger.Info("Pipe the command or set TERM=dumb/CI=1 to force plain mode.")
 
 				g.Go("fetch", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("contacting API")
@@ -58,7 +57,7 @@ func init() {
 
 				g.Go("process", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("crunching numbers")
-					for i := 0; i < 3; i++ {
+					for i := range 3 {
 						s.Log(fmt.Sprintf("batch %d processed", i))
 						time.Sleep(110 * time.Millisecond)
 					}
@@ -75,8 +74,7 @@ func init() {
 				if err := g.Wait(); err != nil {
 					return err
 				}
-				<-done
-				cmd.Println("\n(plain renderer finished)")
+				logger.Info("\n(tasks finished; root renderer (plain or interactive) drove the output above)")
 				return nil
 			},
 		})
@@ -89,18 +87,11 @@ func init() {
 			Use:   "nested",
 			Short: "Demonstrate a parent task owning a SubGroup with child tasks",
 			RunE: func(cmd *cobra.Command, args []string) error {
-				ctx := cmd.Context()
-				g := taskgroup.FromContext(ctx)
-				if g == nil {
-					var c context.Context
-					g, c = taskgroup.New(ctx, taskgroup.DefaultLimits())
-					_ = c
-				}
+				g := taskgroup.MustFromContext(cmd.Context())
+				logger := logging.GetLogger(cmd.Context())
 
-				cmd.Println("=== workspaced demo: nested SubGroup ===")
-				cmd.Println("A top-level task 'bundle' will create a SubGroup and schedule children inside it.")
-				cmd.Println("Children share pools but have their own namespacing for snapshots.")
-				cmd.Println()
+				logger.Info("We get the group with MustFromContext, then create a SubGroup from it.")
+				logger.Info("Child tasks share pools with the parent but live in a separate snapshot.")
 
 				g.Go("bundle", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("starting bundle phase")

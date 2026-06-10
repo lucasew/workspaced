@@ -48,12 +48,9 @@ func RunAll(ctx context.Context, dir string) error {
 		return nil
 	}
 
-	var g *taskgroup.Group
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		g, ctx = parent.SubGroup(ctx)
-	} else {
-		g, ctx = taskgroup.New(ctx, taskgroup.DefaultLimits())
-	}
+	// Task group comes from the context set up by the top-level command.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
 	var mu sync.Mutex
 	var errs []error
