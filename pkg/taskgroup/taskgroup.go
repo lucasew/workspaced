@@ -249,6 +249,13 @@ type Group struct {
 	// for this group. It tells per-task logRecorders to skip normal slog delegate
 	// (the renderer owns visible emission via prog.Printf) to avoid duplicate lines.
 	usingBubbleTea bool
+
+	// children are SubGroups. Used so that SetLogHandler / setUsingBubbleTea
+	// can propagate the interceptor settings (onLog + bubbletea skip flag)
+	// to subgroups and their tasks. This ensures the logger interceptor
+	// (logRecorder + onLog callback for prog.Printf + usingBubbleTea skip)
+	// is taken for work created via Map / late SubGroups.
+	children []*Group
 }
 
 // New creates a root Group with the given pool limits.
@@ -276,26 +283,69 @@ func FromContext(ctx context.Context) *Group {
 // The callback is useful for real-time observers (e.g. TUI renderers like
 // RunBubbleTea) in addition to the per-task Logs slices in Snapshot().
 //
-// It updates both the group and any already-created task Status objects so
-// that the callback takes effect even for tasks that were scheduled (via g.Go)
-// *before* the handler was attached. This is required for the opt-in pattern
-// where a command does its g.Go calls and then calls g.RunBubbleTea().
+// It updates the group, direct tasks, *and* any SubGroups (recursively) plus
+// their tasks. This ensures the logger interceptor (logRecorder.append that
+// feeds onLog + the usingBubbleTea skip in Handle) is taken for work scheduled
+// via Map / SubGroup, even if those subgroups were created before or around
+// the time RunBubbleTea wires the handler (the common opt-in pattern).
 func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
 	for _, t := range g.tasks {
 		if t.status != nil {
+			t.status.mu.Lock()
 			t.status.onLog = fn
+			t.status.mu.Unlock()
 		}
+	}
+	for _, ch := range g.children {
+		ch.propagateLogHandler(fn)
+	}
+	g.mu.Unlock()
+}
+
+// propagateLogHandler is called on children when an ancestor sets a new
+// log handler (via SetLogHandler on root or intermediate group). It
+// ensures the logger interceptor (onLog callback to prog.Printf + refresh,
+// and the usingBubbleTea skip decision) reaches tasks created inside
+// SubGroups / via Map even if those subgroups were created before or
+// around the time the renderer was activated.
+func (g *Group) propagateLogHandler(fn func(taskName, msg string)) {
+	g.mu.Lock()
+	g.onLog = fn
+	for _, t := range g.tasks {
+		if t.status != nil {
+			t.status.mu.Lock()
+			t.status.onLog = fn
+			t.status.mu.Unlock()
+		}
+	}
+	for _, ch := range g.children {
+		ch.propagateLogHandler(fn)
 	}
 	g.mu.Unlock()
 }
 
 // setUsingBubbleTea marks that a bubbletea renderer is driving output for this
 // group (used by logRecorder to decide whether to skip normal delegate).
+// It propagates to any SubGroups (children) so that logRecorders created
+// for tasks inside Map / nested SubGroups will also take the interceptor
+// path (skip normal output + feed onLog for the TUI).
 func (g *Group) setUsingBubbleTea(v bool) {
 	g.mu.Lock()
 	g.usingBubbleTea = v
+	for _, ch := range g.children {
+		ch.setUsingBubbleTeaFromAncestor(v)
+	}
+	g.mu.Unlock()
+}
+
+func (g *Group) setUsingBubbleTeaFromAncestor(v bool) {
+	g.mu.Lock()
+	g.usingBubbleTea = v
+	for _, ch := range g.children {
+		ch.setUsingBubbleTeaFromAncestor(v)
+	}
 	g.mu.Unlock()
 }
 
@@ -506,7 +556,12 @@ func (g *Group) runTask(t *taskEntry) {
 	// This replaces the old Status.Log / g.Log path.
 	t.setState(Running)
 
-	taskCtx := g.ctx
+	// Thread the current group into the task context so that code running inside
+	// a task (e.g. taskgroup.Map, or anything that does MustFromContext) can
+	// retrieve the group this work is associated with and create SubGroups etc.
+	// Previously the per-task ctx only derived from g.ctx (the internal cancel ctx)
+	// which did not carry the contextKey, only the command-level context did.
+	taskCtx := context.WithValue(g.ctx, contextKey{}, g)
 	if base := logging.GetLogger(g.ctx); base != nil {
 		tagged := base.With("task", t.name)
 		rec := &logRecorder{
@@ -520,11 +575,26 @@ func (g *Group) runTask(t *taskEntry) {
 				t.status.mu.Unlock()
 				if onLog != nil {
 					onLog(t.name, msg)
+					return
+				}
+				// Belt-and-suspenders fallback: consult the group that owns
+				// this task (closed over as `g`). This catches cases where a
+				// status was created before a SetLogHandler (or its propagation
+				// to SubGroups via children) ran, e.g. subgroups created inside
+				// Map after the root renderer wired the handler. This makes
+				// sure the logger interceptor (onLog callback) is taken.
+				if g != nil {
+					g.mu.Lock()
+					onLog = g.onLog
+					g.mu.Unlock()
+					if onLog != nil {
+						onLog(t.name, msg)
+					}
 				}
 			},
 		}
 		taskLogger := slog.New(rec)
-		taskCtx = logging.ContextWithLogger(g.ctx, taskLogger)
+		taskCtx = logging.ContextWithLogger(taskCtx, taskLogger)
 	}
 
 	err := t.fn(taskCtx, t.status)
@@ -569,16 +639,38 @@ func (g *Group) Snapshot() []TaskState {
 // SubGroup creates a child Group that shares the parent's pool semaphores.
 // The child's context is derived from the parent's context.
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
-	ctx, cancel := context.WithCancel(ctx)
+	cctx, cancel := context.WithCancel(ctx)
+
+	// Snapshot the current logger interceptor settings (onLog + usingBubbleTea)
+	// under the lock. This lets subgroups created after RunBubbleTea has
+	// wired the handler still get the interceptor (the append callback for
+	// prog.Printf + the skip in logRecorder.Handle).
+	g.mu.Lock()
+	onLogCopy := g.onLog
+	usingCopy := g.usingBubbleTea
+	g.mu.Unlock()
+
 	child := &Group{
 		byName:         make(map[string]*taskEntry),
 		pools:          g.pools, // shared pools
-		ctx:            ctx,
+		ctx:            cctx,
 		cancel:         cancel,
-		onLog:          g.onLog,
-		usingBubbleTea: g.usingBubbleTea,
+		onLog:          onLogCopy,
+		usingBubbleTea: usingCopy,
 	}
-	return child, context.WithValue(ctx, contextKey{}, child)
+
+	// Register the child so SetLogHandler / setUsingBubbleTea on ancestors
+	// will propagate the logger interceptor (onLog for the TUI + the
+	// usingBubbleTea skip flag in logRecorder) to it and its tasks.
+	g.mu.Lock()
+	g.children = append(g.children, child)
+	g.mu.Unlock()
+
+	// Attach the child group to the context so MustFromContext works on
+	// contexts derived from the child's .ctx (in addition to the explicit
+	// WithValue returned here, and the forcing we do in runTask).
+	childCtx := context.WithValue(cctx, contextKey{}, child)
+	return child, childCtx
 }
 
 // Map executes the handler for every item in the slice, using the task Group
