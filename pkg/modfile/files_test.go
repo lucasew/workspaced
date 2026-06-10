@@ -10,7 +10,7 @@ func TestEnsureLockFileCreatesLock(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	sumPath, err := EnsureLockFile(root)
+	sumPath, err := EnsureLockFile(t.Context(), root)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

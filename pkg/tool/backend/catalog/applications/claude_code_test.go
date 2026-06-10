@@ -26,7 +26,7 @@ func TestClaudeCodeListVersionsResolvesChannelsToConcreteVersions(t *testing.T) 
 		},
 	}
 
-	got, err := tool.ListVersions(context.Background())
+	got, err := tool.ListVersions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestClaudeCodeListArtifactsUsesManifestPlatformBinary(t *testing.T) {
 		},
 	}
 
-	artifacts, err := tool.ListArtifacts(context.Background(), "2.1.89")
+	artifacts, err := tool.ListArtifacts(t.Context(), "2.1.89")
 	if err != nil {
 		t.Fatal(err)
 	}

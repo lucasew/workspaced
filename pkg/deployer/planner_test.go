@@ -1,10 +1,14 @@
 package deployer
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
+	"workspaced/pkg/taskgroup"
 )
 
 func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {
@@ -30,7 +34,9 @@ func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {
 		target: {SourceInfo: "source:legacy-config (.local/bin/_index.tmpl) (multi:rg)"},
 	}}
 
-	actions, err := NewPlanner().Plan(t.Context(), desired, state)
+	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	_ = g
+	actions, err := NewPlanner().Plan(ctx, desired, state)
 	if err != nil {
 		t.Fatalf("plan: %v", err)
 	}

@@ -1,13 +1,14 @@
 package ruff
 
 import (
-	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	_ "workspaced/pkg/driver/httpclient/native"
 	_ "workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/logging"
 )
 
 func TestFormat(t *testing.T) {
@@ -31,7 +32,7 @@ func TestFormat(t *testing.T) {
 	}
 
 	p := New()
-	ctx := context.Background()
+	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
 
 	// Verify detection
 	err := p.Detect(ctx, dir)

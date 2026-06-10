@@ -1,7 +1,6 @@
 package apps
 
 import (
-	"context"
 	"slices"
 	"testing"
 )
@@ -18,7 +17,7 @@ func TestTirithListVersionsSkipsThreatDatabaseReleases(t *testing.T) {
 		"v0.2.12",
 	}}}
 
-	got, err := tool.ListVersions(context.Background())
+	got, err := tool.ListVersions(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
