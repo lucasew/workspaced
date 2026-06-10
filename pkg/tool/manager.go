@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 )
 
@@ -84,28 +86,51 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		return err
 	}
 
-	// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
-	if binaryHint != "" {
-		if at, ok := t.(backend.ArtifactTool); ok {
-			artifacts, err := at.ListArtifacts(ctx, version)
-			if err == nil {
-				if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
-					slog.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
-					if err := at.InstallArtifact(ctx, *chosen, destPath); err != nil {
-						return fmt.Errorf("installation failed: %w", err)
+	// The actual installation work (network + extract) can be long-running.
+	// When a taskgroup.Group is present in the context we schedule it as a
+	// child task under the Internet pool so it gets its own named entry,
+	// Status updates, and captured logs in the progress system.
+	doInstall := func(cctx context.Context) error {
+		// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
+		if binaryHint != "" {
+			if at, ok := t.(backend.ArtifactTool); ok {
+				artifacts, err := at.ListArtifacts(cctx, version)
+				if err == nil {
+					if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
+						slog.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
+						return at.InstallArtifact(cctx, *chosen, destPath)
 					}
-					slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
-					return nil
 				}
 			}
 		}
+
+		// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
+		slog.Debug("installing tool via Tool.Install", "dest", destPath)
+		return t.Install(cctx, version, destPath)
 	}
 
-	// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
-	slog.Debug("installing tool via Tool.Install", "dest", destPath)
-	if err := t.Install(ctx, version, destPath); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
+	if parent := taskgroup.FromContext(ctx); parent != nil {
+		child, _ := parent.SubGroup(ctx)
+		var installErr error
+		child.Go("install:"+spec.String(), taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
+			s.Update("installing " + normalizedVersion)
+			s.Progress(0, 1)
+			installErr = doInstall(cc)
+			s.Progress(1, 1)
+			return installErr
+		})
+		if werr := child.Wait(); werr != nil && installErr == nil {
+			installErr = werr
+		}
+		if installErr != nil {
+			return fmt.Errorf("installation failed: %w", installErr)
+		}
+	} else {
+		if err := doInstall(ctx); err != nil {
+			return fmt.Errorf("installation failed: %w", err)
+		}
 	}
+
 	slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
 
 	// TODO: Shell integration will handle PATH management

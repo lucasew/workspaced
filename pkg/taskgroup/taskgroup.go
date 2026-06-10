@@ -25,13 +25,16 @@ import (
 type PoolKind int
 
 const (
-	IO       PoolKind = iota // File system, local disk
+	Control  PoolKind = iota // Unlimited, used to create other tasks
+	IO                       // File system, local disk
 	CPU                      // Computation
 	Internet                 // Network I/O
 )
 
 func (p PoolKind) String() string {
 	switch p {
+	case Control:
+		return "control"
 	case IO:
 		return "io"
 	case CPU:
@@ -208,6 +211,10 @@ func (p *pools) acquire(ctx context.Context, kind PoolKind) error {
 		sem = p.cpu
 	case Internet:
 		sem = p.internet
+	case Control:
+		// Control tasks are for orchestration. They do not consume a limited
+		// resource pool and must never block on acquire.
+		return nil
 	}
 	select {
 	case sem <- struct{}{}:
@@ -225,6 +232,9 @@ func (p *pools) release(kind PoolKind) {
 		<-p.cpu
 	case Internet:
 		<-p.internet
+	case Control:
+		// No slot was acquired.
+		return
 	}
 }
 

@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 )
 
@@ -171,6 +172,65 @@ func MoveContents(srcDir, destDir string) error {
 }
 
 func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOptions) error {
+	name := filepath.Base(url)
+
+	if parent := taskgroup.FromContext(ctx); parent != nil {
+		// The download driver initializes its own Internet task using the group
+		// progress system. The task itself acts as the progress item (bar 0->1
+		// when the download task completes). Use group's s for status.
+		child, _ := parent.SubGroup(ctx)
+		var fetchErr error
+		child.Go("download:"+name, taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
+			s.Update("downloading " + name)
+			s.Progress(0, 1)
+
+			// Original transfer logic (reusing existing progressWriter for the
+			// multi-writer if needed; no additional custom progress writers).
+			fetcher, err := driver.Get[fetchurl.Driver](cc)
+			if err != nil {
+				return err
+			}
+
+			tmp := dest + ".tmp"
+			outFile, err := os.Create(tmp)
+			if err != nil {
+				return err
+			}
+
+			pw := newProgressWriter(name, opts.Size)
+			outWriter := io.MultiWriter(outFile, pw)
+
+			algo, hash := parseHash(opts.Hash)
+			fetchErr = fetcher.Fetch(cc, fetchurl.FetchOptions{
+				URLs: []string{url},
+				Algo: algo,
+				Hash: hash,
+				Out:  outWriter,
+			})
+			if closeErr := outFile.Close(); closeErr != nil {
+				_ = os.Remove(tmp)
+				if fetchErr == nil {
+					fetchErr = closeErr
+				}
+			}
+			if fetchErr != nil {
+				_ = os.Remove(tmp)
+				return fetchErr
+			}
+			if e := finishDownload(tmp, dest, opts.Mode); e != nil {
+				return e
+			}
+
+			s.Progress(1, 1)
+			return nil
+		})
+		if werr := child.Wait(); werr != nil && fetchErr == nil {
+			fetchErr = werr
+		}
+		return fetchErr
+	}
+
+	// No group: original direct path.
 	fetcher, err := driver.Get[fetchurl.Driver](ctx)
 	if err != nil {
 		return err
@@ -182,7 +242,7 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		return err
 	}
 
-	pw := newProgressWriter(filepath.Base(url), opts.Size)
+	pw := newProgressWriter(name, opts.Size)
 	outWriter := io.MultiWriter(outFile, pw)
 
 	algo, hash := parseHash(opts.Hash)
@@ -204,6 +264,93 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 }
 
 func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions) error {
+	name := filepath.Base(url)
+
+	if parent := taskgroup.FromContext(ctx); parent != nil {
+		// The download driver initializes its own Internet task.
+		// We use the group's progress system directly on this task (0/1 for the
+		// transfer as a whole). No custom progress writers beyond the package's
+		// existing one.
+		child, _ := parent.SubGroup(ctx)
+		var dlErr error
+		child.Go("download:"+name, taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
+			s.Update("downloading " + name)
+			s.Progress(0, 1)
+
+			tmp := dest + ".tmp"
+			outFile, err := os.Create(tmp)
+			if err != nil {
+				return err
+			}
+
+			httpClient, err := driver.Get[httpclient.Driver](cc)
+			if err != nil {
+				logging.Close(cc, outFile)
+				_ = os.Remove(tmp)
+				return fmt.Errorf("failed to get http client: %w", err)
+			}
+
+			req, err := http.NewRequestWithContext(cc, http.MethodGet, url, nil)
+			if err != nil {
+				logging.Close(cc, outFile)
+				_ = os.Remove(tmp)
+				return err
+			}
+			if opts.ConfigureRequest != nil {
+				opts.ConfigureRequest(req)
+			}
+
+			resp, err := httpClient.Client().Do(req)
+			if err != nil {
+				logging.Close(cc, outFile)
+				_ = os.Remove(tmp)
+				return err
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				logging.Close(cc, resp.Body)
+				logging.Close(cc, outFile)
+				_ = os.Remove(tmp)
+				return fmt.Errorf("GET %s: %s", url, resp.Status)
+			}
+
+			size := resp.ContentLength
+			if size <= 0 {
+				size = opts.Size
+			}
+
+			pw := newProgressWriter(name, size)
+			outWriter := io.MultiWriter(outFile, pw)
+
+			if _, err := io.Copy(outWriter, resp.Body); err != nil {
+				logging.Close(cc, resp.Body)
+				logging.Close(cc, outFile)
+				_ = os.Remove(tmp)
+				return err
+			}
+			if err := resp.Body.Close(); err != nil {
+				logging.Close(cc, outFile)
+				_ = os.Remove(tmp)
+				return err
+			}
+			if err := outFile.Close(); err != nil {
+				_ = os.Remove(tmp)
+				return err
+			}
+			if e := finishDownload(tmp, dest, opts.Mode); e != nil {
+				return e
+			}
+
+			s.Progress(1, 1)
+			return nil
+		})
+		if werr := child.Wait(); werr != nil && dlErr == nil {
+			dlErr = werr
+		}
+		return dlErr
+	}
+
+	// No group path.
 	tmp := dest + ".tmp"
 	outFile, err := os.Create(tmp)
 	if err != nil {
@@ -245,7 +392,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	if size <= 0 {
 		size = opts.Size
 	}
-	pw := newProgressWriter(filepath.Base(url), size)
+	pw := newProgressWriter(name, size)
 	outWriter := io.MultiWriter(outFile, pw)
 
 	if _, err := io.Copy(outWriter, resp.Body); err != nil {
@@ -285,7 +432,7 @@ func parseHash(raw string) (algo, hash string) {
 	return algo, hash
 }
 
-// progressWriter tracks download bytes and reports to log.
+// progressWriter tracks download bytes (for potential logging or future use in no-group paths).
 type progressWriter struct {
 	name    string
 	total   int64

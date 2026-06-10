@@ -7,12 +7,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/env"
 	"workspaced/pkg/git"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 )
 
@@ -105,29 +108,105 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	}
 	logger := logging.GetLogger(ctx)
 
+	// Collect tools that actually need work (no good version locked yet).
+	needsWork := make([]string, 0, len(names))
 	for _, name := range names {
 		toolCfg := lazyTools[name]
-		spec, lockRef, err := lazyToolSpec(name, toolCfg)
+		_, lockRef, err := lazyToolSpec(name, toolCfg)
 		if err != nil {
 			return 0, fmt.Errorf("lazy tool %q: %w", name, err)
 		}
 		if locked, ok := sum.Tool(name); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 			continue
 		}
+		needsWork = append(needsWork, name)
+	}
 
-		version := spec.Version
-		if version == "" || version == "latest" {
-			// Home/lazy tools: if not in lockfile, fill with latest from upstream.
-			// (lockfile-driven for reproducibility; do not fall back to installed)
-			logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-			version, err = mgr.ResolveLatestVersion(ctx, spec)
-			if err != nil {
-				logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-				continue
-			}
+	if len(needsWork) == 0 {
+		return 0, nil
+	}
+
+	type update struct {
+		name string
+		lt   modfile.LockedTool
+	}
+	var updates []update
+	var updatesMu sync.Mutex
+
+	parent := taskgroup.FromContext(ctx)
+	if parent != nil {
+		// Run resolution for tools that need updates under the group.
+		// This lets network work (ListVersions) happen in parallel under the
+		// Internet pool with per-tool Status updates and proper logging attribution.
+		_, mapErr := taskgroup.Map(ctx, taskgroup.Internet, needsWork,
+			func(i int, name string) string { return "tool:" + name },
+			func(cctx context.Context, s *taskgroup.Status, name string) (struct{}, error) {
+				toolCfg := lazyTools[name]
+				spec, lockRef, err := lazyToolSpec(name, toolCfg)
+				if err != nil {
+					return struct{}{}, err
+				}
+
+				version := spec.Version
+				if version == "" || version == "latest" {
+					s.Update("resolving latest for " + name)
+					l := logging.GetLogger(cctx)
+					l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+					v, err := mgr.ResolveLatestVersion(cctx, spec)
+					if err != nil {
+						l.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
+						return struct{}{}, err
+					}
+					version = v
+				} else {
+					s.Update("preparing lock entry for " + name)
+				}
+
+				lt := lockedToolWithRenovate(lockRef, version, spec)
+
+				updatesMu.Lock()
+				updates = append(updates, update{name: name, lt: lt})
+				updatesMu.Unlock()
+
+				s.Update(name + "@" + version)
+				s.Progress(1, 1)
+				return struct{}{}, nil
+			})
+		if mapErr != nil {
+			return 0, mapErr
 		}
+	} else {
+		// No group in context: original sequential behavior (kept for tests and
+		// direct calls that don't go through the root command group setup).
+		for _, name := range needsWork {
+			toolCfg := lazyTools[name]
+			spec, lockRef, err := lazyToolSpec(name, toolCfg)
+			if err != nil {
+				return 0, fmt.Errorf("lazy tool %q: %w", name, err)
+			}
 
-		lt := lockedToolWithRenovate(lockRef, version, spec)
+			version := spec.Version
+			if version == "" || version == "latest" {
+				logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+				version, err = mgr.ResolveLatestVersion(ctx, spec)
+				if err != nil {
+					logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
+					continue
+				}
+			}
+
+			lt := lockedToolWithRenovate(lockRef, version, spec)
+			updates = append(updates, update{name: name, lt: lt})
+		}
+	}
+
+	// Apply collected updates serially (lockfile mutation must be safe).
+	for _, u := range updates {
+		name := u.name
+		lt := u.lt
+		lockRef := lt.Ref
+		version := lt.Version
+
 		changed, err := ws.UpdateSumFile(func(sum *modfile.SumFile) (bool, error) {
 			return sum.EnsureTool(name, lt), nil
 		})
@@ -137,7 +216,9 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		if changed {
 			logger.Info("updating lazy tool lock", "tool", name, "ref", lockRef, "version", version)
 			updated++
-			_ = sum.EnsureTool(name, lockedToolWithRenovate(lockRef, version, spec))
+			// Mirror the local sum copy so it reflects the write (harmless at end of function,
+			// kept for behavioral parity with the original sequential implementation).
+			_ = sum.EnsureTool(name, lt)
 		}
 	}
 	return updated, nil

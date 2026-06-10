@@ -1,7 +1,11 @@
 package tool
 
 import (
+	"context"
 	"os"
+	"os/exec"
+
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool"
 
 	"github.com/spf13/cobra"
@@ -36,14 +40,34 @@ Examples:
 					spec := args[0]
 					command := args[1]
 					commandArgs := args[2:]
-					c, err := tool.EnsureAndRun(cmd.Context(), spec, command, commandArgs...)
-					if err != nil {
+
+					var theCmd *exec.Cmd
+
+					g := taskgroup.MustFromContext(cmd.Context())
+					g.Go("tool:with:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+						s.Update("ensuring " + spec)
+						s.Progress(0, 1)
+						c, err := tool.EnsureAndRun(ctx, spec, command, commandArgs...)
+						if err != nil {
+							return err
+						}
+						theCmd = c
+						s.Progress(1, 1)
+						return nil
+					})
+
+					if err := taskgroup.Run(g); err != nil {
 						return err
 					}
-					c.Stdin = os.Stdin
-					c.Stdout = os.Stdout
-					c.Stderr = os.Stderr
-					return c.Run()
+
+					if theCmd == nil {
+						return nil // nothing to run (shouldn't happen)
+					}
+
+					theCmd.Stdin = os.Stdin
+					theCmd.Stdout = os.Stdout
+					theCmd.Stderr = os.Stderr
+					return theCmd.Run()
 				},
 			}
 		})
