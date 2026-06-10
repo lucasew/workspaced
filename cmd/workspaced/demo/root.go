@@ -137,9 +137,5 @@ func runTasksDemo(cmd *cobra.Command) error {
 		return fmt.Errorf("simulated 503 from registry (demo failure)")
 	}, "build")
 
-	// Opt-in to the bubbletea renderer (the group method). This is ignored
-	// automatically if TERM=dumb / non-tty / CI. Normal commands never call
-	// this, so bubbletea does not run for them.
-	_ = g.RunBubbleTea()
-	return nil
+	return g.RunBubbleTea()
 }
