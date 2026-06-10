@@ -18,9 +18,6 @@ func execCommand() *cobra.Command {
 		Short: "Execute a command using the platform-appropriate exec driver",
 		Long: `Execute a command using the platform-appropriate exec driver.
 
-This runs client-side and is useful on Termux where some commands may fail
-due to SIGSYS errors. The exec driver handles platform-specific quirks automatically.
-
 Examples:
   workspaced open exec git status
   workspaced open exec ls -la /data

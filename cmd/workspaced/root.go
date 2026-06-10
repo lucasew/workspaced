@@ -17,7 +17,9 @@ import (
 	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/output"
 	"workspaced/pkg/shellgen"
+	"workspaced/pkg/taskgroup"
 	_ "workspaced/pkg/tool/prelude"
 	"workspaced/pkg/version"
 
@@ -53,6 +55,9 @@ func main() {
 	var cpuProfilePath string
 	var memProfilePath string
 	var stopProfiling func() error
+	var rootGroup *taskgroup.Group
+	var renderer output.Renderer
+	var renderDone chan struct{}
 
 	cmd := &cobra.Command{
 		Use:     "workspaced",
@@ -61,6 +66,23 @@ func main() {
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
 			c.SetContext(cmdctx.WithDryRun(c.Context(), dryRun))
+
+			// Create root task group with limits from config (or defaults).
+			limits := taskgroup.DefaultLimits()
+			if homeCfg, err := configcue.LoadHome(); err == nil {
+				limits = homeCfg.ConcurrencyLimits()
+			}
+			var groupCtx context.Context
+			rootGroup, groupCtx = taskgroup.New(c.Context(), limits)
+			c.SetContext(groupCtx)
+
+			// Start renderer in background.
+			renderer = output.Auto(os.Stderr)
+			renderDone = make(chan struct{})
+			go func() {
+				defer close(renderDone)
+				_ = renderer.Run(rootGroup)
+			}()
 
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -86,6 +108,16 @@ func main() {
 			return err
 		},
 		PersistentPostRunE: func(c *cobra.Command, args []string) error {
+			// Wait for any root-level tasks to complete and the renderer to finish.
+			if rootGroup != nil {
+				if err := rootGroup.Wait(); err != nil {
+					slog.Error("task group error", "err", err)
+				}
+			}
+			if renderDone != nil {
+				<-renderDone
+			}
+
 			if stopProfiling == nil {
 				return nil
 			}

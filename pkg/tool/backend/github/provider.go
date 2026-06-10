@@ -69,7 +69,7 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 
 	githubutil.ApplyAuth(ctx, req)
 
-	// Use httpclient driver (handles Termux DNS/certs)
+	// Use httpclient driver
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get http client: %w", err)
@@ -112,7 +112,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 
 	githubutil.ApplyAuth(ctx, req)
 
-	// Use httpclient driver (handles Termux DNS/certs)
+	// Use httpclient driver
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get http client: %w", err)

@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 type BackupAction interface {
@@ -61,28 +63,70 @@ func RunFullBackup(ctx context.Context) error {
 		Icon:        "drive-harddisk",
 		HasProgress: true,
 	}
+	var failuresMu sync.Mutex
 	failures := []string{}
 
+	// Determine pool: rsync/archive → IO, git_repo_sync → Internet.
+	poolFor := func(kind string) taskgroup.PoolKind {
+		switch kind {
+		case "git_repo_sync":
+			return taskgroup.Internet
+		default:
+			return taskgroup.IO
+		}
+	}
+
+	var g *taskgroup.Group
+	if parent := taskgroup.FromContext(ctx); parent != nil {
+		g, ctx = parent.SubGroup(ctx)
+	} else {
+		g, ctx = taskgroup.New(ctx, taskgroup.DefaultLimits())
+	}
+
 	for i, action := range actions {
-		msg := action.GetName()
+		idx := i
+		act := action
+		msg := act.GetName()
 		if strings.TrimSpace(msg) == "" {
-			msg = fmt.Sprintf("Executando ação %d/%d...", i+1, len(actions))
+			msg = fmt.Sprintf("backup-action-%d", idx+1)
 		}
-		n.Message = msg
-		n.Progress = float64(i+1) / float64(len(actions))
-		logging.ReportError(ctx, notification.Notify(ctx, n))
-		logger.Info("backup action started", "index", i+1, "total", len(actions), "name", msg, "kind", action.GetKind())
-		if cmdctx.IsDryRun(ctx) {
-			logger.Info("dry-run: skipping backup action execution", "name", msg, "kind", action.GetKind())
-			logger.Info("backup action completed", "name", msg, "kind", action.GetKind())
-			continue
-		}
-		if err := action.Run(ctx, n); err != nil {
-			logger.Error("backup action failed", "name", msg, "kind", action.GetKind(), "error", err)
-			failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, action.GetKind(), err))
-			continue
-		}
-		logger.Info("backup action completed", "name", msg, "kind", action.GetKind())
+
+		g.Go(fmt.Sprintf("backup:%s", msg), poolFor(act.GetKind()), func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update(msg)
+			s.Progress(int64(idx), int64(len(actions)))
+			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
+
+			if cmdctx.IsDryRun(ctx) {
+				s.Log(fmt.Sprintf("dry-run: skipping %s", msg))
+				logger.Info("backup action completed (dry-run)", "name", msg, "kind", act.GetKind())
+				return nil
+			}
+
+			n2 := &notification.Notification{
+				ID:          notification.BackupNotificationID,
+				Title:       "Backup em curso",
+				Icon:        "drive-harddisk",
+				HasProgress: true,
+				Message:     msg,
+				Progress:    float64(idx+1) / float64(len(actions)),
+			}
+			logging.ReportError(ctx, notification.Notify(ctx, n2))
+
+			if err := act.Run(ctx, n2); err != nil {
+				logger.Error("backup action failed", "name", msg, "kind", act.GetKind(), "error", err)
+				failuresMu.Lock()
+				failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, act.GetKind(), err))
+				failuresMu.Unlock()
+				// Don't return error — let other actions continue.
+				return nil
+			}
+			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	if len(failures) > 0 {

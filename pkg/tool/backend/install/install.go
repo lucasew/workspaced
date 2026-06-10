@@ -20,8 +20,6 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/tool/backend"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 type DownloadOptions struct {
@@ -184,11 +182,8 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		return err
 	}
 
-	progress := newDownloadProgressBar(filepath.Base(url), opts.Size)
-	outWriter := io.Writer(outFile)
-	if progress != nil {
-		outWriter = io.MultiWriter(outFile, progress)
-	}
+	pw := newProgressWriter(filepath.Base(url), opts.Size)
+	outWriter := io.MultiWriter(outFile, pw)
 
 	algo, hash := parseHash(opts.Hash)
 	fetchErr := fetcher.Fetch(ctx, fetchurl.FetchOptions{
@@ -204,9 +199,6 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 	if fetchErr != nil {
 		_ = os.Remove(tmp)
 		return fetchErr
-	}
-	if progress != nil {
-		_ = progress.Finish()
 	}
 	return finishDownload(tmp, dest, opts.Mode)
 }
@@ -253,11 +245,8 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	if size <= 0 {
 		size = opts.Size
 	}
-	progress := newDownloadProgressBar(filepath.Base(url), size)
-	outWriter := io.Writer(outFile)
-	if progress != nil {
-		outWriter = io.MultiWriter(outFile, progress)
-	}
+	pw := newProgressWriter(filepath.Base(url), size)
+	outWriter := io.MultiWriter(outFile, pw)
 
 	if _, err := io.Copy(outWriter, resp.Body); err != nil {
 		logging.Close(ctx, resp.Body)
@@ -269,9 +258,6 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 		logging.Close(ctx, outFile)
 		_ = os.Remove(tmp)
 		return err
-	}
-	if progress != nil {
-		_ = progress.Finish()
 	}
 	if err := outFile.Close(); err != nil {
 		_ = os.Remove(tmp)
@@ -299,30 +285,21 @@ func parseHash(raw string) (algo, hash string) {
 	return algo, hash
 }
 
-func newDownloadProgressBar(name string, size int64) *progressbar.ProgressBar {
-	description := fmt.Sprintf("downloading %s", name)
-	if size > 0 {
-		return progressbar.NewOptions64(
-			size,
-			progressbar.OptionSetDescription(description),
-			progressbar.OptionSetWriter(os.Stderr),
-			progressbar.OptionShowBytes(true),
-			progressbar.OptionSetWidth(24),
-			progressbar.OptionThrottle(65),
-			progressbar.OptionShowCount(),
-			progressbar.OptionClearOnFinish(),
-		)
-	}
+// progressWriter tracks download bytes and reports to log.
+type progressWriter struct {
+	name    string
+	total   int64
+	written int64
+}
 
-	return progressbar.NewOptions64(
-		-1,
-		progressbar.OptionSetDescription(description),
-		progressbar.OptionSetWriter(os.Stderr),
-		progressbar.OptionSetWidth(24),
-		progressbar.OptionThrottle(65),
-		progressbar.OptionSpinnerType(14),
-		progressbar.OptionClearOnFinish(),
-	)
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	pw.written += int64(n)
+	return n, nil
+}
+
+func newProgressWriter(name string, size int64) *progressWriter {
+	return &progressWriter{name: name, total: size}
 }
 
 func installBinary(ctx context.Context, src, dest string) error {

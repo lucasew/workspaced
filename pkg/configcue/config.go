@@ -8,6 +8,7 @@ import (
 	"strings"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/env"
+	"workspaced/pkg/taskgroup"
 )
 
 type Config struct {
@@ -94,6 +95,29 @@ func (c *Config) Modules() (map[string]ModuleEntry, error) {
 		modules[name] = entry
 	}
 	return modules, nil
+}
+
+// ConcurrencyLimits reads the concurrency settings from config, falling back to defaults.
+func (c *Config) ConcurrencyLimits() taskgroup.Limits {
+	defaults := taskgroup.DefaultLimits()
+	var raw struct {
+		IO       *int `json:"io"`
+		CPU      *int `json:"cpu"`
+		Internet *int `json:"internet"`
+	}
+	if err := c.Decode("concurrency", &raw); err != nil {
+		return defaults
+	}
+	if raw.IO != nil && *raw.IO > 0 {
+		defaults.IO = *raw.IO
+	}
+	if raw.CPU != nil && *raw.CPU > 0 {
+		defaults.CPU = *raw.CPU
+	}
+	if raw.Internet != nil && *raw.Internet > 0 {
+		defaults.Internet = *raw.Internet
+	}
+	return defaults
 }
 
 func (c *Config) ModuleEntry(name string) (ModuleEntry, error) {

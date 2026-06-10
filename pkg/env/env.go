@@ -59,7 +59,7 @@ func GetConfigDir() (string, error) {
 	return envdriver.GetConfigDir(context.Background())
 }
 
-// IsPhone checks if the environment suggests we are running on a phone (Termux).
+// IsPhone checks if the environment suggests we are running on a phone.
 // Deprecated: Use envdriver.IsPhone(ctx) instead
 func IsPhone() bool {
 	return envdriver.IsPhone(context.Background())

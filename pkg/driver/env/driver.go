@@ -21,7 +21,7 @@ type Driver interface {
 	// GetConfigDir returns the path to the user config directory for workspaced.
 	GetConfigDir(ctx context.Context) (string, error)
 
-	// GetHomeDir returns the actual user home directory (handles Termux chroot)
+	// GetHomeDir returns the actual user home directory.
 	GetHomeDir(ctx context.Context) (string, error)
 
 	// IsPhone checks if the environment suggests we are running on a phone.
@@ -72,7 +72,7 @@ func GetConfigDir(ctx context.Context) (string, error) {
 	return d.GetConfigDir(ctx)
 }
 
-// GetHomeDir returns the actual user home directory (handles Termux chroot).
+// GetHomeDir returns the actual user home directory.
 func GetHomeDir(ctx context.Context) (string, error) {
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {

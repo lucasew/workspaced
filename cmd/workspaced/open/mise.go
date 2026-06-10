@@ -48,7 +48,7 @@ func installMise(ctx *cobra.Command) error {
 
 	slog.Info("installing mise", "path", misePath)
 
-	// Download installer script using httpclient driver (handles Termux DNS/certs)
+	// Download installer script using httpclient driver
 	slog.Info("downloading mise installer", "url", "https://mise.run")
 	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
 	if err != nil {
@@ -127,19 +127,7 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 	wrapperDir := filepath.Join(home, ".local", "bin")
 	wrapperPath := filepath.Join(wrapperDir, "mise")
 
-	// Use absolute path to workspaced binary (works in and out of chroot)
-	// In Termux, resolve to actual path not chrooted path
 	workspacedBin := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
-
-	// If we're in Termux and home is /home (chrooted), use actual Termux path
-	if os.Getenv("TERMUX_VERSION") != "" && home == "/home" {
-		// We're in a chroot, use actual Termux home
-		actualHome := os.Getenv("HOME")
-		if actualHome == "" || actualHome == "/home" {
-			actualHome = "/data/data/com.termux/files/home"
-		}
-		workspacedBin = filepath.Join(actualHome, ".local", "share", "workspaced", "bin", "workspaced")
-	}
 
 	// Check if wrapper already exists and is correct
 	if content, err := os.ReadFile(wrapperPath); err == nil {
@@ -172,8 +160,7 @@ func miseCommand() *cobra.Command {
 		DisableFlagParsing: true,
 		Long: `Run mise using a custom installation path.
 
-This command ensures mise is installed in a location that works on all platforms,
-including Termux where ~/.local/bin can cause issues.
+This command ensures mise is installed in a consistent location.
 
 Installation path priority:
   1. MISE_INSTALL_PATH environment variable

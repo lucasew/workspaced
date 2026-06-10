@@ -11,17 +11,13 @@ require (
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
 	github.com/lucasew/fetchurl v0.0.0-20260525133042-8c001421a513
 	github.com/owenrumney/go-sarif/v2 v2.3.3
-	github.com/owenrumney/go-sarif/v3 v3.3.0
-	github.com/schollz/progressbar/v3 v3.19.0
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/image v0.42.0
+	golang.org/x/term v0.41.0
 	modernc.org/sqlite v1.52.0
 )
 
-require (
-	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db // indirect
-	github.com/shogo82148/go-sfv v0.3.3 // indirect
-)
+require github.com/shogo82148/go-sfv v0.3.3 // indirect
 
 require (
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect

@@ -40,11 +40,9 @@ type Driver struct {
 
 func (d *Driver) Client() *http.Client {
 	d.once.Do(func() {
-		// Create custom dialer that prefers IPv4 and has proper timeouts
 		dialer := &net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-			// Prefer IPv4 over IPv6 to avoid Termux DNS issues
+			Timeout:       30 * time.Second,
+			KeepAlive:     30 * time.Second,
 			FallbackDelay: 300 * time.Millisecond,
 		}
 
@@ -83,15 +81,11 @@ func loadSystemCerts() *x509.CertPool {
 
 	// Common certificate file locations (in priority order)
 	certFiles := []string{
-		// Standard Linux locations
 		"/etc/ssl/certs/ca-certificates.crt",
 		"/etc/pki/tls/certs/ca-bundle.crt",
 		"/etc/ssl/ca-bundle.pem",
 		"/etc/pki/tls/cacert.pem",
 		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
-		// Termux locations
-		"/data/data/com.termux/files/usr/etc/tls/cert.pem",
-		"/system/etc/security/cacerts",
 	}
 
 	// Also check environment variables
@@ -108,35 +102,6 @@ func loadSystemCerts() *x509.CertPool {
 			if pool.AppendCertsFromPEM(certs) {
 				return pool
 			}
-		}
-	}
-
-	// Try loading from directory (for Android/Termux)
-	certDirs := []string{
-		"/system/etc/security/cacerts",
-		"/data/data/com.termux/files/usr/etc/tls/certs",
-	}
-
-	for _, certDir := range certDirs {
-		loaded := false
-		entries, err := os.ReadDir(certDir)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if entry.IsDir() {
-				continue
-			}
-			certPath := filepath.Join(certDir, entry.Name())
-			if certs, err := os.ReadFile(certPath); err == nil {
-				if pool.AppendCertsFromPEM(certs) {
-					loaded = true
-				}
-			}
-		}
-		// If we loaded any certs from this directory, return
-		if loaded {
-			return pool
 		}
 	}
 
