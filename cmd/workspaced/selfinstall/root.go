@@ -79,7 +79,7 @@ func runSelfInstall(ctx context.Context, force bool) error {
 			return fmt.Errorf("failed to create install directory: %w", err)
 		}
 
-		if err := copyFile(currentBinary, installPath); err != nil {
+		if err := copyFile(ctx, currentBinary, installPath); err != nil {
 			return fmt.Errorf("failed to copy binary: %w", err)
 		}
 
@@ -160,12 +160,12 @@ func createMiseShim(ctx context.Context) error {
 	return nil
 }
 
-func copyFile(src, dst string) error {
+func copyFile(ctx context.Context, src, dst string) error {
 	source, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(logging.NewRootContext(nil), source, "path", src)
+	defer logging.Close(ctx, source, "path", src)
 
 	dir := filepath.Dir(dst)
 	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp-*")
@@ -175,9 +175,9 @@ func copyFile(src, dst string) error {
 	tmpPath := tmp.Name()
 	defer func() {
 		if tmp != nil {
-			logging.Close(logging.NewRootContext(nil), tmp, "path", tmpPath)
+			logging.Close(ctx, tmp, "path", tmpPath)
 		}
-		logging.RunCleanup(logging.NewRootContext(nil), "remove", func() error {
+		logging.RunCleanup(ctx, "remove", func() error {
 			if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
 				return err
 			}
