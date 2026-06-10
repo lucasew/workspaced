@@ -3,10 +3,12 @@ package fetchurl
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"workspaced/pkg/driver"
 	fetchurldriver "workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/lucasew/fetchurl"
 )
@@ -47,12 +49,42 @@ func (d *Driver) Fetch(ctx context.Context, opts fetchurldriver.FetchOptions) er
 		return fmt.Errorf("no output writer provided")
 	}
 
-	fetchOpts := fetchurl.FetchOptions{
-		URLs: opts.URLs,
-		Algo: opts.Algo,
-		Hash: opts.Hash,
-		Out:  opts.Out,
+	g := taskgroup.FromContext(ctx)
+	if g == nil {
+		// No group: direct fetch (no task spawned).
+		fetchOpts := fetchurl.FetchOptions{
+			URLs: opts.URLs,
+			Algo: opts.Algo,
+			Hash: opts.Hash,
+			Out:  opts.Out,
+		}
+		return d.fetcher.Fetch(ctx, fetchOpts)
 	}
 
-	return d.fetcher.Fetch(ctx, fetchOpts)
+	// Spawn the fetch as a proper Internet task so the fetcher has its own
+	// progress bar / status in the group system.
+	done := make(chan error, 1)
+	name := "fetch:" + filepath.Base(opts.URLs[0])
+	g.Go(name, taskgroup.Internet, func(cctx context.Context, s *taskgroup.Status) error {
+		s.Update("fetching " + name)
+		s.Progress(0, -1) // the fetch task itself provides the progress item
+
+		fetchOpts := fetchurl.FetchOptions{
+			URLs: opts.URLs,
+			Algo: opts.Algo,
+			Hash: opts.Hash,
+			Out:  opts.Out,
+		}
+		err := d.fetcher.Fetch(cctx, fetchOpts)
+		s.Progress(1, 1)
+		done <- err
+		return err
+	})
+
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

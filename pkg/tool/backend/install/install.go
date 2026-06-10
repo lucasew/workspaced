@@ -174,63 +174,9 @@ func MoveContents(srcDir, destDir string) error {
 func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOptions) error {
 	name := filepath.Base(url)
 
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		// The download driver initializes its own Internet task using the group
-		// progress system. The task itself acts as the progress item (bar 0->1
-		// when the download task completes). Use group's s for status.
-		child, _ := parent.SubGroup(ctx)
-		var fetchErr error
-		child.Go("download:"+name, taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
-			s.Update("downloading " + name)
-			s.Progress(0, 1)
-
-			// Original transfer logic (reusing existing progressWriter for the
-			// multi-writer if needed; no additional custom progress writers).
-			fetcher, err := driver.Get[fetchurl.Driver](cc)
-			if err != nil {
-				return err
-			}
-
-			tmp := dest + ".tmp"
-			outFile, err := os.Create(tmp)
-			if err != nil {
-				return err
-			}
-
-			pw := newProgressWriter(name, opts.Size)
-			outWriter := io.MultiWriter(outFile, pw)
-
-			algo, hash := parseHash(opts.Hash)
-			fetchErr = fetcher.Fetch(cc, fetchurl.FetchOptions{
-				URLs: []string{url},
-				Algo: algo,
-				Hash: hash,
-				Out:  outWriter,
-			})
-			if closeErr := outFile.Close(); closeErr != nil {
-				_ = os.Remove(tmp)
-				if fetchErr == nil {
-					fetchErr = closeErr
-				}
-			}
-			if fetchErr != nil {
-				_ = os.Remove(tmp)
-				return fetchErr
-			}
-			if e := finishDownload(tmp, dest, opts.Mode); e != nil {
-				return e
-			}
-
-			s.Progress(1, 1)
-			return nil
-		})
-		if werr := child.Wait(); werr != nil && fetchErr == nil {
-			fetchErr = werr
-		}
-		return fetchErr
-	}
-
-	// No group: original direct path.
+	// No group wrapping here anymore: the fetchurl driver itself now spawns
+	// a "fetch:..." Internet task (via group.Go) when a group is present in ctx.
+	// This makes the fetcher a first-class task with its own progress bar / status.
 	fetcher, err := driver.Get[fetchurl.Driver](ctx)
 	if err != nil {
 		return err
@@ -266,34 +212,36 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions) error {
 	name := filepath.Base(url)
 
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		// The download driver initializes its own Internet task.
-		// We use the group's progress system directly on this task (0/1 for the
-		// transfer as a whole). No custom progress writers beyond the package's
-		// existing one.
-		child, _ := parent.SubGroup(ctx)
-		var dlErr error
-		child.Go("download:"+name, taskgroup.Internet, func(cc context.Context, s *taskgroup.Status) error {
-			s.Update("downloading " + name)
-			s.Progress(0, 1)
+	g := taskgroup.FromContext(ctx)
+	if g != nil {
+		// Spawn the direct fetch as its own Internet task (in the driver utility
+		// style). This makes the fetcher a task with visible progress bar.
+		// Use group's progress system directly (s.Progress calls) with manual
+		// read loop -- no custom progress writer types.
+		done := make(chan error, 1)
+		g.Go("fetch:"+name, taskgroup.Internet, func(cctx context.Context, s *taskgroup.Status) error {
+			s.Update("fetching " + name)
 
 			tmp := dest + ".tmp"
 			outFile, err := os.Create(tmp)
 			if err != nil {
+				done <- err
 				return err
 			}
 
-			httpClient, err := driver.Get[httpclient.Driver](cc)
+			httpClient, err := driver.Get[httpclient.Driver](cctx)
 			if err != nil {
-				logging.Close(cc, outFile)
+				logging.Close(cctx, outFile)
 				_ = os.Remove(tmp)
+				done <- err
 				return fmt.Errorf("failed to get http client: %w", err)
 			}
 
-			req, err := http.NewRequestWithContext(cc, http.MethodGet, url, nil)
+			req, err := http.NewRequestWithContext(cctx, http.MethodGet, url, nil)
 			if err != nil {
-				logging.Close(cc, outFile)
+				logging.Close(cctx, outFile)
 				_ = os.Remove(tmp)
+				done <- err
 				return err
 			}
 			if opts.ConfigureRequest != nil {
@@ -302,52 +250,88 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 
 			resp, err := httpClient.Client().Do(req)
 			if err != nil {
-				logging.Close(cc, outFile)
+				logging.Close(cctx, outFile)
 				_ = os.Remove(tmp)
+				done <- err
 				return err
 			}
 
 			if resp.StatusCode != http.StatusOK {
-				logging.Close(cc, resp.Body)
-				logging.Close(cc, outFile)
+				logging.Close(cctx, resp.Body)
+				logging.Close(cctx, outFile)
 				_ = os.Remove(tmp)
-				return fmt.Errorf("GET %s: %s", url, resp.Status)
+				err = fmt.Errorf("GET %s: %s", url, resp.Status)
+				done <- err
+				return err
 			}
 
 			size := resp.ContentLength
 			if size <= 0 {
 				size = opts.Size
 			}
+			s.Progress(0, size)
 
-			pw := newProgressWriter(name, size)
-			outWriter := io.MultiWriter(outFile, pw)
-
-			if _, err := io.Copy(outWriter, resp.Body); err != nil {
-				logging.Close(cc, resp.Body)
-				logging.Close(cc, outFile)
-				_ = os.Remove(tmp)
-				return err
+			// Manual read loop to drive s.Progress directly from the group's
+			// progress system (no separate progress writer).
+			buf := make([]byte, 32*1024)
+			var written int64
+			for {
+				n, rerr := resp.Body.Read(buf)
+				if n > 0 {
+					if _, werr := outFile.Write(buf[:n]); werr != nil {
+						logging.Close(cctx, resp.Body)
+						logging.Close(cctx, outFile)
+						_ = os.Remove(tmp)
+						done <- werr
+						return werr
+					}
+					written += int64(n)
+					s.Progress(written, size)
+					if size > 0 {
+						pct := int(100 * written / size)
+						s.Update(fmt.Sprintf("fetching %s (%d%%)", name, pct))
+					} else {
+						s.Update(fmt.Sprintf("fetching %s (%d bytes)", name, written))
+					}
+				}
+				if rerr != nil {
+					if rerr != io.EOF {
+						logging.Close(cctx, resp.Body)
+						logging.Close(cctx, outFile)
+						_ = os.Remove(tmp)
+						done <- rerr
+						return rerr
+					}
+					break
+				}
 			}
 			if err := resp.Body.Close(); err != nil {
-				logging.Close(cc, outFile)
+				logging.Close(cctx, outFile)
 				_ = os.Remove(tmp)
+				done <- err
 				return err
 			}
 			if err := outFile.Close(); err != nil {
 				_ = os.Remove(tmp)
+				done <- err
 				return err
 			}
 			if e := finishDownload(tmp, dest, opts.Mode); e != nil {
+				done <- e
 				return e
 			}
 
-			s.Progress(1, 1)
+			s.Progress(size, size)
+			done <- nil
 			return nil
 		})
-		if werr := child.Wait(); werr != nil && dlErr == nil {
-			dlErr = werr
+
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		return dlErr
 	}
 
 	// No group path.

@@ -3,12 +3,12 @@ package tool
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
@@ -57,8 +57,10 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	normalizedVersion := normalizeVersion(actualVersion)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
+	logger := logging.GetLogger(ctx)
+
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
-		slog.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+		logger.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 
 		if bt, ok := t.(backend.BinaryTool); ok {
 			var binPath string
@@ -81,7 +83,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			if installErr != nil {
 				return "", fmt.Errorf("failed to install tool: %w", installErr)
 			}
-			slog.Info("tool installed", "spec", spec, "bin_path", binPath)
+			logger.Info("tool installed", "spec", spec, "bin_path", binPath)
 			return binPath, nil
 		}
 
@@ -94,13 +96,13 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		if err != nil {
 			return "", fmt.Errorf("tool installed but binary not found: %w", err)
 		}
-		slog.Info("tool installed", "spec", spec, "bin_path", binPath)
+		logger.Info("tool installed", "spec", spec, "bin_path", binPath)
 		return binPath, nil
 	}
 
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
-	slog.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+	logger.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 	if bt, ok := t.(backend.BinaryTool); ok {
 		var binPath string
 		var installErr error
@@ -122,7 +124,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		if installErr != nil {
 			return "", installErr
 		}
-		slog.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+		logger.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
 		return binPath, nil
 	}
 	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
@@ -132,7 +134,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if err != nil {
 		return "", fmt.Errorf("tool reinstalled but binary not found: %w", err)
 	}
-	slog.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+	logger.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
 	return binPath, nil
 }
 

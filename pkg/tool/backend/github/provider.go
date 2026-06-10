@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"runtime"
 	"strings"
@@ -60,8 +59,9 @@ type asset struct {
 }
 
 func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) ([]string, error) {
+	logger := logging.GetLogger(ctx)
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", pkg.Repo)
-	slog.Debug("fetching versions", "url", url)
+	logger.Debug("fetching versions", "url", url)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -94,16 +94,17 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 	for _, r := range releases {
 		versions = append(versions, r.TagName)
 	}
-	slog.Debug("found versions", "count", len(versions))
+	logger.Debug("found versions", "count", len(versions))
 	return versions, nil
 }
 
 func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {
+	logger := logging.GetLogger(ctx)
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkg.Repo, version)
 	if version == "latest" {
 		url = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", pkg.Repo)
 	}
-	slog.Debug("fetching release info", "url", url)
+	logger.Debug("fetching release info", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -147,7 +148,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 			if len(parts) == 2 {
 				// Store as "algo:hash" format for fetchurl compatibility
 				hash = a.Digest
-				slog.Debug("found checksum", "asset", a.Name, "algo", parts[0], "hash", parts[1][:16]+"...")
+				logger.Debug("found checksum", "asset", a.Name, "algo", parts[0], "hash", parts[1][:16]+"...")
 			}
 		}
 
@@ -159,7 +160,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 			Size: a.Size,
 		})
 	}
-	slog.Debug("found assets", "total_assets", len(r.Assets), "matched_artifacts", len(artifacts))
+	logger.Debug("found assets", "total_assets", len(r.Assets), "matched_artifacts", len(artifacts))
 
 	return artifacts, nil
 }
