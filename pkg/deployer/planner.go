@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strings"
-	"sync"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
+	"workspaced/pkg/taskgroup"
 )
 
 // Planner compara estado atual vs desejado e gera ações
@@ -98,7 +97,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 	return Action{Type: ActionNoop, Target: target, Desired: d, Current: current}, nil
 }
 
-// Plan compara desired state com current state e retorna ações necessárias
+// Plan compares desired state with current state and returns necessary actions.
 func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState *State) ([]Action, error) {
 	actions := make([]Action, len(desired))
 	desiredMap := make(map[string]DesiredState, len(desired))
@@ -106,57 +105,32 @@ func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState
 		desiredMap[d.Target()] = d
 	}
 
-	type task struct {
-		idx int
-		d   DesiredState
-	}
-	tasks := make(chan task)
-	errCh := make(chan error, 1)
-	var wg sync.WaitGroup
-
-	workers := runtime.NumCPU()
-	if workers < 1 {
-		workers = 1
-	}
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for t := range tasks {
-				target := t.d.Target()
-				current, managed := currentState.Files[target]
-				a, err := planOne(target, t.d, current, managed)
-				if err != nil {
-					select {
-					case errCh <- err:
-					default:
-					}
-					return
-				}
-				actions[t.idx] = a
-			}
-		}()
-	}
+	// A task group must be present in the context (provided by the top-level
+	// command). We use a SubGroup so that this planning work participates in
+	// the parent's pool limits and cancellation.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
 	for i, d := range desired {
-		select {
-		case err := <-errCh:
-			close(tasks)
-			wg.Wait()
-			return nil, err
-		default:
-		}
-		tasks <- task{idx: i, d: d}
-	}
-	close(tasks)
-	wg.Wait()
-	select {
-	case err := <-errCh:
-		return nil, err
-	default:
+		idx := i
+		ds := d
+		g.Go(fmt.Sprintf("plan:%s", ds.Target()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+			target := ds.Target()
+			current, managed := currentState.Files[target]
+			a, err := planOne(target, ds, current, managed)
+			if err != nil {
+				return err
+			}
+			actions[idx] = a
+			return nil
+		})
 	}
 
-	// Prune orphaned files
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Prune orphaned files.
 	for target, current := range currentState.Files {
 		if _, ok := desiredMap[target]; !ok {
 			actions = append(actions, Action{Type: ActionDelete, Target: target, Current: current})

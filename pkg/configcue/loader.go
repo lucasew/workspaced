@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -734,21 +735,22 @@ func buildRuntimePrelude(resolvedInputs map[string]map[string]any) (string, erro
 	userDataDir, _ := env.GetUserDataDir()
 	hostname := env.GetHostname()
 
-	runtime := map[string]any{
+	runtimeMap := map[string]any{
 		"is_phone":      env.IsPhone(),
 		"hostname":      hostname,
 		"home":          home,
 		"dotfiles_root": dotfilesRoot,
 		"config_dir":    configDir,
 		"user_data_dir": userDataDir,
+		"cpus":          runtime.NumCPU(),
 	}
 	if len(resolvedInputs) > 0 {
-		runtime["inputs"] = resolvedInputs
+		runtimeMap["inputs"] = resolvedInputs
 	}
 
 	payload := map[string]any{
 		"workspaced": map[string]any{
-			"runtime": runtime,
+			"runtime": runtimeMap,
 		},
 	}
 	b, err := json.Marshal(payload)

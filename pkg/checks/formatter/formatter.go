@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 // Formatter extends the base Check for code formatting tools.
@@ -23,13 +25,13 @@ func Register(f Formatter) {
 	checks.Register[Formatter](f)
 }
 
-// RunAll executes all applicable formatters.
+// RunAll executes all applicable formatters in parallel.
 func RunAll(ctx context.Context, dir string) error {
 	formatters := checks.List[Formatter]()
 	slog.Info("Running formatters", "count", len(formatters), "dir", dir)
 
-	var errs []error
-
+	// Filter to applicable formatters first.
+	var applicable []Formatter
 	for _, f := range formatters {
 		err := f.Detect(ctx, dir)
 		if errors.Is(err, checks.ErrNotApplicable) {
@@ -39,12 +41,37 @@ func RunAll(ctx context.Context, dir string) error {
 			slog.Warn("formatter detection failed", "name", f.Name(), "error", err)
 			continue
 		}
+		applicable = append(applicable, f)
+	}
 
-		slog.Info("Running formatter", "name", f.Name())
-		if err := f.Format(ctx, dir); err != nil {
-			logging.ReportError(ctx, err, slog.String("name", f.Name()), slog.String("context", "formatter failed"))
-			errs = append(errs, fmt.Errorf("%s: %w", f.Name(), err))
-		}
+	if len(applicable) == 0 {
+		return nil
+	}
+
+	// Task group comes from the context set up by the top-level command.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
+
+	var mu sync.Mutex
+	var errs []error
+
+	for _, f := range applicable {
+		fmtr := f
+		g.Go(fmt.Sprintf("fmt:%s", fmtr.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update(fmt.Sprintf("running %s", fmtr.Name()))
+			slog.Info("Running formatter", "name", fmtr.Name())
+			if err := fmtr.Format(ctx, dir); err != nil {
+				logging.ReportError(ctx, err, slog.String("name", fmtr.Name()), slog.String("context", "formatter failed"))
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("%s: %w", fmtr.Name(), err))
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	if len(errs) > 0 {

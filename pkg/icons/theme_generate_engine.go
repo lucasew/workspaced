@@ -18,16 +18,14 @@ import (
 	"sync"
 	"sync/atomic"
 	"text/template"
-	"time"
 
 	"workspaced/pkg/configcue"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 
 	xdraw "golang.org/x/image/draw"
-
-	"github.com/schollz/progressbar/v3"
 )
 
 var sizeDirPrefixRe = regexp.MustCompile(`^\d+x\d+$`)
@@ -74,197 +72,104 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	if !opts.NoRaster {
 		maxSize = sizes[len(sizes)-1]
 	}
-	jobs, err := resolveJobs(opts.Jobs)
-	if err != nil {
-		return err
-	}
-
-	bar := progressbar.NewOptions(
-		len(paths),
-		progressbar.OptionSetWriter(opts.Stderr),
-		progressbar.OptionSetWidth(30),
-		progressbar.OptionShowCount(),
-		progressbar.OptionSetDescription(fmt.Sprintf("icons(%d jobs)", jobs)),
-		progressbar.OptionThrottle(200*time.Millisecond),
-		progressbar.OptionOnCompletion(func() {
-			if _, err := fmt.Fprintln(opts.Stderr); err != nil {
-				logging.ReportError(ctx, err)
-			}
-		}),
-	)
 
 	dirsUsed := map[string]bool{}
 	var dirsUsedMu sync.Mutex
 	var written int64
 
-	workerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	// Use taskgroup for parallel icon processing.
+	// Must come from the context passed down by the top-level command.
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
 
-	tasks := make(chan string)
-	errCh := make(chan error, 1)
-	reportErr := func(err error) {
-		if err == nil {
-			return
-		}
-		select {
-		case errCh <- err:
-		default:
-		}
-		cancel()
-	}
+	totalPaths := int64(len(paths))
+	for _, path := range paths {
+		iconPath := path
+		g.Go(fmt.Sprintf("icon:%s", filepath.Base(iconPath)), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+			localDirs := map[string]bool{}
 
-	processOne := func(path string) error {
-		localDirs := map[string]bool{}
+			rel, err := filepath.Rel(inputDir, iconPath)
+			if err != nil {
+				return err
+			}
+			relOut := strings.TrimSuffix(rel, ".tmpl")
+			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
+			relOut = stripLeadingSizeDir(relOut)
 
-		rel, err := filepath.Rel(inputDir, path)
-		if err != nil {
-			return err
-		}
-		relOut := strings.TrimSuffix(rel, ".tmpl")
-		relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
-		relOut = stripLeadingSizeDir(relOut)
+			ctxDir := filepath.Dir(relOut)
+			if ctxDir == "." {
+				ctxDir = opts.DefaultContext
+				relOut = filepath.Join(ctxDir, filepath.Base(relOut))
+			}
 
-		ctxDir := filepath.Dir(relOut)
-		if ctxDir == "." {
-			ctxDir = opts.DefaultContext
-			relOut = filepath.Join(ctxDir, filepath.Base(relOut))
-		}
+			iconName := strings.TrimSuffix(filepath.Base(relOut), ".svg")
+			s.Update(iconName)
 
-		iconName := strings.TrimSuffix(filepath.Base(relOut), ".svg")
-		svgContent, err := renderSVG(path, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
-		if err != nil {
-			return err
-		}
-
-		targetSVG := filepath.Join(outputDir, "scalable", relOut)
-		if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
-			return err
-		}
-		localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
-
-		if !opts.NoRaster {
-			ratio := extractSVGAspectRatio(svgContent)
-			maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
-			renderedMax, err := svgraster.RasterizeSVG(workerCtx, svgContent, maxW, maxH)
+			svgContent, err := renderSVG(iconPath, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
 			if err != nil {
 				return err
 			}
 
-			for _, s := range sizes {
-				w, h := fitSizePreservingAspect(ratio, s)
-				var rendered image.Image
-				if s == maxSize {
-					rendered = renderedMax
-				} else {
-					rendered = resizeBilinear(renderedMax, w, h)
-				}
+			targetSVG := filepath.Join(outputDir, "scalable", relOut)
+			if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
+				return err
+			}
+			localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
 
-				final := centerInSquare(rendered, s)
-				sizeDir := filepath.Join(fmt.Sprintf("%dx%d", s, s), ctxDir)
-				targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
-				if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
-					return err
-				}
-				f, err := os.Create(targetPNG)
+			if !opts.NoRaster {
+				ratio := extractSVGAspectRatio(svgContent)
+				maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
+				renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
 				if err != nil {
 					return err
 				}
-				if err := fastPNGEncoder.Encode(f, final); err != nil {
-					logging.Close(workerCtx, f)
-					return err
-				}
-				if err := f.Close(); err != nil {
-					return err
-				}
-				localDirs[filepath.ToSlash(sizeDir)] = true
-			}
-		}
 
-		dirsUsedMu.Lock()
-		for d := range localDirs {
-			dirsUsed[d] = true
-		}
-		dirsUsedMu.Unlock()
-
-		atomic.AddInt64(&written, 1)
-		return nil
-	}
-
-	progressStop := make(chan struct{})
-	var progressWG sync.WaitGroup
-	progressWG.Add(1)
-	go func() {
-		defer progressWG.Done()
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-		last := 0
-		flush := func() {
-			cur := int(atomic.LoadInt64(&written))
-			if cur > last {
-				if err := bar.Add(cur - last); err != nil {
-					logging.ReportError(workerCtx, err)
-				}
-				last = cur
-			}
-		}
-		for {
-			select {
-			case <-ticker.C:
-				flush()
-			case <-progressStop:
-				flush()
-				return
-			case <-workerCtx.Done():
-				flush()
-				return
-			}
-		}
-	}()
-
-	var wg sync.WaitGroup
-	for i := 0; i < jobs; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case <-workerCtx.Done():
-					return
-				case path, ok := <-tasks:
-					if !ok {
-						return
+				for _, sz := range sizes {
+					w, h := fitSizePreservingAspect(ratio, sz)
+					var rendered image.Image
+					if sz == maxSize {
+						rendered = renderedMax
+					} else {
+						rendered = resizeBilinear(renderedMax, w, h)
 					}
-					if err := processOne(path); err != nil {
-						reportErr(err)
-						return
+
+					final := centerInSquare(rendered, sz)
+					sizeDir := filepath.Join(fmt.Sprintf("%dx%d", sz, sz), ctxDir)
+					targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
+					if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
+						return err
 					}
+					f, err := os.Create(targetPNG)
+					if err != nil {
+						return err
+					}
+					if err := fastPNGEncoder.Encode(f, final); err != nil {
+						logging.Close(ctx, f)
+						return err
+					}
+					if err := f.Close(); err != nil {
+						return err
+					}
+					localDirs[filepath.ToSlash(sizeDir)] = true
 				}
 			}
-		}()
+
+			dirsUsedMu.Lock()
+			for d := range localDirs {
+				dirsUsed[d] = true
+			}
+			dirsUsedMu.Unlock()
+
+			cur := atomic.AddInt64(&written, 1)
+			s.Progress(cur, totalPaths)
+			return nil
+		})
 	}
 
-produceLoop:
-	for _, path := range paths {
-		select {
-		case <-workerCtx.Done():
-			break produceLoop
-		case tasks <- path:
-		}
-	}
-	close(tasks)
-	wg.Wait()
-	close(progressStop)
-	progressWG.Wait()
-
-	select {
-	case err := <-errCh:
-		return err
-	default:
-	}
-	if err := workerCtx.Err(); err != nil && err != context.Canceled {
+	if err := g.Wait(); err != nil {
 		return err
 	}
 

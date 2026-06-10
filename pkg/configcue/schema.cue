@@ -37,11 +37,18 @@ package workspaced
 	dotfiles_root?: string
 	config_dir?: string
 	user_data_dir?: string
+	cpus?: int
 	inputs?: [string]: {
 		path?: string
 		provider?: string
 		target?: string
 	}
+}
+
+#Concurrency: {
+	io?:       int
+	cpu?:      int
+	internet?: int
 }
 
 #BackupActionGitRepoSync: close({
@@ -114,4 +121,5 @@ workspaced: {
 	}
 	lazy_tools?: [string]: #LazyTool
 	drivers?: [string]: [string]: int
+	concurrency?: #Concurrency
 }

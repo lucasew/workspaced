@@ -16,6 +16,16 @@ func GetLogger(ctx context.Context) *slog.Logger {
 	return slog.Default()
 }
 
+// ContextWithLogger returns a context that carries the given *slog.Logger
+// under the standard LoggerKey. This is the way to inject a (possibly
+// derived) logger so that GetLogger and downstream code can retrieve it.
+func ContextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
+	if l == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, types.LoggerKey, l)
+}
+
 // ChannelLogHandler is a custom slog.Handler that broadcasts log records to a channel.
 // This is used to stream server-side logs to the client via the daemon connection.
 type ChannelLogHandler struct {

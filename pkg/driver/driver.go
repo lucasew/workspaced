@@ -46,12 +46,31 @@ type doctorEntry struct {
 	Check         func(context.Context) error
 }
 
+type validationResult struct {
+	once sync.Once
+	err  error
+}
+
 var (
-	mu            sync.RWMutex
-	Drivers       = map[reflect.Type]map[string]any{}
-	driverWeights = map[string]map[string]int{}
-	doctorList    = []doctorEntry{}
+	mu              sync.RWMutex
+	Drivers         = map[reflect.Type]map[string]any{}
+	driverWeights   = map[string]map[string]int{}
+	doctorList      = []doctorEntry{}
+	validationCache = map[string]*validationResult{}
 )
+
+// cachedCheck runs check at most once per driver ID for the lifetime of the process.
+func cachedCheck(id string, check func(context.Context) error, ctx context.Context) error {
+	mu.Lock()
+	vr, ok := validationCache[id]
+	if !ok {
+		vr = &validationResult{}
+		validationCache[id] = vr
+	}
+	mu.Unlock()
+	vr.once.Do(func() { vr.err = check(ctx) })
+	return vr.err
+}
 
 // SetWeights configures driver priorities. Weights must be between 0 and 100.
 func SetWeights(w map[string]map[string]int) error {
@@ -189,7 +208,7 @@ func Get[T any](ctx context.Context) (T, error) {
 	for _, provider := range providers {
 		weight := getConfiguredWeight(weights, provider.ID())
 
-		if err := provider.CheckCompatibility(ctx); err != nil {
+		if err := cachedCheck(provider.ID(), provider.CheckCompatibility, ctx); err != nil {
 			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", provider.ID(), provider.Name(), weight, err))
 			slog.Debug("driver skipped", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
 			continue
@@ -253,7 +272,7 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 		}
 
 		for _, d := range entries {
-			err := d.Check(ctx)
+			err := cachedCheck(d.DriverID, d.Check, ctx)
 			weight := getConfiguredWeight(weights, d.DriverID)
 			status := DriverStatus{
 				ID:           d.DriverID,

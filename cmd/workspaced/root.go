@@ -18,6 +18,7 @@ import (
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/shellgen"
+	"workspaced/pkg/taskgroup"
 	_ "workspaced/pkg/tool/prelude"
 	"workspaced/pkg/version"
 
@@ -53,6 +54,8 @@ func main() {
 	var cpuProfilePath string
 	var memProfilePath string
 	var stopProfiling func() error
+	var rootGroup *taskgroup.Group
+
 
 	cmd := &cobra.Command{
 		Use:     "workspaced",
@@ -61,6 +64,15 @@ func main() {
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
 			c.SetContext(cmdctx.WithDryRun(c.Context(), dryRun))
+
+			// Create root task group with limits from config (or defaults).
+			limits := taskgroup.DefaultLimits()
+			if homeCfg, err := configcue.LoadHome(); err == nil {
+				limits = homeCfg.ConcurrencyLimits()
+			}
+			var groupCtx context.Context
+			rootGroup, groupCtx = taskgroup.New(c.Context(), limits)
+			c.SetContext(groupCtx)
 
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -86,6 +98,15 @@ func main() {
 			return err
 		},
 		PersistentPostRunE: func(c *cobra.Command, args []string) error {
+			// Wait for any root-level tasks (the group is the source of truth
+			// for work; renderers like bubbletea are opt-in per-command via
+			// g.RunBubbleTea and are ignored on dumb terminals).
+			if rootGroup != nil {
+				if err := rootGroup.Wait(); err != nil {
+					slog.Error("task group error", "err", err)
+				}
+			}
+
 			if stopProfiling == nil {
 				return nil
 			}

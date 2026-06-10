@@ -20,7 +20,7 @@ func (p *Provider) Name() string {
 }
 
 func (p *Provider) CheckCompatibility(ctx context.Context) error {
-	// Always compatible on non-Termux systems
+	// Always compatible
 	return nil
 }
 

@@ -3,10 +3,13 @@ package lint
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"sync"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
@@ -26,18 +29,19 @@ func Register(l Linter) {
 	checks.Register[Linter](l)
 }
 
-// RunAll executes all globally registered linters against a directory and aggregates results.
+// RunAll executes all globally registered linters in parallel against a directory
+// and aggregates results.
 func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	report, err := sarif.New(sarif.Version210)
 	if err != nil {
 		return nil, err
 	}
 
-	// Retrieve all registered Linter implementations
 	linters := checks.List[Linter]()
 
+	// Filter to applicable linters first (detect is cheap, run is expensive).
+	var applicable []Linter
 	for _, l := range linters {
-		// 1. Check if the linter applies.
 		err := l.Detect(ctx, dir)
 		if errors.Is(err, checks.ErrNotApplicable) {
 			slog.Info("linter skipped", "linter", l.Name(), "reason", "not applicable")
@@ -47,24 +51,46 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 			slog.Warn("linter skipped", "linter", l.Name(), "reason", "detect failed", "error", err)
 			continue
 		}
-
-		// 2. Run the linter
-		run, err := l.Run(ctx, dir)
-		if err != nil {
-			logging.ReportError(ctx, err, slog.String("linter", l.Name()), slog.String("context", "linter failed"))
-			continue
-		}
-		resultCount := 0
-		if run != nil {
-			resultCount = len(run.Results)
-		}
-		slog.Info("linter ok", "linter", l.Name(), "sarif_results", resultCount)
-
-		// 3. Aggregate the result
-		if run != nil {
-			report.AddRun(run)
-		}
+		applicable = append(applicable, l)
 	}
 
+	if len(applicable) == 0 {
+		return report, nil
+	}
+
+	// Run applicable linters in parallel using taskgroup.
+	// The group must be present in the context (initialized only at the top
+	// command and passed down).
+	parent := taskgroup.MustFromContext(ctx)
+	g, ctx := parent.SubGroup(ctx)
+
+	var mu sync.Mutex
+	for _, l := range applicable {
+		linter := l
+		g.Go(fmt.Sprintf("lint:%s", linter.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update(fmt.Sprintf("running %s", linter.Name()))
+			run, err := linter.Run(ctx, dir)
+			if err != nil {
+				logging.ReportError(ctx, err, slog.String("linter", linter.Name()), slog.String("context", "linter failed"))
+				return nil // Don't fail other linters.
+			}
+			resultCount := 0
+			if run != nil {
+				resultCount = len(run.Results)
+			}
+			slog.Info("linter ok", "linter", linter.Name(), "sarif_results", resultCount)
+
+			if run != nil {
+				mu.Lock()
+				report.AddRun(run)
+				mu.Unlock()
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return report, err
+	}
 	return report, nil
 }
