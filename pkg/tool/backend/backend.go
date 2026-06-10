@@ -110,13 +110,13 @@ type Artifact struct {
 func SelectArtifact(artifacts []Artifact, osName, arch, binaryHint string) *Artifact {
 	var candidates []Artifact
 	for _, a := range artifacts {
+		if strings.HasSuffix(a.URL, ".deb") {
+			continue
+		}
+		if strings.HasSuffix(a.URL, ".rpm") {
+			continue
+		}
 		if a.OS == osName && a.Arch == arch {
-			if strings.HasSuffix(a.URL, ".deb") {
-				continue
-			}
-			if strings.HasSuffix(a.URL, ".rpm") {
-				continue
-			}
 			candidates = append(candidates, a)
 		}
 	}
