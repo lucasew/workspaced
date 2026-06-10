@@ -36,14 +36,9 @@ var (
 	initialMtime        time.Time
 )
 
-func init() {
-	var err error
-	initialMtime, err = executil.GetBinaryMtime()
-	if err != nil {
-		logger := logging.GetLogger(logging.NewRootContext(nil))
-		logger.Warn("failed to get initial binary mtime", "error", err)
-	}
-}
+// initialMtime is populated early in the daemon command Run (before RunDaemon)
+// using the command's ctx (connected to the top root). This avoids creating
+// a separate logging ctx in package init().
 
 func HasBinaryChanged() bool {
 	if initialMtime.IsZero() {
@@ -82,6 +77,15 @@ var Command = &cobra.Command{
 				logger.Info("daemon already running, exiting")
 				os.Exit(0)
 			}
+		}
+
+		// Populate initialMtime here (using the connected command ctx) instead
+		// of package init, so we use a ctx that has the logger from the top root.
+		var err error
+		initialMtime, err = executil.GetBinaryMtime()
+		if err != nil {
+			logger := logging.GetLogger(c.Context())
+			logger.Warn("failed to get initial binary mtime", "error", err)
 		}
 
 		if err := RunDaemon(c.Context()); err != nil && err != http.ErrServerClosed {

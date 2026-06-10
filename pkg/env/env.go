@@ -16,24 +16,9 @@ import (
 var EssentialPaths []string
 
 func init() {
-	// Early process setup. This one has to use Background because package inits
-	// run before main has created the root logging ctx.
-	ctx := context.Background()
-
-	// Get essential paths from driver
-	EssentialPaths = envdriver.GetEssentialPaths(ctx)
-
-	// Apply to current process PATH
-	newPath := strings.Split(os.Getenv("PATH"), ":")
-
-	for _, path := range EssentialPaths {
-		if !slices.Contains(newPath, path) {
-			newPath = append([]string{path}, newPath...)
-		}
-	}
-	if err := os.Setenv("PATH", strings.Join(newPath, ":")); err != nil {
-		panic(err)
-	}
+	// EssentialPaths and the process PATH adjustment are initialized from the
+	// actual root command context (which has the logger attached) in
+	// cmd/workspaced/root.go. Package inits cannot use a connected ctx yet.
 }
 
 // GetDotfilesRoot locates the root directory of the dotfiles repository.
@@ -80,6 +65,26 @@ func IsInStore() bool {
 // Deprecated: Use envdriver.IsNixOS(ctx) instead
 func IsNixOS(ctx context.Context) bool {
 	return envdriver.IsNixOS(ctx)
+}
+
+// SetupEssentialPaths populates the EssentialPaths var and adjusts the current
+// process $PATH to include them. It must be called with a ctx that is connected
+// to the top-level root context (has a logger). This is called from the root
+// command setup so that the driver calls use a properly connected ctx.
+func SetupEssentialPaths(ctx context.Context) {
+	EssentialPaths = envdriver.GetEssentialPaths(ctx)
+
+	// Apply to current process PATH
+	newPath := strings.Split(os.Getenv("PATH"), ":")
+
+	for _, path := range EssentialPaths {
+		if !slices.Contains(newPath, path) {
+			newPath = append([]string{path}, newPath...)
+		}
+	}
+	if err := os.Setenv("PATH", strings.Join(newPath, ":")); err != nil {
+		panic(err)
+	}
 }
 
 // ExpandPath expands the tilde (~) to the user's home directory

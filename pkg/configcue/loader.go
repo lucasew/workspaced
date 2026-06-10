@@ -55,7 +55,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	layers := make([]Layer, 0)
 
 	if !opts.HomeMode {
-		repoPath, err := resolveWorkspaceCuePath(opts.Cwd)
+		repoPath, err := resolveWorkspaceCuePath(ctx, opts.Cwd)
 		if err != nil {
 			return DiscoverResult{}, err
 		}
@@ -703,7 +703,7 @@ func findUp(start string, name string) (string, error) {
 	}
 }
 
-func resolveWorkspaceCuePath(start string) (string, error) {
+func resolveWorkspaceCuePath(ctx context.Context, start string) (string, error) {
 	if start == "" {
 		var err error
 		start, err = os.Getwd()
@@ -712,7 +712,7 @@ func resolveWorkspaceCuePath(start string) (string, error) {
 		}
 	}
 
-	if root, err := getGitRoot(start); err == nil && root != "" {
+	if root, err := getGitRoot(ctx, start); err == nil && root != "" {
 		candidate := filepath.Join(root, "workspaced.cue")
 		if fileExists(candidate) {
 			return candidate, nil
@@ -723,11 +723,11 @@ func resolveWorkspaceCuePath(start string) (string, error) {
 	return findUp(start, "workspaced.cue")
 }
 
-func getGitRoot(path string) (string, error) {
+func getGitRoot(ctx context.Context, path string) (string, error) {
 	if _, err := os.Stat(path); err != nil {
 		return "", err
 	}
-	cmd := execdriver.MustRun(logging.NewRootContext(nil), "git", "-C", path, "rev-parse", "--show-toplevel")
+	cmd := execdriver.MustRun(ctx, "git", "-C", path, "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
