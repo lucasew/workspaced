@@ -175,8 +175,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		slog.Info("forcing update", "version", latestVersion)
 	}
 
-	// Use ArtifactTool extension for custom selection (selfupdate installs to a
-	// non-versioned location and has its own simple matcher).
+	// Use ArtifactTool + the shared SelectArtifact for platform selection.
 	at, ok := t.(backend.ArtifactTool)
 	if !ok {
 		return fmt.Errorf("github tool does not support ArtifactTool (needed for selfupdate)")
@@ -187,8 +186,10 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		return err
 	}
 
-	// Find matching artifact for current platform (selfupdate uses a simple matcher)
-	artifact := findMatchingArtifact(artifacts, runtime.GOOS, runtime.GOARCH)
+	// Standard platform selection (same logic used by tool installs etc.).
+	// The "workspaced" hint helps disambiguate when a release has multiple
+	// assets for the same OS/arch.
+	artifact := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "workspaced")
 	if artifact == nil {
 		available := []string{}
 		for _, a := range artifacts {
@@ -243,15 +244,6 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 
 	slog.Info("download completed", "path", installPath)
 	return createWorkspacedShim(ctx, installPath)
-}
-
-func findMatchingArtifact(artifacts []backend.Artifact, os, arch string) *backend.Artifact {
-	for i := range artifacts {
-		if artifacts[i].OS == os && artifacts[i].Arch == arch {
-			return &artifacts[i]
-		}
-	}
-	return nil
 }
 
 func findBinary(dir string) (string, error) {
