@@ -16,12 +16,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
+
 	"workspaced/pkg/compat"
+	"workspaced/pkg/logging"
 )
 
 var (
@@ -170,7 +171,8 @@ func Get[T any](ctx context.Context) (T, error) {
 
 	ifaceName := getInterfaceName(t)
 	weights := driverWeights[ifaceName]
-	slog.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
+	logger := logging.GetLogger(ctx)
+	logger.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
 
 	providers := make([]DriverProvider[T], 0)
 	if pMap, ok := Drivers[t]; ok {
@@ -186,10 +188,10 @@ func Get[T any](ctx context.Context) (T, error) {
 	}
 
 	// Log all providers before sorting
-	slog.Debug("available providers", "interface", ifaceName, "count", len(providers))
+	logger.Debug("available providers", "interface", ifaceName, "count", len(providers))
 	for _, p := range providers {
 		w := getConfiguredWeight(weights, p.ID())
-		slog.Debug("provider registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
+		logger.Debug("provider registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
 	}
 
 	// Sort providers by weight then ID
@@ -210,18 +212,18 @@ func Get[T any](ctx context.Context) (T, error) {
 
 		if err := cachedCheck(provider.ID(), provider.CheckCompatibility, ctx); err != nil {
 			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", provider.ID(), provider.Name(), weight, err))
-			slog.Debug("driver skipped", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
+			logger.Debug("driver skipped", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
 			continue
 		}
 
 		instance, err := provider.New(ctx)
 		if err != nil {
 			report = append(report, fmt.Sprintf("⚠️ [FAIL] %s (%s) weight=%d: initialization failed: %v", provider.ID(), provider.Name(), weight, err))
-			slog.Debug("driver init failed", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
+			logger.Debug("driver init failed", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
 			continue
 		}
 
-		slog.Debug("driver selected", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight)
+		logger.Debug("driver selected", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight)
 		return instance, nil
 	}
 

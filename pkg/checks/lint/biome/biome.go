@@ -3,7 +3,6 @@ package biome
 import (
 	"bytes"
 	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -45,7 +44,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// This automatically handles installation and version resolution.
 	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "biome", "biome", "lint", "--reporter=sarif", ".")
 	if err != nil {
-		logging.ReportError(ctx, err, slog.String("context", "failed to setup biome"))
+		logging.ReportError(ctx, err, "context", "failed to setup biome")
 		return nil, err
 	}
 
@@ -59,13 +58,13 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// We should try to parse SARIF output even if command fails.
 	runErr := cmd.Run()
 	if runErr != nil {
-		slog.Debug("biome execution returned error (likely lint issues)", "err", runErr, "stderr", stderr.String())
+		logging.GetLogger(ctx).Debug("biome execution returned error (likely lint issues)", "err", runErr, "stderr", stderr.String())
 	}
 
 	// Parse SARIF output
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
-		logging.ReportError(ctx, err, slog.String("stdout", stdout.String()), slog.String("context", "failed to parse sarif output from biome"))
+		logging.ReportError(ctx, err, "stdout", stdout.String(), "context", "failed to parse sarif output from biome")
 		// If command failed and we couldn't parse SARIF, return the command error
 		if runErr != nil {
 			return nil, runErr

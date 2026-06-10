@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+
 	"workspaced/pkg/types"
 )
 
@@ -77,15 +78,12 @@ func (h *ChannelLogHandler) WithGroup(name string) slog.Handler {
 
 // ReportError logs an unexpected error using the logger from the context.
 // It serves as the centralized error reporting function.
-func ReportError(ctx context.Context, err error, attrs ...slog.Attr) bool {
+func ReportError(ctx context.Context, err error, args ...any) bool {
 	if err == nil {
 		return false
 	}
-	args := make([]any, len(attrs)+1)
-	args[0] = slog.Any("error", err)
-	for i, a := range attrs {
-		args[i+1] = a
-	}
-	GetLogger(ctx).Error("unexpected error", args...)
+	logger := GetLogger(ctx)
+	args = append(args, "error", err)
+	logger.Error("unexpected error", args...)
 	return true
 }

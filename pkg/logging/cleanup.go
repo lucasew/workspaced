@@ -8,7 +8,7 @@ import (
 
 // RunCleanup executes a cleanup action and reports any failure through ReportError.
 // This is useful for deferred best-effort operations that must not mask primary errors.
-func RunCleanup(ctx context.Context, op string, fn func() error, attrs ...slog.Attr) {
+func RunCleanup(ctx context.Context, op string, fn func() error, attrs ...any) {
 	if fn == nil {
 		return
 	}
@@ -18,7 +18,7 @@ func RunCleanup(ctx context.Context, op string, fn func() error, attrs ...slog.A
 }
 
 // Close reports close failures through ReportError.
-func Close(ctx context.Context, closer io.Closer, attrs ...slog.Attr) {
+func Close(ctx context.Context, closer io.Closer, attrs ...any) {
 	if closer == nil {
 		return
 	}
@@ -30,18 +30,18 @@ type flusher interface {
 }
 
 // Flush reports flush failures through ReportError.
-func Flush(ctx context.Context, f flusher, attrs ...slog.Attr) {
+func Flush(ctx context.Context, f flusher, attrs ...any) {
 	if f == nil {
 		return
 	}
 	RunCleanup(ctx, "flush", f.Flush, attrs...)
 }
 
-func reportWithOp(ctx context.Context, op string, err error, attrs ...slog.Attr) {
+func reportWithOp(ctx context.Context, op string, err error, attrs ...any) {
 	if err == nil {
 		return
 	}
-	args := make([]slog.Attr, 0, len(attrs)+1)
+	args := make([]any, 0, len(attrs)+1)
 	if op != "" {
 		args = append(args, slog.String("op", op))
 	}

@@ -38,15 +38,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		defer logging.Close(context.Background(), f, slog.String("path", exe))
+		defer logging.Close(context.Background(), f, "path", exe)
 		if _, err = io.Copy(h, f); err != nil {
 			panic(err)
 		}
-		slog.Info("build time", "t", h.Sum(nil))
+		logging.GetLogger(context.Background()).Info("build time", "t", h.Sum(nil))
 	}
 	// Load home config early to set driver weights.
 	if _, err := configcue.LoadHome(); err != nil {
-		slog.Debug("failed to load config", "error", err)
+		logging.GetLogger(context.Background()).Debug("failed to load config", "error", err)
 	}
 
 	var verbose bool
@@ -55,7 +55,6 @@ func main() {
 	var memProfilePath string
 	var stopProfiling func() error
 	var rootGroup *taskgroup.Group
-
 
 	cmd := &cobra.Command{
 		Use:     "workspaced",
@@ -93,7 +92,7 @@ func main() {
 			var err error
 			stopProfiling, err = startProfiling(cpuPath, memPath)
 			if err == nil && (cpuPath != "" || memPath != "") {
-				slog.Info("profiling started", "cpu", cpuPath, "mem", memPath)
+				logging.GetLogger(context.Background()).Info("profiling started", "cpu", cpuPath, "mem", memPath)
 			}
 			return err
 		},
@@ -103,7 +102,7 @@ func main() {
 			// g.RunBubbleTea and are ignored on dumb terminals).
 			if rootGroup != nil {
 				if err := rootGroup.Wait(); err != nil {
-					slog.Error("task group error", "err", err)
+					logging.GetLogger(context.Background()).Error("task group error", "err", err)
 				}
 			}
 
@@ -112,7 +111,7 @@ func main() {
 			}
 			err := stopProfiling()
 			if err == nil && (cpuProfilePath != "" || memProfilePath != "" || os.Getenv("WORKSPACED_CPUPROFILE") != "" || os.Getenv("WORKSPACED_MEMPROFILE") != "") {
-				slog.Info("profiling finished")
+				logging.GetLogger(context.Background()).Info("profiling finished")
 			}
 			stopProfiling = nil
 			return err
@@ -132,10 +131,10 @@ func main() {
 	if err := cmd.Execute(); err != nil {
 		if stopProfiling != nil {
 			if stopErr := stopProfiling(); stopErr != nil {
-				slog.Error("failed to stop profiling", "err", stopErr)
+				logging.GetLogger(context.Background()).Error("failed to stop profiling", "err", stopErr)
 			}
 		}
-		slog.Error("error", "err", err)
+		logging.GetLogger(context.Background()).Error("error", "err", err)
 		os.Exit(1)
 	}
 }
