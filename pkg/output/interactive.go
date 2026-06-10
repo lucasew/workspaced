@@ -61,7 +61,10 @@ func (r *interactiveRenderer) Run(g *taskgroup.Group) error {
 			}
 		}
 
-		// Render: clear sticky, print new log lines, redraw sticky.
+		// Always clear any current sticky bars first. This ensures that when we
+		// print new main-area content (logs from tasks), the previous bar is
+		// removed from the bottom, the content is printed (making the bar
+		// "move down"), and then we redraw the (updated) bar at the new bottom.
 		r.clearSticky()
 
 		if len(newLines) > 0 {
@@ -70,7 +73,7 @@ func (r *interactiveRenderer) Run(g *taskgroup.Group) error {
 			}
 		}
 
-		// Print state transitions (completed/failed) above sticky.
+		// Print state transitions (completed/failed) above the sticky bar.
 		for _, t := range snap {
 			switch t.State {
 			case taskgroup.Done:
@@ -92,7 +95,9 @@ func (r *interactiveRenderer) Run(g *taskgroup.Group) error {
 			}
 		}
 
-		// Draw sticky progress bars at the bottom.
+		// Redraw the current progress bars at the bottom. Because we cleared
+		// above, this effectively moves the bar down below any newly printed
+		// logs.
 		r.drawSticky(activeBars)
 
 		if allDone && len(snap) > 0 {

@@ -26,7 +26,9 @@ Run subcommands to see different aspects:
   workspaced demo tasks    - schedules work directly on the root group from context
   workspaced demo plain    - runs tasks under the root group; root renderer appears
                              "plain" on non-ttys, pipes, CI, TERM=dumb, etc.
-  workspaced demo nested   - demonstrates creating a SubGroup from the one in context`,
+  workspaced demo nested   - demonstrates creating a SubGroup from the one in context
+  workspaced demo loop     - 5 iterations (1s sleep + log line + progress update) to observe
+                             how logs render alongside live progress bars`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare "demo" runs the main tasks showcase for convenience.
 			return runTasksDemo(cmd)
@@ -49,67 +51,72 @@ func runTasksDemo(cmd *cobra.Command) error {
 
 	// Internet task with determinate progress + logs.
 	g.Go("download", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-		logging.GetLogger(ctx).Info("starting download")
+		logger := logging.GetLogger(ctx)
+		logger.Info("starting download")
 
 		s.Update("resolving")
 		time.Sleep(120 * time.Millisecond)
-		s.Log("GET https://cdn.example.com/bundle.tar.gz")
+		logger.Info("GET", "url", "https://cdn.example.com/bundle.tar.gz")
 		s.Progress(0, 100)
 		for i := 10; i <= 100; i += 10 {
 			s.Progress(int64(i), 100)
 			s.Update(fmt.Sprintf("receiving %d%%", i))
 			time.Sleep(70 * time.Millisecond)
 			if i == 50 {
-				s.Log("50% received, checking partial checksum")
+				logger.Info("50% received, checking partial checksum")
 			}
 		}
-		s.Log("download complete, sha256 verified")
+		logger.Info("download complete", "sha256", "verified")
 		return nil
 	})
 
 	// CPU-bound work that depends on the download.
 	g.Go("build", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
 		s.Update("preparing sources")
 		time.Sleep(80 * time.Millisecond)
 		for step := 1; step <= 4; step++ {
-			s.Log(fmt.Sprintf("gcc -c src/part%d.c -O2", step))
+			logger.Info("gcc -c", "src", fmt.Sprintf("part%d.c", step), "opt", "-O2")
 			s.Update(fmt.Sprintf("compiling part %d/4", step))
 			time.Sleep(140 * time.Millisecond)
 		}
 		s.Update("linking")
 		time.Sleep(160 * time.Millisecond)
-		s.Log("build finished: ./bin/app")
+		logger.Info("build finished", "binary", "./bin/app")
 		return nil
 	}, "download")
 
 	// Another CPU task in parallel with build (after download).
 	g.Go("check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
 		s.Update("running static analysis")
 		time.Sleep(90 * time.Millisecond)
-		s.Log("golangci-lint: 0 issues")
-		s.Log("govulncheck: clean")
+		logger.Info("golangci-lint", "issues", 0)
+		logger.Info("govulncheck", "status", "clean")
 		time.Sleep(220 * time.Millisecond)
 		return nil
 	}, "download")
 
 	// IO task that depends on build.
 	g.Go("install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
 		s.Update("installing to $HOME/.local/bin")
 		time.Sleep(60 * time.Millisecond)
-		s.Log("cp ./bin/app ~/.local/bin/app")
+		logger.Info("cp", "src", "./bin/app", "dst", "~/.local/bin/app")
 		s.Progress(0, 1)
 		time.Sleep(180 * time.Millisecond)
 		s.Progress(1, 1)
-		s.Log("binary installed")
+		logger.Info("binary installed")
 		return nil
 	}, "build")
 
 	// Indeterminate task (no Total) running in parallel.
 	g.Go("lint", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
 		s.Update("linting workspace")
 		for i := 0; i < 3; i++ {
 			time.Sleep(160 * time.Millisecond)
-			s.Log(fmt.Sprintf("checked package %d", i+1))
+			logger.Info("checked package", "num", i+1)
 		}
 		s.Update("formatting check")
 		time.Sleep(120 * time.Millisecond)
@@ -118,9 +125,10 @@ func runTasksDemo(cmd *cobra.Command) error {
 
 	// A task that fails so the error UI is visible.
 	g.Go("publish", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		logger := logging.GetLogger(ctx)
 		s.Update("connecting to registry")
 		time.Sleep(140 * time.Millisecond)
-		s.Log("POST /artifacts")
+		logger.Info("POST", "path", "/artifacts")
 		time.Sleep(200 * time.Millisecond)
 		return fmt.Errorf("simulated 503 from registry (demo failure)")
 	}, "build")

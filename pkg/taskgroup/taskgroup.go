@@ -12,7 +12,9 @@ package taskgroup
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
+	"strings"
 	"sync"
 
 	"workspaced/pkg/logging"
@@ -102,10 +104,8 @@ type Status struct {
 	message string
 	current int64
 	total   int64
-	logs    []string
-	// onLog is called (under lock) when a log line is added.
-	onLog func(taskName, msg string)
-	name  string
+	logs []string
+	name string
 }
 
 // Update sets the current status message (shown in the progress bar).
@@ -120,18 +120,6 @@ func (s *Status) Progress(current, total int64) {
 	s.mu.Lock()
 	s.current = current
 	s.total = total
-	s.mu.Unlock()
-}
-
-// Log appends a message to the per-task log buffer (used by renderers for
-// live output above progress bars or in plain transcripts). The message is
-// also forwarded to slog via the onLog handler.
-func (s *Status) Log(msg string) {
-	s.mu.Lock()
-	s.logs = append(s.logs, msg)
-	if s.onLog != nil {
-		s.onLog(s.name, msg)
-	}
 	s.mu.Unlock()
 }
 
@@ -248,8 +236,6 @@ type Group struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	onLog func(taskName, msg string)
-
 	errOnce sync.Once
 	err     error
 
@@ -265,14 +251,6 @@ func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 		pools:  newPools(limits),
 		ctx:    ctx,
 		cancel: cancel,
-	}
-
-	// Bridge Status.Log messages to slog using the logger from the
-	// creation context (so task logs participate in the app's logging).
-	if l := logging.GetLogger(ctx); l != nil {
-		g.onLog = func(taskName, msg string) {
-			l.Info(msg, "task", taskName)
-		}
 	}
 
 	return g, context.WithValue(ctx, contextKey{}, g)
@@ -302,23 +280,6 @@ func (g *Group) Context() context.Context {
 	return g.ctx
 }
 
-// SetLogHandler sets or chains a callback invoked for Status.Log calls.
-// Used by the automatic slog bridge in New (and available for other
-// observers).
-func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.onLog == nil {
-		g.onLog = fn
-		return
-	}
-	prev := g.onLog
-	g.onLog = func(name, msg string) {
-		prev(name, msg)
-		fn(name, msg)
-	}
-}
-
 // Go schedules a named task to run in the given pool after its dependencies complete.
 // Panics if the name is already registered in this group.
 func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *Status) error, deps ...string) {
@@ -338,7 +299,6 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 		status: &Status{
 			name:  name,
 			total: -1,
-			onLog: g.onLog,
 		},
 		state: Pending,
 	}
@@ -347,6 +307,55 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 
 	g.wg.Add(1)
 	go g.runTask(t)
+}
+
+// logRecorder is a slog.Handler wrapper used for task execution.
+// It delegates to the real handler (so full structured logs still go to
+// slog sinks) and also appends a formatted version (message + attrs) to
+// the task's log buffer. This makes logs from inside tasks appear in the
+// renderer's log area with similar formatting to standard slog output.
+type logRecorder struct {
+	slog.Handler
+	append func(string)
+}
+
+func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
+	if r.append != nil {
+		// Format the log similarly to standard slog output (message + attrs
+		// as key=value) so the same information appears in the renderer's
+		// managed log area (the "up there" logs above progress bars or in
+		// the plain transcript), not just the bare message.
+		var b strings.Builder
+		b.WriteString(rec.Message)
+		rec.Attrs(func(a slog.Attr) bool {
+			if a.Key == "task" {
+				// The renderer already prefixes with [taskname], so skip
+				// to avoid redundancy in the UI log line.
+				return true
+			}
+			b.WriteString(" ")
+			b.WriteString(a.Key)
+			b.WriteString("=")
+			fmt.Fprintf(&b, "%v", a.Value.Any())
+			return true
+		})
+		r.append(b.String())
+	}
+	return r.Handler.Handle(ctx, rec)
+}
+
+func (r *logRecorder) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &logRecorder{
+		Handler: r.Handler.WithAttrs(attrs),
+		append:  r.append,
+	}
+}
+
+func (r *logRecorder) WithGroup(name string) slog.Handler {
+	return &logRecorder{
+		Handler: r.Handler.WithGroup(name),
+		append:  r.append,
+	}
 }
 
 func (g *Group) runTask(t *taskEntry) {
@@ -388,14 +397,27 @@ func (g *Group) runTask(t *taskEntry) {
 	defer g.pools.release(t.pool)
 
 	// Run the task.
-	// Derive a ctx carrying a logger pre-attached with the task name so that
-	// normal logging.GetLogger(ctx) calls inside the task automatically get
-	// the "task" attribute.
+	// We set up the logger for this task so that calls to
+	// logging.GetLogger(ctx) (or slog via the stored logger) automatically:
+	//   - get a "task" attribute
+	//   - have their messages recorded into the task's log buffer (for the
+	//     progress renderer to display above bars / in transcripts)
+	// This replaces the old Status.Log / g.Log path.
 	t.setState(Running)
 
 	taskCtx := g.ctx
-	if l := logging.GetLogger(g.ctx); l != nil {
-		taskCtx = logging.ContextWithLogger(g.ctx, l.With("task", t.name))
+	if base := logging.GetLogger(g.ctx); base != nil {
+		tagged := base.With("task", t.name)
+		rec := &logRecorder{
+			Handler: tagged.Handler(),
+			append: func(msg string) {
+				t.status.mu.Lock()
+				t.status.logs = append(t.status.logs, msg)
+				t.status.mu.Unlock()
+			},
+		}
+		taskLogger := slog.New(rec)
+		taskCtx = logging.ContextWithLogger(g.ctx, taskLogger)
 	}
 
 	err := t.fn(taskCtx, t.status)
@@ -446,7 +468,6 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 		pools:  g.pools, // shared pools
 		ctx:    ctx,
 		cancel: cancel,
-		onLog:  g.onLog,
 	}
 	return child, context.WithValue(ctx, contextKey{}, child)
 }

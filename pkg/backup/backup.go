@@ -89,12 +89,13 @@ func RunFullBackup(ctx context.Context) error {
 		}
 
 		g.Go(fmt.Sprintf("backup:%s", msg), poolFor(act.GetKind()), func(ctx context.Context, s *taskgroup.Status) error {
+			logger := logging.GetLogger(ctx)
 			s.Update(msg)
 			s.Progress(int64(idx), int64(len(actions)))
 			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
 
 			if cmdctx.IsDryRun(ctx) {
-				s.Log(fmt.Sprintf("dry-run: skipping %s", msg))
+				logger.Info("dry-run: skipping", "name", msg)
 				logger.Info("backup action completed (dry-run)", "name", msg, "kind", act.GetKind())
 				return nil
 			}
@@ -167,7 +168,8 @@ func Rsync(ctx context.Context, src, dst string, n *notification.Notification, e
 	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" {
 		return "", fmt.Errorf("rsync requires src and dst")
 	}
-	logging.GetLogger(ctx).Info("rsync sync", "from", src, "to", dst)
+	logger := logging.GetLogger(ctx)
+	logger.Info("rsync sync", "from", src, "to", dst)
 	args := append([]string{"-avP", src, dst}, extraArgs...)
 	cmd := execdriver.MustRun(ctx, "rsync", args...)
 

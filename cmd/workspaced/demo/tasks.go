@@ -46,7 +46,7 @@ via output.Auto.`,
 					logger := logging.GetLogger(ctx)
 					s.Update("contacting API")
 					time.Sleep(80 * time.Millisecond)
-					logger.Info("200 OK")
+					logger.Info("http response", "status", "200 OK")
 					s.Progress(0, 4)
 					for i := 1; i <= 4; i++ {
 						s.Progress(int64(i), 4)
@@ -60,7 +60,7 @@ via output.Auto.`,
 					logger := logging.GetLogger(ctx)
 					s.Update("crunching numbers")
 					for i := range 3 {
-						logger.Info(fmt.Sprintf("batch %d processed", i))
+						logger.Info("batch processed", "num", i)
 						time.Sleep(110 * time.Millisecond)
 					}
 					return nil
@@ -103,17 +103,19 @@ func init() {
 					child, childCtx := g.SubGroup(ctx)
 					_ = childCtx
 					child.Go("bundle:icons", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+						logger := logging.GetLogger(ctx)
 						s.Update("generating icons")
 						for i := 0; i < 3; i++ {
-							s.Log(fmt.Sprintf("icon %d", i))
+							logger.Info("icon", "num", i)
 							time.Sleep(90 * time.Millisecond)
 						}
 						return nil
 					})
 					child.Go("bundle:manifest", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {
+						logger := logging.GetLogger(ctx)
 						s.Update("writing manifest.json")
 						time.Sleep(130 * time.Millisecond)
-						s.Log("manifest written")
+						logger.Info("manifest written")
 						return nil
 					}, "bundle:icons")
 
@@ -122,11 +124,37 @@ func init() {
 						return err
 					}
 					s.Update("bundle complete (children ran in SubGroup)")
-					s.Log("subgroup done")
+					logger := logging.GetLogger(ctx)
+					logger.Info("subgroup done")
 					return nil
 				})
 
 				time.Sleep(30 * time.Millisecond)
+				return nil
+			},
+		})
+	})
+}
+
+func init() {
+	Registry.Register(func(parent *cobra.Command) {
+		parent.AddCommand(&cobra.Command{
+			Use:   "loop",
+			Short: "Demo a 5-iteration loop (sleep + log + progress) to observe log rendering",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				g := taskgroup.MustFromContext(cmd.Context())
+
+				g.Go("loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
+					for i := 1; i <= 5; i++ {
+						time.Sleep(1 * time.Second)
+						logger.Info("log line from loop", "iteration", i)
+						s.Update(fmt.Sprintf("step %d/5", i))
+						s.Progress(int64(i), 5)
+					}
+					return nil
+				})
+
 				return nil
 			},
 		})

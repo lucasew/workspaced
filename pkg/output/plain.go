@@ -22,8 +22,9 @@ func NewPlain(w io.Writer) Renderer {
 
 func (r *plainRenderer) Run(g *taskgroup.Group) error {
 	// Track what we've already printed to avoid spam.
-	// Task logs (from s.Log inside tasks) are accumulated in the snapshot
-	// and also forwarded to the app's slog via SetLogHandler (wired in root.go).
+	// Task logs are accumulated in the snapshot via the per-task context logger
+	// wrapper (normal GetLogger(ctx) calls inside tasks feed both slog and the
+	// renderer buffers).
 	lastState := map[string]taskgroup.State{}
 	lastMsg := map[string]string{}
 	lastLogCount := map[string]int{}

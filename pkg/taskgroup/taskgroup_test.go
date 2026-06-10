@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"workspaced/pkg/logging"
 )
 
 func TestBasicExecution(t *testing.T) {
@@ -103,7 +105,8 @@ func TestSnapshot(t *testing.T) {
 	g.Go("x", CPU, func(ctx context.Context, s *Status) error {
 		s.Update("working")
 		s.Progress(50, 100)
-		s.Log("did a thing")
+		logger := logging.GetLogger(ctx)
+		logger.Info("did a thing")
 		return nil
 	})
 	if err := g.Wait(); err != nil {
