@@ -28,13 +28,13 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return "", ErrFileSkipped
 		},
 		"dotfiles": func() (string, error) {
-			return env.GetDotfilesRoot()
+			return env.GetDotfilesRoot(ctx)
 		},
 		"home": func() (string, error) {
 			return envdriver.GetHomeDir(ctx)
 		},
 		"userDataDir": func() (string, error) {
-			return env.GetUserDataDir()
+			return env.GetUserDataDir(ctx)
 		},
 		"file": func(name string, mode ...string) string {
 			perm := "0644"
@@ -108,7 +108,7 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return names, nil
 		},
 		"isPhone": func() bool {
-			return env.IsPhone()
+			return env.IsPhone(ctx)
 		},
 		// Shim helpers
 		"shim": func(command ...string) (string, error) {

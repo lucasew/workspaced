@@ -19,7 +19,7 @@ func GetDefCommand() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
-			out, err := configcue.ExportDef(configcue.DiscoverOptions{
+			out, err := configcue.ExportDef(c.Context(), configcue.DiscoverOptions{
 				Cwd: cwd,
 			})
 			if err != nil {

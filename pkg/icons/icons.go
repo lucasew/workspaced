@@ -22,7 +22,7 @@ import (
 )
 
 func GetIconPath(ctx context.Context, url string) (string, error) {
-	configDir, err := env.GetConfigDir()
+	configDir, err := env.GetConfigDir(ctx)
 	if err != nil {
 		return "", err
 	}

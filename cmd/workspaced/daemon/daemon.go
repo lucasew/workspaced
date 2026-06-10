@@ -40,7 +40,7 @@ func init() {
 	var err error
 	initialMtime, err = executil.GetBinaryMtime()
 	if err != nil {
-		logger := logging.GetLogger(context.Background())
+		logger := logging.GetLogger(logging.NewRootContext(nil))
 		logger.Warn("failed to get initial binary mtime", "error", err)
 	}
 }
@@ -84,8 +84,8 @@ var Command = &cobra.Command{
 			}
 		}
 
-		if err := RunDaemon(); err != nil && err != http.ErrServerClosed {
-			logger := logging.GetLogger(ctx)
+		if err := RunDaemon(c.Context()); err != nil && err != http.ErrServerClosed {
+			logger := logging.GetLogger(c.Context())
 			logger.Error("daemon failure", "error", err)
 			os.Exit(1)
 		}
@@ -104,10 +104,12 @@ func getSocketPath() string {
 	return filepath.Join(runtimeDir, "workspaced.sock")
 }
 
-func RunDaemon() error {
+func RunDaemon(ctx context.Context) error {
 	var listener net.Listener
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// Inherit from the command's ctx (which has the logger from the actual root).
+	// The daemon's internal ctx for shutdown etc.
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Ensure logs go to stderr
@@ -116,7 +118,7 @@ func RunDaemon() error {
 	logger.Info("daemon starting", "pid", os.Getpid())
 
 	// Load home config to set driver weights.
-	if _, err := configcue.LoadHome(); err != nil {
+	if _, err := configcue.LoadHome(ctx); err != nil {
 		logger.Warn("failed to load config", "error", err)
 	} else {
 		logger.Info("config loaded successfully")

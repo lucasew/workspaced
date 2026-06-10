@@ -26,7 +26,7 @@ type DB struct {
 }
 
 func Open() (*DB, error) {
-	dataDir, err := env.GetUserDataDir()
+	dataDir, err := env.GetUserDataDir(context.Background())
 	if err != nil {
 		return nil, err
 	}

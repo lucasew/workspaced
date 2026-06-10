@@ -13,7 +13,7 @@ func init() {
 			Use:   "phone",
 			Short: "Check if environment is a phone",
 			RunE: func(c *cobra.Command, args []string) error {
-				if !env.IsPhone() {
+				if !env.IsPhone(c.Context()) {
 					return fmt.Errorf("not phone")
 				}
 				return nil

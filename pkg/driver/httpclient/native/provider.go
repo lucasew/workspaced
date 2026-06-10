@@ -31,12 +31,15 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 }
 
 func (p *Provider) New(ctx context.Context) (httpclientdriver.Driver, error) {
-	return &Driver{}, nil
+	return &Driver{
+		rootCAs: loadSystemCerts(ctx),
+	}, nil
 }
 
 type Driver struct {
-	once   sync.Once
-	client *http.Client
+	once    sync.Once
+	client  *http.Client
+	rootCAs *x509.CertPool
 }
 
 func (d *Driver) Client() *http.Client {
@@ -57,7 +60,7 @@ func (d *Driver) Client() *http.Client {
 					return dialer.DialContext(ctx, network, addr)
 				},
 				TLSClientConfig: &tls.Config{
-					RootCAs: loadSystemCerts(context.Background()),
+					RootCAs: d.rootCAs,
 				},
 				ForceAttemptHTTP2:     true,
 				MaxIdleConns:          100,

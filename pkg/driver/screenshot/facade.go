@@ -52,7 +52,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 		return "", err
 	}
 
-	cfg, err := configcue.LoadHome()
+	cfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return "", err
 	}

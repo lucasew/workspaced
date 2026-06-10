@@ -42,7 +42,7 @@ func parseFlakeRef(ref string) (repo string, item string) {
 
 func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
 	if repo == "" || repo == "." || repo == "," {
-		root, err := env.GetDotfilesRoot()
+		root, err := env.GetDotfilesRoot(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -227,9 +227,9 @@ func Build(ctx context.Context, ref string, useCache bool) (string, error) {
 }
 
 func Rebuild(ctx context.Context, action string, flake string) error {
-	hostname := env.GetHostname()
+	hostname := env.GetHostname(ctx)
 	if flake == "" || flake == "." || flake == "," {
-		root, err := env.GetDotfilesRoot()
+		root, err := env.GetDotfilesRoot(ctx)
 		if err != nil {
 			return err
 		}
@@ -278,7 +278,7 @@ func Rebuild(ctx context.Context, action string, flake string) error {
 
 func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
 	if flake == "" || flake == "." || flake == "," {
-		root, err := env.GetDotfilesRoot()
+		root, err := env.GetDotfilesRoot(ctx)
 		if err != nil {
 			return err
 		}

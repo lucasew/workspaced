@@ -17,7 +17,7 @@ func GetCommand() *cobra.Command {
 		Short: "Pull dotfiles changes and apply them",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			root, err := env.GetDotfilesRoot()
+			root, err := env.GetDotfilesRoot(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}

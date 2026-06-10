@@ -257,7 +257,7 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 
 func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) (*modfile.Workspace, error) {
 	if homeMode {
-		dotfilesRoot, err := env.GetDotfilesRoot()
+		dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dotfiles root: %w", err)
 		}
@@ -294,7 +294,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 	logger := logging.GetLogger(ctx)
 
-	cfg, err := configcue.LoadForWorkspace(ws.Root)
+	cfg, err := configcue.LoadForWorkspace(ctx, ws.Root)
 	if err != nil {
 		return "", fmt.Errorf("failed to load workspace config: %w", err)
 	}
@@ -309,7 +309,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 	if !ok {
 		// Allow codebase workspaces to reuse home lazy_tools while keeping lockfile local.
-		if homeCfg, homeErr := configcue.LoadHome(); homeErr == nil {
+		if homeCfg, homeErr := configcue.LoadHome(ctx); homeErr == nil {
 			if homeToolName, homeToolCfg, homeOK := findLazyTool(homeCfg, queryToolName); homeOK {
 				toolName = homeToolName
 				toolCfg = homeToolCfg

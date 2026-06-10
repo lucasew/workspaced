@@ -22,7 +22,7 @@ func GetLayersCommand() *cobra.Command {
 		Short: "List discovered workspaced.cue layers",
 		RunE: func(c *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
-			result, err := configcue.Evaluate(configcue.DiscoverOptions{
+			result, err := configcue.Evaluate(c.Context(), configcue.DiscoverOptions{
 				Cwd:      cwd,
 				HomeMode: true,
 			})

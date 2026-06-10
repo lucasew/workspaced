@@ -46,7 +46,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		return fmt.Errorf("failed to create output dir: %w", err)
 	}
 
-	colors, err := loadBase16Colors()
+	colors, err := loadBase16Colors(ctx)
 	if err != nil {
 		return err
 	}
@@ -284,8 +284,8 @@ func resolveJobs(raw string) (int, error) {
 	return n, nil
 }
 
-func loadBase16Colors() (map[string]string, error) {
-	cfg, err := configcue.LoadHome()
+func loadBase16Colors(ctx context.Context) (map[string]string, error) {
+	cfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return nil, err
 	}

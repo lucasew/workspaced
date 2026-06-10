@@ -165,7 +165,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(context.Background(), source, "path", src)
+	defer logging.Close(logging.NewRootContext(nil), source, "path", src)
 
 	dir := filepath.Dir(dst)
 	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp-*")
@@ -175,9 +175,9 @@ func copyFile(src, dst string) error {
 	tmpPath := tmp.Name()
 	defer func() {
 		if tmp != nil {
-			logging.Close(context.Background(), tmp, "path", tmpPath)
+			logging.Close(logging.NewRootContext(nil), tmp, "path", tmpPath)
 		}
-		logging.RunCleanup(context.Background(), "remove", func() error {
+		logging.RunCleanup(logging.NewRootContext(nil), "remove", func() error {
 			if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
 				return err
 			}

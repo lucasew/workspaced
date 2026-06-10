@@ -31,16 +31,16 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 	}
 
 	home, _ := os.UserHomeDir()
-	dotfilesRoot, _ := env.GetDotfilesRoot()
-	userDataDir, _ := env.GetUserDataDir()
+	dotfilesRoot, _ := env.GetDotfilesRoot(ctx)
+	userDataDir, _ := env.GetUserDataDir(ctx)
 
 	runtime := map[string]any{
 		"module_name":   moduleName,
 		"dotfiles_root": dotfilesRoot,
 		"home":          home,
 		"user_data_dir": userDataDir,
-		"is_phone":      env.IsPhone(),
-		"hostname":      env.GetHostname(),
+		"is_phone":      env.IsPhone(ctx),
+		"hostname":      env.GetHostname(ctx),
 	}
 
 	out := map[string]any{

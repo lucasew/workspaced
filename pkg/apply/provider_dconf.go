@@ -25,7 +25,7 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 	if err != nil {
 		return nil, err
 	}
-	dconfContent, err := buildHomeDconfContent()
+	dconfContent, err := buildHomeDconfContent(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 }
 
 func ApplyHomeDconf(ctx context.Context) error {
-	dconfContent, err := buildHomeDconfContent()
+	dconfContent, err := buildHomeDconfContent(ctx)
 	if err != nil {
 		return err
 	}
@@ -69,8 +69,8 @@ func ApplyHomeDconf(ctx context.Context) error {
 	return applyDconf(ctx, tmpIni)
 }
 
-func buildHomeDconfContent() (string, error) {
-	cfg, err := configcue.LoadHome()
+func buildHomeDconfContent(ctx context.Context) (string, error) {
+	cfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return "", err
 	}

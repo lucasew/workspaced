@@ -51,7 +51,7 @@ type EvaluationResult struct {
 	JSON   json.RawMessage `json:"json"`
 }
 
-func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
+func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, error) {
 	layers := make([]Layer, 0)
 
 	if !opts.HomeMode {
@@ -65,7 +65,7 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 	}
 
 	if opts.HomeMode {
-		dotfilesRoot, err := env.GetDotfilesRoot()
+		dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 		if err == nil && dotfilesRoot != "" {
 			p := filepath.Join(dotfilesRoot, "workspaced.cue")
 			if fileExists(p) {
@@ -85,7 +85,7 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 	}
 
 	if opts.HomeMode {
-		configDir, err := env.GetConfigDir()
+		configDir, err := env.GetConfigDir(ctx)
 		if err == nil && configDir != "" {
 			p := filepath.Join(configDir, "workspaced.cue")
 			if fileExists(p) {
@@ -97,17 +97,16 @@ func DiscoverLayers(opts DiscoverOptions) (DiscoverResult, error) {
 	return DiscoverResult{Layers: layers}, nil
 }
 
-func ExportJSON(opts DiscoverOptions) ([]byte, error) {
-	result, err := Evaluate(opts)
+func ExportJSON(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
+	result, err := Evaluate(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 	return result.JSON, nil
 }
 
-func ExportCUE(opts DiscoverOptions) ([]byte, error) {
-	ctx := context.Background()
-	discovered, err := DiscoverLayers(opts)
+func ExportCUE(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
+	discovered, err := DiscoverLayers(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -116,16 +115,18 @@ func ExportCUE(opts DiscoverOptions) ([]byte, error) {
 		paths = append(paths, layer.Path)
 	}
 
-	configValue, err := buildWorkspacedValue(paths, discovered.Layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, discovered.Layers, opts.HomeMode)
 	if err != nil {
 		return nil, err
 	}
+	// Use a fresh root with logger for the (rare) diagnostic warnings in this
+	// top-level export path. The real work ctx is not threaded into these
+	// high-level CUE export helpers.
 	return formatWorkspacedValue(ctx, configValue, paths, discovered.Layers)
 }
 
-func ExportDef(opts DiscoverOptions) ([]byte, error) {
-	ctx := context.Background()
-	discovered, err := DiscoverLayers(opts)
+func ExportDef(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
+	discovered, err := DiscoverLayers(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -134,15 +135,15 @@ func ExportDef(opts DiscoverOptions) ([]byte, error) {
 		paths = append(paths, layer.Path)
 	}
 
-	configValue, err := buildWorkspacedValue(paths, discovered.Layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, discovered.Layers, opts.HomeMode)
 	if err != nil {
 		return nil, err
 	}
 	return formatWorkspacedDef(ctx, configValue, paths, discovered.Layers)
 }
 
-func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
-	discovered, err := DiscoverLayers(opts)
+func Evaluate(ctx context.Context, opts DiscoverOptions) (EvaluationResult, error) {
+	discovered, err := DiscoverLayers(ctx, opts)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
@@ -150,7 +151,7 @@ func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
 	for _, layer := range discovered.Layers {
 		paths = append(paths, layer.Path)
 	}
-	b, err := exportJSONFromPaths(paths, discovered.Layers, opts.HomeMode)
+	b, err := exportJSONFromPaths(ctx, paths, discovered.Layers, opts.HomeMode)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
@@ -160,26 +161,25 @@ func Evaluate(opts DiscoverOptions) (EvaluationResult, error) {
 	}, nil
 }
 
-func ExportJSONFromPaths(paths []string) ([]byte, error) {
-	return exportJSONFromPaths(paths, nil, false)
+func ExportJSONFromPaths(ctx context.Context, paths []string) ([]byte, error) {
+	return exportJSONFromPaths(ctx, paths, nil, false)
 }
 
-func exportJSONFromPaths(paths []string, discovered []Layer, homeMode bool) ([]byte, error) {
-	ctx := context.Background()
-	configValue, err := buildWorkspacedValue(paths, discovered, homeMode)
+func exportJSONFromPaths(ctx context.Context, paths []string, discovered []Layer, homeMode bool) ([]byte, error) {
+	configValue, err := buildWorkspacedValue(ctx, paths, discovered, homeMode)
 	if err != nil {
 		return nil, err
 	}
 	return marshalWorkspacedValue(ctx, configValue, paths, discovered)
 }
 
-func buildWorkspacedValue(paths []string, discovered []Layer, homeMode bool) (cue.Value, error) {
-	baseRuntimePrelude, err := buildRuntimePrelude(nil)
+func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Layer, homeMode bool) (cue.Value, error) {
+	baseRuntimePrelude, err := buildRuntimePrelude(ctx, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
-	ctx := cuecontext.New()
-	initialValue, err := compileWorkspacedValueWithContext(ctx, paths, baseRuntimePrelude, homeMode, nil, nil)
+	cueCtx := cuecontext.New()
+	initialValue, err := compileWorkspacedValueWithContext(cueCtx, paths, baseRuntimePrelude, homeMode, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -187,11 +187,11 @@ func buildWorkspacedValue(paths []string, discovered []Layer, homeMode bool) (cu
 	if err != nil {
 		return cue.Value{}, err
 	}
-	runtimePrelude, err := buildRuntimePrelude(resolvedInputs)
+	runtimePrelude, err := buildRuntimePrelude(ctx, resolvedInputs)
 	if err != nil {
 		return cue.Value{}, err
 	}
-	baseConfigValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, homeMode, nil, nil)
+	baseConfigValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeMode, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -199,7 +199,7 @@ func buildWorkspacedValue(paths []string, discovered []Layer, homeMode bool) (cu
 	if err != nil {
 		return cue.Value{}, err
 	}
-	configValue, err := compileWorkspacedValueWithContext(ctx, paths, runtimePrelude, homeMode, preLayers, postLayers)
+	configValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeMode, preLayers, postLayers)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -727,7 +727,7 @@ func getGitRoot(path string) (string, error) {
 	if _, err := os.Stat(path); err != nil {
 		return "", err
 	}
-	cmd := execdriver.MustRun(context.Background(), "git", "-C", path, "rev-parse", "--show-toplevel")
+	cmd := execdriver.MustRun(logging.NewRootContext(nil), "git", "-C", path, "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -740,15 +740,15 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func buildRuntimePrelude(resolvedInputs map[string]map[string]any) (string, error) {
+func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[string]any) (string, error) {
 	home, _ := os.UserHomeDir()
-	dotfilesRoot, _ := env.GetDotfilesRoot()
-	configDir, _ := env.GetConfigDir()
-	userDataDir, _ := env.GetUserDataDir()
-	hostname := env.GetHostname()
+	dotfilesRoot, _ := env.GetDotfilesRoot(ctx)
+	configDir, _ := env.GetConfigDir(ctx)
+	userDataDir, _ := env.GetUserDataDir(ctx)
+	hostname := env.GetHostname(ctx)
 
 	runtimeMap := map[string]any{
-		"is_phone":      env.IsPhone(),
+		"is_phone":      env.IsPhone(ctx),
 		"hostname":      hostname,
 		"home":          home,
 		"dotfiles_root": dotfilesRoot,

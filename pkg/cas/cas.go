@@ -18,8 +18,8 @@ type CASWriter struct {
 	dir      string
 }
 
-func NewCASWriter() (*CASWriter, error) {
-	dataDir, err := env.GetUserDataDir()
+func NewCASWriter(ctx context.Context) (*CASWriter, error) {
+	dataDir, err := env.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
 	}

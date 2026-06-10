@@ -16,6 +16,8 @@ import (
 var EssentialPaths []string
 
 func init() {
+	// Early process setup. This one has to use Background because package inits
+	// run before main has created the root logging ctx.
 	ctx := context.Background()
 
 	// Get essential paths from driver
@@ -36,38 +38,38 @@ func init() {
 
 // GetDotfilesRoot locates the root directory of the dotfiles repository.
 // Deprecated: Use envdriver.GetDotfilesRoot(ctx) instead
-func GetDotfilesRoot() (string, error) {
-	return envdriver.GetDotfilesRoot(context.Background())
+func GetDotfilesRoot(ctx context.Context) (string, error) {
+	return envdriver.GetDotfilesRoot(ctx)
 }
 
 // GetHostname returns the current system hostname.
 // Deprecated: Use envdriver.GetHostname(ctx) instead
-func GetHostname() string {
-	hostname, _ := envdriver.GetHostname(context.Background())
+func GetHostname(ctx context.Context) string {
+	hostname, _ := envdriver.GetHostname(ctx)
 	return hostname
 }
 
 // GetUserDataDir returns the path to the user data directory for workspaced (~/.local/share/workspaced)
 // Deprecated: Use envdriver.GetUserDataDir(ctx) instead
-func GetUserDataDir() (string, error) {
-	return envdriver.GetUserDataDir(context.Background())
+func GetUserDataDir(ctx context.Context) (string, error) {
+	return envdriver.GetUserDataDir(ctx)
 }
 
 // GetConfigDir returns the path to the user config directory for workspaced (~/.config/workspaced)
 // Deprecated: Use envdriver.GetConfigDir(ctx) instead
-func GetConfigDir() (string, error) {
-	return envdriver.GetConfigDir(context.Background())
+func GetConfigDir(ctx context.Context) (string, error) {
+	return envdriver.GetConfigDir(ctx)
 }
 
 // IsPhone checks if the environment suggests we are running on a phone.
 // Deprecated: Use envdriver.IsPhone(ctx) instead
-func IsPhone() bool {
-	return envdriver.IsPhone(context.Background())
+func IsPhone(ctx context.Context) bool {
+	return envdriver.IsPhone(ctx)
 }
 
 // IsInStore checks if the dotfiles root is located inside the Nix store.
 func IsInStore() bool {
-	root, err := GetDotfilesRoot()
+	root, err := GetDotfilesRoot(context.Background())
 	if err != nil {
 		return false
 	}
@@ -76,8 +78,8 @@ func IsInStore() bool {
 
 // IsNixOS checks if the system is NixOS by verifying the existence of /etc/NIXOS.
 // Deprecated: Use envdriver.IsNixOS(ctx) instead
-func IsNixOS() bool {
-	return envdriver.IsNixOS(context.Background())
+func IsNixOS(ctx context.Context) bool {
+	return envdriver.IsNixOS(ctx)
 }
 
 // ExpandPath expands the tilde (~) to the user's home directory

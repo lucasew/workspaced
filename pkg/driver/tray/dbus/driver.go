@@ -47,11 +47,7 @@ type Driver struct {
 }
 
 func NewDriver() *Driver {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &Driver{
-		ctx:    ctx,
-		cancel: cancel,
-	}
+	return &Driver{}
 }
 
 func (d *Driver) SetState(s tray.State) {
@@ -66,6 +62,7 @@ func (d *Driver) SetState(s tray.State) {
 }
 
 func (d *Driver) Run(ctx context.Context) error {
+	d.ctx, d.cancel = context.WithCancel(ctx)
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return fmt.Errorf("failed to connect to session bus: %w", err)

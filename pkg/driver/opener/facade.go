@@ -29,7 +29,7 @@ func Open(ctx context.Context, target string) error {
 
 // OpenWebapp launches a URL as a webapp using the configured browser engine.
 func OpenWebapp(ctx context.Context, wa WebappConfig) error {
-	cfg, err := configcue.LoadHome()
+	cfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return err
 	}

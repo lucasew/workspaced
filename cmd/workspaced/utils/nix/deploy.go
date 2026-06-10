@@ -28,7 +28,7 @@ func init() {
 
 				flake, _ := cmd.Flags().GetString("flake")
 				if flake == "" {
-					root, err := env.GetDotfilesRoot()
+					root, err := env.GetDotfilesRoot(ctx)
 					if err != nil {
 						return err
 					}

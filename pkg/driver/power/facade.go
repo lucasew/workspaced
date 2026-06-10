@@ -43,7 +43,7 @@ func Suspend(ctx context.Context) error {
 }
 
 func Wake(ctx context.Context, host string) error {
-	cfg, err := configcue.LoadForWorkspace("")
+	cfg, err := configcue.LoadForWorkspace(ctx, "")
 	if err != nil {
 		return err
 	}

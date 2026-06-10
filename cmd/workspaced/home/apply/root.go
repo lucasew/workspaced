@@ -43,13 +43,13 @@ func GetCommand() *cobra.Command {
 			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
 			// Carregar configuração
-			cfg, err := configcue.LoadHome()
+			cfg, err := configcue.LoadHome(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
 
 			// Obter dotfiles root
-			dotfilesRoot, err := env.GetDotfilesRoot()
+			dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get dotfiles root: %w", err)
 			}
@@ -139,7 +139,7 @@ func GetCommand() *cobra.Command {
 						if execErr != nil {
 							return nil // Não executar se houve erro
 						}
-						if env.IsPhone() {
+						if env.IsPhone(ctx) {
 							return nil // Não executar em phone
 						}
 

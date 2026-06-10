@@ -31,7 +31,7 @@ func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
 		return NewWorkspace(root), nil
 	}
 
-	root, err := env.GetDotfilesRoot()
+	root, err := env.GetDotfilesRoot(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect workspace root from git and dotfiles root: %w", err)
 	}

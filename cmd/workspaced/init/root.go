@@ -37,7 +37,7 @@ This command will:
 Before running this, install the binary with:
   workspaced self-install`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runInit(force)
+			return runInit(c.Context(), force)
 		},
 	}
 
@@ -46,14 +46,14 @@ Before running this, install the binary with:
 	return cmd
 }
 
-func runInit(force bool) error {
+func runInit(ctx context.Context, force bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
 	// 1. Detect dotfiles root
-	dotfilesRoot, err := env.GetDotfilesRoot()
+	dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 	if err != nil || dotfilesRoot == "" {
 		// Use first candidate from constants (typically ~/.dotfiles)
 		dotfilesRoot = envdriver.ExpandPath(constants.DotfilesCandidates[0])

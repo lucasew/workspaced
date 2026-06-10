@@ -28,7 +28,17 @@ import (
 var Registry cmdregistry.CommandRegistry
 
 func main() {
-	baseCtx := context.Background()
+	// Bootstrap the process root context with a logger using the supported helper.
+	// This eliminates direct context.Background for GetLogger paths.
+	rootLogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	rootCtx := logging.NewRootContext(rootLogger)
+
+	// This is the *only* place where a new logging context is created (attaching
+	// the logger to a fresh tree from Background). All other uses of GetLogger
+	// must be on a ctx passed down from here (or a child context derived from it).
+
 	if os.Getenv("REBUILD_TEST") != "" {
 		exe, err := os.Executable()
 		if err != nil {
@@ -39,15 +49,15 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		defer logging.Close(baseCtx, f, "path", exe)
+		defer logging.Close(rootCtx, f, "path", exe)
 		if _, err = io.Copy(h, f); err != nil {
 			panic(err)
 		}
-		logging.GetLogger(baseCtx).Info("build time", "t", h.Sum(nil))
+		logging.GetLogger(rootCtx).Info("build time", "t", h.Sum(nil))
 	}
 	// Load home config early to set driver weights.
-	if _, err := configcue.LoadHome(); err != nil {
-		logging.GetLogger(baseCtx).Debug("failed to load config", "error", err)
+	if _, err := configcue.LoadHome(rootCtx); err != nil {
+		logging.GetLogger(rootCtx).Debug("failed to load config", "error", err)
 	}
 
 	var verbose bool
@@ -62,12 +72,25 @@ func main() {
 		Short:   "workspaced - declarative user environment manager",
 		Version: version.GetBuildID(),
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
+			// Ensure the command's context always carries a logger so that
+			// GetLogger (and ReportError/Close/RunCleanup etc.) never see a
+			// ctx without one. This is required now that GetLogger panics on
+			// missing logger.
+			cmdCtx := c.Context()
+			if cmdCtx == nil {
+				cmdCtx = rootCtx
+			}
+			if !logging.ContextHasLogger(cmdCtx) {
+				cmdCtx = logging.ContextWithLogger(cmdCtx, rootLogger)
+			}
+			c.SetContext(cmdCtx)
+
 			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
 			c.SetContext(cmdctx.WithDryRun(c.Context(), dryRun))
 
 			// Create root task group with limits from config (or defaults).
 			limits := taskgroup.DefaultLimits()
-			if homeCfg, err := configcue.LoadHome(); err == nil {
+			if homeCfg, err := configcue.LoadHome(c.Context()); err == nil {
 				limits = homeCfg.ConcurrencyLimits()
 			}
 			var groupCtx context.Context
@@ -91,9 +114,9 @@ func main() {
 			}
 
 			var err error
-			stopProfiling, err = startProfiling(cpuPath, memPath)
+			stopProfiling, err = startProfiling(c.Context(), cpuPath, memPath)
 			if err == nil && (cpuPath != "" || memPath != "") {
-				logger := logging.GetLogger(baseCtx)
+				logger := logging.GetLogger(c.Context())
 				logger.Info("profiling started", "cpu", cpuPath, "mem", memPath)
 			}
 			return err
@@ -104,7 +127,7 @@ func main() {
 			// g.RunBubbleTea and are ignored on dumb terminals).
 			if rootGroup != nil {
 				if err := rootGroup.Wait(); err != nil {
-					logger := logging.GetLogger(baseCtx)
+					logger := logging.GetLogger(c.Context())
 					logger.Error("task group error", "err", err)
 				}
 			}
@@ -114,7 +137,7 @@ func main() {
 			}
 			err := stopProfiling()
 			if err == nil && (cpuProfilePath != "" || memProfilePath != "" || os.Getenv("WORKSPACED_CPUPROFILE") != "" || os.Getenv("WORKSPACED_MEMPROFILE") != "") {
-				logger := logging.GetLogger(baseCtx)
+				logger := logging.GetLogger(c.Context())
 				logger.Info("profiling finished")
 			}
 			stopProfiling = nil
@@ -132,20 +155,20 @@ func main() {
 	// Set root command for shell completion generation
 	shellgen.SetRootCommand(cmd)
 
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.ExecuteContext(rootCtx); err != nil {
 		if stopProfiling != nil {
 			if stopErr := stopProfiling(); stopErr != nil {
-				logger := logging.GetLogger(baseCtx)
+				logger := logging.GetLogger(rootCtx)
 				logger.Error("failed to stop profiling", "err", stopErr)
 			}
 		}
-		logger := logging.GetLogger(baseCtx)
+		logger := logging.GetLogger(rootCtx)
 		logger.Error("error", "err", err)
 		os.Exit(1)
 	}
 }
 
-func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error) {
+func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) (func() error, error) {
 	var cpuFile *os.File
 	profilingEnabled := cpuProfilePath != "" || memProfilePath != ""
 	var minDurationWG sync.WaitGroup
@@ -163,8 +186,7 @@ func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error)
 			return nil, fmt.Errorf("failed to create cpuprofile file: %w", err)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			pctx := context.Background()
-			logging.Close(pctx, f, slog.String("path", cpuProfilePath))
+			logging.Close(ctx, f, slog.String("path", cpuProfilePath))
 			return nil, fmt.Errorf("failed to start CPU profile: %w", err)
 		}
 		cpuFile = f
@@ -187,8 +209,7 @@ func startProfiling(cpuProfilePath, memProfilePath string) (func() error, error)
 			}
 			runtime.GC()
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				pctx := context.Background()
-				logging.Close(pctx, f, slog.String("path", memProfilePath))
+				logging.Close(ctx, f, slog.String("path", memProfilePath))
 				return fmt.Errorf("failed to write heap profile: %w", err)
 			}
 			if err := f.Close(); err != nil {

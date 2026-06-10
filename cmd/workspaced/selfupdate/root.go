@@ -54,7 +54,7 @@ in ~/.local/bin/workspaced is updated automatically.`,
 
 func runSelfUpdate(ctx context.Context, force bool) error {
 	// Try source build first (dev mode - always rebuilds)
-	if srcPath, found := findSourcePath(); found {
+	if srcPath, found := findSourcePath(ctx); found {
 		logger := logging.GetLogger(ctx)
 		logger.Info("building from source (always rebuilds)", "path", srcPath)
 		return buildAndInstallFromSource(ctx, srcPath)
@@ -358,16 +358,16 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 // Helper functions
 // ============================================================================
 
-func findSourcePath() (string, bool) {
+func findSourcePath(ctx context.Context) (string, bool) {
 	var candidates []string
 
 	// 1. ~/.config/workspaced/src/
-	if configDir, err := env.GetConfigDir(); err == nil {
+	if configDir, err := env.GetConfigDir(ctx); err == nil {
 		candidates = append(candidates, filepath.Join(configDir, "src"))
 	}
 
 	// 2. $DOTFILES/workspaced/
-	if dotfilesRoot, err := env.GetDotfilesRoot(); err == nil {
+	if dotfilesRoot, err := env.GetDotfilesRoot(ctx); err == nil {
 		candidates = append(candidates, filepath.Join(dotfilesRoot, "workspaced"))
 	}
 

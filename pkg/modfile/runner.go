@@ -11,7 +11,7 @@ type LockResult struct {
 }
 
 func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
-	cfg, err := configcue.LoadForWorkspace(ws.Root)
+	cfg, err := configcue.LoadForWorkspace(ctx, ws.Root)
 	if err != nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
