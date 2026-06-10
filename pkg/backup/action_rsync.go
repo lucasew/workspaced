@@ -18,10 +18,10 @@ func init() {
 
 type RsyncAction struct {
 	backupActionBase
-	Src              string   `json:"src"`
-	Dst              string   `json:"dst"`
-	Excludes         []string `json:"excludes"`
-	SkipPermissions  bool     `json:"skip_permissions"`
+	Src             string   `json:"src"`
+	Dst             string   `json:"dst"`
+	Excludes        []string `json:"excludes"`
+	SkipPermissions bool     `json:"skip_permissions"`
 }
 
 func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) error {
