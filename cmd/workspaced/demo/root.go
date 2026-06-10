@@ -27,8 +27,9 @@ Run subcommands to see different aspects:
   workspaced demo plain    - runs tasks under the root group; root renderer appears
                              "plain" on non-ttys, pipes, CI, TERM=dumb, etc.
   workspaced demo nested   - demonstrates creating a SubGroup from the one in context
-  workspaced demo loop     - 5 iterations (1s sleep + log line + progress update) to observe
-                             how logs render alongside live progress bars`,
+  workspaced demo loop     - thin cmd entrypoint: gets group from context, schedules task
+                             using the primitive (g.Go + s.Update/Progress + context logger),
+                             then calls taskgroup.Run (Bubble Tea in the group system) to render`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare "demo" runs the main tasks showcase for convenience.
 			return runTasksDemo(cmd)

@@ -6,9 +6,6 @@ package output
 
 import (
 	"io"
-	"os"
-
-	"golang.org/x/term"
 
 	"workspaced/pkg/taskgroup"
 )
@@ -20,32 +17,13 @@ type Renderer interface {
 	Run(g *taskgroup.Group) error
 }
 
-// Auto detects terminal capabilities and returns the appropriate renderer.
-// If w is a terminal and not dumb, returns an interactive renderer.
-// Otherwise returns a plain-text renderer.
-func Auto(w *os.File) Renderer {
-	if isInteractive(w) {
-		return NewInteractive(w)
-	}
-	return NewPlain(w)
-}
-
-func isInteractive(w *os.File) bool {
-	if os.Getenv("TERM") == "dumb" {
-		return false
-	}
-	if os.Getenv("NO_COLOR") != "" {
-		return false
-	}
-	if os.Getenv("CI") != "" {
-		return false
-	}
-	return term.IsTerminal(int(w.Fd()))
-}
-
 // WriterRenderer wraps a Renderer to expose the underlying writer
 // for code that needs to write logs outside the taskgroup system.
 type WriterRenderer interface {
 	Renderer
 	Writer() io.Writer
 }
+
+// Note: Auto(), NewBubbleTeaRenderer, and the renderers are now implemented
+// in bubbletea.go using Bubble Tea (replacing the old ANSI versions).
+// The old interactive/plain ANSI code has been removed.

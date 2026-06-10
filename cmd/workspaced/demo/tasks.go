@@ -140,10 +140,16 @@ func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		parent.AddCommand(&cobra.Command{
 			Use:   "loop",
-			Short: "Demo a 5-iteration loop (sleep + log + progress) to observe log rendering",
+			Short: "Demo a 5-iteration loop using the taskgroup primitive + Bubble Tea UI (in pkg/taskgroup)",
+			Long: `Cmd is a thin entrypoint.
+It gets the group from context (spread by root), schedules work using the task primitive
+(g.Go + s.Update/s.Progress for the progressbar thing, plus context logger which feeds
+the group's log buffers via recorder + onLog), then calls the Bubble Tea renderer from the
+group system (taskgroup.Run) to render it. The taskgroup (with Status) is the core primitive.`,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				g := taskgroup.MustFromContext(cmd.Context())
 
+				// Schedule using the task primitive. Only uses group's progress API and context logger.
 				g.Go("loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 					logger := logging.GetLogger(ctx)
 					for i := 1; i <= 5; i++ {
@@ -155,7 +161,10 @@ func init() {
 					return nil
 				})
 
-				return nil
+				// Delegate to the Bubble Tea renderer that is part of the taskgroup
+				// system. It observes the group (Snapshot for progressbar state from
+				// Status, logs from the buffers fed by context logger).
+				return taskgroup.Run(g)
 			},
 		})
 	})

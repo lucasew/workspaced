@@ -56,7 +56,6 @@ func main() {
 	var memProfilePath string
 	var stopProfiling func() error
 	var rootGroup *taskgroup.Group
-	var renderer output.Renderer
 	var renderDone chan struct{}
 
 	cmd := &cobra.Command{
@@ -76,12 +75,16 @@ func main() {
 			rootGroup, groupCtx = taskgroup.New(c.Context(), limits)
 			c.SetContext(groupCtx)
 
-			// Start renderer in background.
-			renderer = output.Auto(os.Stderr)
+			// Start Bubble Tea based renderer (replaces the old ANSI one).
+			// Logs from the taskgroup (via context logger) are printed using
+			// the tea program's Printf (the file under the hood), so they are
+			// coordinated with the TUI renders. The bar is re-rendered after
+			// each log (moved down).
 			renderDone = make(chan struct{})
 			go func() {
 				defer close(renderDone)
-				_ = renderer.Run(rootGroup)
+				r := output.NewBubbleTeaRenderer(os.Stderr)
+				_ = r.Run(rootGroup)
 			}()
 
 			if verbose {

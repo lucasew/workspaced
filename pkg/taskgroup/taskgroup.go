@@ -104,8 +104,9 @@ type Status struct {
 	message string
 	current int64
 	total   int64
-	logs []string
-	name string
+	logs  []string
+	onLog func(taskName, msg string)
+	name  string
 }
 
 // Update sets the current status message (shown in the progress bar).
@@ -240,6 +241,8 @@ type Group struct {
 	err     error
 
 	wg sync.WaitGroup
+
+	onLog func(taskName, msg string)
 }
 
 // New creates a root Group with the given pool limits.
@@ -260,6 +263,15 @@ func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 func FromContext(ctx context.Context) *Group {
 	g, _ := ctx.Value(contextKey{}).(*Group)
 	return g
+}
+
+// SetLogHandler sets a callback invoked whenever Status.Log is called (or bridged
+// from context logger via the recorder). Useful for real-time observers (e.g. TUI
+// renderers) in addition to the Logs slice in snapshots.
+func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
+	g.mu.Lock()
+	g.onLog = fn
+	g.mu.Unlock()
 }
 
 // MustFromContext is like FromContext but panics if no Group is present in
@@ -299,6 +311,7 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 		status: &Status{
 			name:  name,
 			total: -1,
+			onLog: g.onLog,
 		},
 		state: Pending,
 	}
@@ -341,7 +354,11 @@ func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 		})
 		r.append(b.String())
 	}
-	return r.Handler.Handle(ctx, rec)
+	// Do not delegate to the real handler. This way, task logs are only
+	// output through the renderer's mechanism (e.g. prog.Printf when using
+	// Bubble Tea), so the log writer uses the file that tea.Printf uses
+	// under the hood.
+	return nil
 }
 
 func (r *logRecorder) WithAttrs(attrs []slog.Attr) slog.Handler {
@@ -413,7 +430,11 @@ func (g *Group) runTask(t *taskEntry) {
 			append: func(msg string) {
 				t.status.mu.Lock()
 				t.status.logs = append(t.status.logs, msg)
+				onLog := t.status.onLog
 				t.status.mu.Unlock()
+				if onLog != nil {
+					onLog(t.name, msg)
+				}
 			},
 		}
 		taskLogger := slog.New(rec)
@@ -468,6 +489,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 		pools:  g.pools, // shared pools
 		ctx:    ctx,
 		cancel: cancel,
+		onLog:  g.onLog,
 	}
 	return child, context.WithValue(ctx, contextKey{}, child)
 }
