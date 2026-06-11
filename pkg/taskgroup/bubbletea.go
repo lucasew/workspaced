@@ -58,15 +58,27 @@ type bubbleModel struct {
 	percents map[string]float64
 	pools    map[string]PoolKind
 	order    []string // first-seen order for stable rendering across frames
+
+	// finishedToRemove holds names of tasks whose final 100% frame
+	// was just rendered; they will be deleted at the start of the
+	// next update so they disappear from the list after showing completion.
+	finishedToRemove map[string]struct{}
+
+	// finalized tracks tasks whose completion (final payload) has already
+	// been displayed for one frame. We stop re-populating them from
+	// future snapshots so they stay removed.
+	finalized map[string]struct{}
 }
 
 func newBubbleModel(g *Group) bubbleModel {
 	return bubbleModel{
-		group:    g,
-		statuses: make(map[string]string),
-		percents: make(map[string]float64),
-		pools:    make(map[string]PoolKind),
-		order:    nil,
+		group:            g,
+		statuses:         make(map[string]string),
+		percents:         make(map[string]float64),
+		pools:            make(map[string]PoolKind),
+		order:            nil,
+		finishedToRemove: make(map[string]struct{}),
+		finalized:        make(map[string]struct{}),
 	}
 }
 
@@ -95,17 +107,27 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		snap := m.group.snapshotRecursive()
 		allDone := true
+
+		// Remove any tasks whose final 100% "payload" (completion frame)
+		// was shown in the previous tick. This is what makes finished
+		// tasks disappear from the list.
+		for name := range m.finishedToRemove {
+			delete(m.statuses, name)
+			delete(m.percents, name)
+		}
+		m.finishedToRemove = make(map[string]struct{})
+
 		for _, t := range snap {
 			if t.State != Done && t.State != Failed {
 				allDone = false
 			}
 
-			// Capture the latest progress values from the snapshot for this
-			// task name. We do this for both Running and just-completed
-			// tasks so that a final Progress(total, total) written right
-			// before the task fn returns is guaranteed to be seen and
-			// rendered at 100%.
 			if t.Total > 0 {
+				if _, already := m.finalized[t.Name]; already {
+					// This task's completion payload was already displayed
+					// for one frame. Skip re-populating so it stays removed.
+					continue
+				}
 				pct := float64(t.Current) / float64(t.Total)
 				m.percents[t.Name] = pct
 				m.statuses[t.Name] = t.Message
@@ -122,16 +144,17 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if t.State != Running {
-				// Keep entries for tasks that reached 100% so the bar
-				// visibly finishes at full width (with the completion
-				// message) instead of disappearing at 90% or 99%.
-				if lastPct, ok := m.percents[t.Name]; ok && lastPct >= 0.999 {
-					// keep for final 100% render
+				if pct, ok := m.percents[t.Name]; ok && pct >= 0.999 {
+					// Task just finished. We captured its final payload
+					// (Progress(total,total) + last message) so the 100%
+					// bar is visible *this* render. Mark for removal on
+					// the next tick.
+					m.finishedToRemove[t.Name] = struct{}{}
+					m.finalized[t.Name] = struct{}{}
+					// Leave in percents/statuses for the current View.
 				} else {
 					delete(m.statuses, t.Name)
 					delete(m.percents, t.Name)
-					// Keep in pools + order for position stability if the
-					// task re-appears in a later frame.
 				}
 			}
 		}
