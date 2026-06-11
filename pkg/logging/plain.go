@@ -67,13 +67,14 @@ func coloredLevel(l slog.Level) string {
 	}
 }
 
-// FormatPlain renders a slog.Record using the project's compact plain log
-// format. This is the single implementation of the "L msg key=val ..."
-// style (single letter level) used for task logs, bubbletea output, and
-// direct logging.
+// FormatPlain renders a slog.Record using the project's compact plain (no ANSI)
+// log format. This is the single implementation of the "L msg key=val ..."
+// style (single letter level) used when colors are disabled or when plain
+// output is explicitly required (e.g. some snapshots).
 //
-// The format intentionally omits timestamps (they are rarely useful when
-// logs are already correlated with task names or command transcripts).
+// Prefer Format / FormatPrepend for normal use — they automatically pick the
+// colored version (background-colored level letter + styled key=value) when
+// the terminal supports it.
 func FormatPlain(r slog.Record) string {
 	attrs := make([]slog.Attr, 0, r.NumAttrs())
 	r.Attrs(func(a slog.Attr) bool {
@@ -85,9 +86,6 @@ func FormatPlain(r slog.Record) string {
 
 // FormatPlainPrepend is like FormatPlain, but inserts the provided attrs right
 // after the level+message and before any attrs already present on the record.
-// This is used to emulate contributions from handler-level WithAttrs (e.g. the
-// synthetic "task" attribute) for the plain string path while leaving the
-// delegate handler unaffected.
 func FormatPlainPrepend(r slog.Record, pre ...slog.Attr) string {
 	if len(pre) == 0 {
 		return FormatPlain(r)
@@ -99,6 +97,46 @@ func FormatPlainPrepend(r slog.Record, pre ...slog.Attr) string {
 		return true
 	})
 	return formatPlain(r.Level, r.Message, all)
+}
+
+// Format renders a slog.Record using the project's formatter.
+// When color is enabled (no NO_COLOR, real tty, etc.) it produces a single
+// letter level indicator with the level color as background + colored
+// key=value formatting. Otherwise it falls back to the plain single-letter
+// format.
+//
+// This is the function used for normal direct logging and for logs that
+// appear inside progress-bar (bubbletea) renderers so they stay consistent.
+func Format(r slog.Record) string {
+	if colorEnabled() {
+		attrs := make([]slog.Attr, 0, r.NumAttrs())
+		r.Attrs(func(a slog.Attr) bool {
+			attrs = append(attrs, a)
+			return true
+		})
+		return formatColored(r.Level, r.Message, attrs)
+	}
+	return FormatPlain(r)
+}
+
+// FormatPrepend is like Format, but inserts the provided attrs right after the
+// level+message and before any attrs already present on the record. This is
+// primarily used by the taskgroup recorder to inject the synthetic "task"
+// attribute while still getting the correct (plain or colored) output.
+func FormatPrepend(r slog.Record, pre ...slog.Attr) string {
+	if len(pre) == 0 {
+		return Format(r)
+	}
+	if colorEnabled() {
+		all := make([]slog.Attr, 0, len(pre)+r.NumAttrs())
+		all = append(all, pre...)
+		r.Attrs(func(a slog.Attr) bool {
+			all = append(all, a)
+			return true
+		})
+		return formatColored(r.Level, r.Message, all)
+	}
+	return FormatPlainPrepend(r, pre...)
 }
 
 // formatPlain is the core string builder used by both FormatPlain variants

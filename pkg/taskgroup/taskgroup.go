@@ -413,11 +413,11 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 }
 
 // logRecorder is a slog.Handler wrapper used for task execution.
-// It appends a formatted version (message + attrs) to the task's log buffer
-// (for Snapshot + any attached renderer) and delegates to the real handler
-// for normal slog output. When a bubbletea renderer is active on the group
-// (see RunBubbleTea), it skips the delegate and lets the renderer's
-// prog.Printf path own the visible emission (prevents duplicate lines).
+// It appends a formatted version (using logging.FormatPrepend so that
+// progress-bar / bubbletea systems get the same plain-or-colored output
+// as the main PlainHandler) to the task's log buffer and calls any onLog
+// callback. When bubbletea is active it skips the normal delegate to avoid
+// duplicate lines.
 type logRecorder struct {
 	slog.Handler
 	append func(string)
@@ -427,7 +427,7 @@ type logRecorder struct {
 
 func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 	if r.append != nil {
-		r.append(logging.FormatPlainPrepend(rec, r.attrs...))
+		r.append(logging.FormatPrepend(rec, r.attrs...))
 	}
 	// Skip normal delegate while a bubbletea renderer owns visible output
 	// (it uses prog.Printf on the tea writer so logs scroll naturally and
