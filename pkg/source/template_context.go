@@ -3,8 +3,11 @@ package source
 import (
 	"context"
 	"os"
+	"runtime"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/env"
+
+	"github.com/pbnjay/memory"
 )
 
 func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[string]any, error) {
@@ -41,6 +44,9 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 		"user_data_dir": userDataDir,
 		"is_phone":      env.IsPhone(ctx),
 		"hostname":      env.GetHostname(ctx),
+		"goos":          runtime.GOOS,
+		"goarch":        runtime.GOARCH,
+		"memory":        memory.TotalMemory(),
 	}
 
 	out := map[string]any{
