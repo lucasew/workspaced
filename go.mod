@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	cuelang.org/go v0.16.1
+	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -13,7 +14,7 @@ require (
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/image v0.42.0
-	golang.org/x/term v0.41.0
+	golang.org/x/term v0.44.0
 	modernc.org/sqlite v1.52.0
 )
 
@@ -22,7 +23,6 @@ require github.com/shogo82148/go-sfv v0.3.3 // indirect
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/bubbles v1.0.0 // indirect
-	github.com/charmbracelet/bubbletea v1.3.10 // indirect
 	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
@@ -60,7 +60,7 @@ require (
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/net v0.52.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
