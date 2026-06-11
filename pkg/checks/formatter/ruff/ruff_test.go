@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	_ "workspaced/pkg/driver/httpclient/native"
-	_ "workspaced/pkg/tool/backend/github"
 	"workspaced/pkg/logging"
+	_ "workspaced/pkg/tool/backend/github"
 )
 
 func TestFormat(t *testing.T) {

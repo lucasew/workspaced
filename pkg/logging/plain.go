@@ -154,7 +154,6 @@ func formatPlain(level slog.Level, msg string, attrs []slog.Attr) string {
 	return b.String()
 }
 
-
 func appendPlainLogAttr(b *strings.Builder, a slog.Attr) {
 	a.Value = a.Value.Resolve()
 	if a.Equal(slog.Attr{}) {
