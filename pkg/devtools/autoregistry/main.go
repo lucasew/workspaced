@@ -22,12 +22,12 @@ type DetectedRoot struct {
 	ImportPath string
 }
 
-func ExtractPackage(gofile string) (string, error) {
+func ExtractPackage(ctx context.Context, gofile string) (string, error) {
 	f, err := os.Open(gofile)
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(context.Background(), f)
+	defer logging.Close(ctx, f)
 	scanner := bufio.NewScanner(f)
 	scanner.Scan()
 	parts := strings.Split(scanner.Text(), " ")
@@ -35,7 +35,7 @@ func ExtractPackage(gofile string) (string, error) {
 
 }
 
-func (r DetectedRoot) Children() (iter.Seq[DetectedRoot], error) {
+func (r DetectedRoot) Children(ctx context.Context) (iter.Seq[DetectedRoot], error) {
 	items, err := filepath.Glob(fmt.Sprintf("%s/*/root.go", r.Dir))
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (r DetectedRoot) Children() (iter.Seq[DetectedRoot], error) {
 			dirname := path.Base(path.Dir(item))
 			dir := path.Join(r.Dir, dirname)
 			file := path.Join(dir, "root.go")
-			pkg, err := ExtractPackage(file)
+			pkg, err := ExtractPackage(ctx, file)
 			if err != nil {
 				panic(err)
 			}
@@ -61,10 +61,10 @@ func (r DetectedRoot) Children() (iter.Seq[DetectedRoot], error) {
 
 }
 
-func HandleRegistryCodegen(r DetectedRoot) error {
+func HandleRegistryCodegen(ctx context.Context, r DetectedRoot) error {
 	prelude := path.Join(r.Dir, "prelude.go")
 
-	childrenIter, err := r.Children()
+	childrenIter, err := r.Children(ctx)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func HandleRegistryCodegen(r DetectedRoot) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(context.Background(), f)
+	defer logging.Close(ctx, f)
 	if _, err := fmt.Fprintf(f, "package %s\n", r.Package); err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func HandleRegistryCodegen(r DetectedRoot) error {
 		return err
 	}
 	for _, c := range children {
-		if err := HandleRegistryCodegen(c); err != nil {
+		if err := HandleRegistryCodegen(ctx, c); err != nil {
 			return err
 		}
 	}
@@ -138,12 +138,18 @@ var cmd = &cobra.Command{
 			Package:    "main",
 			ImportPath: "workspaced/cmd/workspaced",
 		}
-		return HandleRegistryCodegen(RootDetected)
+		return HandleRegistryCodegen(cmd.Context(), RootDetected)
 	},
 }
 
 func main() {
-	if err := cmd.Execute(); err != nil {
-		logging.ReportError(context.Background(), err, slog.String("context", "fatal error"))
+	rootLogger := slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	rootCtx := logging.NewRootContext(rootLogger)
+
+	cmd.SetContext(rootCtx)
+	if err := cmd.ExecuteContext(rootCtx); err != nil {
+		logging.ReportError(rootCtx, err, slog.String("context", "fatal error"))
 	}
 }
