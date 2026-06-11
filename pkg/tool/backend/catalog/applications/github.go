@@ -25,6 +25,7 @@ var githubTools = map[string]string{
 	"opencode":       "anomalyco/opencode",
 	"rclone":         "rclone/rclone",
 	"rtk":            "rtk-ai/rtk",
+	"resvg":          "linebender/resvg",
 }
 
 func init() {

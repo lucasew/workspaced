@@ -264,6 +264,9 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 				logging.Close(ctx, outFile)
 				_ = os.Remove(tmp)
 				err = fmt.Errorf("GET %s: %s", url, resp.Status)
+				if resp.StatusCode == http.StatusForbidden {
+					err = fmt.Errorf("%w (if this is a GitHub release asset, set GITHUB_TOKEN or run 'gh auth login' to increase rate limits)", err)
+				}
 				done <- err
 				return err
 			}
@@ -373,7 +376,11 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 		logging.Close(ctx, resp.Body)
 		logging.Close(ctx, outFile)
 		_ = os.Remove(tmp)
-		return fmt.Errorf("GET %s: %s", url, resp.Status)
+		err := fmt.Errorf("GET %s: %s", url, resp.Status)
+		if resp.StatusCode == http.StatusForbidden {
+			err = fmt.Errorf("%w (if this is a GitHub release asset, set GITHUB_TOKEN or run 'gh auth login' to increase rate limits)", err)
+		}
+		return err
 	}
 
 	size := resp.ContentLength

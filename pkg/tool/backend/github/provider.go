@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"runtime"
 	"strings"
@@ -52,10 +53,12 @@ type release struct {
 }
 
 type asset struct {
+	ID                 int64  `json:"id"`
 	Name               string `json:"name"`
 	Size               int64  `json:"size"`
 	Digest             string `json:"digest"`
 	BrowserDownloadURL string `json:"browser_download_url"`
+	APIURL             string `json:"url"` // api.github.com url for the asset
 }
 
 func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) ([]string, error) {
@@ -67,6 +70,8 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 		return nil, err
 	}
 
+	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	githubutil.ApplyAuth(ctx, req)
 
 	// Use httpclient driver
@@ -82,7 +87,15 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 	defer logging.Close(ctx, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("github api error: %s", resp.Status)
+		body, _ := io.ReadAll(resp.Body)
+		msg := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
+			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s", url, resp.Status)
+		}
+		if msg != "" {
+			return nil, fmt.Errorf("github api error for %s: %s: %s", url, resp.Status, msg)
+		}
+		return nil, fmt.Errorf("github api error for %s: %s", url, resp.Status)
 	}
 
 	var releases []release
@@ -111,6 +124,8 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 		return nil, err
 	}
 
+	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	githubutil.ApplyAuth(ctx, req)
 
 	// Use httpclient driver
@@ -126,7 +141,15 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 	defer logging.Close(ctx, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("github api error: %s", resp.Status)
+		body, _ := io.ReadAll(resp.Body)
+		msg := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
+			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s", url, resp.Status)
+		}
+		if msg != "" {
+			return nil, fmt.Errorf("github api error for %s: %s: %s", url, resp.Status, msg)
+		}
+		return nil, fmt.Errorf("github api error for %s: %s", url, resp.Status)
 	}
 
 	var r release
@@ -153,11 +176,13 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 		}
 
 		artifacts = append(artifacts, backend.Artifact{
-			OS:   osName,
-			Arch: arch,
-			URL:  a.BrowserDownloadURL,
-			Hash: hash,
-			Size: a.Size,
+			OS:                osName,
+			Arch:              arch,
+			URL:               a.BrowserDownloadURL,
+			Hash:              hash,
+			Size:              a.Size,
+			GitHubAssetID:     a.ID,
+			GitHubAssetAPIURL: a.APIURL,
 		})
 	}
 	logger.Debug("found assets", "total_assets", len(r.Assets), "matched_artifacts", len(artifacts))
@@ -166,10 +191,36 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 }
 
 func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destPath string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destPath, providerinstall.DownloadOptions{
-		ConfigureRequest: func(req *http.Request) {
-			githubutil.ApplyAuth(ctx, req)
-		},
+	downloadURL := artifact.URL
+	configure := func(req *http.Request) {
+		githubutil.ApplyAuth(ctx, req)
+		req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+	}
+
+	// For GitHub release assets, when we have a token, prefer the API
+	// endpoint with proper Accept header. Direct browser_download_url +
+	// Authorization can result in 403 in some cases (rate limits,
+	// token types, redirects).
+	if artifact.GitHubAssetID != 0 && artifact.GitHubAssetAPIURL != "" {
+		if token := githubutil.Token(ctx); token != "" {
+			downloadURL = artifact.GitHubAssetAPIURL
+			configure = func(req *http.Request) {
+				githubutil.ApplyAuth(ctx, req)
+				req.Header.Set("Accept", "application/octet-stream")
+				req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+				req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+			}
+		}
+	}
+
+	return providerinstall.InstallArtifact(ctx, backend.Artifact{
+		OS:   artifact.OS,
+		Arch: artifact.Arch,
+		URL:  downloadURL,
+		Hash: artifact.Hash,
+		Size: artifact.Size,
+	}, destPath, providerinstall.DownloadOptions{
+		ConfigureRequest: configure,
 	})
 }
 

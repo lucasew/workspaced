@@ -15,14 +15,14 @@ import (
 	"workspaced/pkg/tool"
 )
 
-const defaultResvgSpec = "github:linebender/resvg"
+const defaultResvgSpec = "registry:resvg"
 
 type Driver struct{}
 
 func (d *Driver) Ensure(ctx context.Context) error {
 	// Calling EnsureAndRun triggers tool resolution/install via the
-	// configured backend (e.g. downloading the github:linebender/resvg
-	// release if not present). We use a cheap --version invocation.
+	// configured backend (e.g. downloading the registry:resvg release
+	// if not present). We use a cheap --version invocation.
 	// The actual rasterization calls later will be fast.
 	c, err := tool.EnsureAndRun(ctx, defaultResvgSpec, "resvg", "--version")
 	if err != nil {
@@ -85,7 +85,7 @@ func (p Provider) Name() string {
 	return "resvg"
 }
 func (p Provider) CheckCompatibility(ctx context.Context) error {
-	// resvg is installed on demand via the tool subsystem.
+	// resvg is installed on demand via the tool registry (catalog).
 	return nil
 }
 func (p Provider) New(ctx context.Context) (svgraster.Driver, error) {
