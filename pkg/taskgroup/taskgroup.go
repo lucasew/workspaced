@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
+	"sort"
 	"sync"
 
 	"workspaced/pkg/logging"
@@ -617,6 +618,32 @@ func (g *Group) snapshotRecursive() []TaskState {
 
 	walk(g)
 	return out
+}
+
+// SnapshotSorted returns the tasks from Snapshot, sorted stably for
+// predictable UI ordering: first by PoolKind, then by Name.
+func (g *Group) SnapshotSorted() []TaskState {
+	snap := g.Snapshot()
+	sort.SliceStable(snap, func(i, j int) bool {
+		if snap[i].Pool != snap[j].Pool {
+			return snap[i].Pool < snap[j].Pool
+		}
+		return snap[i].Name < snap[j].Name
+	})
+	return snap
+}
+
+// snapshotRecursiveSorted is like snapshotRecursive but with stable
+// PoolKind-then-Name ordering.
+func (g *Group) snapshotRecursiveSorted() []TaskState {
+	snap := g.snapshotRecursive()
+	sort.SliceStable(snap, func(i, j int) bool {
+		if snap[i].Pool != snap[j].Pool {
+			return snap[i].Pool < snap[j].Pool
+		}
+		return snap[i].Name < snap[j].Name
+	})
+	return snap
 }
 
 // SubGroup creates a child Group that shares the parent's pool semaphores.

@@ -54,6 +54,8 @@ type bubbleModel struct {
 	group    *Group
 	statuses map[string]string
 	percents map[string]float64
+	pools    map[string]PoolKind
+	order    []string // first-seen order for stable rendering across frames
 }
 
 func newBubbleModel(g *Group) bubbleModel {
@@ -61,6 +63,8 @@ func newBubbleModel(g *Group) bubbleModel {
 		group:    g,
 		statuses: make(map[string]string),
 		percents: make(map[string]float64),
+		pools:    make(map[string]PoolKind),
+		order:    nil,
 	}
 }
 
@@ -103,6 +107,14 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pct := float64(t.Current) / float64(t.Total)
 				m.percents[t.Name] = pct
 				m.statuses[t.Name] = t.Message
+
+				// Record pool and first-seen order the first time we see
+				// this task with progress. This gives stable ordering in
+				// the progress bar view (tasks don't jump around).
+				if _, ok := m.pools[t.Name]; !ok {
+					m.pools[t.Name] = t.Pool
+					m.order = append(m.order, t.Name)
+				}
 			} else {
 				m.percents[t.Name] = 0
 			}
@@ -116,6 +128,8 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					delete(m.statuses, t.Name)
 					delete(m.percents, t.Name)
+					// Keep in pools + order for position stability if the
+					// task re-appears in a later frame.
 				}
 			}
 		}
@@ -134,16 +148,41 @@ func (m bubbleModel) View() string {
 
 	var buf bytes.Buffer
 	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	for name := range m.percents {
+
+	for _, name := range m.order {
+		if _, ok := m.percents[name]; !ok {
+			continue
+		}
+		pool := m.pools[name]
+		emoji := poolEmoji(pool)
+
 		st := m.statuses[name]
 		if st == "" {
 			st = "running"
 		}
 		bar := plainBar(m.percents[name], 30)
-		fmt.Fprintf(tw, "%s:\t%s\t%s\n", name, bar, st)
+		fmt.Fprintf(tw, "%s %s:\t%s\t%s\n", emoji, name, bar, st)
 	}
 	tw.Flush()
 	return buf.String()
+}
+
+// poolEmoji returns a short emoji prefix based on the task's PoolKind.
+// This lets users quickly distinguish Control / IO / CPU / Internet work
+// in the progress bar view.
+func poolEmoji(p PoolKind) string {
+	switch p {
+	case Control:
+		return "🔧"
+	case IO:
+		return "💾"
+	case CPU:
+		return "🧠"
+	case Internet:
+		return "🌐"
+	default:
+		return "•"
+	}
 }
 
 // plainBar renders a dead-simple classic progress bar using only ASCII.
