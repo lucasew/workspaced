@@ -1,9 +1,11 @@
 package taskgroup
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -126,17 +128,22 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m bubbleModel) View() string {
-	var s strings.Builder
+	if len(m.percents) == 0 {
+		return ""
+	}
+
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 	for name := range m.percents {
 		st := m.statuses[name]
 		if st == "" {
 			st = "running"
 		}
-		pct := m.percents[name]
-		bar := plainBar(pct, 30)
-		fmt.Fprintf(&s, "%s: %s %s\n", name, bar, st)
+		bar := plainBar(m.percents[name], 30)
+		fmt.Fprintf(tw, "%s:\t%s\t%s\n", name, bar, st)
 	}
-	return s.String()
+	tw.Flush()
+	return buf.String()
 }
 
 // plainBar renders a dead-simple classic progress bar using only ASCII.
