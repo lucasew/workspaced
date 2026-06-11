@@ -14,8 +14,6 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync"
 
 	"workspaced/pkg/logging"
@@ -429,7 +427,7 @@ type logRecorder struct {
 
 func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 	if r.append != nil {
-		r.append(formatPlainLogRecord(rec, r.attrs))
+		r.append(logging.FormatPlainPrepend(rec, r.attrs...))
 	}
 	// Skip normal delegate while a bubbletea renderer owns visible output
 	// (it uses prog.Printf on the tea writer so logs scroll naturally and
@@ -464,59 +462,6 @@ func (r *logRecorder) WithGroup(name string) slog.Handler {
 		group:   r.group,
 		attrs:   r.attrs,
 	}
-}
-
-func formatPlainLogRecord(rec slog.Record, leadingAttrs []slog.Attr) string {
-	var b strings.Builder
-	b.WriteString(rec.Level.String())
-	if rec.Message != "" {
-		b.WriteByte(' ')
-		b.WriteString(rec.Message)
-	}
-	for _, a := range leadingAttrs {
-		appendPlainLogAttr(&b, a)
-	}
-	rec.Attrs(func(a slog.Attr) bool {
-		appendPlainLogAttr(&b, a)
-		return true
-	})
-	return b.String()
-}
-
-func appendPlainLogAttr(b *strings.Builder, a slog.Attr) {
-	a.Value = a.Value.Resolve()
-	if a.Equal(slog.Attr{}) {
-		return
-	}
-	b.WriteByte(' ')
-	b.WriteString(a.Key)
-	b.WriteByte('=')
-	b.WriteString(formatPlainLogValue(a.Value))
-}
-
-func formatPlainLogValue(v slog.Value) string {
-	v = v.Resolve()
-	switch v.Kind() {
-	case slog.KindString:
-		return quotePlainLogString(v.String())
-	case slog.KindBool:
-		return strconv.FormatBool(v.Bool())
-	case slog.KindInt64:
-		return strconv.FormatInt(v.Int64(), 10)
-	case slog.KindUint64:
-		return strconv.FormatUint(v.Uint64(), 10)
-	case slog.KindFloat64:
-		return strconv.FormatFloat(v.Float64(), 'g', -1, 64)
-	default:
-		return quotePlainLogString(fmt.Sprint(v.Any()))
-	}
-}
-
-func quotePlainLogString(s string) string {
-	if s == "" || strings.ContainsAny(s, " \t\r\n=\"") {
-		return strconv.Quote(s)
-	}
-	return s
 }
 
 func (g *Group) runTask(t *taskEntry) {

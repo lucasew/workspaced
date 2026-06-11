@@ -117,7 +117,7 @@ func RunDaemon(ctx context.Context) error {
 	defer cancel()
 
 	// Ensure logs go to stderr
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	slog.SetDefault(slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	logger := logging.GetLogger(ctx)
 	logger.Info("daemon starting", "pid", os.Getpid())
 

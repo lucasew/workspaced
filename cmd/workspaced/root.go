@@ -31,7 +31,7 @@ var Registry cmdregistry.CommandRegistry
 func main() {
 	// Bootstrap the process root context with a logger using the supported helper.
 	// This eliminates direct context.Background for GetLogger paths.
-	rootLogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+	rootLogger := slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	rootCtx := logging.NewRootContext(rootLogger)

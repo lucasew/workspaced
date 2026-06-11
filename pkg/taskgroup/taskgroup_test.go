@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"sync/atomic"
 	"testing"
@@ -13,7 +14,9 @@ import (
 )
 
 func withLogger(t *testing.T) context.Context {
-	return logging.ContextWithLogger(t.Context(), slog.Default())
+	h := logging.NewPlainHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+	l := slog.New(h)
+	return logging.ContextWithLogger(t.Context(), l)
 }
 
 func TestBasicExecution(t *testing.T) {
