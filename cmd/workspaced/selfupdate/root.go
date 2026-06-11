@@ -43,9 +43,6 @@ in ~/.local/bin/workspaced is updated automatically.`,
 		RunE: func(c *cobra.Command, args []string) error {
 			ctx := c.Context()
 			g := taskgroup.FromContext(ctx)
-			if g == nil {
-				return runSelfUpdate(ctx, force)
-			}
 
 			// Choose the right pool for the self-update task itself so it
 			// participates in concurrency limits and gets the correct
@@ -60,19 +57,14 @@ in ~/.local/bin/workspaced is updated automatically.`,
 				msg = "downloading from GitHub"
 			}
 
-			var execErr error
 			g.Go("self-update", pool, func(ctx context.Context, s *taskgroup.Status) error {
 				s.Update(msg)
 				s.Progress(0, 1)
-				execErr = runSelfUpdate(ctx, force)
-				s.Progress(1, 1)
-				return execErr
+				defer s.Progress(1, 1)
+				return runSelfUpdate(ctx, force)
 			})
 
-			if werr := taskgroup.Run(g); werr != nil && execErr == nil {
-				execErr = werr
-			}
-			return execErr
+			return taskgroup.Run(g)
 		},
 	}
 
