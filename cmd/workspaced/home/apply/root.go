@@ -42,9 +42,16 @@ func GetCommand() *cobra.Command {
 			dryRun := cmdctx.IsDryRun(ctx)
 			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
+			taskName := "home:apply"
+			updateMsg := "applying configuration"
+			if dryRun {
+				taskName = "home:plan"
+				updateMsg = "planning changes"
+			}
+
 			g := taskgroup.MustFromContext(ctx)
-			g.Go("home:apply", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-				s.Update("applying configuration")
+			g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+				s.Update(updateMsg)
 				s.Progress(0, 1)
 				defer s.Progress(1, 1)
 

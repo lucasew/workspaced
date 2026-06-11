@@ -15,10 +15,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 func GetIconPath(ctx context.Context, url string) (string, error) {
@@ -40,9 +42,6 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		return path, nil
 	}
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("downloading favicon", "url", normalized, "target", path)
-
 	domain := normalized
 	if strings.HasPrefix(domain, "https://") {
 		domain = domain[8:]
@@ -54,40 +53,67 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 
 	faviconURL := fmt.Sprintf("https://www.google.com/s2/favicons?sz=128&domain=%s", domain)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", faviconURL, nil)
-	if err != nil {
-		return "", err
+	perform := func(ctx context.Context) error {
+		logger := logging.GetLogger(ctx)
+		logger.Info("downloading favicon", "url", normalized, "target", path)
+
+		req, err := http.NewRequestWithContext(ctx, "GET", faviconURL, nil)
+		if err != nil {
+			return err
+		}
+
+		httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get http client driver: %w", err)
+		}
+		resp, err := httpDriver.Client().Do(req)
+		if err != nil {
+			return err
+		}
+		defer logging.Close(ctx, resp.Body)
+
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("bad status: %s", resp.Status)
+		}
+
+		img, _, err := image.Decode(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		img = makeBackgroundTransparent(img)
+		img = cropToContentSquare(img)
+
+		out, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		defer logging.Close(ctx, out)
+
+		if err := png.Encode(out, img); err != nil {
+			return err
+		}
+
+		return nil
 	}
 
-	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
-	if err != nil {
-		return "", fmt.Errorf("failed to get http client driver: %w", err)
-	}
-	resp, err := httpDriver.Client().Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer logging.Close(ctx, resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	img, _, err := image.Decode(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	img = makeBackgroundTransparent(img)
-	img = cropToContentSquare(img)
-
-	out, err := os.Create(path)
-	if err != nil {
-		return "", err
-	}
-	defer logging.Close(ctx, out)
-
-	if err := png.Encode(out, img); err != nil {
+	if parent := taskgroup.FromContext(ctx); parent != nil {
+		child, cctx := parent.SubGroup(ctx)
+		var fetchErr error
+		child.Go("favicon:"+domain, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("downloading " + domain)
+			s.Progress(0, 1)
+			fetchErr = perform(cctx)
+			s.Progress(1, 1)
+			return fetchErr
+		})
+		if werr := child.Wait(); werr != nil && fetchErr == nil {
+			fetchErr = werr
+		}
+		if fetchErr != nil {
+			return "", fetchErr
+		}
+	} else if err := perform(ctx); err != nil {
 		return "", err
 	}
 
