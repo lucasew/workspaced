@@ -38,6 +38,9 @@ package workspaced
 	config_dir?: string
 	user_data_dir?: string
 	cpus?: int
+	goos?: string
+	goarch?: string
+	memory?: int
 	inputs?: [string]: {
 		path?: string
 		provider?: string

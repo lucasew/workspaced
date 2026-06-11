@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pbnjay/memory"
+
 	"cuelang.org/go/cue/ast"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
@@ -755,6 +757,9 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 		"config_dir":    configDir,
 		"user_data_dir": userDataDir,
 		"cpus":          runtime.NumCPU(),
+		"goos":          runtime.GOOS,
+		"goarch":        runtime.GOARCH,
+		"memory":        memory.TotalMemory(),
 	}
 	if len(resolvedInputs) > 0 {
 		runtimeMap["inputs"] = resolvedInputs
