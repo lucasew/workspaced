@@ -77,20 +77,29 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	var dirsUsedMu sync.Mutex
 	var written int64
 
-	// Use taskgroup for parallel icon processing.
-	// Must come from the context passed down by the top-level command.
-	parent := taskgroup.MustFromContext(ctx)
-	g, ctx := parent.SubGroup(ctx)
-
 	totalPaths := int64(len(paths))
-	for _, path := range paths {
-		iconPath := path
-		g.Go(fmt.Sprintf("icon:%s", filepath.Base(iconPath)), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+
+	// Use taskgroup.Map for parallel icon processing (CPU pool).
+	// Each icon gets its own task with Status for Update/Progress.
+	// Must come from the context passed down by the top-level command.
+	if _, err := taskgroup.Map(ctx, taskgroup.CPU, paths,
+		func(_ int, iconPath string) string {
+			// Use the logical output-relative name (including context dir)
+			// so that icons with the same basename in different categories
+			// (e.g. apps/brightnesssettings.svg vs devices/brightnesssettings.svg)
+			// get unique task names. This matches the deduplication key logic.
+			rel, _ := filepath.Rel(inputDir, iconPath)
+			relOut := strings.TrimSuffix(rel, ".tmpl")
+			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
+			relOut = stripLeadingSizeDir(relOut)
+			return "icon:" + filepath.ToSlash(relOut)
+		},
+		func(ctx context.Context, s *taskgroup.Status, iconPath string) (struct{}, error) {
 			localDirs := map[string]bool{}
 
 			rel, err := filepath.Rel(inputDir, iconPath)
 			if err != nil {
-				return err
+				return struct{}{}, err
 			}
 			relOut := strings.TrimSuffix(rel, ".tmpl")
 			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
@@ -107,15 +116,15 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 
 			svgContent, err := renderSVG(iconPath, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
 			if err != nil {
-				return err
+				return struct{}{}, err
 			}
 
 			targetSVG := filepath.Join(outputDir, "scalable", relOut)
 			if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
-				return err
+				return struct{}{}, err
 			}
 			if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
-				return err
+				return struct{}{}, err
 			}
 			localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
 
@@ -124,7 +133,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 				maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
 				renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
 				if err != nil {
-					return err
+					return struct{}{}, err
 				}
 
 				for _, sz := range sizes {
@@ -140,18 +149,18 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 					sizeDir := filepath.Join(fmt.Sprintf("%dx%d", sz, sz), ctxDir)
 					targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
 					if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
-						return err
+						return struct{}{}, err
 					}
 					f, err := os.Create(targetPNG)
 					if err != nil {
-						return err
+						return struct{}{}, err
 					}
 					if err := fastPNGEncoder.Encode(f, final); err != nil {
 						logging.Close(ctx, f)
-						return err
+						return struct{}{}, err
 					}
 					if err := f.Close(); err != nil {
-						return err
+						return struct{}{}, err
 					}
 					localDirs[filepath.ToSlash(sizeDir)] = true
 				}
@@ -165,11 +174,8 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 
 			cur := atomic.AddInt64(&written, 1)
 			s.Progress(cur, totalPaths)
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
+			return struct{}{}, nil
+		}); err != nil {
 		return err
 	}
 
