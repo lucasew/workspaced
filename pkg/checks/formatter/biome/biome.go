@@ -37,8 +37,8 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 
 func (p *Provider) Format(ctx context.Context, dir string) error {
 	// Use tool.EnsureAndRun to execute biome.
-	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "biome", "biome", "format", "--write", ".")
+	// Falls back to registry:biome (catalog entry handles versions).
+	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "biome", "biome", "registry:biome", "format", "--write", ".")
 	if err != nil {
 		return err
 	}

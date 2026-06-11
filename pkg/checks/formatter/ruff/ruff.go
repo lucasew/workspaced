@@ -35,7 +35,8 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 }
 
 func (p *Provider) Format(ctx context.Context, dir string) error {
-	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "ruff", "ruff", "format", ".")
+	// Falls back to registry:ruff for the cataloged tool (with version prefix fixes).
+	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "ruff", "ruff", "registry:ruff", "format", ".")
 	if err != nil {
 		return err
 	}

@@ -41,7 +41,8 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute ruff.
 	// This automatically handles installation and version resolution.
-	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "ruff", "ruff", "check", "--output-format=sarif", "--exit-zero", ".")
+	// Falls back to registry:ruff for the cataloged tool (with version prefix fixes).
+	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "ruff", "ruff", "registry:ruff", "check", "--output-format=sarif", "--exit-zero", ".")
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup ruff: %w", err)
 	}
