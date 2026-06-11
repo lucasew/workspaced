@@ -90,6 +90,17 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		s.Progress(0, totalPaths)
 		s.Update(fmt.Sprintf("theming %d icons", totalPaths))
 
+		// Ensure the rasterizer (resvg) is ready *before* the expensive
+		// per-icon work (theming + rasterization of many SVGs).
+		// This keeps any tool install/download as an upfront step under
+		// this control task (visible in progress UI) instead of happening
+		// inside one of the leaf tasks in the Map.
+		if !opts.NoRaster {
+			if err := svgraster.Ensure(ctx); err != nil {
+				return fmt.Errorf("failed to ensure resvg (needed for icon rasterization): %w", err)
+			}
+		}
+
 		_, err := taskgroup.Map(ctx, taskgroup.CPU, paths,
 			func(_ int, iconPath string) string {
 				// Use the logical output-relative name (including context dir)
