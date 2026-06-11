@@ -5,13 +5,72 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 )
 
+// colorEnabled reports whether we should emit ANSI color codes.
+// Respects the NO_COLOR convention and disables on dumb terminals / CI /
+// non-tty stderr.
+func colorEnabled() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	if os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	if os.Getenv("CI") != "" {
+		return false
+	}
+	fi, err := os.Stderr.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+// levelLetter returns a single-character representation of the level.
+func levelLetter(l slog.Level) string {
+	switch {
+	case l == slog.LevelDebug:
+		return "D"
+	case l == slog.LevelInfo:
+		return "I"
+	case l == slog.LevelWarn:
+		return "W"
+	case l >= slog.LevelError:
+		return "E"
+	default:
+		return l.String()[:1]
+	}
+}
+
+// coloredLevel returns the level letter with the level's color used as
+// background. The foreground (the letter itself) is left as-is (terminal
+// default / current fg color, possibly bolded for visibility), per the
+// request for "filled" badges.
+func coloredLevel(l slog.Level) string {
+	switch {
+	case l == slog.LevelDebug:
+		// gray / bright black background (subtle)
+		return "\x1b[100mD\x1b[0m"
+	case l == slog.LevelInfo:
+		// bright cyan background
+		return "\x1b[46;1mI\x1b[0m"
+	case l == slog.LevelWarn:
+		// bright yellow background
+		return "\x1b[43;1mW\x1b[0m"
+	default:
+		// bright red background
+		return "\x1b[41;1mE\x1b[0m"
+	}
+}
+
 // FormatPlain renders a slog.Record using the project's compact plain log
-// format. This is the single implementation of the "LEVEL msg key=val ..."
-// style used for task logs, bubbletea output, and direct logging.
+// format. This is the single implementation of the "L msg key=val ..."
+// style (single letter level) used for task logs, bubbletea output, and
+// direct logging.
 //
 // The format intentionally omits timestamps (they are rarely useful when
 // logs are already correlated with task names or command transcripts).
@@ -43,10 +102,10 @@ func FormatPlainPrepend(r slog.Record, pre ...slog.Attr) string {
 }
 
 // formatPlain is the core string builder used by both FormatPlain variants
-// and by PlainHandler.
+// and by PlainHandler (non-color path).
 func formatPlain(level slog.Level, msg string, attrs []slog.Attr) string {
 	var b strings.Builder
-	b.WriteString(level.String())
+	b.WriteString(levelLetter(level))
 	if msg != "" {
 		b.WriteByte(' ')
 		b.WriteString(msg)
@@ -56,6 +115,7 @@ func formatPlain(level slog.Level, msg string, attrs []slog.Attr) string {
 	}
 	return b.String()
 }
+
 
 func appendPlainLogAttr(b *strings.Builder, a slog.Attr) {
 	a.Value = a.Value.Resolve()
@@ -121,24 +181,74 @@ func quotePlainLogString(s string) string {
 	return s
 }
 
-// PlainHandler is a slog.Handler that emits records using the project's
-// compact plain format (via FormatPlain / formatPlain). Using it for the
-// root logger makes direct logger.Info calls (self-update, self-install,
-// etc.) produce the same style of output as logs coming from task execution.
-type PlainHandler struct {
-	w    io.Writer
-	opts slog.HandlerOptions
-	pre  []slog.Attr // accumulated from WithAttrs (and simple group markers)
+// formatColored is the colorful version used by PlainHandler when
+// colorEnabled() is true. It produces a single-letter level indicator
+// with ANSI colors + colored key=value formatting.
+func formatColored(level slog.Level, msg string, attrs []slog.Attr) string {
+	var b strings.Builder
+	b.WriteString(coloredLevel(level))
+	if msg != "" {
+		b.WriteByte(' ')
+		b.WriteString(msg)
+	}
+	for _, a := range attrs {
+		appendColoredLogAttr(&b, a)
+	}
+	return b.String()
 }
 
-// NewPlainHandler returns a handler that writes compact plain log lines to w.
-// Only the Level field from opts is fully observed today; ReplaceAttr is
-// applied to attributes (groups path is passed as nil).
+func appendColoredLogAttr(b *strings.Builder, a slog.Attr) {
+	a.Value = a.Value.Resolve()
+	if a.Equal(slog.Attr{}) {
+		return
+	}
+	if a.Value.Kind() == slog.KindGroup {
+		subs := a.Value.Group()
+		if len(subs) == 0 {
+			return
+		}
+		for _, sub := range subs {
+			key := a.Key
+			if key != "" {
+				key = key + "." + sub.Key
+			} else {
+				key = sub.Key
+			}
+			appendColoredLogAttr(b, slog.Attr{Key: key, Value: sub.Value})
+		}
+		return
+	}
+
+	// Colored key=value: dim cyan key + dim = + normal value
+	b.WriteString(" \x1b[2;36m")
+	b.WriteString(a.Key)
+	b.WriteString("\x1b[0m\x1b[2m=\x1b[0m")
+	b.WriteString(formatPlainLogValue(a.Value))
+}
+
+// PlainHandler is a slog.Handler that emits records using the project's
+// compact log format. When color is enabled (no NO_COLOR, real tty, etc.)
+// it renders a single colored letter for the level + pretty key=value pairs.
+// Otherwise it falls back to the plain single-letter format.
+type PlainHandler struct {
+	w        io.Writer
+	opts     slog.HandlerOptions
+	pre      []slog.Attr // accumulated from WithAttrs (and simple group markers)
+	useColor bool
+}
+
+// NewPlainHandler returns a handler that writes compact log lines to w.
+// Color is auto-detected (disabled when NO_COLOR is set, TERM=dumb, CI,
+// or stderr is not a terminal).
 func NewPlainHandler(w io.Writer, opts *slog.HandlerOptions) *PlainHandler {
 	if opts == nil {
 		opts = &slog.HandlerOptions{}
 	}
-	return &PlainHandler{w: w, opts: *opts}
+	return &PlainHandler{
+		w:        w,
+		opts:     *opts,
+		useColor: colorEnabled(),
+	}
 }
 
 func (h *PlainHandler) Enabled(_ context.Context, l slog.Level) bool {
@@ -180,7 +290,12 @@ func (h *PlainHandler) Handle(ctx context.Context, r slog.Record) error {
 		attrs = attrs[:j]
 	}
 
-	line := formatPlain(r.Level, r.Message, attrs)
+	var line string
+	if h.useColor {
+		line = formatColored(r.Level, r.Message, attrs)
+	} else {
+		line = formatPlain(r.Level, r.Message, attrs)
+	}
 	if h.w != nil {
 		_, err := fmt.Fprintln(h.w, line)
 		return err
@@ -193,9 +308,10 @@ func (h *PlainHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		return h
 	}
 	nh := &PlainHandler{
-		w:    h.w,
-		opts: h.opts,
-		pre:  make([]slog.Attr, len(h.pre)+len(attrs)),
+		w:        h.w,
+		opts:     h.opts,
+		pre:      make([]slog.Attr, len(h.pre)+len(attrs)),
+		useColor: h.useColor,
 	}
 	copy(nh.pre, h.pre)
 	copy(nh.pre[len(h.pre):], attrs)

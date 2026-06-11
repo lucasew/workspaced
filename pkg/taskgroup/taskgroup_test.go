@@ -146,7 +146,7 @@ func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	const want = `INFO http response task=fetch status="200 OK"`
+	const want = `I http response task=fetch status="200 OK"`
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("log line = %#v, want [%q]", got, want)
 	}
