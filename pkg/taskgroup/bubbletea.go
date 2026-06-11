@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -243,6 +245,18 @@ func (g *Group) RunBubbleTea() error {
 		tea.WithoutSignalHandler(),
 	)
 
+	// We use WithoutSignalHandler() (see comment above) so bubbletea will
+	// not install its own interrupt handler. We must catch SIGINT/SIGTERM
+	// ourselves and call prog.Kill() so that bubbletea performs terminal
+	// restoration (exits raw mode, shows the cursor, etc.) on the way out.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		prog.Kill()
+	}()
+
 	// Activate the renderer flag first so that any concurrent logs from
 	// already-running (or about-to-run) tasks will skip the normal slog
 	// delegate (preventing dups). Then attach the handler (SetLogHandler
@@ -267,6 +281,8 @@ func (g *Group) RunBubbleTea() error {
 	})
 
 	_, err := prog.Run()
+
+	signal.Stop(sigChan)
 
 	// Clear handler after exit.
 	g.SetLogHandler(nil)
