@@ -591,6 +591,34 @@ func (g *Group) Snapshot() []TaskState {
 	return states
 }
 
+// snapshotRecursive returns tasks from this group and all descendant SubGroups
+// (recursively). This allows the bubbletea progress renderer (and similar
+// observers) to see work that was intentionally scheduled via SubGroup
+// (e.g. the "install:..." and inner "fetch:..." tasks created during
+// tool EnsureInstalled / manager.Install flows) so that detailed download
+// and install progress bars are still visible in the UI.
+func (g *Group) snapshotRecursive() []TaskState {
+	var out []TaskState
+
+	var walk func(*Group)
+	walk = func(gg *Group) {
+		snap := gg.Snapshot()
+		out = append(out, snap...)
+
+		gg.mu.Lock()
+		kids := make([]*Group, len(gg.children))
+		copy(kids, gg.children)
+		gg.mu.Unlock()
+
+		for _, k := range kids {
+			walk(k)
+		}
+	}
+
+	walk(g)
+	return out
+}
+
 // SubGroup creates a child Group that shares the parent's pool semaphores.
 // The child's context is derived from the parent's context.
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {

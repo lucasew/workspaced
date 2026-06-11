@@ -87,7 +87,7 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.group == nil {
 			return m, m.tick()
 		}
-		snap := m.group.Snapshot()
+		snap := m.group.snapshotRecursive()
 		allDone := true
 		for _, t := range snap {
 			if t.State != Done && t.State != Failed {
