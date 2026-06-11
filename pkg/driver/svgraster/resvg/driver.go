@@ -15,7 +15,7 @@ import (
 	"workspaced/pkg/tool"
 )
 
-const defaultResvgSpec = "github:linebender/resvg@latest"
+const defaultResvgSpec = "github:linebender/resvg"
 
 type Driver struct{}
 
