@@ -32,7 +32,7 @@ func init() {
 						pid, cmdline, err := getHungryPID(ctx)
 						if err != nil {
 							logger := logging.GetLogger(ctx)
-					logger.Error("failed to get hungry PID", "error", err)
+							logger.Error("failed to get hungry PID", "error", err)
 							continue
 						}
 						if pid == "" {
