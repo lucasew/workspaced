@@ -55,6 +55,7 @@ This is the recommended way to turn "for each X do Y" into group-scheduled work.
 				// root snapshot. Inside it we use the list length as the progress hint
 				// and drive an aggregate bar while the Map runs its items.
 				g.Go("map", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+					logger := logging.GetLogger(ctx)
 					s.Update(fmt.Sprintf("preparing to map over %d items", len(items)))
 					s.Progress(0, int64(len(items)))
 

@@ -1,12 +1,15 @@
 package taskgroup
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"text/tabwriter"
 	"time"
 
-	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -51,21 +54,31 @@ type refreshMsg struct{}
 
 type bubbleModel struct {
 	group    *Group
-	progress map[string]progress.Model
 	statuses map[string]string
-	// percents stores the desired fill (from task Current/Total) so we can
-	// use ViewAs for exact, instant rendering without depending on the
-	// progress model's internal animation state (which requires specific
-	// frame messages we weren't reliably forwarding).
 	percents map[string]float64
+	pools    map[string]PoolKind
+	order    []string // first-seen order for stable rendering across frames
+
+	// finishedToRemove holds names of tasks whose final 100% frame
+	// was just rendered; they will be deleted at the start of the
+	// next update so they disappear from the list after showing completion.
+	finishedToRemove map[string]struct{}
+
+	// finalized tracks tasks whose completion (final payload) has already
+	// been displayed for one frame. We stop re-populating them from
+	// future snapshots so they stay removed.
+	finalized map[string]struct{}
 }
 
 func newBubbleModel(g *Group) bubbleModel {
 	return bubbleModel{
-		group:    g,
-		progress: make(map[string]progress.Model),
-		statuses: make(map[string]string),
-		percents: make(map[string]float64),
+		group:            g,
+		statuses:         make(map[string]string),
+		percents:         make(map[string]float64),
+		pools:            make(map[string]PoolKind),
+		order:            nil,
+		finishedToRemove: make(map[string]struct{}),
+		finalized:        make(map[string]struct{}),
 	}
 }
 
@@ -92,46 +105,54 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.group == nil {
 			return m, m.tick()
 		}
-		snap := m.group.Snapshot()
+		snap := m.group.snapshotRecursive()
 		allDone := true
+
+		// Remove any tasks whose final 100% "payload" (completion frame)
+		// was shown in the previous tick. This is what makes finished
+		// tasks disappear from the list.
+		for name := range m.finishedToRemove {
+			delete(m.statuses, name)
+			delete(m.percents, name)
+		}
+		m.finishedToRemove = make(map[string]struct{})
+
 		for _, t := range snap {
 			if t.State != Done && t.State != Failed {
 				allDone = false
 			}
 
-			// Capture the latest progress values from the snapshot for this
-			// task name. We do this for both Running and just-completed
-			// tasks so that a final Progress(total, total) written right
-			// before the task fn returns is guaranteed to be seen and
-			// rendered at 100% via ViewAs.
 			if t.Total > 0 {
+				if _, already := m.finalized[t.Name]; already {
+					// This task's completion payload was already displayed
+					// for one frame. Skip re-populating so it stays removed.
+					continue
+				}
 				pct := float64(t.Current) / float64(t.Total)
-				if _, ok := m.progress[t.Name]; !ok {
-					// Create the styled progress renderer for Running tasks
-					// or for ones that just hit 100% so they can be shown
-					// finishing.
-					if t.State == Running || pct >= 0.999 {
-						m.progress[t.Name] = progress.New(progress.WithDefaultGradient())
-					}
-				}
-				if p, has := m.progress[t.Name]; has {
-					p.SetPercent(pct)
-					m.progress[t.Name] = p
-				}
 				m.percents[t.Name] = pct
 				m.statuses[t.Name] = t.Message
+
+				// Record pool and first-seen order the first time we see
+				// this task with progress. This gives stable ordering in
+				// the progress bar view (tasks don't jump around).
+				if _, ok := m.pools[t.Name]; !ok {
+					m.pools[t.Name] = t.Pool
+					m.order = append(m.order, t.Name)
+				}
 			} else {
 				m.percents[t.Name] = 0
 			}
 
 			if t.State != Running {
-				// Keep entries for tasks that reached 100% so the bar
-				// visibly finishes at full width (with the completion
-				// message) instead of disappearing at 90% or 99%.
-				if lastPct, ok := m.percents[t.Name]; ok && lastPct >= 0.999 {
-					// keep for final 100% render
+				if pct, ok := m.percents[t.Name]; ok && pct >= 0.999 {
+					// Task just finished. We captured its final payload
+					// (Progress(total,total) + last message) so the 100%
+					// bar is visible *this* render. Mark for removal on
+					// the next tick.
+					m.finishedToRemove[t.Name] = struct{}{}
+					m.finalized[t.Name] = struct{}{}
+					// Leave in percents/statuses for the current View.
 				} else {
-					delete(m.progress, t.Name)
 					delete(m.statuses, t.Name)
 					delete(m.percents, t.Name)
 				}
@@ -140,46 +161,72 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if allDone && len(snap) > 0 {
 			return m, tea.Quit
 		}
-
-		// Forward the tick/refresh to the progress models so they can
-		// animate their visual fill toward the target percents we just
-		// set from the Snapshot (Current/Total on the task Statuses).
-		// Without this, SetPercent has no visible effect and bars stay at 0%.
-		for name, p := range m.progress {
-			pi, cmd := p.Update(msg)
-			m.progress[name] = pi.(progress.Model)
-			_ = cmd
-		}
 		return m, m.tick()
-	}
-
-	// Forward animation ticks etc to the progress bubbles (for other msgs).
-	for name, p := range m.progress {
-		pi, cmd := p.Update(msg)
-		m.progress[name] = pi.(progress.Model)
-		_ = cmd
 	}
 	return m, nil
 }
 
 func (m bubbleModel) View() string {
-	var s strings.Builder
-	for name, p := range m.progress {
+	if len(m.percents) == 0 {
+		return ""
+	}
+
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+
+	for _, name := range m.order {
+		if _, ok := m.percents[name]; !ok {
+			continue
+		}
+		pool := m.pools[name]
+		emoji := poolEmoji(pool)
+
 		st := m.statuses[name]
 		if st == "" {
 			st = "running"
 		}
-		// Use ViewAs with the exact pct from the task snapshot (Current/Total).
-		// This renders the bar at the reported progress immediately, without
-		// waiting for the progress model's animation (which was causing bars
-		// to stay at 0% even as messages and percents were updated).
-		if pct, ok := m.percents[name]; ok {
-			fmt.Fprintf(&s, "%s: %s %s\n", name, p.ViewAs(pct), st)
-		} else {
-			fmt.Fprintf(&s, "%s: %s %s\n", name, p.View(), st)
-		}
+		bar := plainBar(m.percents[name], 30)
+		fmt.Fprintf(tw, "%s %s:\t%s\t%s\n", emoji, name, bar, st)
 	}
-	return s.String()
+	tw.Flush()
+	return buf.String()
+}
+
+// poolEmoji returns a short emoji prefix based on the task's PoolKind.
+// This lets users quickly distinguish Control / IO / CPU / Internet work
+// in the progress bar view.
+func poolEmoji(p PoolKind) string {
+	switch p {
+	case Control:
+		return "🔧"
+	case IO:
+		return "💾"
+	case CPU:
+		return "🧠"
+	case Internet:
+		return "🌐"
+	default:
+		return "•"
+	}
+}
+
+// plainBar renders a dead-simple classic progress bar using only ASCII.
+// No gradients, no unicode blocks, no colors, no library magic.
+func plainBar(pct float64, width int) string {
+	if width <= 0 {
+		width = 30
+	}
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 1 {
+		pct = 1
+	}
+	filled := int(pct*float64(width) + 0.5)
+	if filled > width {
+		filled = width
+	}
+	return "[" + strings.Repeat("=", filled) + strings.Repeat("-", width-filled) + "]"
 }
 
 // RunBubbleTea is the group method that kicks in the bubbletea progress+log
@@ -221,6 +268,18 @@ func (g *Group) RunBubbleTea() error {
 		tea.WithoutSignalHandler(),
 	)
 
+	// We use WithoutSignalHandler() (see comment above) so bubbletea will
+	// not install its own interrupt handler. We must catch SIGINT/SIGTERM
+	// ourselves and call prog.Kill() so that bubbletea performs terminal
+	// restoration (exits raw mode, shows the cursor, etc.) on the way out.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		prog.Kill()
+	}()
+
 	// Activate the renderer flag first so that any concurrent logs from
 	// already-running (or about-to-run) tasks will skip the normal slog
 	// delegate (preventing dups). Then attach the handler (SetLogHandler
@@ -238,14 +297,15 @@ func (g *Group) RunBubbleTea() error {
 	// each print" without the cursor compensation that prog.Printf performs
 	// (which was causing logs to fight the bar region).
 	//
-	// The bar rendering + animation + Snapshot polling still goes through the
-	// tea program and bubbles/progress.
+	// The bar rendering + Snapshot polling still goes through the tea program.
 	g.SetLogHandler(func(taskName, msg string) {
 		prog.Printf("%s", strings.TrimSpace(msg))
 		prog.Send(refreshMsg{})
 	})
 
 	_, err := prog.Run()
+
+	signal.Stop(sigChan)
 
 	// Clear handler after exit.
 	g.SetLogHandler(nil)

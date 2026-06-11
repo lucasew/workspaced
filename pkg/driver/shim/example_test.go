@@ -1,17 +1,18 @@
 package shim_test
 
 import (
-	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/driver/shim"
+	"workspaced/pkg/logging"
 )
 
 func TestShimGeneration(t *testing.T) {
-	ctx := context.Background()
+	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
 
 	// Create temp directory for test
 	tmpDir := t.TempDir()
@@ -48,7 +49,7 @@ func TestShimGeneration(t *testing.T) {
 }
 
 func TestShimWithSpecialCharacters(t *testing.T) {
-	ctx := context.Background()
+	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
 
 	tmpDir := t.TempDir()
 	shimPath := filepath.Join(tmpDir, "special-shim")

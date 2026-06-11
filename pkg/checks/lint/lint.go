@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync"
 
 	"workspaced/pkg/checks"
@@ -32,6 +31,7 @@ func Register(l Linter) {
 // RunAll executes all globally registered linters in parallel against a directory
 // and aggregates results.
 func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
+	logger := logging.GetLogger(ctx)
 	report, err := sarif.New(sarif.Version210)
 	if err != nil {
 		return nil, err
@@ -44,11 +44,11 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	for _, l := range linters {
 		err := l.Detect(ctx, dir)
 		if errors.Is(err, checks.ErrNotApplicable) {
-			slog.Info("linter skipped", "linter", l.Name(), "reason", "not applicable")
+			logger.Info("linter skipped", "linter", l.Name(), "reason", "not applicable")
 			continue
 		}
 		if err != nil {
-			slog.Warn("linter skipped", "linter", l.Name(), "reason", "detect failed", "error", err)
+			logger.Warn("linter skipped", "linter", l.Name(), "reason", "detect failed", "error", err)
 			continue
 		}
 		applicable = append(applicable, l)
@@ -68,17 +68,18 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	for _, l := range applicable {
 		linter := l
 		g.Go(fmt.Sprintf("lint:%s", linter.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+			l := logging.GetLogger(ctx)
 			s.Update(fmt.Sprintf("running %s", linter.Name()))
 			run, err := linter.Run(ctx, dir)
 			if err != nil {
-				logging.ReportError(ctx, err, slog.String("linter", linter.Name()), slog.String("context", "linter failed"))
+				logging.ReportError(ctx, err, "linter", linter.Name(), "context", "linter failed")
 				return nil // Don't fail other linters.
 			}
 			resultCount := 0
 			if run != nil {
 				resultCount = len(run.Results)
 			}
-			slog.Info("linter ok", "linter", linter.Name(), "sarif_results", resultCount)
+			l.Info("linter ok", "linter", linter.Name(), "sarif_results", resultCount)
 
 			if run != nil {
 				mu.Lock()

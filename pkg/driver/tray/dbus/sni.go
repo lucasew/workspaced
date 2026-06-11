@@ -5,11 +5,12 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"log/slog"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
+
+	"workspaced/pkg/logging"
 )
 
 type StatusNotifierItem struct {
@@ -180,17 +181,20 @@ func (s *StatusNotifierItem) Export(conn *dbus.Conn, path dbus.ObjectPath) error
 }
 
 func (s *StatusNotifierItem) ContextMenu(x, y int32) *dbus.Error {
-	slog.Info("sni context menu", "x", x, "y", y)
+	logger := logging.GetLogger(s.driver.ctx)
+	logger.Info("sni context menu", "x", x, "y", y)
 	return nil
 }
 
 func (s *StatusNotifierItem) Activate(x, y int32) *dbus.Error {
-	slog.Info("sni activate", "x", x, "y", y)
+	logger := logging.GetLogger(s.driver.ctx)
+	logger.Info("sni activate", "x", x, "y", y)
 	return nil
 }
 
 func (s *StatusNotifierItem) SecondaryActivate(x, y int32) *dbus.Error {
-	slog.Info("sni secondary activate", "x", x, "y", y)
+	logger := logging.GetLogger(s.driver.ctx)
+	logger.Info("sni secondary activate", "x", x, "y", y)
 	return nil
 }
 

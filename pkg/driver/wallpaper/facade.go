@@ -19,7 +19,7 @@ import (
 func SetStatic(ctx context.Context, path string) error {
 	logger := logging.GetLogger(ctx)
 	if path == "" {
-		cfg, err := configcue.LoadForWorkspace("")
+		cfg, err := configcue.LoadForWorkspace(ctx, "")
 		if err != nil {
 			return err
 		}

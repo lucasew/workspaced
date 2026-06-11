@@ -44,12 +44,12 @@ func init() {
 					return database.RecordHistory(c.Context(), event)
 				}
 
-				if err := sendHistoryEvent(event); err == nil {
+				if err := sendHistoryEvent(c.Context(), event); err == nil {
 					return nil
 				}
 
 				// Fallback: write to database directly if daemon is not available
-				database, err := db.Open()
+				database, err := db.Open(c.Context())
 				if err != nil {
 					return nil // Give up silently to avoid hanging shell
 				}

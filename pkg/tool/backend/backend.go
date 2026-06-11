@@ -102,6 +102,15 @@ type Artifact struct {
 	URL  string
 	Hash string
 	Size int64
+
+	// GitHubAssetID and GitHubAssetAPIURL are populated for GitHub-sourced
+	// artifacts. They allow Install to use the proper authenticated asset
+	// download endpoint (https://api.github.com/.../assets/ID with
+	// Accept: application/octet-stream) instead of the browser_download_url.
+	// This avoids 403 errors that can occur when sending Authorization on
+	// direct release asset download URLs.
+	GitHubAssetID     int64
+	GitHubAssetAPIURL string
 }
 
 // ContainsAnyOf reports whether any of the needles is a substring of haystack.

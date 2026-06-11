@@ -1,6 +1,9 @@
 package tool
 
 import (
+	"context"
+
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool"
 
 	"github.com/spf13/cobra"
@@ -31,7 +34,16 @@ For mise-managed tools (e.g. go, node) or direct github use 'mise:' or 'github:'
 				if err != nil {
 					return err
 				}
-				return manager.Install(cmd.Context(), args[0])
+
+				spec := args[0]
+				g := taskgroup.MustFromContext(cmd.Context())
+				g.Go("tool:install:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+					s.Update("installing " + spec)
+					err := manager.Install(ctx, spec)
+					return err
+				})
+
+				return taskgroup.Run(g)
 			},
 		})
 	})

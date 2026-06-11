@@ -27,7 +27,7 @@ func GetCueCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res, err := configcue.DiscoverLayers(configcue.DiscoverOptions{Cwd: cwd})
+			res, err := configcue.DiscoverLayers(cmd.Context(), configcue.DiscoverOptions{Cwd: cwd})
 			if err != nil {
 				return err
 			}
@@ -44,7 +44,7 @@ func GetCueCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := configcue.ExportJSON(configcue.DiscoverOptions{Cwd: cwd})
+			data, err := configcue.ExportJSON(cmd.Context(), configcue.DiscoverOptions{Cwd: cwd})
 			if err != nil {
 				return err
 			}

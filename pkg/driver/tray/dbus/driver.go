@@ -3,11 +3,11 @@ package dbus
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"sync"
 
 	"github.com/godbus/dbus/v5"
+
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/tray"
 	"workspaced/pkg/logging"
@@ -47,11 +47,7 @@ type Driver struct {
 }
 
 func NewDriver() *Driver {
-	ctx, cancel := context.WithCancel(context.Background())
-	return &Driver{
-		ctx:    ctx,
-		cancel: cancel,
-	}
+	return &Driver{}
 }
 
 func (d *Driver) SetState(s tray.State) {
@@ -66,6 +62,7 @@ func (d *Driver) SetState(s tray.State) {
 }
 
 func (d *Driver) Run(ctx context.Context) error {
+	d.ctx, d.cancel = context.WithCancel(ctx)
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
 		return fmt.Errorf("failed to connect to session bus: %w", err)
@@ -95,12 +92,13 @@ func (d *Driver) Run(ctx context.Context) error {
 	}
 
 	// Emit NewMenu signal to let watcher know we have a menu
+	logger := logging.GetLogger(ctx)
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewMenu"); err != nil {
-		slog.Warn("failed to emit NewMenu signal", "error", err)
+		logger.Warn("failed to emit NewMenu signal", "error", err)
 	}
 
 	if err := d.conn.Emit("/StatusNotifierItem", "org.kde.StatusNotifierItem.NewStatus", "Active"); err != nil {
-		slog.Warn("failed to emit NewStatus signal", "error", err)
+		logger.Warn("failed to emit NewStatus signal", "error", err)
 	}
 
 	// Register with watcher
@@ -119,7 +117,7 @@ func (d *Driver) Close() {
 		d.cancel()
 		if d.conn != nil {
 			if err := d.conn.Close(); err != nil {
-				logging.ReportError(context.Background(), err)
+				logging.ReportError(d.ctx, err)
 			}
 		}
 	})

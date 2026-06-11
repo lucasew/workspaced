@@ -25,7 +25,7 @@ func GetDumpCommand() *cobra.Command {
 Outputs the result as JSON format.`,
 		RunE: func(c *cobra.Command, args []string) error {
 			cwd, _ := os.Getwd()
-			result, err := configcue.Evaluate(configcue.DiscoverOptions{
+			result, err := configcue.Evaluate(c.Context(), configcue.DiscoverOptions{
 				Cwd:      cwd,
 				HomeMode: true,
 			})

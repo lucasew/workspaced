@@ -3,13 +3,14 @@ package tool
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 )
 
@@ -56,15 +57,33 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	normalizedVersion := normalizeVersion(actualVersion)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
+	logger := logging.GetLogger(ctx)
+
 	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
-		slog.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+		logger.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 
 		if bt, ok := t.(backend.BinaryTool); ok {
-			binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
-			if err != nil {
-				return "", fmt.Errorf("failed to install tool: %w", err)
+			var binPath string
+			var installErr error
+			if parent := taskgroup.FromContext(ctx); parent != nil {
+				child, _ := parent.SubGroup(ctx)
+				child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+					s.Update("installing " + normalizedVersion)
+					s.Progress(0, 1)
+					binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
+					s.Progress(1, 1)
+					return installErr
+				})
+				if werr := child.Wait(); werr != nil && installErr == nil {
+					installErr = werr
+				}
+			} else {
+				binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 			}
-			slog.Info("tool installed", "spec", spec, "bin_path", binPath)
+			if installErr != nil {
+				return "", fmt.Errorf("failed to install tool: %w", installErr)
+			}
+			logger.Info("tool installed", "spec", spec, "bin_path", binPath)
 			return binPath, nil
 		}
 
@@ -77,19 +96,35 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		if err != nil {
 			return "", fmt.Errorf("tool installed but binary not found: %w", err)
 		}
-		slog.Info("tool installed", "spec", spec, "bin_path", binPath)
+		logger.Info("tool installed", "spec", spec, "bin_path", binPath)
 		return binPath, nil
 	}
 
 	// The version directory exists but the expected binary is missing.
 	// Reinstalling with a binary hint fixes ambiguous artifact selections.
-	slog.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+	logger.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
 	if bt, ok := t.(backend.BinaryTool); ok {
-		binPath, err := bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
-		if err != nil {
-			return "", err
+		var binPath string
+		var installErr error
+		if parent := taskgroup.FromContext(ctx); parent != nil {
+			child, _ := parent.SubGroup(ctx)
+			child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+				s.Update("installing " + normalizedVersion)
+				s.Progress(0, 1)
+				binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
+				s.Progress(1, 1)
+				return installErr
+			})
+			if werr := child.Wait(); werr != nil && installErr == nil {
+				installErr = werr
+			}
+		} else {
+			binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 		}
-		slog.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+		if installErr != nil {
+			return "", installErr
+		}
+		logger.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
 		return binPath, nil
 	}
 	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
@@ -99,7 +134,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if err != nil {
 		return "", fmt.Errorf("tool reinstalled but binary not found: %w", err)
 	}
-	slog.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+	logger.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
 	return binPath, nil
 }
 

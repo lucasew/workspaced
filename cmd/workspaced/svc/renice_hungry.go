@@ -2,12 +2,13 @@ package svc
 
 import (
 	"context"
-	"log/slog"
 	"strings"
 	"time"
-	execdriver "workspaced/pkg/driver/exec"
 
 	"github.com/spf13/cobra"
+
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -20,7 +21,8 @@ func init() {
 				ticker := time.NewTicker(30 * time.Second)
 				defer ticker.Stop()
 
-				slog.Info("renice-hungry started")
+				logger := logging.GetLogger(ctx)
+				logger.Info("renice-hungry started")
 
 				for {
 					select {
@@ -29,14 +31,16 @@ func init() {
 					case <-ticker.C:
 						pid, cmdline, err := getHungryPID(ctx)
 						if err != nil {
-							slog.Error("failed to get hungry PID", "error", err)
+							logger := logging.GetLogger(ctx)
+					logger.Error("failed to get hungry PID", "error", err)
 							continue
 						}
 						if pid == "" {
 							continue
 						}
 
-						slog.Info("renicing process", "pid", pid, "cmd", cmdline)
+						logger := logging.GetLogger(ctx)
+						logger.Info("renicing process", "pid", pid, "cmd", cmdline)
 						_ = execdriver.MustRun(ctx, "renice", "7", pid).Run()
 					}
 				}

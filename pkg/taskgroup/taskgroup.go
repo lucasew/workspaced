@@ -14,8 +14,7 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
-	"strconv"
-	"strings"
+	"sort"
 	"sync"
 
 	"workspaced/pkg/logging"
@@ -25,13 +24,16 @@ import (
 type PoolKind int
 
 const (
-	IO       PoolKind = iota // File system, local disk
+	Control  PoolKind = iota // Unlimited, used to create other tasks
+	IO                       // File system, local disk
 	CPU                      // Computation
 	Internet                 // Network I/O
 )
 
 func (p PoolKind) String() string {
 	switch p {
+	case Control:
+		return "control"
 	case IO:
 		return "io"
 	case CPU:
@@ -208,6 +210,10 @@ func (p *pools) acquire(ctx context.Context, kind PoolKind) error {
 		sem = p.cpu
 	case Internet:
 		sem = p.internet
+	case Control:
+		// Control tasks are for orchestration. They do not consume a limited
+		// resource pool and must never block on acquire.
+		return nil
 	}
 	select {
 	case sem <- struct{}{}:
@@ -225,6 +231,9 @@ func (p *pools) release(kind PoolKind) {
 		<-p.cpu
 	case Internet:
 		<-p.internet
+	case Control:
+		// No slot was acquired.
+		return
 	}
 }
 
@@ -405,11 +414,11 @@ func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *S
 }
 
 // logRecorder is a slog.Handler wrapper used for task execution.
-// It appends a formatted version (message + attrs) to the task's log buffer
-// (for Snapshot + any attached renderer) and delegates to the real handler
-// for normal slog output. When a bubbletea renderer is active on the group
-// (see RunBubbleTea), it skips the delegate and lets the renderer's
-// prog.Printf path own the visible emission (prevents duplicate lines).
+// It appends a formatted version (using logging.FormatPrepend so that
+// progress-bar / bubbletea systems get the same plain-or-colored output
+// as the main PlainHandler) to the task's log buffer and calls any onLog
+// callback. When bubbletea is active it skips the normal delegate to avoid
+// duplicate lines.
 type logRecorder struct {
 	slog.Handler
 	append func(string)
@@ -419,7 +428,7 @@ type logRecorder struct {
 
 func (r *logRecorder) Handle(ctx context.Context, rec slog.Record) error {
 	if r.append != nil {
-		r.append(formatPlainLogRecord(rec, r.attrs))
+		r.append(logging.FormatPrepend(rec, r.attrs...))
 	}
 	// Skip normal delegate while a bubbletea renderer owns visible output
 	// (it uses prog.Printf on the tea writer so logs scroll naturally and
@@ -454,59 +463,6 @@ func (r *logRecorder) WithGroup(name string) slog.Handler {
 		group:   r.group,
 		attrs:   r.attrs,
 	}
-}
-
-func formatPlainLogRecord(rec slog.Record, leadingAttrs []slog.Attr) string {
-	var b strings.Builder
-	b.WriteString(rec.Level.String())
-	if rec.Message != "" {
-		b.WriteByte(' ')
-		b.WriteString(rec.Message)
-	}
-	for _, a := range leadingAttrs {
-		appendPlainLogAttr(&b, a)
-	}
-	rec.Attrs(func(a slog.Attr) bool {
-		appendPlainLogAttr(&b, a)
-		return true
-	})
-	return b.String()
-}
-
-func appendPlainLogAttr(b *strings.Builder, a slog.Attr) {
-	a.Value = a.Value.Resolve()
-	if a.Equal(slog.Attr{}) {
-		return
-	}
-	b.WriteByte(' ')
-	b.WriteString(a.Key)
-	b.WriteByte('=')
-	b.WriteString(formatPlainLogValue(a.Value))
-}
-
-func formatPlainLogValue(v slog.Value) string {
-	v = v.Resolve()
-	switch v.Kind() {
-	case slog.KindString:
-		return quotePlainLogString(v.String())
-	case slog.KindBool:
-		return strconv.FormatBool(v.Bool())
-	case slog.KindInt64:
-		return strconv.FormatInt(v.Int64(), 10)
-	case slog.KindUint64:
-		return strconv.FormatUint(v.Uint64(), 10)
-	case slog.KindFloat64:
-		return strconv.FormatFloat(v.Float64(), 'g', -1, 64)
-	default:
-		return quotePlainLogString(fmt.Sprint(v.Any()))
-	}
-}
-
-func quotePlainLogString(s string) string {
-	if s == "" || strings.ContainsAny(s, " \t\r\n=\"") {
-		return strconv.Quote(s)
-	}
-	return s
 }
 
 func (g *Group) runTask(t *taskEntry) {
@@ -634,6 +590,60 @@ func (g *Group) Snapshot() []TaskState {
 		states[i] = t.snapshot()
 	}
 	return states
+}
+
+// snapshotRecursive returns tasks from this group and all descendant SubGroups
+// (recursively). This allows the bubbletea progress renderer (and similar
+// observers) to see work that was intentionally scheduled via SubGroup
+// (e.g. the "install:..." and inner "fetch:..." tasks created during
+// tool EnsureInstalled / manager.Install flows) so that detailed download
+// and install progress bars are still visible in the UI.
+func (g *Group) snapshotRecursive() []TaskState {
+	var out []TaskState
+
+	var walk func(*Group)
+	walk = func(gg *Group) {
+		snap := gg.Snapshot()
+		out = append(out, snap...)
+
+		gg.mu.Lock()
+		kids := make([]*Group, len(gg.children))
+		copy(kids, gg.children)
+		gg.mu.Unlock()
+
+		for _, k := range kids {
+			walk(k)
+		}
+	}
+
+	walk(g)
+	return out
+}
+
+// SnapshotSorted returns the tasks from Snapshot, sorted stably for
+// predictable UI ordering: first by PoolKind, then by Name.
+func (g *Group) SnapshotSorted() []TaskState {
+	snap := g.Snapshot()
+	sort.SliceStable(snap, func(i, j int) bool {
+		if snap[i].Pool != snap[j].Pool {
+			return snap[i].Pool < snap[j].Pool
+		}
+		return snap[i].Name < snap[j].Name
+	})
+	return snap
+}
+
+// snapshotRecursiveSorted is like snapshotRecursive but with stable
+// PoolKind-then-Name ordering.
+func (g *Group) snapshotRecursiveSorted() []TaskState {
+	snap := g.snapshotRecursive()
+	sort.SliceStable(snap, func(i, j int) bool {
+		if snap[i].Pool != snap[j].Pool {
+			return snap[i].Pool < snap[j].Pool
+		}
+		return snap[i].Name < snap[j].Name
+	})
+	return snap
 }
 
 // SubGroup creates a child Group that shares the parent's pool semaphores.

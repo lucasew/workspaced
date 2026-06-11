@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/driver/fetchurl"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 )
 
@@ -171,6 +172,11 @@ func MoveContents(srcDir, destDir string) error {
 }
 
 func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOptions) error {
+	name := filepath.Base(url)
+
+	// No group wrapping here anymore: the fetchurl driver itself now spawns
+	// a "fetch:..." Internet task (via group.Go) when a group is present in ctx.
+	// This makes the fetcher a first-class task with its own progress bar / status.
 	fetcher, err := driver.Get[fetchurl.Driver](ctx)
 	if err != nil {
 		return err
@@ -182,7 +188,7 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		return err
 	}
 
-	pw := newProgressWriter(filepath.Base(url), opts.Size)
+	pw := newProgressWriter(name, opts.Size)
 	outWriter := io.MultiWriter(outFile, pw)
 
 	algo, hash := parseHash(opts.Hash)
@@ -204,6 +210,138 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 }
 
 func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions) error {
+	name := filepath.Base(url)
+
+	g := taskgroup.FromContext(ctx)
+	if g != nil {
+		// Spawn the direct fetch as its own Internet task (in the driver utility
+		// style). This makes the fetcher a task with visible progress bar.
+		// Use group's progress system directly (s.Progress calls) with manual
+		// read loop -- no custom progress writer types.
+		done := make(chan error, 1)
+		g.Go("fetch:"+name, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+			l := logging.GetLogger(ctx) // fresh from inner ctx; never inherit/capture a logger var from the enclosing scope into a group.Go block
+			l.Debug("fetch task starting", "url", url, "name", name)
+
+			s.Update("fetching " + name)
+
+			tmp := dest + ".tmp"
+			outFile, err := os.Create(tmp)
+			if err != nil {
+				done <- err
+				return err
+			}
+
+			httpClient, err := driver.Get[httpclient.Driver](ctx)
+			if err != nil {
+				logging.Close(ctx, outFile)
+				_ = os.Remove(tmp)
+				done <- err
+				return fmt.Errorf("failed to get http client: %w", err)
+			}
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if err != nil {
+				logging.Close(ctx, outFile)
+				_ = os.Remove(tmp)
+				done <- err
+				return err
+			}
+			if opts.ConfigureRequest != nil {
+				opts.ConfigureRequest(req)
+			}
+
+			resp, err := httpClient.Client().Do(req)
+			if err != nil {
+				logging.Close(ctx, outFile)
+				_ = os.Remove(tmp)
+				done <- err
+				return err
+			}
+
+			if resp.StatusCode != http.StatusOK {
+				logging.Close(ctx, resp.Body)
+				logging.Close(ctx, outFile)
+				_ = os.Remove(tmp)
+				err = fmt.Errorf("GET %s: %s", url, resp.Status)
+				if resp.StatusCode == http.StatusForbidden {
+					err = fmt.Errorf("%w (if this is a GitHub release asset, set GITHUB_TOKEN or run 'gh auth login' to increase rate limits)", err)
+				}
+				done <- err
+				return err
+			}
+
+			size := resp.ContentLength
+			if size <= 0 {
+				size = opts.Size
+			}
+			s.Progress(0, size)
+
+			// Manual read loop to drive s.Progress directly from the group's
+			// progress system (no separate progress writer).
+			buf := make([]byte, 32*1024)
+			var written int64
+			for {
+				n, rerr := resp.Body.Read(buf)
+				if n > 0 {
+					if _, werr := outFile.Write(buf[:n]); werr != nil {
+						logging.Close(ctx, resp.Body)
+						logging.Close(ctx, outFile)
+						_ = os.Remove(tmp)
+						done <- werr
+						return werr
+					}
+					written += int64(n)
+					s.Progress(written, size)
+					if size > 0 {
+						pct := int(100 * written / size)
+						s.Update(fmt.Sprintf("fetching %s (%d%%)", name, pct))
+					} else {
+						s.Update(fmt.Sprintf("fetching %s (%d bytes)", name, written))
+					}
+				}
+				if rerr != nil {
+					if rerr != io.EOF {
+						logging.Close(ctx, resp.Body)
+						logging.Close(ctx, outFile)
+						_ = os.Remove(tmp)
+						done <- rerr
+						return rerr
+					}
+					break
+				}
+			}
+			if err := resp.Body.Close(); err != nil {
+				logging.Close(ctx, outFile)
+				_ = os.Remove(tmp)
+				done <- err
+				return err
+			}
+			if err := outFile.Close(); err != nil {
+				_ = os.Remove(tmp)
+				done <- err
+				return err
+			}
+			if e := finishDownload(tmp, dest, opts.Mode); e != nil {
+				done <- e
+				return e
+			}
+
+			s.Progress(size, size)
+			l.Debug("fetch task completed", "url", url, "bytes", written)
+			done <- nil
+			return nil
+		})
+
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	// No group path.
 	tmp := dest + ".tmp"
 	outFile, err := os.Create(tmp)
 	if err != nil {
@@ -238,14 +376,18 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 		logging.Close(ctx, resp.Body)
 		logging.Close(ctx, outFile)
 		_ = os.Remove(tmp)
-		return fmt.Errorf("GET %s: %s", url, resp.Status)
+		err := fmt.Errorf("GET %s: %s", url, resp.Status)
+		if resp.StatusCode == http.StatusForbidden {
+			err = fmt.Errorf("%w (if this is a GitHub release asset, set GITHUB_TOKEN or run 'gh auth login' to increase rate limits)", err)
+		}
+		return err
 	}
 
 	size := resp.ContentLength
 	if size <= 0 {
 		size = opts.Size
 	}
-	pw := newProgressWriter(filepath.Base(url), size)
+	pw := newProgressWriter(name, size)
 	outWriter := io.MultiWriter(outFile, pw)
 
 	if _, err := io.Copy(outWriter, resp.Body); err != nil {
@@ -285,7 +427,7 @@ func parseHash(raw string) (algo, hash string) {
 	return algo, hash
 }
 
-// progressWriter tracks download bytes and reports to log.
+// progressWriter tracks download bytes (for potential logging or future use in no-group paths).
 type progressWriter struct {
 	name    string
 	total   int64

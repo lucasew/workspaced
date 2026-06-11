@@ -22,7 +22,7 @@ func init() {
 				if targetDir == "" {
 					return fmt.Errorf("--target is required")
 				}
-				cfg, err := configcue.LoadFiles(configPaths)
+				cfg, err := configcue.LoadFiles(ctx, configPaths)
 				if err != nil {
 					return err
 				}

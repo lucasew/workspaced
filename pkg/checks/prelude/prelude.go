@@ -12,5 +12,4 @@ import (
 	_ "workspaced/pkg/checks/lint/govulncheck"
 	_ "workspaced/pkg/checks/lint/ruff"
 	_ "workspaced/pkg/checks/lint/shellcheck"
-	_ "workspaced/pkg/driver/prelude"
 )

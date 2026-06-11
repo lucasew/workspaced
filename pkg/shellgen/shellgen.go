@@ -1,8 +1,8 @@
 package shellgen
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"workspaced/pkg/logging"
 )
 
 // Generator is a function that generates shell code
-type Generator func() (string, error)
+type Generator func(context.Context) (string, error)
 
 // rootCommand is set by SetRootCommand and used by generators that need it
 var rootCommand *cobra.Command
@@ -25,14 +27,14 @@ func SetRootCommand(cmd *cobra.Command) {
 
 // generators maps order/name to generator functions
 var generators = map[string]Generator{
-	"05-flags":      GenerateFlags,
-	"06-daemon":     GenerateDaemon,
-	"10-completion": GenerateCompletion,
-	"20-history":    GenerateHistory,
+	"05-flags":      func(ctx context.Context) (string, error) { return GenerateFlags(ctx) },
+	"06-daemon":     func(ctx context.Context) (string, error) { return GenerateDaemon() },
+	"10-completion": func(ctx context.Context) (string, error) { return GenerateCompletion() },
+	"20-history":    func(ctx context.Context) (string, error) { return GenerateHistory() },
 }
 
 // Generate executes all generators in parallel and returns ordered output
-func Generate() (string, error) {
+func Generate(ctx context.Context) (string, error) {
 	profile := os.Getenv("WORKSPACED_PROFILE") == "1"
 
 	type result struct {
@@ -51,7 +53,7 @@ func Generate() (string, error) {
 		go func(k string, g Generator) {
 			defer wg.Done()
 			start := time.Now()
-			output, err := g()
+			output, err := g(ctx)
 			results <- result{key: k, output: output, err: err, duration: time.Since(start)}
 		}(key, gen)
 	}
@@ -74,7 +76,8 @@ func Generate() (string, error) {
 		resultMap[r.key] = r.output
 		timings[r.key] = r.duration
 		if profile {
-			slog.Info("shell generator timing", "generator", r.key, "duration", r.duration)
+			logger := logging.GetLogger(ctx)
+			logger.Info("shell generator timing", "generator", r.key, "duration", r.duration)
 		}
 	}
 

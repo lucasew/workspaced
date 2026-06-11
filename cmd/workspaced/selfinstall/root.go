@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
+
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/version"
@@ -65,19 +65,21 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
 			alreadyInstalled = true
-			slog.Info("already installed", "path", installPath)
+			logger := logging.GetLogger(ctx)
+			logger.Info("already installed", "path", installPath)
 		}
 	}
 
 	// Copy binary (unless already installed and not forcing)
 	if !alreadyInstalled {
-		slog.Info("installing workspaced", "version", currentVersion, "path", installPath, "force", force)
+		logger := logging.GetLogger(ctx)
+		logger.Info("installing workspaced", "version", currentVersion, "path", installPath, "force", force)
 
 		if err := os.MkdirAll(installDir, 0755); err != nil {
 			return fmt.Errorf("failed to create install directory: %w", err)
 		}
 
-		if err := copyFile(currentBinary, installPath); err != nil {
+		if err := copyFile(ctx, currentBinary, installPath); err != nil {
 			return fmt.Errorf("failed to copy binary: %w", err)
 		}
 
@@ -85,25 +87,26 @@ func runSelfInstall(ctx context.Context, force bool) error {
 			return fmt.Errorf("failed to set permissions: %w", err)
 		}
 
-		slog.Info("binary installed", "path", installPath)
+		logger.Info("binary installed", "path", installPath)
 	}
 
 	// Always regenerate shims (even if binary already installed)
-	slog.Info("regenerating shims")
+	logger := logging.GetLogger(ctx)
+	logger.Info("regenerating shims")
 
 	if err := createWorkspacedShim(ctx, installPath); err != nil {
 		return fmt.Errorf("failed to create shim: %w", err)
 	}
 
 	if err := createMiseShim(ctx); err != nil {
-		slog.Warn("failed to create mise shim", "error", err)
+		logger.Warn("failed to create mise shim", "error", err)
 	}
 
-	slog.Info("workspaced installed successfully", "version", currentVersion)
+	logger.Info("workspaced installed successfully", "version", currentVersion)
 	if alreadyInstalled {
-		slog.Info("shims regenerated (use --force to reinstall binary)")
+		logger.Info("shims regenerated (use --force to reinstall binary)")
 	}
-	slog.Info("add ~/.local/bin to your PATH if not already added")
+	logger.Info("add ~/.local/bin to your PATH if not already added")
 
 	return nil
 }
@@ -126,7 +129,8 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 		return err
 	}
 
-	slog.Info("created shim", "path", shimPath, "target", workspacedPath)
+	logger := logging.GetLogger(ctx)
+	logger.Info("created shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
 
@@ -151,16 +155,17 @@ func createMiseShim(ctx context.Context) error {
 		return err
 	}
 
-	slog.Info("created mise shim", "path", shimPath, "target", misePath)
+	logger := logging.GetLogger(ctx)
+	logger.Info("created mise shim", "path", shimPath, "target", misePath)
 	return nil
 }
 
-func copyFile(src, dst string) error {
+func copyFile(ctx context.Context, src, dst string) error {
 	source, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	defer logging.Close(context.Background(), source, slog.String("path", src))
+	defer logging.Close(ctx, source, "path", src)
 
 	dir := filepath.Dir(dst)
 	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp-*")
@@ -170,14 +175,14 @@ func copyFile(src, dst string) error {
 	tmpPath := tmp.Name()
 	defer func() {
 		if tmp != nil {
-			logging.Close(context.Background(), tmp, slog.String("path", tmpPath))
+			logging.Close(ctx, tmp, "path", tmpPath)
 		}
-		logging.RunCleanup(context.Background(), "remove", func() error {
+		logging.RunCleanup(ctx, "remove", func() error {
 			if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
 				return err
 			}
 			return nil
-		}, slog.String("path", tmpPath))
+		}, "path", tmpPath)
 	}()
 
 	if _, err := io.Copy(tmp, source); err != nil {

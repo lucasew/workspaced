@@ -58,7 +58,8 @@ func ShowStatus(ctx context.Context) error {
 
 func Notify(ctx context.Context, meta *Metadata) error {
 	if meta == nil || meta.Title == "" {
-		logging.GetLogger(ctx).Warn("no active player with title found")
+		logger := logging.GetLogger(ctx)
+		logger.Warn("no active player with title found")
 		return nil
 	}
 
@@ -94,7 +95,8 @@ func Notify(ctx context.Context, meta *Metadata) error {
 		HasProgress: true,
 	}
 
-	logging.GetLogger(ctx).Info("sending media notification",
+	logger := logging.GetLogger(ctx)
+	logger.Info("sending media notification",
 		"player", meta.Player,
 		"title", title,
 		"artist", message,
@@ -108,7 +110,8 @@ func Notify(ctx context.Context, meta *Metadata) error {
 func Watch(ctx context.Context) {
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {
-		logging.GetLogger(ctx).Error("failed to get media driver for watch", "error", err)
+		logger := logging.GetLogger(ctx)
+		logger.Error("failed to get media driver for watch", "error", err)
 		return
 	}
 
@@ -118,6 +121,7 @@ func Watch(ctx context.Context) {
 		}
 	})
 	if err != nil {
-		logging.GetLogger(ctx).Error("media watch failed", "error", err)
+		logger := logging.GetLogger(ctx)
+		logger.Error("media watch failed", "error", err)
 	}
 }

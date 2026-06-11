@@ -73,7 +73,7 @@ type autoCloserReader struct {
 func (r *autoCloserReader) Read(p []byte) (n int, err error) {
 	n, err = r.inner.Read(p)
 	if err == io.EOF {
-		logging.Close(context.Background(), r.inner)
+		logging.Close(logging.NewRootContext(nil), r.inner)
 	}
 	return n, err
 }

@@ -28,7 +28,7 @@ func init() {
 
 				flake, _ := cmd.Flags().GetString("flake")
 				if flake == "" {
-					root, err := env.GetDotfilesRoot()
+					root, err := env.GetDotfilesRoot(ctx)
 					if err != nil {
 						return err
 					}
@@ -38,7 +38,8 @@ func init() {
 				action, _ := cmd.Flags().GetString("action")
 
 				for _, node := range nodes {
-					logger := logging.GetLogger(ctx).With("node", node)
+					logger := logging.GetLogger(ctx)
+					logger = logger.With("node", node)
 					logger.Info("Deploying to node")
 					if err := deployNode(ctx, flake, node, action); err != nil {
 						logger.Error("Failed to deploy to node", "error", err)
@@ -52,7 +53,8 @@ func init() {
 					Icon:    "nix-snowflake",
 				}
 				if err := notification.Notify(ctx, &n); err != nil {
-					logging.GetLogger(ctx).Error("failed to send notification", "error", err)
+					logger := logging.GetLogger(ctx)
+					logger.Error("failed to send notification", "error", err)
 				}
 
 				return nil
@@ -65,7 +67,8 @@ func init() {
 }
 
 func deployNode(ctx context.Context, flake, node, action string) error {
-	logger := logging.GetLogger(ctx).With("node", node)
+	logger := logging.GetLogger(ctx)
+	logger = logger.With("node", node)
 	// 1. Build outputs
 	logger.Info("Building configuration for node")
 	toplevelPath := fmt.Sprintf("nixosConfigurations.%s.config.system.build.toplevel", node)

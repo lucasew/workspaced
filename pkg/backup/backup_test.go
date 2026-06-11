@@ -1,8 +1,8 @@
 package backup_test
 
 import (
-	"context"
 	"testing"
+
 	"workspaced/pkg/backup"
 )
 
@@ -17,7 +17,7 @@ func TestArchiveAction_Run(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// TODO: construct the receiver type.
 			var a backup.ArchiveAction
-			gotErr := a.Run(context.Background(), nil)
+			gotErr := a.Run(t.Context(), nil)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("Run() failed: %v", gotErr)

@@ -16,9 +16,63 @@ import (
 var EssentialPaths []string
 
 func init() {
-	ctx := context.Background()
+	// EssentialPaths and the process PATH adjustment are initialized from the
+	// actual root command context (which has the logger attached) in
+	// cmd/workspaced/root.go. Package inits cannot use a connected ctx yet.
+}
 
-	// Get essential paths from driver
+// GetDotfilesRoot locates the root directory of the dotfiles repository.
+// Deprecated: Use envdriver.GetDotfilesRoot(ctx) instead
+func GetDotfilesRoot(ctx context.Context) (string, error) {
+	return envdriver.GetDotfilesRoot(ctx)
+}
+
+// GetHostname returns the current system hostname.
+// Deprecated: Use envdriver.GetHostname(ctx) instead
+func GetHostname(ctx context.Context) string {
+	hostname, _ := envdriver.GetHostname(ctx)
+	return hostname
+}
+
+// GetUserDataDir returns the path to the user data directory for workspaced (~/.local/share/workspaced)
+// Deprecated: Use envdriver.GetUserDataDir(ctx) instead
+func GetUserDataDir(ctx context.Context) (string, error) {
+	return envdriver.GetUserDataDir(ctx)
+}
+
+// GetConfigDir returns the path to the user config directory for workspaced (~/.config/workspaced)
+// Deprecated: Use envdriver.GetConfigDir(ctx) instead
+func GetConfigDir(ctx context.Context) (string, error) {
+	return envdriver.GetConfigDir(ctx)
+}
+
+// IsPhone checks if the environment suggests we are running on a phone.
+// Deprecated: Use envdriver.IsPhone(ctx) instead
+func IsPhone(ctx context.Context) bool {
+	return envdriver.IsPhone(ctx)
+}
+
+// IsInStore checks if the dotfiles root is located inside the Nix store.
+// Deprecated: Use envdriver.IsInStore(ctx) instead
+func IsInStore(ctx context.Context) bool {
+	root, err := GetDotfilesRoot(ctx)
+	if err != nil {
+		return false
+	}
+	return strings.HasPrefix(root, "/nix/store")
+}
+
+// IsNixOS checks if the system is NixOS by verifying the existence of /etc/NIXOS.
+// Deprecated: Use envdriver.IsNixOS(ctx) instead
+func IsNixOS(ctx context.Context) bool {
+	return envdriver.IsNixOS(ctx)
+}
+
+// SetupEssentialPaths populates the EssentialPaths var and adjusts the current
+// process $PATH to include them. It must be called with a ctx that is connected
+// to the top-level root context (has a logger). This is called from the root
+// command setup so that the driver calls use a properly connected ctx.
+func SetupEssentialPaths(ctx context.Context) {
 	EssentialPaths = envdriver.GetEssentialPaths(ctx)
 
 	// Apply to current process PATH
@@ -32,52 +86,6 @@ func init() {
 	if err := os.Setenv("PATH", strings.Join(newPath, ":")); err != nil {
 		panic(err)
 	}
-}
-
-// GetDotfilesRoot locates the root directory of the dotfiles repository.
-// Deprecated: Use envdriver.GetDotfilesRoot(ctx) instead
-func GetDotfilesRoot() (string, error) {
-	return envdriver.GetDotfilesRoot(context.Background())
-}
-
-// GetHostname returns the current system hostname.
-// Deprecated: Use envdriver.GetHostname(ctx) instead
-func GetHostname() string {
-	hostname, _ := envdriver.GetHostname(context.Background())
-	return hostname
-}
-
-// GetUserDataDir returns the path to the user data directory for workspaced (~/.local/share/workspaced)
-// Deprecated: Use envdriver.GetUserDataDir(ctx) instead
-func GetUserDataDir() (string, error) {
-	return envdriver.GetUserDataDir(context.Background())
-}
-
-// GetConfigDir returns the path to the user config directory for workspaced (~/.config/workspaced)
-// Deprecated: Use envdriver.GetConfigDir(ctx) instead
-func GetConfigDir() (string, error) {
-	return envdriver.GetConfigDir(context.Background())
-}
-
-// IsPhone checks if the environment suggests we are running on a phone.
-// Deprecated: Use envdriver.IsPhone(ctx) instead
-func IsPhone() bool {
-	return envdriver.IsPhone(context.Background())
-}
-
-// IsInStore checks if the dotfiles root is located inside the Nix store.
-func IsInStore() bool {
-	root, err := GetDotfilesRoot()
-	if err != nil {
-		return false
-	}
-	return strings.HasPrefix(root, "/nix/store")
-}
-
-// IsNixOS checks if the system is NixOS by verifying the existence of /etc/NIXOS.
-// Deprecated: Use envdriver.IsNixOS(ctx) instead
-func IsNixOS() bool {
-	return envdriver.IsNixOS(context.Background())
 }
 
 // ExpandPath expands the tilde (~) to the user's home directory

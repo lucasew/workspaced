@@ -3,12 +3,13 @@ package pulse
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
+
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/audio"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 )
 
 var sink = "@DEFAULT_SINK@"
@@ -36,7 +37,8 @@ func (p *Provider) New(ctx context.Context) (audio.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) SetVolume(ctx context.Context, level float64) error {
-	slog.Info("set_volume", "level", level)
+	logger := logging.GetLogger(ctx)
+	logger.Info("set_volume", "level", level)
 	if err := execdriver.MustRun(ctx, "pactl", "set-sink-volume", sink, fmt.Sprintf("%d%%", int(level*100))).Run(); err != nil {
 		return fmt.Errorf("failed to set volume: %w", err)
 	}

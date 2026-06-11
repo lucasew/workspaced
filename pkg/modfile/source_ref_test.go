@@ -1,9 +1,9 @@
 package modfile_test
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
+
 	"workspaced/pkg/modfile"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 )
@@ -20,7 +20,7 @@ func TestTryResolveSourceRefToPath(t *testing.T) {
 		},
 	}
 
-	got, ok, err := mod.TryResolveSourceRefToPath(context.Background(), "papirus:Papirus", "/home/lucasew/.dotfiles/modules")
+	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), "papirus:Papirus", "/home/lucasew/.dotfiles/modules")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestTryResolveSourceRefToPathPlainPath(t *testing.T) {
 	}
 
 	input := "/tmp/papirus-icon-theme-20250501/Papirus"
-	got, ok, err := mod.TryResolveSourceRefToPath(context.Background(), input, "/home/lucasew/.dotfiles/modules")
+	got, ok, err := mod.TryResolveSourceRefToPath(t.Context(), input, "/home/lucasew/.dotfiles/modules")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

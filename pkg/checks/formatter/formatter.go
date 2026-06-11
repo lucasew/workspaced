@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync"
 
 	"workspaced/pkg/checks"
@@ -27,8 +26,9 @@ func Register(f Formatter) {
 
 // RunAll executes all applicable formatters in parallel.
 func RunAll(ctx context.Context, dir string) error {
+	logger := logging.GetLogger(ctx)
 	formatters := checks.List[Formatter]()
-	slog.Info("Running formatters", "count", len(formatters), "dir", dir)
+	logger.Info("Running formatters", "count", len(formatters), "dir", dir)
 
 	// Filter to applicable formatters first.
 	var applicable []Formatter
@@ -38,7 +38,7 @@ func RunAll(ctx context.Context, dir string) error {
 			continue
 		}
 		if err != nil {
-			slog.Warn("formatter detection failed", "name", f.Name(), "error", err)
+			logger.Warn("formatter detection failed", "name", f.Name(), "error", err)
 			continue
 		}
 		applicable = append(applicable, f)
@@ -58,10 +58,11 @@ func RunAll(ctx context.Context, dir string) error {
 	for _, f := range applicable {
 		fmtr := f
 		g.Go(fmt.Sprintf("fmt:%s", fmtr.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+			l := logging.GetLogger(ctx)
 			s.Update(fmt.Sprintf("running %s", fmtr.Name()))
-			slog.Info("Running formatter", "name", fmtr.Name())
+			l.Info("Running formatter", "name", fmtr.Name())
 			if err := fmtr.Format(ctx, dir); err != nil {
-				logging.ReportError(ctx, err, slog.String("name", fmtr.Name()), slog.String("context", "formatter failed"))
+				logging.ReportError(ctx, err, "name", fmtr.Name(), "context", "formatter failed")
 				mu.Lock()
 				errs = append(errs, fmt.Errorf("%s: %w", fmtr.Name(), err))
 				mu.Unlock()

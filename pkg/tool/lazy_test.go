@@ -2,12 +2,13 @@ package tool
 
 import (
 	"bytes"
-	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"workspaced/pkg/configcue"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
 )
@@ -51,7 +52,7 @@ workspaced: {
 		t.Fatalf("chmod bin: %v", err)
 	}
 
-	cfg, err := configcue.LoadForWorkspace(workspaceRoot)
+	cfg, err := configcue.LoadForWorkspace(logging.ContextWithLogger(t.Context(), slog.Default()), workspaceRoot)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
@@ -62,7 +63,7 @@ workspaced: {
 		t.Fatalf("read lock before: %v", err)
 	}
 
-	updated, err := RefreshLazyToolLocks(context.Background(), ws, cfg)
+	updated, err := RefreshLazyToolLocks(logging.ContextWithLogger(t.Context(), slog.Default()), ws, cfg)
 	if err != nil {
 		t.Fatalf("refresh lazy tool locks: %v", err)
 	}

@@ -15,9 +15,26 @@ import (
 	"workspaced/pkg/tool"
 )
 
-const defaultResvgSpec = "github:linebender/resvg@latest"
+const defaultResvgSpec = "registry:resvg"
 
 type Driver struct{}
+
+func (d *Driver) Ensure(ctx context.Context) error {
+	// Calling EnsureAndRun triggers tool resolution/install via the
+	// configured backend (e.g. downloading the registry:resvg release
+	// if not present). We use a cheap --version invocation.
+	// The actual rasterization calls later will be fast.
+	c, err := tool.EnsureAndRun(ctx, defaultResvgSpec, "resvg", "--version")
+	if err != nil {
+		return fmt.Errorf("failed to resolve resvg via tool (%s): %w", defaultResvgSpec, err)
+	}
+	// We don't strictly need the output for Ensure, but running it
+	// verifies the binary is executable (consistent with RasterizeSVG).
+	if _, err := c.CombinedOutput(); err != nil {
+		return fmt.Errorf("resvg --version check failed: %w", err)
+	}
+	return nil
+}
 
 func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height int) (image.Image, error) {
 	tmpDir, err := os.MkdirTemp("", "workspaced-svgraster-*")
@@ -68,7 +85,7 @@ func (p Provider) Name() string {
 	return "resvg"
 }
 func (p Provider) CheckCompatibility(ctx context.Context) error {
-	// resvg is installed on demand via the tool subsystem.
+	// resvg is installed on demand via the tool registry (catalog).
 	return nil
 }
 func (p Provider) New(ctx context.Context) (svgraster.Driver, error) {

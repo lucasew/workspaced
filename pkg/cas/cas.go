@@ -16,10 +16,11 @@ type CASWriter struct {
 	writer   io.Writer
 	hasher   io.Writer
 	dir      string
+	ctx      context.Context
 }
 
-func NewCASWriter() (*CASWriter, error) {
-	dataDir, err := env.GetUserDataDir()
+func NewCASWriter(ctx context.Context) (*CASWriter, error) {
+	dataDir, err := env.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +42,7 @@ func NewCASWriter() (*CASWriter, error) {
 		writer:   writer,
 		hasher:   hasher,
 		dir:      genDir,
+		ctx:      ctx,
 	}, nil
 }
 
@@ -61,7 +63,7 @@ func (c *CASWriter) Seal() (string, error) {
 			return "", err
 		}
 	} else {
-		logging.RunCleanup(context.Background(), "remove", func() error { return os.Remove(c.tempFile.Name()) })
+		logging.RunCleanup(c.ctx, "remove", func() error { return os.Remove(c.tempFile.Name()) })
 	}
 
 	return finalPath, nil

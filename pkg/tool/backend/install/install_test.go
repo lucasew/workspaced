@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -57,7 +56,7 @@ func TestExtractZipRejectsPathTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Extract(context.Background(), archive, dest); err == nil {
+	if err := Extract(t.Context(), archive, dest); err == nil {
 		t.Fatal("expected path traversal error")
 	}
 	if _, err := os.Stat(outside); !os.IsNotExist(err) {
@@ -97,7 +96,7 @@ func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Extract(context.Background(), archive, dest); err == nil {
+	if err := Extract(t.Context(), archive, dest); err == nil {
 		t.Fatal("expected path traversal error")
 	}
 	if _, err := os.Stat(outside); !os.IsNotExist(err) {

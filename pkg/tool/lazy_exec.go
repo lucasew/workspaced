@@ -42,3 +42,16 @@ func EnsureAndRunLazyWithFallback(ctx context.Context, lazyName, binName, fallba
 	}
 	return EnsureAndRun(ctx, fallbackSpec, binName, args...)
 }
+
+// EnsureAndRunLazyWithFallbackAt is like EnsureAndRunLazyWithFallback but forces
+// workspace detection to anchor at a specific directory (wd).
+func EnsureAndRunLazyWithFallbackAt(ctx context.Context, wd, lazyName, binName, fallbackSpec string, args ...string) (*exec.Cmd, error) {
+	cmd, err := EnsureAndRunLazyAt(ctx, wd, lazyName, binName, args...)
+	if err == nil {
+		return cmd, nil
+	}
+	if fallbackSpec == "" {
+		return nil, err
+	}
+	return EnsureAndRun(ctx, fallbackSpec, binName, args...)
+}

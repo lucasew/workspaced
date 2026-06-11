@@ -16,12 +16,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
+
 	"workspaced/pkg/compat"
+	"workspaced/pkg/logging"
 )
 
 var (
@@ -52,22 +53,21 @@ type validationResult struct {
 }
 
 var (
-	mu              sync.RWMutex
-	Drivers         = map[reflect.Type]map[string]any{}
-	driverWeights   = map[string]map[string]int{}
-	doctorList      = []doctorEntry{}
-	validationCache = map[string]*validationResult{}
+	mu            sync.RWMutex
+	Drivers       = map[reflect.Type]map[string]any{}
+	driverWeights = map[string]map[string]int{}
+	doctorList    = []doctorEntry{}
+
+	// validationCache allows each driver's CheckCompatibility to run at most once.
+	// Using sync.Map so cachedCheck does not require the global mu (prevents
+	// deadlock when Doctor snapshots under RLock and checks later call Get[]).
+	validationCache sync.Map // string (driver ID) -> *validationResult
 )
 
 // cachedCheck runs check at most once per driver ID for the lifetime of the process.
 func cachedCheck(id string, check func(context.Context) error, ctx context.Context) error {
-	mu.Lock()
-	vr, ok := validationCache[id]
-	if !ok {
-		vr = &validationResult{}
-		validationCache[id] = vr
-	}
-	mu.Unlock()
+	val, _ := validationCache.LoadOrStore(id, &validationResult{})
+	vr := val.(*validationResult)
 	vr.once.Do(func() { vr.err = check(ctx) })
 	return vr.err
 }
@@ -170,7 +170,8 @@ func Get[T any](ctx context.Context) (T, error) {
 
 	ifaceName := getInterfaceName(t)
 	weights := driverWeights[ifaceName]
-	slog.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
+	logger := logging.GetLogger(ctx)
+	logger.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
 
 	providers := make([]DriverProvider[T], 0)
 	if pMap, ok := Drivers[t]; ok {
@@ -186,10 +187,10 @@ func Get[T any](ctx context.Context) (T, error) {
 	}
 
 	// Log all providers before sorting
-	slog.Debug("available providers", "interface", ifaceName, "count", len(providers))
+	logger.Debug("available providers", "interface", ifaceName, "count", len(providers))
 	for _, p := range providers {
 		w := getConfiguredWeight(weights, p.ID())
-		slog.Debug("provider registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
+		logger.Debug("provider registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
 	}
 
 	// Sort providers by weight then ID
@@ -210,18 +211,18 @@ func Get[T any](ctx context.Context) (T, error) {
 
 		if err := cachedCheck(provider.ID(), provider.CheckCompatibility, ctx); err != nil {
 			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", provider.ID(), provider.Name(), weight, err))
-			slog.Debug("driver skipped", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
+			logger.Debug("driver skipped", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
 			continue
 		}
 
 		instance, err := provider.New(ctx)
 		if err != nil {
 			report = append(report, fmt.Sprintf("⚠️ [FAIL] %s (%s) weight=%d: initialization failed: %v", provider.ID(), provider.Name(), weight, err))
-			slog.Debug("driver init failed", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
+			logger.Debug("driver init failed", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
 			continue
 		}
 
-		slog.Debug("driver selected", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight)
+		logger.Debug("driver selected", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight)
 		return instance, nil
 	}
 
@@ -246,12 +247,22 @@ type InterfaceStatus struct {
 // Doctor returns the status of all registered drivers
 func Doctor(ctx context.Context) []InterfaceStatus {
 	mu.RLock()
-	defer mu.RUnlock()
 
 	byType := make(map[reflect.Type][]doctorEntry)
 	for _, d := range doctorList {
 		byType[d.InterfaceType] = append(byType[d.InterfaceType], d)
 	}
+
+	weightsSnapshot := make(map[string]map[string]int, len(driverWeights))
+	for name, w := range driverWeights {
+		inner := make(map[string]int, len(w))
+		for k, v := range w {
+			inner[k] = v
+		}
+		weightsSnapshot[name] = inner
+	}
+
+	mu.RUnlock()
 
 	var types []reflect.Type
 	for t := range byType {
@@ -266,7 +277,7 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 	for _, t := range types {
 		entries := byType[t]
 		ifaceName := getInterfaceName(t)
-		weights := driverWeights[ifaceName]
+		weights := weightsSnapshot[ifaceName]
 		ifaceStatus := InterfaceStatus{
 			Name: ifaceName,
 		}

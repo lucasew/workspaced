@@ -4,16 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+
 	"workspaced/pkg/types"
 )
 
 // GetLogger retrieves the logger instance from the context.
-// It returns the default slog logger if no logger is found in the context.
+// It panics if no logger has been injected into the context via ContextWithLogger
+// (or equivalent direct value set for types.LoggerKey). This enforces that all
+// logging goes through a properly provided ctx (never a bare context.Background
+// or context without a logger).
 func GetLogger(ctx context.Context) *slog.Logger {
-	if logger, ok := ctx.Value(types.LoggerKey).(*slog.Logger); ok {
+	if ctx == nil {
+		panic("GetLogger called with nil context")
+	}
+	if logger, ok := ctx.Value(types.LoggerKey).(*slog.Logger); ok && logger != nil {
 		return logger
 	}
-	return slog.Default()
+	panic("no logger present in context (types.LoggerKey); call ContextWithLogger (or equivalent) on a root ctx before any GetLogger / ReportError / Close / RunCleanup etc. See cmd/workspaced/root.go for bootstrap pattern.")
 }
 
 // ContextWithLogger returns a context that carries the given *slog.Logger
@@ -24,6 +31,26 @@ func ContextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
 		return ctx
 	}
 	return context.WithValue(ctx, types.LoggerKey, l)
+}
+
+// NewRootContext returns a fresh root context (derived from context.Background)
+// with the provided logger attached under LoggerKey. If l is nil, slog.Default()
+// is used. This is the supported way to create the initial ctx for a process,
+// command, test, or component when no parent ctx is available.
+func NewRootContext(l *slog.Logger) context.Context {
+	if l == nil {
+		l = slog.Default()
+	}
+	return ContextWithLogger(context.Background(), l)
+}
+
+// ContextHasLogger reports whether ctx carries a non-nil logger under LoggerKey.
+func ContextHasLogger(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	l, ok := ctx.Value(types.LoggerKey).(*slog.Logger)
+	return ok && l != nil
 }
 
 // ChannelLogHandler is a custom slog.Handler that broadcasts log records to a channel.
@@ -77,15 +104,12 @@ func (h *ChannelLogHandler) WithGroup(name string) slog.Handler {
 
 // ReportError logs an unexpected error using the logger from the context.
 // It serves as the centralized error reporting function.
-func ReportError(ctx context.Context, err error, attrs ...slog.Attr) bool {
+func ReportError(ctx context.Context, err error, args ...any) bool {
 	if err == nil {
 		return false
 	}
-	args := make([]any, len(attrs)+1)
-	args[0] = slog.Any("error", err)
-	for i, a := range attrs {
-		args[i+1] = a
-	}
-	GetLogger(ctx).Error("unexpected error", args...)
+	logger := GetLogger(ctx)
+	args = append(args, "error", err)
+	logger.Error("unexpected error", args...)
 	return true
 }

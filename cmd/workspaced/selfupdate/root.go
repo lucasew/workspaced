@@ -5,19 +5,20 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
+
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 	githubprov "workspaced/pkg/tool/backend/github"
 	"workspaced/pkg/version"
@@ -40,7 +41,30 @@ Strategy:
 The update is installed in ~/.local/share/workspaced/tools/ and the shim
 in ~/.local/bin/workspaced is updated automatically.`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfUpdate(c.Context(), force)
+			ctx := c.Context()
+			g := taskgroup.FromContext(ctx)
+
+			// Choose the right pool for the self-update task itself so it
+			// participates in concurrency limits and gets the correct
+			// emoji/type in the progress UI.
+			pool := taskgroup.Control
+			msg := "self-updating workspaced"
+			if _, found := findSourcePath(ctx); found {
+				pool = taskgroup.CPU // compiling is CPU-bound
+				msg = "compiling from source"
+			} else {
+				pool = taskgroup.Internet // downloading artifact is network-bound
+				msg = "downloading from GitHub"
+			}
+
+			g.Go("self-update", pool, func(ctx context.Context, s *taskgroup.Status) error {
+				s.Update(msg)
+				s.Progress(0, 1)
+				defer s.Progress(1, 1)
+				return runSelfUpdate(ctx, force)
+			})
+
+			return taskgroup.Run(g)
 		},
 	}
 
@@ -54,8 +78,9 @@ in ~/.local/bin/workspaced is updated automatically.`,
 
 func runSelfUpdate(ctx context.Context, force bool) error {
 	// Try source build first (dev mode - always rebuilds)
-	if srcPath, found := findSourcePath(); found {
-		slog.Info("building from source (always rebuilds)", "path", srcPath)
+	if srcPath, found := findSourcePath(ctx); found {
+		logger := logging.GetLogger(ctx)
+		logger.Info("building from source (always rebuilds)", "path", srcPath)
 		return buildAndInstallFromSource(ctx, srcPath)
 	}
 
@@ -106,7 +131,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 			return err
 		}
 		return nil
-	}, slog.String("path", tmpPath))
+	}, "path", tmpPath)
 
 	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
@@ -120,7 +145,8 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
-	slog.Info("building from source", "path", srcPath, "go", goSpec)
+	logger := logging.GetLogger(ctx)
+	logger.Info("building from source", "path", srcPath, "go", goSpec)
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
@@ -131,7 +157,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 		return fmt.Errorf("failed to install built binary: %w", err)
 	}
 
-	slog.Info("build completed", "path", installPath)
+	logger.Info("build completed", "path", installPath)
 	return createWorkspacedShim(ctx, installPath)
 }
 
@@ -166,13 +192,16 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		currentVersion := version.Version()
 
 		if currentVersion == normalizedLatest {
-			slog.Info("already at latest version", "version", currentVersion)
+			logger := logging.GetLogger(ctx)
+			logger.Info("already at latest version", "version", currentVersion)
 			return nil
 		}
 
-		slog.Info("updating", "current", currentVersion, "latest", normalizedLatest)
+		logger := logging.GetLogger(ctx)
+		logger.Info("updating", "current", currentVersion, "latest", normalizedLatest)
 	} else {
-		slog.Info("forcing update", "version", latestVersion)
+		logger := logging.GetLogger(ctx)
+		logger.Info("forcing update", "version", latestVersion)
 	}
 
 	// Use ArtifactTool + the shared SelectArtifact for platform selection.
@@ -211,9 +240,10 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return err
 	}
-	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) }, slog.String("path", tmpDir))
+	defer logging.RunCleanup(ctx, "remove_all", func() error { return os.RemoveAll(tmpDir) }, "path", tmpDir)
 
-	slog.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
+	logger := logging.GetLogger(ctx)
+	logger.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
 	if err := at.InstallArtifact(ctx, *artifact, tmpDir); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
@@ -242,7 +272,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		return fmt.Errorf("failed to set permissions: %w", err)
 	}
 
-	slog.Info("download completed", "path", installPath)
+	logger.Info("download completed", "path", installPath)
 	return createWorkspacedShim(ctx, installPath)
 }
 
@@ -343,7 +373,8 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 		return err
 	}
 
-	slog.Info("updated shim", "path", shimPath, "target", workspacedPath)
+	logger := logging.GetLogger(ctx)
+	logger.Info("updated shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
 
@@ -351,16 +382,16 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 // Helper functions
 // ============================================================================
 
-func findSourcePath() (string, bool) {
+func findSourcePath(ctx context.Context) (string, bool) {
 	var candidates []string
 
 	// 1. ~/.config/workspaced/src/
-	if configDir, err := env.GetConfigDir(); err == nil {
+	if configDir, err := env.GetConfigDir(ctx); err == nil {
 		candidates = append(candidates, filepath.Join(configDir, "src"))
 	}
 
 	// 2. $DOTFILES/workspaced/
-	if dotfilesRoot, err := env.GetDotfilesRoot(); err == nil {
+	if dotfilesRoot, err := env.GetDotfilesRoot(ctx); err == nil {
 		candidates = append(candidates, filepath.Join(dotfilesRoot, "workspaced"))
 	}
 
@@ -396,7 +427,8 @@ func ensureMise(ctx context.Context) (string, error) {
 	}
 
 	// Mise not found, install it
-	slog.Info("mise not found, installing", "path", misePath)
+	logger := logging.GetLogger(ctx)
+	logger.Info("mise not found, installing", "path", misePath)
 	if err := installMise(ctx, misePath); err != nil {
 		return "", err
 	}
@@ -423,7 +455,8 @@ func installMise(ctx context.Context, misePath string) error {
 		return fmt.Errorf("failed to create mise directory: %w", err)
 	}
 
-	slog.Info("downloading mise installer from https://mise.run")
+	logger := logging.GetLogger(ctx)
+	logger.Info("downloading mise installer from https://mise.run")
 
 	// Download installer
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
@@ -435,7 +468,7 @@ func installMise(ctx context.Context, misePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to download installer: %w", err)
 	}
-	defer logging.Close(ctx, resp.Body, slog.String("url", "https://mise.run"))
+	defer logging.Close(ctx, resp.Body, "url", "https://mise.run")
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
@@ -466,6 +499,6 @@ func installMise(ctx context.Context, misePath string) error {
 		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
 	}
 
-	slog.Info("mise installed successfully", "path", misePath)
+	logger.Info("mise installed successfully", "path", misePath)
 	return nil
 }

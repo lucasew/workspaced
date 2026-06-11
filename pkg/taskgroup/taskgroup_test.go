@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -11,8 +13,14 @@ import (
 	"workspaced/pkg/logging"
 )
 
+func withLogger(t *testing.T) context.Context {
+	h := logging.NewPlainHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+	l := slog.New(h)
+	return logging.ContextWithLogger(t.Context(), l)
+}
+
 func TestBasicExecution(t *testing.T) {
-	g, ctx := New(context.Background(), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
 	var ran atomic.Bool
 	g.Go("task1", CPU, func(ctx context.Context, s *Status) error {
 		ran.Store(true)
@@ -28,7 +36,7 @@ func TestBasicExecution(t *testing.T) {
 }
 
 func TestDependencyOrder(t *testing.T) {
-	g, _ := New(context.Background(), DefaultLimits())
+	g, _ := New(withLogger(t), DefaultLimits())
 	order := make([]string, 0, 3)
 	var mu atomic.Int64
 
@@ -53,7 +61,7 @@ func TestDependencyOrder(t *testing.T) {
 }
 
 func TestErrorCancelsGroup(t *testing.T) {
-	g, _ := New(context.Background(), DefaultLimits())
+	g, _ := New(withLogger(t), DefaultLimits())
 	sentinel := errors.New("boom")
 
 	g.Go("fail", CPU, func(ctx context.Context, s *Status) error {
@@ -72,7 +80,7 @@ func TestErrorCancelsGroup(t *testing.T) {
 
 func TestPoolLimits(t *testing.T) {
 	limits := Limits{IO: 2, CPU: 2, Internet: 2}
-	g, _ := New(context.Background(), limits)
+	g, _ := New(withLogger(t), limits)
 
 	var concurrent atomic.Int32
 	var maxConcurrent atomic.Int32
@@ -101,7 +109,7 @@ func TestPoolLimits(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
-	g, _ := New(context.Background(), DefaultLimits())
+	g, _ := New(withLogger(t), DefaultLimits())
 
 	g.Go("x", CPU, func(ctx context.Context, s *Status) error {
 		s.Update("working")
@@ -123,21 +131,22 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
-	g, _ := New(context.Background(), DefaultLimits())
+	g, _ := New(withLogger(t), DefaultLimits())
 	var got []string
 	g.SetLogHandler(func(taskName, msg string) {
 		got = append(got, msg)
 	})
 
 	g.Go("fetch", Internet, func(ctx context.Context, s *Status) error {
-		logging.GetLogger(ctx).Info("http response", "status", "200 OK")
+		logger := logging.GetLogger(ctx)
+		logger.Info("http response", "status", "200 OK")
 		return nil
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	const want = `INFO http response task=fetch status="200 OK"`
+	const want = `I http response task=fetch status="200 OK"`
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("log line = %#v, want [%q]", got, want)
 	}
@@ -149,7 +158,7 @@ func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
 
 func TestSubGroup(t *testing.T) {
 	// Pool size must be >= 2: parent holds one CPU slot, child needs another.
-	g, ctx := New(context.Background(), Limits{IO: 2, CPU: 2, Internet: 2})
+	g, ctx := New(withLogger(t), Limits{IO: 2, CPU: 2, Internet: 2})
 	g.Go("parent", CPU, func(ctx context.Context, s *Status) error {
 		child, childCtx := g.SubGroup(ctx)
 		child.Go("child1", CPU, func(ctx context.Context, s *Status) error {
@@ -165,7 +174,7 @@ func TestSubGroup(t *testing.T) {
 }
 
 func TestFromContext(t *testing.T) {
-	g, ctx := New(context.Background(), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
 	got := FromContext(ctx)
 	if got != g {
 		t.Fatal("FromContext did not return the group")
@@ -176,7 +185,7 @@ func TestFromContext(t *testing.T) {
 }
 
 func TestMap_BasicAndOrder(t *testing.T) {
-	g, ctx := New(context.Background(), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
 	input := []int{1, 2, 3, 4, 5}
@@ -209,7 +218,7 @@ func TestMap_BasicAndOrder(t *testing.T) {
 }
 
 func TestMap_Empty(t *testing.T) {
-	g, ctx := New(context.Background(), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
 	results, err := Map(ctx, IO, []string{}, nil, func(ctx context.Context, s *Status, v string) (string, error) {
@@ -224,7 +233,7 @@ func TestMap_Empty(t *testing.T) {
 }
 
 func TestMap_ErrorPropagates(t *testing.T) {
-	g, ctx := New(context.Background(), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
 	_, err := Map(ctx, IO, []int{10, 20, 30}, nil, func(ctx context.Context, s *Status, v int) (int, error) {
@@ -239,7 +248,7 @@ func TestMap_ErrorPropagates(t *testing.T) {
 }
 
 func TestMap_UsesProvidedTaskNames(t *testing.T) {
-	g, ctx := New(context.Background(), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
 	items := []string{"a.txt", "b.txt"}

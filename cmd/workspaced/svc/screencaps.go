@@ -2,15 +2,15 @@ package svc
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"workspaced/pkg/driver/screen"
-
 	"github.com/spf13/cobra"
+
+	"workspaced/pkg/driver/screen"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -31,7 +31,8 @@ func monitorCapsLock(ctx context.Context) {
 
 	matches, _ := filepath.Glob("/sys/class/leds/*capslock/brightness")
 	if len(matches) == 0 {
-		slog.Warn("no capslock leds found")
+		logger := logging.GetLogger(ctx)
+		logger.Warn("no capslock leds found")
 		return
 	}
 
@@ -49,12 +50,13 @@ func monitorCapsLock(ctx context.Context) {
 				}
 			}
 
+			logger := logging.GetLogger(ctx)
 			screenActive, err := screen.IsDPMSOn(ctx)
 			if err != nil {
-				slog.Error("on checking if screen is active", "error", err)
+				logger.Error("on checking if screen is active", "error", err)
 			}
 			if !capsActive != screenActive {
-				slog.Info("toggling screen", "active", !capsActive)
+				logger.Info("toggling screen", "active", !capsActive)
 				_ = screen.SetDPMS(ctx, !capsActive)
 			}
 		}

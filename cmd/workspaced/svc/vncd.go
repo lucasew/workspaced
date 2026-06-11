@@ -2,13 +2,14 @@ package svc
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"strings"
 	"syscall"
-	execdriver "workspaced/pkg/driver/exec"
 
 	"github.com/spf13/cobra"
+
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -30,7 +31,8 @@ func init() {
 }
 
 func runWaylandVNC(ctx context.Context) error {
-	slog.Info("Starting wayvnc")
+	logger := logging.GetLogger(ctx)
+	logger.Info("Starting wayvnc")
 	host := os.Getenv("WAYVNC_HOST")
 	if host == "" {
 		tsIP, err := getTailscaleIP(ctx)
@@ -46,12 +48,13 @@ func runWaylandVNC(ctx context.Context) error {
 		return err
 	}
 
-	slog.Info("executing wayvnc", "host", host)
+	logger.Info("executing wayvnc", "host", host)
 	return syscall.Exec(bin, []string{"wayvnc", host}, os.Environ())
 }
 
 func runXorgVNC(ctx context.Context) error {
-	slog.Info("Starting x0vncserver")
+	logger := logging.GetLogger(ctx)
+	logger.Info("Starting x0vncserver")
 	bin, err := execdriver.Which(ctx, "x0vncserver")
 	if err != nil {
 		return err
@@ -65,7 +68,7 @@ func runXorgVNC(ctx context.Context) error {
 		"-RawKeyboard=1",
 	}
 
-	slog.Info("executing x0vncserver")
+	logger.Info("executing x0vncserver")
 	return syscall.Exec(bin, args, os.Environ())
 }
 

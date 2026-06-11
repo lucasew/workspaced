@@ -38,7 +38,7 @@ type backupConfig struct {
 
 func RunFullBackup(ctx context.Context) error {
 	logger := logging.GetLogger(ctx)
-	rawCfg, err := configcue.LoadHome()
+	rawCfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return err
 	}

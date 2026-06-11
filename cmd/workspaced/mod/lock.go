@@ -1,7 +1,6 @@
 package mod
 
 import (
-	"context"
 	"workspaced/pkg/modfile"
 
 	"github.com/spf13/cobra"
@@ -18,11 +17,12 @@ func init() {
 }
 
 func runModLock(cmd *cobra.Command, args []string) error {
-	ws, err := modfile.DetectWorkspace(context.Background(), "")
+	ctx := cmd.Context()
+	ws, err := modfile.DetectWorkspace(ctx, "")
 	if err != nil {
 		return err
 	}
-	result, err := modfile.GenerateLock(context.Background(), ws)
+	result, err := modfile.GenerateLock(ctx, ws)
 	if err != nil {
 		return err
 	}

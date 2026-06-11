@@ -13,7 +13,7 @@ import (
 )
 
 func QuickSync(ctx context.Context) error {
-	cfg, err := configcue.LoadForWorkspace("")
+	cfg, err := configcue.LoadForWorkspace(ctx, "")
 	if err != nil {
 		return err
 	}

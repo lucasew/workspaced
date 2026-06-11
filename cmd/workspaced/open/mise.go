@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
@@ -46,10 +46,11 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("failed to create mise directory: %w", err)
 	}
 
-	slog.Info("installing mise", "path", misePath)
+	logger := logging.GetLogger(ctx.Context())
+	logger.Info("installing mise", "path", misePath)
 
 	// Download installer script using httpclient driver
-	slog.Info("downloading mise installer", "url", "https://mise.run")
+	logger.Info("downloading mise installer", "url", "https://mise.run")
 	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get http client: %w", err)
@@ -59,7 +60,7 @@ func installMise(ctx *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("failed to download installer: %w", err)
 	}
-	defer logging.Close(ctx.Context(), resp.Body, slog.String("url", "https://mise.run"))
+	defer logging.Close(ctx.Context(), resp.Body, "url", "https://mise.run")
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
@@ -91,12 +92,13 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
 	}
 
-	slog.Info("mise installed successfully", "path", misePath)
+	logger.Info("mise installed successfully", "path", misePath)
 	return nil
 }
 
 // ensureMise checks if mise is installed and installs it if needed.
 func ensureMise(ctx *cobra.Command) (string, error) {
+	logger := logging.GetLogger(ctx.Context())
 	misePath := getMisePath()
 	if misePath == "" {
 		return "", fmt.Errorf("could not determine mise install path")
@@ -111,7 +113,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 
 	// Generate wrapper in ~/.local/bin/mise if it doesn't exist
 	if err := ensureMiseWrapper(ctx.Context(), misePath); err != nil {
-		slog.Warn("failed to create mise wrapper", "error", err)
+		logger.Warn("failed to create mise wrapper", "error", err)
 	}
 
 	return misePath, nil
@@ -119,6 +121,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 
 // ensureMiseWrapper creates a wrapper script in ~/.local/bin/mise
 func ensureMiseWrapper(ctx context.Context, misePath string) error {
+	logger := logging.GetLogger(ctx)
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
@@ -149,7 +152,7 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 		return fmt.Errorf("failed to write wrapper: %w", err)
 	}
 
-	slog.Info("created mise wrapper", "path", wrapperPath)
+	logger.Info("created mise wrapper", "path", wrapperPath)
 	return nil
 }
 

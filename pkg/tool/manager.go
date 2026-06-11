@@ -3,12 +3,14 @@ package tool
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"workspaced/pkg/logging"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 )
 
@@ -43,12 +45,13 @@ func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
 // artifact selection (via ArtifactTool) before falling back to standard backend.Tool logic.
 // The hint helps disambiguate platforms where an archive might contain multiple binaries.
 func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binaryHint string) error {
-	slog.Debug("installing tool", "input", toolSpecStr)
+	logger := logging.GetLogger(ctx)
+	logger.Debug("installing tool", "input", toolSpecStr)
 	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
 		return err
 	}
-	slog.Debug("parsed spec", "spec", spec)
+	logger.Debug("parsed spec", "spec", spec)
 
 	p, err := Get(spec.Provider)
 	if err != nil {
@@ -63,7 +66,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	// Resolve latest version if needed
 	version := spec.Version
 	if version == "latest" {
-		slog.Debug("resolving latest version", "pkg", spec.Package)
+		logger.Debug("resolving latest version", "pkg", spec.Package)
 		versions, err := t.ListVersions(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list versions: %w", err)
@@ -72,11 +75,11 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 			return fmt.Errorf("no versions found for package %s", spec.Package)
 		}
 		version = versions[0]
-		slog.Debug("resolved latest version", "version", version)
+		logger.Debug("resolved latest version", "version", version)
 	}
 
 	normalizedVersion := normalizeVersion(version)
-	slog.Debug("normalized version", "original", version, "normalized", normalizedVersion)
+	logger.Debug("normalized version", "original", version, "normalized", normalizedVersion)
 
 	destPath := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
@@ -84,29 +87,54 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		return err
 	}
 
-	// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
-	if binaryHint != "" {
-		if at, ok := t.(backend.ArtifactTool); ok {
-			artifacts, err := at.ListArtifacts(ctx, version)
-			if err == nil {
-				if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
-					slog.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
-					if err := at.InstallArtifact(ctx, *chosen, destPath); err != nil {
-						return fmt.Errorf("installation failed: %w", err)
+	// The actual installation work (network + extract) can be long-running.
+	// When a taskgroup.Group is present in the context we schedule it as a
+	// child task under the Internet pool so it gets its own named entry,
+	// Status updates, and captured logs in the progress system.
+	doInstall := func(ctx context.Context) error {
+		// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
+		if binaryHint != "" {
+			if at, ok := t.(backend.ArtifactTool); ok {
+				artifacts, err := at.ListArtifacts(ctx, version)
+				if err == nil {
+					if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
+						logger := logging.GetLogger(ctx)
+						logger.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
+						return at.InstallArtifact(ctx, *chosen, destPath)
 					}
-					slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
-					return nil
 				}
 			}
 		}
+
+		// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
+		logger := logging.GetLogger(ctx)
+		logger.Debug("installing tool via Tool.Install", "dest", destPath)
+		return t.Install(ctx, version, destPath)
 	}
 
-	// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
-	slog.Debug("installing tool via Tool.Install", "dest", destPath)
-	if err := t.Install(ctx, version, destPath); err != nil {
-		return fmt.Errorf("installation failed: %w", err)
+	if parent := taskgroup.FromContext(ctx); parent != nil {
+		child, _ := parent.SubGroup(ctx)
+		var installErr error
+		child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("installing " + normalizedVersion)
+			s.Progress(0, 1)
+			installErr = doInstall(ctx)
+			s.Progress(1, 1)
+			return installErr
+		})
+		if werr := child.Wait(); werr != nil && installErr == nil {
+			installErr = werr
+		}
+		if installErr != nil {
+			return fmt.Errorf("installation failed: %w", installErr)
+		}
+	} else {
+		if err := doInstall(ctx); err != nil {
+			return fmt.Errorf("installation failed: %w", err)
+		}
 	}
-	slog.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
+
+	logger.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
 
 	// TODO: Shell integration will handle PATH management
 	// Shim generation removed - see shell hooks for dynamic PATH injection

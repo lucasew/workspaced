@@ -3,11 +3,11 @@ package termux
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
@@ -48,6 +48,8 @@ func (p *Provider) New(ctx context.Context) (execdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd {
+	logger := logging.GetLogger(ctx)
+
 	// Get Termux PREFIX
 	prefix := os.Getenv("PREFIX")
 	if prefix == "" {
@@ -66,40 +68,42 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 
 	// Check if we're already inside proot (avoid nesting)
 	inProot := os.Getenv("WORKSPACED_IN_PROOT")
-	slog.Info("proot check", "WORKSPACED_IN_PROOT", inProot, "command", fullArgs)
+	logger.Info("proot check", "WORKSPACED_IN_PROOT", inProot, "command", fullArgs)
 	if inProot == "1" {
-		slog.Info("already inside proot, running directly", "command", fullArgs)
+		logger.Info("already inside proot, running directly", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
-		cmd.Env = setupTermuxEnv(prefix)
+		cmd.Env = setupTermuxEnv(ctx, prefix)
 		return cmd
 	}
 
 	// Check if user explicitly disabled proot
 	if os.Getenv("WORKSPACED_NO_PROOT") == "1" {
-		slog.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullArgs)
+		logger.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullArgs)
 		cmd := exec.CommandContext(ctx, fullPath, args...)
-		cmd.Env = setupTermuxEnv(prefix)
+		cmd.Env = setupTermuxEnv(ctx, prefix)
 		return cmd
 	}
 
 	// Default: use proot for DNS/SSL access
-	slog.Debug("using proot for command execution", "command", fullArgs)
+	logger.Debug("using proot for command execution", "command", fullArgs)
 	return d.runWithProot(ctx, fullPath, args, prefix)
 }
 
 // runWithProot wraps command execution in proot with termux-chroot-like setup
 func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []string, prefix string) *exec.Cmd {
+	logger := logging.GetLogger(ctx)
+
 	// Setup resolv.conf and SSL certs for proot environment
 	if resolvPath, err := ensureResolvConf(ctx); err != nil {
-		slog.Warn("failed to setup resolv.conf", "error", err)
+		logger.Warn("failed to setup resolv.conf", "error", err)
 	} else {
-		slog.Debug("resolv.conf configured", "path", resolvPath)
+		logger.Debug("resolv.conf configured", "path", resolvPath)
 	}
 
-	if certPath, err := ensureSSLCerts(); err != nil {
-		slog.Warn("failed to setup SSL certificates", "error", err)
+	if certPath, err := ensureSSLCerts(ctx); err != nil {
+		logger.Warn("failed to setup SSL certificates", "error", err)
 	} else {
-		slog.Debug("SSL certificates configured", "path", certPath)
+		logger.Debug("SSL certificates configured", "path", certPath)
 	}
 
 	// Find proot binary
@@ -163,7 +167,7 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	prootArgs = append(prootArgs, fullPath)
 	prootArgs = append(prootArgs, args...)
 
-	slog.Debug("using proot for command execution", "proot", prootPath)
+	logger.Debug("using proot for command execution", "proot", prootPath)
 	cmd := exec.CommandContext(ctx, prootPath, prootArgs...)
 
 	// Setup environment for proot
@@ -183,13 +187,13 @@ func (d *Driver) runWithProot(ctx context.Context, fullPath string, args []strin
 	// Set sentinel to prevent proot nesting
 	filteredEnv = append(filteredEnv, "WORKSPACED_IN_PROOT=1")
 
-	slog.Debug("setting proot environment", "sentinel", "WORKSPACED_IN_PROOT=1")
+	logger.Debug("setting proot environment", "sentinel", "WORKSPACED_IN_PROOT=1")
 	cmd.Env = filteredEnv
 	return cmd
 }
 
 // setupTermuxEnv creates environment variables for Termux binaries
-func setupTermuxEnv(prefix string) []string {
+func setupTermuxEnv(ctx context.Context, prefix string) []string {
 	env := os.Environ()
 	envMap := make(map[string]string)
 
@@ -220,7 +224,7 @@ func setupTermuxEnv(prefix string) []string {
 
 	// Fix HOME for Termux (mise and other tools use this for shims)
 	// Use env driver to get correct home (handles chroot)
-	if actualHome, err := envdriver.GetHomeDir(context.Background()); err == nil {
+	if actualHome, err := envdriver.GetHomeDir(ctx); err == nil {
 		envMap["HOME"] = actualHome
 
 		// Configure mise to use correct paths
@@ -248,12 +252,14 @@ func ensureResolvConf(ctx context.Context) (string, error) {
 
 	resolvConfPath := filepath.Join(prefix, "etc", "resolv.conf")
 
+	logger := logging.GetLogger(ctx)
+
 	// Check if resolv.conf exists and has valid content
 	if content, err := os.ReadFile(resolvConfPath); err == nil {
 		contentStr := string(content)
 		// Check if it has our nameserver entries
 		if strings.Contains(contentStr, "8.8.8.8") {
-			slog.Debug("resolv.conf already configured", "path", resolvConfPath)
+			logger.Debug("resolv.conf already configured", "path", resolvConfPath)
 			return resolvConfPath, nil
 		}
 	}
@@ -276,20 +282,20 @@ nameserver 1.1.1.1
 		return "", fmt.Errorf("failed to write resolv.conf: %w", err)
 	}
 
-	slog.Info("created resolv.conf for Termux DNS", "path", resolvConfPath)
+	logger.Info("created resolv.conf for Termux DNS", "path", resolvConfPath)
 
 	// Verify it was written
 	if content, err := os.ReadFile(resolvConfPath); err != nil {
-		logging.ReportError(ctx, err, slog.String("context", "failed to verify resolv.conf after writing"))
+		logging.ReportError(ctx, err, "context", "failed to verify resolv.conf after writing")
 	} else {
-		slog.Info("resolv.conf content verified", "size", len(content))
+		logger.Info("resolv.conf content verified", "size", len(content))
 	}
 
 	return resolvConfPath, nil
 }
 
 // ensureSSLCerts sets up SSL certificates in standard locations for termux-chroot
-func ensureSSLCerts() (string, error) {
+func ensureSSLCerts(ctx context.Context) (string, error) {
 	prefix := os.Getenv("PREFIX")
 	if prefix == "" {
 		prefix = "/data/data/com.termux/files/usr"
@@ -306,9 +312,11 @@ func ensureSSLCerts() (string, error) {
 	sslDir := filepath.Join(prefix, "etc", "ssl", "certs")
 	targetCert := filepath.Join(sslDir, "ca-certificates.crt")
 
+	logger := logging.GetLogger(ctx)
+
 	// Check if already linked/copied
 	if _, err := os.Stat(targetCert); err == nil {
-		slog.Debug("SSL certificates already configured", "path", targetCert)
+		logger.Debug("SSL certificates already configured", "path", targetCert)
 		return targetCert, nil
 	}
 
@@ -333,7 +341,7 @@ func ensureSSLCerts() (string, error) {
 	relPath := filepath.Join("..", "..", "tls", "cert.pem")
 	if err := os.Symlink(relPath, targetCert); err != nil {
 		// If symlink fails, copy the file
-		slog.Debug("symlink failed, copying certificate file", "error", err)
+		logger.Debug("symlink failed, copying certificate file", "error", err)
 		certData, err := os.ReadFile(sourceCert)
 		if err != nil {
 			return "", fmt.Errorf("failed to read source cert %s: %w", sourceCert, err)
@@ -341,24 +349,26 @@ func ensureSSLCerts() (string, error) {
 		if err := os.WriteFile(targetCert, certData, 0644); err != nil {
 			return "", fmt.Errorf("failed to write cert to %s: %w", targetCert, err)
 		}
-		slog.Info("copied SSL certificates", "from", sourceCert, "to", targetCert, "size", len(certData))
+		logger.Info("copied SSL certificates", "from", sourceCert, "to", targetCert, "size", len(certData))
 	} else {
-		slog.Info("symlinked SSL certificates", "from", relPath, "to", targetCert)
+		logger.Info("symlinked SSL certificates", "from", relPath, "to", targetCert)
 	}
 
 	return targetCert, nil
 }
 
 func (d *Driver) Which(ctx context.Context, name string) (string, error) {
+	logger := logging.GetLogger(ctx)
+
 	// Custom Which implementation to avoid SIGSYS errors on Android/Termux
 	// Do not use os/exec.LookPath as it can trigger SIGSYS on Android with Go 1.24+
 
 	if filepath.IsAbs(name) {
 		if _, err := os.Stat(name); err == nil {
-			slog.Debug("which", "binary", name, "result", name)
+			logger.Debug("which", "binary", name, "result", name)
 			return name, nil
 		}
-		slog.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
+		logger.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
 		return "", fmt.Errorf("%w: %s", api.ErrBinaryNotFound, name)
 	}
 
@@ -375,11 +385,11 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 	for _, dir := range filepath.SplitList(path) {
 		fullPath := filepath.Join(dir, name)
 		if info, err := os.Stat(fullPath); err == nil && !info.IsDir() {
-			slog.Debug("which", "binary", name, "result", fullPath)
+			logger.Debug("which", "binary", name, "result", fullPath)
 			return fullPath, nil
 		}
 	}
-	slog.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
+	logger.Debug("which", "binary", name, "result", api.ErrBinaryNotFound)
 	return "", fmt.Errorf("%w: %s", api.ErrBinaryNotFound, name)
 }
 

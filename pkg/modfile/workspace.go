@@ -31,15 +31,15 @@ func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
 		return NewWorkspace(root), nil
 	}
 
-	root, err := env.GetDotfilesRoot()
+	root, err := env.GetDotfilesRoot(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect workspace root from git and dotfiles root: %w", err)
 	}
 	return NewWorkspace(root), nil
 }
 
-func (w *Workspace) EnsureFiles() error {
-	_, err := EnsureLockFile(w.Root)
+func (w *Workspace) EnsureFiles(ctx context.Context) error {
+	_, err := EnsureLockFile(ctx, w.Root)
 	return err
 }
 
@@ -47,8 +47,8 @@ func (w *Workspace) LoadSumFile() (*SumFile, error) {
 	return LoadSumFile(w.SumPath())
 }
 
-func (w *Workspace) UpdateSumFile(mutate func(sum *SumFile) (bool, error)) (bool, error) {
-	return updateSumFile(w.SumPath(), mutate)
+func (w *Workspace) UpdateSumFile(ctx context.Context, mutate func(sum *SumFile) (bool, error)) (bool, error) {
+	return updateSumFile(ctx, w.SumPath(), mutate)
 }
 
 func (w *Workspace) SumPath() string {

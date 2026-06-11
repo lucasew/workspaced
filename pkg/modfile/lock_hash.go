@@ -3,18 +3,20 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"strings"
+
+	"workspaced/pkg/logging"
 )
 
 func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBaseDir string, entries map[string]LockedSource) error {
 	if modFile == nil {
 		return nil
 	}
-	slog.Info("computing source lock hashes", "sources", len(entries))
+	logger := logging.GetLogger(ctx)
+	logger.Info("computing source lock hashes", "sources", len(entries))
 	for alias, entry := range entries {
-		slog.Info("computing source lock hash", "source", alias, "provider", entry.Provider)
+		logger.Info("computing source lock hash", "source", alias, "provider", entry.Provider)
 		src, ok := modFile.Sources[alias]
 		if !ok {
 			continue
@@ -54,9 +56,9 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		}
 		entry.Hash = hash
 		entries[alias] = entry
-		slog.Info("computed source lock hash", "source", alias)
+		logger.Info("computed source lock hash", "source", alias)
 	}
-	slog.Info("source lock hashes computed", "sources", len(entries))
+	logger.Info("source lock hashes computed", "sources", len(entries))
 	return nil
 }
 

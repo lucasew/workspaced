@@ -98,7 +98,9 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	args := append([]string{"-f", "json"}, files...)
 
 	// Use tool.EnsureAndRun to execute shellcheck.
-	cmd, err := tool.EnsureAndRunLazyAt(ctx, dir, "shellcheck", "shellcheck", args...)
+	// Falls back to the registry tool (which is now properly cataloged with
+	// version prefix handling for GitHub tags).
+	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "shellcheck", "shellcheck", "registry:shellcheck", args...)
 	if err != nil {
 		logging.ReportError(ctx, err, slog.String("context", "failed to setup shellcheck"))
 		return nil, err

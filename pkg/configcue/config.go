@@ -1,11 +1,13 @@
 package configcue
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+
 	"workspaced/pkg/driver"
 	"workspaced/pkg/env"
 	"workspaced/pkg/taskgroup"
@@ -131,41 +133,41 @@ func (c *Config) ModuleEntry(name string) (ModuleEntry, error) {
 	return entry, nil
 }
 
-func Load() (*Config, error) {
+func Load(ctx context.Context) (*Config, error) {
 	cwd, _ := os.Getwd()
-	return loadConfig(DiscoverOptions{Cwd: cwd})
+	return loadConfig(ctx, DiscoverOptions{Cwd: cwd})
 }
 
-func LoadHome() (*Config, error) {
-	return loadConfig(DiscoverOptions{HomeMode: true})
+func LoadHome(ctx context.Context) (*Config, error) {
+	return loadConfig(ctx, DiscoverOptions{HomeMode: true})
 }
 
-func LoadForWorkspace(root string) (*Config, error) {
+func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
 	root = strings.TrimSpace(root)
 	if root == "" {
-		return Load()
+		return Load(ctx)
 	}
 
-	dotfilesRoot, err := env.GetDotfilesRoot()
+	dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 	if err == nil && filepath.Clean(dotfilesRoot) == filepath.Clean(root) {
-		return LoadHome()
+		return LoadHome(ctx)
 	}
-	return loadConfig(DiscoverOptions{Cwd: root})
+	return loadConfig(ctx, DiscoverOptions{Cwd: root})
 }
 
-func LoadFiles(paths []string) (*Config, error) {
+func LoadFiles(ctx context.Context, paths []string) (*Config, error) {
 	if len(paths) == 0 {
-		return Load()
+		return Load(ctx)
 	}
-	data, err := ExportJSONFromPaths(paths)
+	data, err := ExportJSONFromPaths(ctx, paths)
 	if err != nil {
 		return nil, err
 	}
 	return decodeConfig(data)
 }
 
-func loadConfig(opts DiscoverOptions) (*Config, error) {
-	result, err := Evaluate(opts)
+func loadConfig(ctx context.Context, opts DiscoverOptions) (*Config, error) {
+	result, err := Evaluate(ctx, opts)
 	if err != nil {
 		return nil, err
 	}

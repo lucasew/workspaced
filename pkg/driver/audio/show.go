@@ -37,7 +37,8 @@ func ShowStatus(ctx context.Context) error {
 		icon = "audio-volume-medium"
 	}
 
-	logging.GetLogger(ctx).Info("volume updated", "level", level, "sink", sinkName, "muted", isMuted)
+	logger := logging.GetLogger(ctx)
+	logger.Info("volume updated", "level", level, "sink", sinkName, "muted", isMuted)
 
 	n := notification.Notification{
 		ID:          notification.StatusNotificationID,

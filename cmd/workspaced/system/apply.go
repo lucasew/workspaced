@@ -19,11 +19,11 @@ func RunApply(ctx context.Context, action string) error {
 	logger := logging.GetLogger(ctx)
 	dryRun := cmdctx.IsDryRun(ctx)
 
-	dotfilesRoot, err := env.GetDotfilesRoot()
+	dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get dotfiles root: %w", err)
 	}
-	cfg, err := configcue.LoadHome()
+	cfg, err := configcue.LoadHome(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -33,7 +33,7 @@ func RunApply(ctx context.Context, action string) error {
 	}
 	logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
 
-	if !env.IsNixOS() {
+	if !env.IsNixOS(ctx) {
 		logger.Info("not running on NixOS; skipping system apply")
 		return nil
 	}
@@ -45,7 +45,7 @@ func RunApply(ctx context.Context, action string) error {
 	}
 
 	flake := ""
-	hostname := env.GetHostname()
+	hostname := env.GetHostname(ctx)
 	if hostname == "riverwood" {
 		logger.Info("performing remote build for riverwood")
 		ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)

@@ -3,12 +3,12 @@ package history
 import (
 	"errors"
 	"fmt"
-	"log/slog"
+
+	"github.com/spf13/cobra"
+
 	"workspaced/pkg/db"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
-
-	"github.com/spf13/cobra"
 )
 
 var ErrUnknownSource = errors.New("unknown source")
@@ -24,7 +24,7 @@ func init() {
 				database, ok := c.Context().Value(types.DBKey).(*db.DB)
 				if !ok {
 					var err error
-					database, err = db.Open()
+					database, err = db.Open(c.Context())
 					if err != nil {
 						return err
 					}
@@ -36,9 +36,9 @@ func init() {
 
 				switch source {
 				case "bash":
-					events, err = ingestBash()
+					events, err = ingestBash(c.Context())
 				case "atuin":
-					events, err = ingestAtuin()
+					events, err = ingestAtuin(c.Context())
 				default:
 					return fmt.Errorf("%w: %s", ErrUnknownSource, source)
 				}
@@ -48,11 +48,13 @@ func init() {
 				}
 
 				if len(events) == 0 {
-					slog.Info("No events to ingest")
+					logger := logging.GetLogger(c.Context())
+					logger.Info("No events to ingest")
 					return nil
 				}
 
-				slog.Info("Ingesting events...", "amount", len(events))
+				logger := logging.GetLogger(c.Context())
+				logger.Info("Ingesting events...", "amount", len(events))
 				return database.BatchRecordHistory(c.Context(), events)
 			},
 		})
