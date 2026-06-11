@@ -53,22 +53,21 @@ type validationResult struct {
 }
 
 var (
-	mu              sync.RWMutex
-	Drivers         = map[reflect.Type]map[string]any{}
-	driverWeights   = map[string]map[string]int{}
-	doctorList      = []doctorEntry{}
-	validationCache = map[string]*validationResult{}
+	mu            sync.RWMutex
+	Drivers       = map[reflect.Type]map[string]any{}
+	driverWeights = map[string]map[string]int{}
+	doctorList    = []doctorEntry{}
+
+	// validationCache allows each driver's CheckCompatibility to run at most once.
+	// Using sync.Map so cachedCheck does not require the global mu (prevents
+	// deadlock when Doctor snapshots under RLock and checks later call Get[]).
+	validationCache sync.Map // string (driver ID) -> *validationResult
 )
 
 // cachedCheck runs check at most once per driver ID for the lifetime of the process.
 func cachedCheck(id string, check func(context.Context) error, ctx context.Context) error {
-	mu.Lock()
-	vr, ok := validationCache[id]
-	if !ok {
-		vr = &validationResult{}
-		validationCache[id] = vr
-	}
-	mu.Unlock()
+	val, _ := validationCache.LoadOrStore(id, &validationResult{})
+	vr := val.(*validationResult)
 	vr.once.Do(func() { vr.err = check(ctx) })
 	return vr.err
 }
@@ -248,12 +247,22 @@ type InterfaceStatus struct {
 // Doctor returns the status of all registered drivers
 func Doctor(ctx context.Context) []InterfaceStatus {
 	mu.RLock()
-	defer mu.RUnlock()
 
 	byType := make(map[reflect.Type][]doctorEntry)
 	for _, d := range doctorList {
 		byType[d.InterfaceType] = append(byType[d.InterfaceType], d)
 	}
+
+	weightsSnapshot := make(map[string]map[string]int, len(driverWeights))
+	for name, w := range driverWeights {
+		inner := make(map[string]int, len(w))
+		for k, v := range w {
+			inner[k] = v
+		}
+		weightsSnapshot[name] = inner
+	}
+
+	mu.RUnlock()
 
 	var types []reflect.Type
 	for t := range byType {
@@ -268,7 +277,7 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 	for _, t := range types {
 		entries := byType[t]
 		ifaceName := getInterfaceName(t)
-		weights := driverWeights[ifaceName]
+		weights := weightsSnapshot[ifaceName]
 		ifaceStatus := InterfaceStatus{
 			Name: ifaceName,
 		}
