@@ -18,6 +18,7 @@ import (
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 	githubprov "workspaced/pkg/tool/backend/github"
 	"workspaced/pkg/version"
@@ -40,7 +41,38 @@ Strategy:
 The update is installed in ~/.local/share/workspaced/tools/ and the shim
 in ~/.local/bin/workspaced is updated automatically.`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfUpdate(c.Context(), force)
+			ctx := c.Context()
+			g := taskgroup.FromContext(ctx)
+			if g == nil {
+				return runSelfUpdate(ctx, force)
+			}
+
+			// Choose the right pool for the self-update task itself so it
+			// participates in concurrency limits and gets the correct
+			// emoji/type in the progress UI.
+			pool := taskgroup.Control
+			msg := "self-updating workspaced"
+			if _, found := findSourcePath(ctx); found {
+				pool = taskgroup.CPU // compiling is CPU-bound
+				msg = "compiling from source"
+			} else {
+				pool = taskgroup.Internet // downloading artifact is network-bound
+				msg = "downloading from GitHub"
+			}
+
+			var execErr error
+			g.Go("self-update", pool, func(ctx context.Context, s *taskgroup.Status) error {
+				s.Update(msg)
+				s.Progress(0, 1)
+				execErr = runSelfUpdate(ctx, force)
+				s.Progress(1, 1)
+				return execErr
+			})
+
+			if werr := taskgroup.Run(g); werr != nil && execErr == nil {
+				execErr = werr
+			}
+			return execErr
 		},
 	}
 
