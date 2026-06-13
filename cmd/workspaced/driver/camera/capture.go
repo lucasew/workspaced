@@ -18,8 +18,8 @@ import (
 )
 
 var (
-	errNoCamerasFound  = errors.New("no cameras found")
-	errCameraNotFound  = errors.New("camera not found")
+	errNoCamerasFound   = errors.New("no cameras found")
+	errCameraNotFound   = errors.New("camera not found")
 	errCaptureAllFailed = errors.New("failed to capture from any camera")
 )
 

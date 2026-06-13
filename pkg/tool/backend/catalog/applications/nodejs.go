@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	ErrNoNodeVersions    = errors.New("no node versions found")
+	ErrNoNodeVersions     = errors.New("no node versions found")
 	ErrNoPlatformArtifact = errors.New("no artifact for current platform")
 )
 
