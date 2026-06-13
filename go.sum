@@ -91,6 +91,8 @@ github.com/lucasb-eyer/go-colorful v1.3.0 h1:2/yBRLdWBZKrf7gB40FoiKfAWYQ0lqNcbuQ
 github.com/lucasb-eyer/go-colorful v1.3.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/lucasew/fetchurl v0.0.0-20260525133042-8c001421a513 h1:HF9904Hp6JP6zKKthA90q7d6m0RYP8unk0lBVUfehKs=
 github.com/lucasew/fetchurl v0.0.0-20260525133042-8c001421a513/go.mod h1:B4cS7LwAQL9vzmB0+8S9JC3yvMFzqnZORWWvhqK+fRA=
+github.com/lucasew/fetchurl v0.0.0-20260612135057-bc37d5971f3e h1:j8j3sdmNsq9AdE4YfN/1WPdzxAPZEKTP9zS0WFiLKLk=
+github.com/lucasew/fetchurl v0.0.0-20260612135057-bc37d5971f3e/go.mod h1:B4cS7LwAQL9vzmB0+8S9JC3yvMFzqnZORWWvhqK+fRA=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-localereader v0.0.1 h1:ygSAOl7ZXTx4RdPYinUpg6W99U8jWvWi9Ye2JC/oIi4=
