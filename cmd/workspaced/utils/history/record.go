@@ -40,7 +40,7 @@ func init() {
 					event.Cwd, _ = os.Getwd()
 				}
 
-				if database, ok := c.Context().Value(types.DBKey).(*db.DB); ok {
+				if database, ok := db.FromContext(c.Context()); ok {
 					return database.RecordHistory(c.Context(), event)
 				}
 

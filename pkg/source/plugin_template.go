@@ -11,13 +11,13 @@ import (
 	"workspaced/pkg/template"
 )
 
-// TemplateExpanderPlugin renderiza templates e expande multi-file
+// TemplateExpanderPlugin renders templates and expands multi-file output.
 type TemplateExpanderPlugin struct {
 	engine *template.Engine
 	data   any
 }
 
-// NewTemplateExpanderPlugin cria plugin de expansão de templates
+// NewTemplateExpanderPlugin creates a template expansion plugin.
 func NewTemplateExpanderPlugin(engine *template.Engine, data any) *TemplateExpanderPlugin {
 	return &TemplateExpanderPlugin{
 		engine: engine,
@@ -34,19 +34,19 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 	globalCfg, _ := p.data.(*configcue.Config)
 
 	for _, f := range files {
-		// Detectar se é template
+		// Detect if the file is a template
 		filename := filepath.Base(f.RelPath())
 		parts := strings.Split(filename, ".")
 		isTemplate := (len(parts) >= 2 && parts[len(parts)-1] == "tmpl") ||
 			(len(parts) >= 3 && parts[len(parts)-2] == "tmpl")
 
 		if !isTemplate {
-			// Não é template, passa adiante
+			// Not a template, pass through
 			result = append(result, f)
 			continue
 		}
 
-		// Calcular RelPath sem .tmpl
+		// Compute RelPath without .tmpl
 		relPath := f.RelPath()
 		if parts[len(parts)-1] == "tmpl" {
 			// file.tmpl → file
@@ -82,11 +82,11 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			return nil, fmt.Errorf("failed to render template %s: %w", f.SourceInfo(), err)
 		}
 
-		// Verificar se é multi-file
+		// Check if the output is multi-file
 		multiFiles, isMulti := template.ParseMultiFile(rendered)
 
 		if isMulti {
-			// UM template → N files (EAGER)
+			// One template → N files (EAGER)
 			baseRelDir := filepath.Dir(relPath)
 			baseName := strings.TrimSuffix(filepath.Base(relPath), filepath.Ext(relPath))
 
@@ -109,7 +109,7 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 				})
 			}
 		} else {
-			// UM template → 1 file (LAZY)
+			// One template → 1 file (LAZY)
 			result = append(result, &TemplateFile{
 				BasicFile: BasicFile{
 					RelPathStr:    relPath,

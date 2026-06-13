@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,10 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/modfile/sourceprovider/common"
+)
+
+var (
+	ErrMissingCachedHash = errors.New("missing cached source hash metadata")
 )
 
 type Provider struct{}
@@ -42,7 +47,7 @@ func (p Provider) LockHash(ctx context.Context, alias string, src modfile.Source
 		return "", src, fmt.Errorf("failed to read source metadata: %w", err)
 	}
 	if strings.TrimSpace(meta.Hash) == "" {
-		return "", src, fmt.Errorf("missing cached source hash metadata")
+		return "", src, ErrMissingCachedHash
 	}
 
 	normalized.Config.URL = strings.TrimSpace(meta.URL)

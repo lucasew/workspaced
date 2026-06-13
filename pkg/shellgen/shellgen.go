@@ -2,6 +2,7 @@ package shellgen
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -82,7 +83,7 @@ func Generate(ctx context.Context) (string, error) {
 	}
 
 	if len(errs) > 0 {
-		return "", fmt.Errorf("generator errors: %v", errs)
+		return "", errors.Join(errs...)
 	}
 
 	// Build output in order (sorted by key)

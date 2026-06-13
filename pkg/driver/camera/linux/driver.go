@@ -19,15 +19,15 @@ import (
 )
 
 func init() {
-	driver.Register[cameraapi.Driver](&Provider{})
+	driver.Register[cameraapi.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "v4l-ffmpeg" }
-func (p *Provider) Name() string { return "V4L2 + ffmpeg" }
+func (p *Factory) ID() string   { return "v4l-ffmpeg" }
+func (p *Factory) Name() string { return "V4L2 + ffmpeg" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("%w: linux is required", driver.ErrIncompatible)
 	}
@@ -37,7 +37,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (cameraapi.Driver, error) {
+func (p *Factory) New(ctx context.Context) (cameraapi.Driver, error) {
 	return &Driver{}, nil
 }
 

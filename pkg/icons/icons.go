@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -22,6 +23,8 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
+
+var ErrBadHTTPStatus = errors.New("unexpected HTTP status")
 
 func GetIconPath(ctx context.Context, url string) (string, error) {
 	configDir, err := env.GetConfigDir(ctx)
@@ -73,7 +76,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		defer logging.Close(ctx, resp.Body)
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("bad status: %s", resp.Status)
+			return fmt.Errorf("%w: %s", ErrBadHTTPStatus, resp.Status)
 		}
 
 		img, _, err := image.Decode(resp.Body)

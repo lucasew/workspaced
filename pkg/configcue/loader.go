@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"os"
@@ -30,6 +31,8 @@ import (
 	"cuelang.org/go/cue/parser"
 	"cuelang.org/go/cue/token"
 )
+
+var ErrInvalidInputSpec = errors.New("invalid input spec")
 
 //go:embed schema.cue prelude_common.cue prelude_home.cue prelude_codebase.cue
 var schemaFS embed.FS
@@ -815,7 +818,7 @@ func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []La
 
 		provider, target, ok := parseInputSpec(spec)
 		if !ok {
-			return nil, fmt.Errorf("resolve runtime input %q: invalid from %q", name, spec)
+			return nil, fmt.Errorf("resolve runtime input %q: %w: %q", name, ErrInvalidInputSpec, spec)
 		}
 		switch provider {
 		case "github":

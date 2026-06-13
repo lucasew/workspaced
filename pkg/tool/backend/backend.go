@@ -78,7 +78,7 @@ type BinaryTool interface {
 
 // --- Transitional / compatibility surface ---
 // These are kept while we migrate internal call sites to the Tool-based path.
-// New code should prefer Provider.Tool(ref) + the Tool interface and its extensions.
+// New code should prefer Backend.Tool(ref) + the Tool interface and its extensions.
 
 // PackageConfig is the old package reference shape. It is still used by some
 // transitional code paths and by the current low-level methods on concrete providers.
@@ -89,7 +89,7 @@ type PackageConfig struct {
 }
 
 // BinaryProvider is the old extension interface. Code is being migrated to
-// check for BinaryTool on the value returned by Provider.Tool(ref) instead.
+// check for BinaryTool on the value returned by Backend.Tool(ref) instead.
 type BinaryProvider interface {
 	EnsureBinary(ctx context.Context, pkg PackageConfig, version string, cmdName string, destPath string) (string, error)
 }
@@ -126,7 +126,7 @@ func ContainsAnyOf(haystack string, needles ...string) bool {
 
 // SelectArtifact chooses the best artifact for the given OS/arch from the list,
 // applying optional binary hint scoring (used by both the manager and
-// provider Tool implementations during the migration).
+// backend Tool implementations during the migration).
 //
 // For android, if no android-specific artifact is found for the arch, it
 // falls back to trying linux artifacts (many projects do not publish

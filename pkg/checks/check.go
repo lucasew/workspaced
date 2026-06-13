@@ -11,6 +11,7 @@ package checks
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"workspaced/pkg/compat"
 )
@@ -33,6 +34,9 @@ var ErrIncompatible = compat.ErrIncompatible
 
 // ErrNotApplicable is kept as alias for readability in check code.
 var ErrNotApplicable = ErrIncompatible
+
+// ErrToolNotAvailable indicates a required tool binary is not available.
+var ErrToolNotAvailable = errors.New("required tool not available")
 
 // providers holds the registry of implementations.
 // Since registration happens only during init(), we don't need mutexes for runtime access.

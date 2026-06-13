@@ -14,22 +14,22 @@ import (
 )
 
 func init() {
-	driver.Register[tray.Driver](&Provider{})
+	driver.Register[tray.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "tray_dbus" }
-func (p *Provider) Name() string { return "DBus" }
+func (p *Factory) ID() string   { return "tray_dbus" }
+func (p *Factory) Name() string { return "DBus" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		return fmt.Errorf("%w: DBUS_SESSION_BUS_ADDRESS not set", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (tray.Driver, error) {
+func (p *Factory) New(ctx context.Context) (tray.Driver, error) {
 	return NewDriver(), nil
 }
 
@@ -88,7 +88,7 @@ func (d *Driver) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to request name: %w", err)
 	}
 	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return fmt.Errorf("name already taken")
+		return tray.ErrNameTaken
 	}
 
 	// Emit NewMenu signal to let watcher know we have a menu

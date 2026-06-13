@@ -2,7 +2,12 @@ package shim
 
 import (
 	"context"
+	"errors"
 	"workspaced/pkg/driver"
+)
+
+var (
+	ErrEmptyCommand = errors.New("command cannot be empty")
 )
 
 // Driver provides shim script generation capabilities

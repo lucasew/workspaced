@@ -8,7 +8,7 @@ import (
 	"workspaced/pkg/template"
 )
 
-// TemplateFile representa um template renderizado sob demanda
+// TemplateFile represents a lazily-rendered template file.
 type TemplateFile struct {
 	BasicFile
 	SourceFile File
@@ -39,7 +39,7 @@ func (f *TemplateFile) Reader() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(rendered)), nil
 }
 
-// ConcatenatedFile representa múltiplos arquivos unidos (DotD)
+// ConcatenatedFile represents multiple files concatenated together (DotD).
 type ConcatenatedFile struct {
 	BasicFile
 	Components []File

@@ -5,6 +5,7 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,11 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
+)
+
+var (
+	ErrEmptyDownloadURL  = errors.New("download URL cannot be empty")
+	ErrNoDownloadURLs    = errors.New("no download URLs provided")
 )
 
 type DownloadOptions struct {
@@ -64,7 +70,7 @@ func InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir str
 
 func DownloadFile(ctx context.Context, url, dest string, opts DownloadOptions) error {
 	if strings.TrimSpace(url) == "" {
-		return fmt.Errorf("download url cannot be empty")
+		return ErrEmptyDownloadURL
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
@@ -101,7 +107,7 @@ func DownloadFirst(ctx context.Context, urls []string, dest string, opts Downloa
 		}
 	}
 	if len(errs) == 0 {
-		return fmt.Errorf("no download urls provided")
+		return ErrNoDownloadURLs
 	}
 	return fmt.Errorf("all downloads failed: %s", strings.Join(errs, "; "))
 }

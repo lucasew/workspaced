@@ -1,11 +1,16 @@
 package catalog
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/backend"
+)
+
+var (
+	ErrEmptyToolName = errors.New("curated tool name cannot be empty")
 )
 
 func init() {
@@ -36,7 +41,7 @@ func (c *catalog) Tool(ref string) (backend.Tool, error) {
 	// See applications/ for the list of github-backed named tools.
 	name := strings.TrimSpace(ref)
 	if name == "" {
-		return nil, fmt.Errorf("curated tool name cannot be empty")
+		return nil, ErrEmptyToolName
 	}
 
 	if ctor, ok := namedTools[name]; ok {

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -19,6 +20,12 @@ import (
 func init() {
 	module.RegisterProvider(&Provider{})
 }
+
+var (
+	ErrInputDirRequired     = errors.New("input_dir is required for core:base16-icons-linux")
+	ErrThemeNameRequired    = errors.New("theme_name is required")
+	ErrInvalidBase16Config  = errors.New("invalid modules.base16 config")
+)
 
 type Provider struct{}
 
@@ -64,7 +71,7 @@ func (p *Provider) resolveBase16IconsLinux(ctx context.Context, req module.Resol
 	}
 
 	if strings.TrimSpace(cfg.InputDir) == "" {
-		return nil, fmt.Errorf("input_dir is required for core:base16-icons-linux")
+		return nil, ErrInputDirRequired
 	}
 	cfg.InputDir = env.ExpandPath(cfg.InputDir)
 	if cfg.OutputDir == "" {
@@ -76,7 +83,7 @@ func (p *Provider) resolveBase16IconsLinux(ctx context.Context, req module.Resol
 		return nil, fmt.Errorf("invalid input_dir %q: %w", cfg.InputDir, err)
 	}
 	if cfg.ThemeName == "" {
-		return nil, fmt.Errorf("theme_name is required")
+		return nil, ErrThemeNameRequired
 	}
 
 	palette, err := extractBase16(req)
@@ -157,7 +164,7 @@ func extractBase16(req module.ResolveRequest) (map[string]any, error) {
 		return nil, fmt.Errorf("module %q from core:base16-icons-linux requires modules.base16", req.ModuleName)
 	}
 	if entry.Config == nil {
-		return nil, fmt.Errorf("invalid modules.base16 config")
+		return nil, ErrInvalidBase16Config
 	}
 	return entry.Config, nil
 }

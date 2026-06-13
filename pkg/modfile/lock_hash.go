@@ -31,7 +31,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 
 		provider, ok := getSourceProvider(providerID)
 		if !ok {
-			return fmt.Errorf("source %q provider %q not supported for lock hash", alias, providerID)
+			return fmt.Errorf("source %q: %w: %q", alias, ErrUnsupportedProvider, providerID)
 		}
 		normalized := provider.Normalize(src)
 		if strings.TrimSpace(normalized.URL) != "" {
@@ -43,7 +43,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		}
 		hash = strings.TrimSpace(hash)
 		if hash == "" {
-			return fmt.Errorf("source %q: provider %q returned empty hash", alias, providerID)
+			return fmt.Errorf("source %q: %w: provider %q", alias, ErrEmptyHash, providerID)
 		}
 		if strings.TrimSpace(resolved.URL) != "" {
 			entry.URL = strings.TrimSpace(resolved.URL)

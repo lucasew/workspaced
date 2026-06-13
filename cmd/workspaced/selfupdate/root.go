@@ -3,6 +3,7 @@ package selfupdate
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,16 @@ import (
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	ErrGoVersionUnknown     = errors.New("could not determine Go version from build info")
+	ErrNoVersionsFound      = errors.New("no versions found")
+	ErrArtifactToolRequired = errors.New("github tool does not support ArtifactTool (needed for selfupdate)")
+	ErrNoArtifactFound      = errors.New("no artifact found for current platform")
+	ErrNoBinaryFound        = errors.New("no binary found")
+	ErrHTTPDownloadFailed   = errors.New("HTTP download failed")
+	ErrMiseInstallFailed    = errors.New("mise installation failed")
 )
 
 func GetCommand() *cobra.Command {
@@ -105,7 +116,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	// Get build dependencies
 	goVersion := getGoVersion()
 	if goVersion == "" {
-		return fmt.Errorf("could not determine Go version from build info")
+		return ErrGoVersionUnknown
 	}
 
 	// Ensure mise is installed (auto-install if needed)
@@ -181,7 +192,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	}
 
 	if len(versions) == 0 {
-		return fmt.Errorf("no versions found")
+		return ErrNoVersionsFound
 	}
 
 	latestVersion := versions[0]
@@ -207,7 +218,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	// Use ArtifactTool + the shared SelectArtifact for platform selection.
 	at, ok := t.(backend.ArtifactTool)
 	if !ok {
-		return fmt.Errorf("github tool does not support ArtifactTool (needed for selfupdate)")
+		return ErrArtifactToolRequired
 	}
 
 	artifacts, err := at.ListArtifacts(ctx, latestVersion)
@@ -224,7 +235,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		for _, a := range artifacts {
 			available = append(available, fmt.Sprintf("%s/%s", a.OS, a.Arch))
 		}
-		return fmt.Errorf("no artifact found for %s/%s (available: %v)", runtime.GOOS, runtime.GOARCH, available)
+		return fmt.Errorf("%w: %s/%s (available: %v)", ErrNoArtifactFound, runtime.GOOS, runtime.GOARCH, available)
 	}
 
 	// Install to fixed location (not versioned)
@@ -348,7 +359,7 @@ func findBinary(dir string) (string, error) {
 		return candidates[0], nil
 	}
 
-	return "", fmt.Errorf("no binary found in %s", dir)
+	return "", fmt.Errorf("%w: %s", ErrNoBinaryFound, dir)
 }
 
 // ============================================================================
@@ -471,7 +482,7 @@ func installMise(ctx context.Context, misePath string) error {
 	defer logging.Close(ctx, resp.Body, "url", "https://mise.run")
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
+		return fmt.Errorf("%w: HTTP %d", ErrHTTPDownloadFailed, resp.StatusCode)
 	}
 
 	scriptBytes, err := io.ReadAll(resp.Body)
@@ -496,7 +507,7 @@ func installMise(ctx context.Context, misePath string) error {
 
 	// Verify installation
 	if _, err := os.Stat(misePath); err != nil {
-		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
+		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, misePath)
 	}
 
 	logger.Info("mise installed successfully", "path", misePath)

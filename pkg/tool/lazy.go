@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,15 @@ import (
 	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
+)
+
+var (
+	// ErrNilWorkspace is returned when a nil workspace is passed to a function that requires one.
+	ErrNilWorkspace = errors.New("workspace is nil")
+	// ErrNilConfig is returned when a nil config is passed to a function that requires one.
+	ErrNilConfig = errors.New("config is nil")
+	// ErrLazyToolNotFound is returned when a lazy tool alias cannot be found in the workspace or home config.
+	ErrLazyToolNotFound = errors.New("lazy tool not found in workspace or home config")
 )
 
 type lazyToolConfig struct {
@@ -79,10 +89,10 @@ func ResolveHomeLazyTool(ctx context.Context, toolName, binName string) (string,
 // to ensure CI reproducible executions. Returns the count of updated tool definitions.
 func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (int, error) {
 	if ws == nil {
-		return 0, fmt.Errorf("workspace is nil")
+		return 0, ErrNilWorkspace
 	}
 	if cfg == nil {
-		return 0, fmt.Errorf("config is nil")
+		return 0, ErrNilConfig
 	}
 	if err := ws.EnsureFiles(ctx); err != nil {
 		return 0, err
@@ -234,10 +244,10 @@ type LockRefreshResult struct {
 // and tool (execution) locks, effectively aligning the workspace modfile with the configured states.
 func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *configcue.Config) (LockRefreshResult, error) {
 	if ws == nil {
-		return LockRefreshResult{}, fmt.Errorf("workspace is nil")
+		return LockRefreshResult{}, ErrNilWorkspace
 	}
 	if cfg == nil {
-		return LockRefreshResult{}, fmt.Errorf("config is nil")
+		return LockRefreshResult{}, ErrNilConfig
 	}
 
 	lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg)
@@ -290,7 +300,7 @@ func workspaceRootOrEmpty(ws *modfile.Workspace) string {
 
 func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, toolName, binName string) (string, error) {
 	if ws == nil {
-		return "", fmt.Errorf("workspace is nil")
+		return "", ErrNilWorkspace
 	}
 	logger := logging.GetLogger(ctx)
 
@@ -318,7 +328,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		}
 	}
 	if !ok {
-		return "", fmt.Errorf("lazy tool %q not found in workspace or home config", toolName)
+		return "", fmt.Errorf("%w: %s", ErrLazyToolNotFound, toolName)
 	}
 
 	spec, lockRef, err := lazyToolSpec(toolName, toolCfg)

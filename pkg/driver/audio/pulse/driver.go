@@ -15,22 +15,22 @@ import (
 var sink = "@DEFAULT_SINK@"
 
 func init() {
-	driver.Register[audio.Driver](&Provider{})
+	driver.Register[audio.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "audio_pulse" }
-func (p *Provider) Name() string { return "PulseAudio (pactl)" }
+func (p *Factory) ID() string   { return "audio_pulse" }
+func (p *Factory) Name() string { return "PulseAudio (pactl)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "pactl") {
 		return fmt.Errorf("%w: pactl not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (audio.Driver, error) {
+func (p *Factory) New(ctx context.Context) (audio.Driver, error) {
 	return &Driver{}, nil
 }
 

@@ -24,7 +24,7 @@
 
 ## Driver System (minimal)
 
-Drivers implement `DriverProvider[T]`:
+Drivers implement `DriverFactory[T]`:
 - `ID()`, `Name()`, `CheckCompatibility()`, `New()`
 
 Selection is done by `driver.Get[T](ctx)` using weights from `workspaced.cue`.

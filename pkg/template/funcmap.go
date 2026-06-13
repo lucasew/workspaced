@@ -2,6 +2,7 @@ package template
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,10 +18,10 @@ import (
 	"workspaced/pkg/text"
 )
 
-// ErrFileSkipped é retornado quando um template chama {{ skip }}
-var ErrFileSkipped = fmt.Errorf("file skipped")
+// ErrFileSkipped is returned when a template calls {{ skip }}.
+var ErrFileSkipped = errors.New("file skipped")
 
-// makeFuncMap cria o FuncMap padrão do workspaced
+// makeFuncMap creates the default workspaced FuncMap.
 func makeFuncMap(ctx context.Context) template.FuncMap {
 	lockTool, lockSource := makeLockLookups(ctx)
 	return template.FuncMap{

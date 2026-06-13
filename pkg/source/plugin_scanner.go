@@ -2,13 +2,23 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// ScannerPlugin descobre arquivos em um diretório
+var (
+	// ErrScannerNameRequired is returned when a scanner plugin is created without a name.
+	ErrScannerNameRequired = errors.New("scanner name is required")
+	// ErrBaseDirectoryRequired is returned when a scanner plugin is created without a base directory.
+	ErrBaseDirectoryRequired = errors.New("base directory is required")
+	// ErrBaseDirNotExist is returned when the scanner's base directory does not exist.
+	ErrBaseDirNotExist = errors.New("base directory does not exist")
+)
+
+// ScannerPlugin discovers files in a directory.
 type ScannerPlugin struct {
 	name       string
 	baseDir    string
@@ -16,21 +26,21 @@ type ScannerPlugin struct {
 	priority   int
 }
 
-// ScannerConfig configura um ScannerPlugin
+// ScannerConfig configures a ScannerPlugin.
 type ScannerConfig struct {
-	Name       string // Nome identificador
-	BaseDir    string // Diretório fonte (onde estão os arquivos)
-	TargetBase string // Base path para targets (opcional, default: $HOME)
-	Priority   int    // Priority em conflitos
+	Name       string // Unique identifier
+	BaseDir    string // Source directory (where the files are)
+	TargetBase string // Base path for targets (optional, default: $HOME)
+	Priority   int    // Priority in conflicts
 }
 
-// NewScannerPlugin cria um plugin scanner
+// NewScannerPlugin creates a scanner plugin.
 func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 	if cfg.Name == "" {
-		return nil, fmt.Errorf("scanner name is required")
+		return nil, ErrScannerNameRequired
 	}
 	if cfg.BaseDir == "" {
-		return nil, fmt.Errorf("base directory is required")
+		return nil, ErrBaseDirectoryRequired
 	}
 
 	// Expand paths
@@ -40,9 +50,9 @@ func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 		baseDir = filepath.Join(home, baseDir[2:])
 	}
 
-	// Verificar se diretório existe
+	// Check if directory exists
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
-		return nil, fmt.Errorf("base directory does not exist: %s", baseDir)
+		return nil, fmt.Errorf("%w: %s", ErrBaseDirNotExist, baseDir)
 	}
 
 	// Target base (default: $HOME)
@@ -75,12 +85,12 @@ func (p *ScannerPlugin) Process(ctx context.Context, files []File) ([]File, erro
 			return err
 		}
 
-		// Skip diretórios por enquanto (serão processados depois)
+		// Skip directories (processed separately)
 		if info.IsDir() {
 			return nil
 		}
 
-		// Calcular caminho relativo
+		// Calculate relative path
 		rel, err := filepath.Rel(p.baseDir, path)
 		if err != nil {
 			return err
@@ -109,6 +119,6 @@ func (p *ScannerPlugin) Process(ctx context.Context, files []File) ([]File, erro
 		return nil, fmt.Errorf("failed to scan directory: %w", err)
 	}
 
-	// Append aos arquivos existentes
+	// Append to existing files
 	return append(files, discovered...), nil
 }

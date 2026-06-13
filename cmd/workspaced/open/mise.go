@@ -14,6 +14,7 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim/bash"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/miseutil"
 
 	"github.com/spf13/cobra"
 )
@@ -37,7 +38,7 @@ func getMisePath() string {
 func installMise(ctx *cobra.Command) error {
 	misePath := getMisePath()
 	if misePath == "" {
-		return fmt.Errorf("could not determine mise install path")
+		return miseutil.ErrMiseInstallPathUnknown
 	}
 
 	// Create directory if it doesn't exist
@@ -63,7 +64,7 @@ func installMise(ctx *cobra.Command) error {
 	defer logging.Close(ctx.Context(), resp.Body, "url", "https://mise.run")
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
+		return fmt.Errorf("%w: HTTP %d", miseutil.ErrHTTPDownloadFailed, resp.StatusCode)
 	}
 
 	scriptBytes, err := io.ReadAll(resp.Body)
@@ -89,7 +90,7 @@ func installMise(ctx *cobra.Command) error {
 
 	// Verify installation
 	if _, err := os.Stat(misePath); os.IsNotExist(err) {
-		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
+		return fmt.Errorf("%w: binary not found at %s", miseutil.ErrMiseInstallFailed, misePath)
 	}
 
 	logger.Info("mise installed successfully", "path", misePath)
@@ -101,7 +102,7 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 	logger := logging.GetLogger(ctx.Context())
 	misePath := getMisePath()
 	if misePath == "" {
-		return "", fmt.Errorf("could not determine mise install path")
+		return "", miseutil.ErrMiseInstallPathUnknown
 	}
 
 	// Check if mise exists

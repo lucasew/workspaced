@@ -21,7 +21,7 @@ func init() {
 			DisableFlagParsing: true,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				if len(args) == 0 {
-					return fmt.Errorf("no flake reference provided")
+					return errNoFlakeRef
 				}
 				ctx := cmd.Context()
 				ref := args[0]
@@ -57,7 +57,7 @@ func init() {
 				if binary == "" {
 					entries, err := os.ReadDir(binDir)
 					if err != nil || len(entries) == 0 {
-						return fmt.Errorf("no binary found in %s", binDir)
+						return fmt.Errorf("%w: %s", errNoBinaryFound, binDir)
 					}
 					binary = entries[0].Name()
 				}

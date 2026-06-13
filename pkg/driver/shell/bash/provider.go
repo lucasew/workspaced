@@ -7,22 +7,22 @@ import (
 	shelldriver "workspaced/pkg/driver/shell"
 )
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string {
+func (p *Factory) ID() string {
 	return "shell_bash"
 }
 
-func (p *Provider) Name() string {
+func (p *Factory) Name() string {
 	return "Bash"
 }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	_, err := execdriver.Which(ctx, "bash")
 	return err
 }
 
-func (p *Provider) New(ctx context.Context) (shelldriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (shelldriver.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -49,5 +49,5 @@ func (d *Driver) Path(ctx context.Context) (string, error) {
 }
 
 func init() {
-	driver.Register[shelldriver.Driver](&Provider{})
+	driver.Register[shelldriver.Driver](&Factory{})
 }

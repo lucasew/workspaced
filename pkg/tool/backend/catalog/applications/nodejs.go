@@ -3,6 +3,7 @@ package apps
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,11 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
+)
+
+var (
+	ErrNoNodeVersions    = errors.New("no node versions found")
+	ErrNoPlatformArtifact = errors.New("no artifact for current platform")
 )
 
 func init() {
@@ -42,7 +48,7 @@ func (t *nodejsTool) Install(ctx context.Context, version string, destDir string
 			return err
 		}
 		if len(vers) == 0 {
-			return fmt.Errorf("no node versions found")
+			return ErrNoNodeVersions
 		}
 		v = vers[0]
 	}
@@ -51,7 +57,7 @@ func (t *nodejsTool) Install(ctx context.Context, version string, destDir string
 		return err
 	}
 	if len(arts) == 0 {
-		return fmt.Errorf("no artifact for current platform")
+		return ErrNoPlatformArtifact
 	}
 	return t.InstallArtifact(ctx, arts[0], destDir)
 }
@@ -73,7 +79,7 @@ func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]backe
 			return nil, err
 		}
 		if len(vers) == 0 {
-			return nil, fmt.Errorf("no node versions")
+			return nil, ErrNoNodeVersions
 		}
 		v = vers[0]
 	}

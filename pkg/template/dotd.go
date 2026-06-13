@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// ProcessDotD processa um diretório .d.tmpl (concatenação de arquivos)
+// ProcessDotD processes a .d.tmpl directory (file concatenation).
 func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]byte, error) {
 	// Check if directory exists
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {

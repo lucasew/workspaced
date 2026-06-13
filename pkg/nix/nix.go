@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -115,7 +114,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	}
 
 	// 1. Resolve source
-	updateProgress("Resolvendo metadados do flake...", 0.1)
+	updateProgress("Resolving flake metadata...", 0.1)
 	repo, item := parseFlakeRef(ref)
 
 	sourcePath, err := ResolveFlakePath(ctx, repo)
@@ -124,13 +123,13 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	}
 
 	// 2. Sync source to target
-	updateProgress(fmt.Sprintf("Sincronizando fontes para %s...", target), 0.3)
+	updateProgress(fmt.Sprintf("Syncing sources to %s...", target), 0.3)
 	if err := CopyClosure(ctx, target, sourcePath, To); err != nil {
 		return "", fmt.Errorf("failed to copy source to %s: %w", target, err)
 	}
 
 	// 3. Remote build
-	updateProgress("Compilando no servidor remoto...", 0.6)
+	updateProgress("Building on remote server...", 0.6)
 	remoteCache, err := GetRemoteCacheDir(ctx, target)
 	if err != nil {
 		return "", fmt.Errorf("failed to get remote cache dir: %w", err)
@@ -168,13 +167,13 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 
 	// 4. Copy back
 	if copyBack {
-		updateProgress("Sincronizando resultado de volta...", 0.9)
+		updateProgress("Syncing result back...", 0.9)
 		if err := CopyClosure(ctx, target, resultPath, From); err != nil {
 			return "", fmt.Errorf("failed to copy result from %s: %w", target, err)
 		}
 	}
 
-	updateProgress("Build concluído com sucesso.", 1.0)
+	updateProgress("Build completed successfully.", 1.0)
 	return resultPath, nil
 }
 
@@ -313,7 +312,7 @@ func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
 
 func GetFlakeOutput(ctx context.Context, flake, output string) (string, error) {
 	cmd := execdriver.MustRun(ctx, "nix", "build", fmt.Sprintf("%s#%s", flake, output), "--no-link", "--print-out-paths")
-	if stderr, ok := ctx.Value(types.StderrKey).(io.Writer); ok {
+	if stderr := executil.Stderr(ctx); stderr != nil {
 		cmd.Stderr = stderr
 	}
 	out, err := cmd.Output()

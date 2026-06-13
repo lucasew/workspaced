@@ -11,22 +11,22 @@ import (
 )
 
 func init() {
-	driver.Register[brightness.Driver](&Provider{})
+	driver.Register[brightness.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "brightness_ctl" }
-func (p *Provider) Name() string { return "brightnessctl" }
+func (p *Factory) ID() string   { return "brightness_ctl" }
+func (p *Factory) Name() string { return "brightnessctl" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "brightnessctl") {
 		return fmt.Errorf("%w: brightnessctl not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (brightness.Driver, error) {
+func (p *Factory) New(ctx context.Context) (brightness.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -58,7 +58,7 @@ func (d *Driver) Status(ctx context.Context) (*brightness.Device, error) {
 			Brightness: float64(l) / 100,
 		}, nil
 	}
-	return nil, fmt.Errorf("failed to find brightness device")
+	return nil, brightness.ErrDeviceNotFound
 }
 
 func (d *Driver) SetBrightness(ctx context.Context, level float64) error {

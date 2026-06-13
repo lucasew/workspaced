@@ -2,6 +2,7 @@ package modulecue
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -258,7 +259,7 @@ func cueExprFromAny(v any) (ast.Expr, error) {
 		}
 		return ast.NewList(exprs...), nil
 	default:
-		return nil, fmt.Errorf("unsupported cue context value type %T", v)
+		return nil, fmt.Errorf("%w: %T", ErrUnsupportedValueType, v)
 	}
 }
 
@@ -269,18 +270,25 @@ func numberExpr(s string) (ast.Expr, error) {
 	return ast.NewLit(token.INT, s), nil
 }
 
+var (
+	ErrModuleFieldNotFound       = errors.New("module field not found")
+	ErrModuleFieldNotStruct      = errors.New("module field is not a struct")
+	ErrModuleConfigFieldNotFound = errors.New("module.config field not found")
+	ErrUnsupportedValueType      = errors.New("unsupported cue context value type")
+)
+
 func findModuleConfigExpr(file *ast.File) (ast.Expr, error) {
 	moduleField := findField(file.Decls, "module")
 	if moduleField == nil {
-		return nil, fmt.Errorf("module field not found")
+		return nil, ErrModuleFieldNotFound
 	}
 	moduleStruct, ok := moduleField.Value.(*ast.StructLit)
 	if !ok {
-		return nil, fmt.Errorf("module field is not a struct")
+		return nil, ErrModuleFieldNotStruct
 	}
 	configField := findField(moduleStruct.Elts, "config")
 	if configField == nil {
-		return nil, fmt.Errorf("module.config field not found")
+		return nil, ErrModuleConfigFieldNotFound
 	}
 	return configField.Value, nil
 }

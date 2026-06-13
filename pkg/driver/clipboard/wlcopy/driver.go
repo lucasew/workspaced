@@ -16,15 +16,15 @@ import (
 )
 
 func init() {
-	driver.Register[clipboard.Driver](&Provider{})
+	driver.Register[clipboard.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "clipboard_wlcopy" }
-func (p *Provider) Name() string { return "Wayland (wl-copy)" }
+func (p *Factory) ID() string   { return "clipboard_wlcopy" }
+func (p *Factory) Name() string { return "Wayland (wl-copy)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -34,7 +34,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (clipboard.Driver, error) {
+func (p *Factory) New(ctx context.Context) (clipboard.Driver, error) {
 	return &Driver{}, nil
 }
 

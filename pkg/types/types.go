@@ -2,27 +2,6 @@ package types
 
 import "encoding/json"
 
-// ContextKey is a distinct string type for context values to prevent key collisions.
-type ContextKey string
-
-const (
-	// DaemonModeKey flags whether the application is running as a long-lived daemon.
-	DaemonModeKey ContextKey = "daemon_mode"
-	// EnvKey stores the environment variables (slice of "KEY=VALUE" strings)
-	// to be injected into subprocesses spawned by the handler.
-	EnvKey ContextKey = "env"
-	// LoggerKey stores the *slog.Logger instance, allowing contextual logging
-	// (e.g., with request IDs) throughout the request lifecycle.
-	LoggerKey ContextKey = "logger"
-	// StdoutKey stores an io.Writer for capturing standard output from subprocesses,
-	// typically redirected to the client's response stream.
-	StdoutKey ContextKey = "stdout"
-	// StderrKey stores an io.Writer for capturing standard error from subprocesses.
-	StderrKey ContextKey = "stderr"
-	// DBKey stores the database connection.
-	DBKey ContextKey = "db"
-)
-
 // SudoCommand defines a privileged command request.
 // It aggregates execution context (cwd, env) and a timestamp for validity checks.
 type SudoCommand struct {

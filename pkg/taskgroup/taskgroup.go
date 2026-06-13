@@ -11,6 +11,7 @@ package taskgroup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -18,6 +19,11 @@ import (
 	"sync"
 
 	"workspaced/pkg/logging"
+)
+
+var (
+	ErrUnknownDependency = errors.New("unknown dependency")
+	ErrDependencyFailed  = errors.New("dependency failed")
 )
 
 // PoolKind identifies which resource pool a task consumes a slot from.
@@ -475,7 +481,7 @@ func (g *Group) runTask(t *taskEntry) {
 		depTask, ok := g.byName[dep]
 		g.mu.Unlock()
 		if !ok {
-			t.setError(fmt.Errorf("taskgroup: unknown dependency %q for task %q", dep, t.name))
+			t.setError(fmt.Errorf("taskgroup: %w %q for task %q", ErrUnknownDependency, dep, t.name))
 			g.recordError(t.err)
 			return
 		}
@@ -486,7 +492,7 @@ func (g *Group) runTask(t *taskEntry) {
 			depErr := depTask.err
 			depTask.mu.Unlock()
 			if depErr != nil {
-				t.setError(fmt.Errorf("taskgroup: dependency %q failed: %w", dep, depErr))
+				t.setError(fmt.Errorf("taskgroup: %w: %q: %w", ErrDependencyFailed, dep, depErr))
 				g.recordError(t.err)
 				return
 			}

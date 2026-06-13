@@ -57,13 +57,13 @@ func GetCommand() *cobra.Command {
 
 				logger := logging.GetLogger(ctx)
 
-				// Carregar configuração
+				// Load configuration
 				cfg, err := configcue.LoadHome(ctx)
 				if err != nil {
 					return fmt.Errorf("failed to load config: %w", err)
 				}
 
-				// Obter dotfiles root
+				// Get dotfiles root
 				dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 				if err != nil {
 					return fmt.Errorf("failed to get dotfiles root: %w", err)
@@ -80,17 +80,17 @@ func GetCommand() *cobra.Command {
 					return fmt.Errorf("failed to get home directory: %w", err)
 				}
 
-				// Criar template engine compartilhada
+				// Create shared template engine
 				engine := template.NewEngine(ctx)
 
-				// Configurar pipeline de plugins
+				// Configure plugin pipeline
 				configDir := filepath.Join(dotfilesRoot, "config")
 				pipeline := source.NewPipeline()
 
 				// 1. Provider dconf (legacy)
 				pipeline.AddPlugin(source.NewProviderPlugin(&apply.DconfProvider{}, 50))
 
-				// 2. Scanner - descobre arquivos em config/
+				// 2. Scanner - discovers files in config/
 				if _, err := os.Stat(configDir); err == nil {
 					scanner, err := source.NewScannerPlugin(source.ScannerConfig{
 						Name:       "legacy-config",
@@ -110,13 +110,13 @@ func GetCommand() *cobra.Command {
 					pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg, 100))
 				}
 
-				// 3. TemplateExpander - renderiza .tmpl (inclui multi-file)
+				// 3. TemplateExpander - renders .tmpl (includes multi-file)
 				pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg))
 
-				// 4. DotDProcessor - concatena .d.tmpl/
+				// 4. DotDProcessor - concatenates .d.tmpl/
 				pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg))
 
-				// 5. StrictConflictResolver - garante unicidade total
+				// 5. StrictConflictResolver - ensures total uniqueness
 				pipeline.AddPlugin(source.NewStrictConflictResolverPlugin())
 
 				// StateStore
@@ -148,14 +148,14 @@ func GetCommand() *cobra.Command {
 							return apply.ApplyHomeDconf(ctx)
 						},
 					},
-					// Hook para reload GTK theme
+					// Hook to reload GTK theme
 					&dotfiles.FuncHook{
 						AfterFn: func(ctx context.Context, actions []deployer.Action, execErr error) error {
 							if execErr != nil {
-								return nil // Não executar se houve erro
+								return nil // Don't execute if there was an error
 							}
 							if env.IsPhone(ctx) {
-								return nil // Não executar em phone
+								return nil // Don't execute on phone
 							}
 
 							home, _ := os.UserHomeDir()
@@ -186,7 +186,7 @@ func GetCommand() *cobra.Command {
 					},
 				}
 
-				// Criar manager com pipeline
+				// Create manager with pipeline
 				mgr, err := dotfiles.NewManager(dotfiles.Config{
 					Pipeline:   pipeline,
 					StateStore: stateStore,
@@ -196,7 +196,7 @@ func GetCommand() *cobra.Command {
 					return fmt.Errorf("failed to create manager: %w", err)
 				}
 
-				// Aplicar configurações
+				// Apply configurations
 				result, err := mgr.Apply(ctx, dotfiles.ApplyOptions{
 					DryRun: dryRun,
 				})
@@ -204,7 +204,7 @@ func GetCommand() *cobra.Command {
 					return err
 				}
 
-				// Mostrar resultado
+				// Show result
 				if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
 					orderedActions := deployer.SortActions(result.Actions)
 					w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)

@@ -13,22 +13,22 @@ import (
 )
 
 func init() {
-	driver.Register[clipboard.Driver](&Provider{})
+	driver.Register[clipboard.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "clipboard_termux" }
-func (p *Provider) Name() string { return "Termux" }
+func (p *Factory) ID() string   { return "clipboard_termux" }
+func (p *Factory) Name() string { return "Termux" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" && !execdriver.IsBinaryAvailable(ctx, "termux-clipboard-set") {
 		return fmt.Errorf("%w: termux not detected", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (clipboard.Driver, error) {
+func (p *Factory) New(ctx context.Context) (clipboard.Driver, error) {
 	return &Driver{}, nil
 }
 

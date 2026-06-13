@@ -119,6 +119,24 @@ func (v SemVer) Equal(other SemVer) bool {
 	return v.Compare(other) == 0
 }
 
+// ParseNumericPrefix extracts the leading numeric portion of a string.
+// For example, "3-beta" → 3, "" → 0.
+func ParseNumericPrefix(s string) int {
+	numPart := ""
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			numPart += string(r)
+		} else {
+			break
+		}
+	}
+	if numPart == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(numPart)
+	return n
+}
+
 // SemVers is a slice of SemVer that implements sort.Interface
 type SemVers []SemVer
 

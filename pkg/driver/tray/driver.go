@@ -2,7 +2,12 @@ package tray
 
 import (
 	"context"
+	"errors"
 	"image"
+)
+
+var (
+	ErrNameTaken = errors.New("tray name already taken")
 )
 
 // MenuItem represents an item in the tray menu.

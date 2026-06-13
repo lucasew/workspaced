@@ -21,7 +21,7 @@ func init() {
 			Args:  cobra.ExactArgs(1),
 			RunE: func(c *cobra.Command, args []string) error {
 				source := args[0]
-				database, ok := c.Context().Value(types.DBKey).(*db.DB)
+				database, ok := db.FromContext(c.Context())
 				if !ok {
 					var err error
 					database, err = db.Open(c.Context())

@@ -3,33 +3,38 @@ package source
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 )
 
-// Source representa uma origem de arquivos/templates
+var (
+	// ErrNotSymlink is returned when a non-symlink file is asked for its link target.
+	ErrNotSymlink = errors.New("not a symlink")
+)
+
+// Source represents a file/template origin.
 type Source interface {
-	// Name retorna identificador único da source
+	// Name returns the unique identifier of the source.
 	Name() string
 
-	// Priority define precedência em conflitos (maior = mais prioritário)
+	// Priority defines precedence in conflicts (higher = more priority).
 	Priority() int
 
-	// Scan descobre e retorna todos os arquivos desta source
+	// Scan discovers and returns all files from this source.
 	Scan(ctx context.Context) ([]File, error)
 }
 
-// FileType indica o tipo de processamento necessário
+// FileType indicates the kind of processing required.
 type FileType int
 
 const (
-	TypeSymlink   FileType = iota // Criar symlink direto
-	TypeStatic                    // Copiar arquivo estático (sem template)
-	TypeTemplate                  // Renderizar template simples
-	TypeMultiFile                 // Template que gera múltiplos arquivos
-	TypeDotD                      // Diretório .d.tmpl (concatenação)
+	TypeSymlink   FileType = iota // Create a direct symlink
+	TypeStatic                    // Copy static file (no template)
+	TypeTemplate                  // Render a simple template
+	TypeMultiFile                 // Template that generates multiple files
+	TypeDotD                      // .d.tmpl directory (concatenation)
 )
 
 func (t FileType) String() string {
@@ -49,7 +54,7 @@ func (t FileType) String() string {
 	}
 }
 
-// File representa um arquivo descoberto ou gerado no pipeline
+// File represents a file discovered or generated in the pipeline.
 type File interface {
 	RelPath() string
 	TargetBase() string
@@ -57,7 +62,7 @@ type File interface {
 	Reader() (io.ReadCloser, error)
 	SourceInfo() string
 	Type() FileType
-	// LinkTarget retorna o destino do link se Type() == TypeSymlink
+	// LinkTarget returns the link destination if Type() == TypeSymlink.
 	LinkTarget() (string, error)
 }
 
@@ -66,7 +71,7 @@ type ScopedFile interface {
 	ModuleName() string
 }
 
-// BasicFile implementa os campos comuns de File
+// BasicFile implements common File fields.
 type BasicFile struct {
 	RelPathStr    string
 	TargetBaseDir string
@@ -83,10 +88,10 @@ func (f *BasicFile) SourceInfo() string { return f.Info }
 func (f *BasicFile) Type() FileType     { return f.FileType }
 func (f *BasicFile) ModuleName() string { return f.Module }
 func (f *BasicFile) LinkTarget() (string, error) {
-	return "", fmt.Errorf("not a symlink")
+	return "", ErrNotSymlink
 }
 
-// StaticFile representa um arquivo real no disco
+// StaticFile represents a real file on disk.
 type StaticFile struct {
 	BasicFile
 	AbsPath string
@@ -98,12 +103,12 @@ func (f *StaticFile) Reader() (io.ReadCloser, error) {
 
 func (f *StaticFile) LinkTarget() (string, error) {
 	if f.FileType != TypeSymlink {
-		return "", fmt.Errorf("not a symlink")
+		return "", ErrNotSymlink
 	}
 	return os.Readlink(f.AbsPath)
 }
 
-// BufferFile representa um arquivo com conteúdo em memória
+// BufferFile represents a file with in-memory content.
 type BufferFile struct {
 	BasicFile
 	Content []byte
@@ -113,7 +118,7 @@ func (f *BufferFile) Reader() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(f.Content)), nil
 }
 
-// DesiredState representa estado desejado de um arquivo
+// DesiredState represents the desired state of a file.
 type DesiredState struct {
 	File File
 }
@@ -122,7 +127,7 @@ func (d DesiredState) Target() string {
 	return filepath.Join(d.File.TargetBase(), d.File.RelPath())
 }
 
-// Provider gera estados desejados (interface legacy, mantida para compatibilidade)
+// Provider generates desired states (legacy interface, kept for compatibility).
 type Provider interface {
 	Name() string
 	GetDesiredState(ctx context.Context) ([]DesiredState, error)

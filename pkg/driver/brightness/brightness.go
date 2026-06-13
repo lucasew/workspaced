@@ -2,6 +2,11 @@ package brightness
 
 import (
 	"context"
+	"errors"
+)
+
+var (
+	ErrDeviceNotFound = errors.New("brightness device not found")
 )
 
 type Device struct {

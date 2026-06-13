@@ -12,7 +12,7 @@ import (
 	"workspaced/pkg/taskgroup"
 )
 
-// prettyPath converte caminho absoluto para relativo ao $HOME
+// prettyPath converts an absolute path to a path relative to $HOME.
 func prettyPath(path string) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -26,10 +26,10 @@ func prettyPath(path string) string {
 	return path
 }
 
-// Executor executa ações de deployment
+// Executor applies deployment actions.
 type Executor struct{}
 
-// NewExecutor cria um novo executor
+// NewExecutor creates a new Executor.
 func NewExecutor() *Executor {
 	return &Executor{}
 }

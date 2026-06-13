@@ -11,17 +11,17 @@ import (
 	shimdriver "workspaced/pkg/driver/shim"
 )
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string {
+func (p *Factory) ID() string {
 	return "shim_bash"
 }
 
-func (p *Provider) Name() string {
+func (p *Factory) Name() string {
 	return "Bash Shim"
 }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	_, err := execdriver.Which(ctx, "bash")
 	return err
 }
@@ -38,7 +38,7 @@ func GetShell(ctx context.Context) string {
 	return bashPath
 }
 
-func (p *Provider) New(ctx context.Context) (shimdriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (shimdriver.Driver, error) {
 	bashPath := GetShell(ctx)
 	return &Driver{bashPath: bashPath}, nil
 }
@@ -50,7 +50,7 @@ type Driver struct {
 // GenerateContent creates the shim script content
 func (d *Driver) GenerateContent(command []string) (string, error) {
 	if len(command) == 0 {
-		return "", fmt.Errorf("command cannot be empty")
+		return "", shimdriver.ErrEmptyCommand
 	}
 
 	// Escape command for shell
@@ -92,5 +92,5 @@ func (d *Driver) Generate(ctx context.Context, path string, command []string) er
 }
 
 func init() {
-	driver.Register[shimdriver.Driver](&Provider{})
+	driver.Register[shimdriver.Driver](&Factory{})
 }

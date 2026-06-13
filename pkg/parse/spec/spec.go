@@ -1,8 +1,14 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+var (
+	// ErrEmptySpec is returned when an empty spec string is provided.
+	ErrEmptySpec = errors.New("spec cannot be empty")
 )
 
 type Spec struct {
@@ -21,7 +27,7 @@ func (s Spec) String() string {
 
 func Parse(input string) (Spec, error) {
 	if input == "" {
-		return Spec{}, fmt.Errorf("spec cannot be empty")
+		return Spec{}, ErrEmptySpec
 	}
 
 	const defaultProvider = "registry"

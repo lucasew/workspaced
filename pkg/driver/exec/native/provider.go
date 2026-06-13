@@ -9,22 +9,22 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 )
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string {
+func (p *Factory) ID() string {
 	return "exec_native"
 }
 
-func (p *Provider) Name() string {
+func (p *Factory) Name() string {
 	return "Native"
 }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (execdriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (execdriver.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -45,5 +45,5 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 }
 
 func init() {
-	driver.Register[execdriver.Driver](&Provider{})
+	driver.Register[execdriver.Driver](&Factory{})
 }

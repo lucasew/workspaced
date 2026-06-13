@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -14,6 +15,11 @@ import (
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
+)
+
+var (
+	// ErrUnknownBackupActionKind is returned when a backup action has an unrecognized kind.
+	ErrUnknownBackupActionKind = errors.New("unknown backup action kind")
 )
 
 type BackupAction interface {
@@ -153,7 +159,7 @@ func decodeBackupActions(rawActions []json.RawMessage) ([]BackupAction, error) {
 		}
 		provider, ok := actionProviders[base.Kind]
 		if !ok {
-			return nil, fmt.Errorf("unknown backup action kind: %s", base.Kind)
+			return nil, fmt.Errorf("%w: %s", ErrUnknownBackupActionKind, base.Kind)
 		}
 		action, err := provider(raw)
 		if err != nil {
@@ -166,7 +172,7 @@ func decodeBackupActions(rawActions []json.RawMessage) ([]BackupAction, error) {
 
 func Rsync(ctx context.Context, src, dst string, n *notification.Notification, extraArgs ...string) (string, error) {
 	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" {
-		return "", fmt.Errorf("rsync requires src and dst")
+		return "", ErrRsyncNeedsSrcAndDst
 	}
 	logger := logging.GetLogger(ctx)
 	logger.Info("rsync sync", "from", src, "to", dst)

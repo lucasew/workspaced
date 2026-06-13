@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
+
+var ErrShellcheckFailed = errors.New("shellcheck failed")
 
 // Provider implements the lint.Linter interface for shell scripts.
 // It executes 'shellcheck' using the workspaced tool system.
@@ -119,9 +122,9 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	if len(output) == 0 {
 		// If no output but stderr has content, likely a real error
 		if stderr.Len() > 0 {
-			errStr := fmt.Errorf("shellcheck failed: %s", stderr.String())
-			logging.ReportError(ctx, errStr, slog.String("context", "shellcheck execution failed"))
-			return nil, errStr
+			err := fmt.Errorf("%w: %s", ErrShellcheckFailed, stderr.String())
+			logging.ReportError(ctx, err, slog.String("context", "shellcheck execution failed"))
+			return nil, err
 		}
 		return nil, nil
 	}
