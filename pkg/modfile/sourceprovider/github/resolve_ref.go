@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrRepoRequired        = errors.New("github source requires repo")
+	ErrRepoRequired         = errors.New("github source requires repo")
 	ErrMissingDefaultBranch = errors.New("missing default_branch in github response")
 	ErrMissingSHA           = errors.New("missing sha in github response")
 )

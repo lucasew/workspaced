@@ -1,8 +1,6 @@
 package camera
 
 import (
-
-
 	"workspaced/pkg/driver"
 	cameraapi "workspaced/pkg/driver/camera"
 

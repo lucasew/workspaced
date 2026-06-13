@@ -230,13 +230,13 @@ func Get[T any](ctx context.Context) (T, error) {
 }
 
 type DriverStatus struct {
-	ID           string
-	Name         string
-	FactoryType  reflect.Type
-	Weight       int
-	Available    bool
-	Selected     bool
-	Error        error
+	ID          string
+	Name        string
+	FactoryType reflect.Type
+	Weight      int
+	Available   bool
+	Selected    bool
+	Error       error
 }
 
 type InterfaceStatus struct {
@@ -286,12 +286,12 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 			err := cachedCheck(d.DriverID, d.Check, ctx)
 			weight := getConfiguredWeight(weights, d.DriverID)
 			status := DriverStatus{
-				ID:           d.DriverID,
-				Name:         d.DriverName,
-				FactoryType:  d.FactoryType,
-				Weight:       weight,
-				Available:    err == nil,
-				Error:        err,
+				ID:          d.DriverID,
+				Name:        d.DriverName,
+				FactoryType: d.FactoryType,
+				Weight:      weight,
+				Available:   err == nil,
+				Error:       err,
 			}
 			ifaceStatus.Drivers = append(ifaceStatus.Drivers, status)
 		}

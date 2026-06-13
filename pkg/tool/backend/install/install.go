@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	ErrEmptyDownloadURL  = errors.New("download URL cannot be empty")
-	ErrNoDownloadURLs    = errors.New("no download URLs provided")
+	ErrEmptyDownloadURL = errors.New("download URL cannot be empty")
+	ErrNoDownloadURLs   = errors.New("no download URLs provided")
 )
 
 type DownloadOptions struct {

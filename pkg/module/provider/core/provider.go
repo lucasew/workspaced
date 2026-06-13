@@ -22,9 +22,9 @@ func init() {
 }
 
 var (
-	ErrInputDirRequired     = errors.New("input_dir is required for core:base16-icons-linux")
-	ErrThemeNameRequired    = errors.New("theme_name is required")
-	ErrInvalidBase16Config  = errors.New("invalid modules.base16 config")
+	ErrInputDirRequired    = errors.New("input_dir is required for core:base16-icons-linux")
+	ErrThemeNameRequired   = errors.New("theme_name is required")
+	ErrInvalidBase16Config = errors.New("invalid modules.base16 config")
 )
 
 type Provider struct{}

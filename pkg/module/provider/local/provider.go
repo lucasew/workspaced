@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	ErrModuleNotFound          = errors.New("workspace module not found")
+	ErrModuleNotFound           = errors.New("workspace module not found")
 	ErrStrictStructureViolation = errors.New("strict structure violation: file found in module root")
-	ErrUnknownPreset           = errors.New("unknown preset")
-	ErrMissingModuleCue        = errors.New("module is missing module.cue")
+	ErrUnknownPreset            = errors.New("unknown preset")
+	ErrMissingModuleCue         = errors.New("module is missing module.cue")
 )
 
 func init() {

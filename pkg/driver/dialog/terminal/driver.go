@@ -82,7 +82,7 @@ func (d *Driver) Confirm(ctx context.Context, message string) (bool, error) {
 }
 
 var (
-	ErrRunAppNotImplemented      = errors.New("RunApp not implemented for terminal driver")
+	ErrRunAppNotImplemented       = errors.New("RunApp not implemented for terminal driver")
 	ErrSwitchWindowNotImplemented = errors.New("SwitchWindow not implemented for terminal driver")
 )
 
