@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/png"
@@ -14,6 +15,12 @@ import (
 	cameraapi "workspaced/pkg/driver/camera"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	errNoCamerasFound  = errors.New("no cameras found")
+	errCameraNotFound  = errors.New("camera not found")
+	errCaptureAllFailed = errors.New("failed to capture from any camera")
 )
 
 func init() {
@@ -83,7 +90,7 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 
 func selectCamera(cams []cameraapi.Camera, id string) (cameraapi.Camera, error) {
 	if len(cams) == 0 {
-		return nil, fmt.Errorf("no cameras found")
+		return nil, errNoCamerasFound
 	}
 	if id == "" {
 		return cams[0], nil
@@ -93,7 +100,7 @@ func selectCamera(cams []cameraapi.Camera, id string) (cameraapi.Camera, error) 
 			return cam, nil
 		}
 	}
-	return nil, fmt.Errorf("camera %q not found", id)
+	return nil, fmt.Errorf("%w: %q", errCameraNotFound, id)
 }
 
 func captureFromCamera(cmd *cobra.Command, cams []cameraapi.Camera, preferred cameraapi.Camera, id string) (cameraapi.Camera, image.Image, error) {
@@ -116,9 +123,9 @@ func captureFromCamera(cmd *cobra.Command, cams []cameraapi.Camera, preferred ca
 		errs = append(errs, fmt.Sprintf("%s: %v", cam.ID(), err))
 	}
 	if len(errs) == 0 {
-		return nil, nil, fmt.Errorf("no cameras found")
+		return nil, nil, errNoCamerasFound
 	}
-	return nil, nil, fmt.Errorf("failed to capture from any camera: %s", strings.Join(errs, "; "))
+	return nil, nil, fmt.Errorf("%w: %s", errCaptureAllFailed, strings.Join(errs, "; "))
 }
 
 func cameraPriority(cam cameraapi.Camera) int {

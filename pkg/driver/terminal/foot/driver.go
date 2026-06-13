@@ -10,15 +10,15 @@ import (
 )
 
 func init() {
-	driver.Register[terminal.Driver](&Provider{})
+	driver.Register[terminal.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "terminal_foot" }
-func (p *Provider) Name() string { return "Foot" }
+func (p *Factory) ID() string   { return "terminal_foot" }
+func (p *Factory) Name() string { return "Foot" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: foot requires WAYLAND_DISPLAY", driver.ErrIncompatible)
 	}
@@ -28,7 +28,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (terminal.Driver, error) {
+func (p *Factory) New(ctx context.Context) (terminal.Driver, error) {
 	return &Driver{}, nil
 }
 

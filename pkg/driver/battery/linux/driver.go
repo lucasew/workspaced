@@ -11,16 +11,16 @@ import (
 )
 
 func init() {
-	driver.Register[battery.Driver](&Provider{})
+	driver.Register[battery.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "battery_linux" }
-func (p *Provider) Name() string { return "linux" }
+func (p *Factory) ID() string   { return "battery_linux" }
+func (p *Factory) Name() string { return "linux" }
 
-// CheckCompatibility implements [driver.DriverProvider].
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+// CheckCompatibility implements [driver.DriverFactory].
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	matches, _ := filepath.Glob("/sys/class/power_supply/BAT*/status")
 	if len(matches) == 0 {
 		return fmt.Errorf("%w: /sys/class/power_supply/BAT*/status", driver.ErrIncompatible)
@@ -28,8 +28,8 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-// New implements [driver.DriverProvider].
-func (p *Provider) New(ctx context.Context) (battery.Driver, error) {
+// New implements [driver.DriverFactory].
+func (p *Factory) New(ctx context.Context) (battery.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -41,7 +41,7 @@ type Driver struct{}
 func (d *Driver) BatteryStatus(ctx context.Context) (battery.Status, error) {
 	matches, _ := filepath.Glob("/sys/class/power_supply/BAT*/status")
 	if len(matches) == 0 {
-		return battery.Unknown, fmt.Errorf("no battery found")
+		return battery.Unknown, battery.ErrNoBattery
 	}
 
 	// For now just get the first one

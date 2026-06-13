@@ -12,15 +12,15 @@ import (
 )
 
 func init() {
-	driver.Register[notification.Driver](&Provider{})
+	driver.Register[notification.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "notification_dbus" }
-func (p *Provider) Name() string { return "DBus" }
+func (p *Factory) ID() string   { return "notification_dbus" }
+func (p *Factory) Name() string { return "DBus" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return fmt.Errorf("%w: failed to connect to session bus: %v", driver.ErrIncompatible, err)
@@ -45,7 +45,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (notification.Driver, error) {
+func (p *Factory) New(ctx context.Context) (notification.Driver, error) {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return nil, err

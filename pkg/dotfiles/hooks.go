@@ -5,16 +5,16 @@ import (
 	"workspaced/pkg/deployer"
 )
 
-// Hook permite executar código antes/depois do deployment
+// Hook allows executing code before/after deployment.
 type Hook interface {
-	// Before é chamado antes de executar actions
+	// Before is called before executing actions.
 	Before(ctx context.Context, actions []deployer.Action) error
 
-	// After é chamado após executar actions (mesmo se houver erro)
+	// After is called after executing actions (even if there was an error).
 	After(ctx context.Context, applied []deployer.Action, err error) error
 }
 
-// FuncHook implementa Hook usando funções
+// FuncHook implements Hook using functions.
 type FuncHook struct {
 	BeforeFn func(ctx context.Context, actions []deployer.Action) error
 	AfterFn  func(ctx context.Context, applied []deployer.Action, err error) error

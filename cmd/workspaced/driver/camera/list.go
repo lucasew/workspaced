@@ -1,7 +1,7 @@
 package camera
 
 import (
-	"fmt"
+
 
 	"workspaced/pkg/driver"
 	cameraapi "workspaced/pkg/driver/camera"
@@ -24,7 +24,7 @@ func init() {
 					return err
 				}
 				if len(cams) == 0 {
-					return fmt.Errorf("no cameras found")
+					return errNoCamerasFound
 				}
 				for _, cam := range cams {
 					cmd.Printf("%s\t%s\n", cam.ID(), cam.Name())

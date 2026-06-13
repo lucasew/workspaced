@@ -2,6 +2,11 @@ package battery
 
 import (
 	"context"
+	"errors"
+)
+
+var (
+	ErrNoBattery = errors.New("no battery found")
 )
 
 type Driver interface {

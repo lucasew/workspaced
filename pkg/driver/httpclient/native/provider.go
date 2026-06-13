@@ -17,20 +17,20 @@ import (
 )
 
 func init() {
-	driver.Register[httpclientdriver.Driver](&Provider{})
+	driver.Register[httpclientdriver.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "httpclient_native" }
-func (p *Provider) Name() string { return "Native HTTP Client" }
+func (p *Factory) ID() string   { return "httpclient_native" }
+func (p *Factory) Name() string { return "Native HTTP Client" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (httpclientdriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (httpclientdriver.Driver, error) {
 	return &Driver{
 		rootCAs: loadSystemCerts(ctx),
 	}, nil

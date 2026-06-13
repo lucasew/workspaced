@@ -2,6 +2,7 @@ package mise
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,15 @@ import (
 	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/backend"
+)
+
+var (
+	// ErrEmptyMiseSpec is returned when a mise spec is empty.
+	ErrEmptyMiseSpec = errors.New("mise spec cannot be empty")
+	// ErrEmptyMiseRef is returned when a mise ref is empty.
+	ErrEmptyMiseRef = errors.New("mise ref cannot be empty")
+	// ErrMissingMiseArtifactSpec is returned when a mise artifact spec is empty.
+	ErrMissingMiseArtifactSpec = errors.New("missing mise artifact spec")
 )
 
 type Provider struct{}
@@ -29,7 +39,7 @@ func (p *Provider) Tool(ref string) (backend.Tool, error) {
 func (p *Provider) ParsePackage(spec string) (backend.PackageConfig, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
-		return backend.PackageConfig{}, fmt.Errorf("mise spec cannot be empty")
+		return backend.PackageConfig{}, ErrEmptyMiseSpec
 	}
 	return backend.PackageConfig{
 		Provider: "mise",
@@ -59,7 +69,7 @@ func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destP
 	_ = destPath
 	spec := strings.TrimSpace(artifact.URL)
 	if spec == "" {
-		return fmt.Errorf("missing mise artifact spec")
+		return ErrMissingMiseArtifactSpec
 	}
 	return miseutil.Run(ctx, "install", spec)
 }
@@ -107,7 +117,7 @@ func ensureSymlink(destPath, binPath, cmdName string) (string, error) {
 }
 
 // ============================================================================
-// MiseTool - exported Tool implementation for the mise provider
+// MiseTool - exported Tool implementation for the mise backend
 // ============================================================================
 
 // MiseTool is the concrete Tool for packages managed via mise.
@@ -122,13 +132,13 @@ type MiseTool struct {
 func NewTool(ref string) (backend.Tool, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return nil, fmt.Errorf("mise ref cannot be empty")
+		return nil, ErrEmptyMiseRef
 	}
 	return &MiseTool{spec: ref, p: &Provider{}}, nil
 }
 
 func (t *MiseTool) ListVersions(ctx context.Context) ([]string, error) {
-	// mise provider's ListVersions currently only returns the single "latest"
+	// mise backend's ListVersions currently only returns the single "latest"
 	// resolved by the backend. We keep that behavior for the Tool.
 	pkg := backend.PackageConfig{Spec: t.spec}
 	return t.p.ListVersions(ctx, pkg)

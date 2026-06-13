@@ -10,15 +10,15 @@ import (
 )
 
 func init() {
-	driver.Register[wallpaper.Driver](&Provider{})
+	driver.Register[wallpaper.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "wayland_swaybg" }
-func (p *Provider) Name() string { return "Wayland (swaybg)" }
+func (p *Factory) ID() string   { return "wayland_swaybg" }
+func (p *Factory) Name() string { return "Wayland (swaybg)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -31,7 +31,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (wallpaper.Driver, error) {
+func (p *Factory) New(ctx context.Context) (wallpaper.Driver, error) {
 	return &Driver{}, nil
 }
 

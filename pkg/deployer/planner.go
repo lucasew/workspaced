@@ -12,10 +12,10 @@ import (
 	"workspaced/pkg/taskgroup"
 )
 
-// Planner compara estado atual vs desejado e gera ações
+// Planner compares current state with desired state and generates actions.
 type Planner struct{}
 
-// NewPlanner cria um novo planner
+// NewPlanner creates a new Planner.
 func NewPlanner() *Planner {
 	return &Planner{}
 }

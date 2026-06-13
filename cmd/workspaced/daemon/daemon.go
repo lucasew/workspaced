@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -32,8 +33,9 @@ import (
 )
 
 var (
-	shouldRestartDaemon bool
-	initialMtime        time.Time
+	shouldRestartDaemon    bool
+	initialMtime           time.Time
+	errNoRunImplementation = errors.New("command has no run implementation")
 )
 
 // initialMtime is populated early in the daemon command Run (before RunDaemon)
@@ -384,14 +386,13 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	stdout := &StreamPacketWriter{Out: outCh, Type: "stdout"}
 	stderr := &StreamPacketWriter{Out: outCh, Type: "stderr"}
 
-	ctx = context.WithValue(ctx, types.LoggerKey, reqLogger)
-	ctx = context.WithValue(ctx, types.StdoutKey, stdout)
-	ctx = context.WithValue(ctx, types.StderrKey, stderr)
+	ctx = logging.ContextWithLogger(ctx, reqLogger)
+	ctx = executil.WithStdout(ctx, stdout)
+	ctx = executil.WithStderr(ctx, stderr)
 	env := append(req.Env, "WORKSPACED_DAEMON=1")
-	ctx = context.WithValue(ctx, types.EnvKey, env)
-	ctx = context.WithValue(ctx, types.DaemonModeKey, true)
+	ctx = executil.WithEnv(ctx, env)
 	// Inject DB into context so commands can use it
-	ctx = context.WithValue(ctx, types.DBKey, database)
+	ctx = db.WithDB(ctx, database)
 
 	output, err := ExecuteViaCobra(ctx, req, stdout, stderr)
 
@@ -449,7 +450,7 @@ func ExecuteViaCobra(ctx context.Context, req types.Request, stdout, stderr io.W
 	} else if targetCmd.Run != nil {
 		targetCmd.Run(targetCmd, argList)
 	} else {
-		err = fmt.Errorf("command has no run implementation")
+		err = errNoRunImplementation
 	}
 
 	return buf.String(), err

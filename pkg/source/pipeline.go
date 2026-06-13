@@ -6,33 +6,32 @@ import (
 	"workspaced/pkg/logging"
 )
 
-// Plugin processa lista de arquivos e retorna nova lista
-// Inspirado no padrão de plugins do Beancount
+// Plugin processes a list of files and returns a new list.
 type Plugin interface {
-	// Name retorna nome do plugin (para logging)
+	// Name returns the plugin name (for logging).
 	Name() string
 
-	// Process transforma lista de arquivos
-	// Pode adicionar, remover, modificar arquivos
+	// Process transforms a list of files.
+	// It can add, remove, or modify files.
 	Process(ctx context.Context, files []File) ([]File, error)
 }
 
-// Pipeline executa sequência de plugins
+// Pipeline executes a sequence of plugins.
 type Pipeline struct {
 	plugins []Plugin
 }
 
-// NewPipeline cria pipeline com plugins
+// NewPipeline creates a pipeline with the given plugins.
 func NewPipeline(plugins ...Plugin) *Pipeline {
 	return &Pipeline{plugins: plugins}
 }
 
-// AddPlugin adiciona plugin ao final do pipeline
+// AddPlugin appends a plugin to the end of the pipeline.
 func (p *Pipeline) AddPlugin(plugin Plugin) {
 	p.plugins = append(p.plugins, plugin)
 }
 
-// Run executa pipeline completo
+// Run executes the full pipeline.
 func (p *Pipeline) Run(ctx context.Context, initial []File) ([]File, error) {
 	logger := logging.GetLogger(ctx)
 	current := initial
@@ -53,7 +52,7 @@ func (p *Pipeline) Run(ctx context.Context, initial []File) ([]File, error) {
 	return current, nil
 }
 
-// GetPlugins retorna lista de plugins configurados
+// GetPlugins returns the list of configured plugins.
 func (p *Pipeline) GetPlugins() []Plugin {
 	return p.plugins
 }

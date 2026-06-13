@@ -46,7 +46,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 
 func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	if !exec.IsBinaryAvailable(ctx, "go") {
-		return nil, fmt.Errorf("go binary not available for govulncheck")
+		return nil, fmt.Errorf("%w: go binary not available for govulncheck", checks.ErrToolNotAvailable)
 	}
 
 	cmd, err := exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")

@@ -6,7 +6,7 @@ import (
 	"workspaced/pkg/source"
 )
 
-// ActionType representa tipo de ação no deployment
+// ActionType represents the kind of action in a deployment plan.
 type ActionType int
 
 const (
@@ -30,25 +30,25 @@ func (a ActionType) String() string {
 	return "?"
 }
 
-// DesiredState alias para source.DesiredState
+// DesiredState is an alias for source.DesiredState.
 type DesiredState = source.DesiredState
 
-// Helper para pegar o target path de um DesiredState
+// GetTarget returns the full target path for a DesiredState.
 func GetTarget(d DesiredState) string {
 	return filepath.Join(d.File.TargetBase(), d.File.RelPath())
 }
 
-// ManagedInfo contém informações sobre arquivo gerenciado
+// ManagedInfo holds metadata about a managed file.
 type ManagedInfo struct {
 	SourceInfo string `json:"source_info"`
 }
 
-// State representa estado atual do sistema
+// State represents the current state of the managed file system.
 type State struct {
 	Files map[string]ManagedInfo `json:"files"` // Key: Target (Absolute path)
 }
 
-// Action representa ação a ser executada
+// Action represents a single deployment action to be executed.
 type Action struct {
 	Type    ActionType
 	Target  string
@@ -83,5 +83,5 @@ func SortActions(actions []Action) []Action {
 	return ordered
 }
 
-// Provider alias para source.Provider
+// Provider is an alias for source.Provider.
 type Provider = source.Provider

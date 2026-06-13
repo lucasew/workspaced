@@ -1,9 +1,15 @@
 package module
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
+)
+
+var (
+	ErrUnknownProvider  = errors.New("unknown module provider")
+	ErrInvalidModuleRef = errors.New("invalid module from (expected provider:ref)")
 )
 
 var (
@@ -22,7 +28,7 @@ func GetProvider(id string) (Provider, error) {
 	defer providersMu.RUnlock()
 	p, ok := providers[id]
 	if !ok {
-		return nil, fmt.Errorf("unknown module provider %q", id)
+		return nil, fmt.Errorf("%w: %q", ErrUnknownProvider, id)
 	}
 	return p, nil
 }
@@ -34,12 +40,12 @@ func ResolveProviderAndRef(from string, moduleName string) (string, string, erro
 	}
 	parts := strings.SplitN(f, ":", 2)
 	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid module from %q (expected provider:ref)", from)
+		return "", "", fmt.Errorf("%w: %q", ErrInvalidModuleRef, from)
 	}
 	provider := strings.TrimSpace(parts[0])
 	ref := strings.TrimSpace(parts[1])
 	if provider == "" || ref == "" {
-		return "", "", fmt.Errorf("invalid module from %q (expected provider:ref)", from)
+		return "", "", fmt.Errorf("%w: %q", ErrInvalidModuleRef, from)
 	}
 	return provider, ref, nil
 }

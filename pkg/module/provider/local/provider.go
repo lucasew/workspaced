@@ -2,12 +2,20 @@ package local
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"workspaced/pkg/module"
 	"workspaced/pkg/modulecue"
+)
+
+var (
+	ErrModuleNotFound          = errors.New("workspace module not found")
+	ErrStrictStructureViolation = errors.New("strict structure violation: file found in module root")
+	ErrUnknownPreset           = errors.New("unknown preset")
+	ErrMissingModuleCue        = errors.New("module is missing module.cue")
 )
 
 func init() {
@@ -35,7 +43,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 		modPath = filepath.Join(workspaceRoot, req.Ref)
 	}
 	if st, err := os.Stat(modPath); err != nil || !st.IsDir() {
-		return nil, fmt.Errorf("workspace module %q not found at %s", req.Ref, modPath)
+		return nil, fmt.Errorf("%w: %q at %s", ErrModuleNotFound, req.Ref, modPath)
 	}
 
 	if err := validateConfig(req.Ref, modPath, req.ModuleConfig, req.Config.Raw()); err != nil {
@@ -54,12 +62,12 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 			if name == "README.md" || strings.HasSuffix(name, ".cue") {
 				continue
 			}
-			return nil, fmt.Errorf("strict structure violation: file %q found in module %q root", name, req.Ref)
+			return nil, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
 		targetBase, ok := presetBases[presetName]
 		if !ok {
-			return nil, fmt.Errorf("unknown preset %q in module %q", presetName, req.Ref)
+			return nil, fmt.Errorf("%w: %q in module %q", ErrUnknownPreset, presetName, req.Ref)
 		}
 		if targetBase == "~" {
 			home, _ := os.UserHomeDir()
@@ -96,7 +104,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 
 func validateConfig(modName string, modPath string, modCfg map[string]any, root map[string]any) error {
 	if !modulecue.Exists(modPath) {
-		return fmt.Errorf("module %q is missing module.cue", modName)
+		return fmt.Errorf("%w: %q", ErrMissingModuleCue, modName)
 	}
 	return modulecue.ValidateConfigWithRoot(modPath, modCfg, root)
 }

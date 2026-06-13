@@ -10,22 +10,22 @@ import (
 	envdriver "workspaced/pkg/driver/env"
 )
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string {
+func (p *Factory) ID() string {
 	return "env_native"
 }
 
-func (p *Provider) Name() string {
+func (p *Factory) Name() string {
 	return "Native Environment"
 }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (envdriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (envdriver.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -109,5 +109,5 @@ func (d *Driver) GetEssentialPaths(ctx context.Context) []string {
 }
 
 func init() {
-	driver.Register[envdriver.Driver](&Provider{})
+	driver.Register[envdriver.Driver](&Factory{})
 }

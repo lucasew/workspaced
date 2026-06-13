@@ -16,7 +16,7 @@ import (
 
 var wmMu sync.Mutex
 
-// switchToWorkspace é a implementação interna sem lock para evitar deadlock
+// switchToWorkspace is the internal lock-free implementation to avoid deadlocks.
 func switchToWorkspace(ctx context.Context, ws string, move bool) error {
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {
@@ -136,13 +136,13 @@ func RotateWorkspaces(ctx context.Context) error {
 		toScreen := screens[i]
 		ws := workspaceScreens[fromScreen]
 
-		// Move o workspace para o novo monitor.
+		// Move the workspace to the new output.
 		if err := d.MoveWorkspaceToOutput(ctx, ws, toScreen); err != nil {
 			logging.ReportError(ctx, err)
 		}
 	}
 
-	// Restaura o foco original
+	// Restore the original focus
 	if focusedWorkspace != "" {
 		if err := switchToWorkspace(ctx, focusedWorkspace, false); err != nil {
 			logging.ReportError(ctx, err)

@@ -9,22 +9,22 @@ import (
 )
 
 func init() {
-	driver.Register[terminal.Driver](&Provider{})
+	driver.Register[terminal.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "terminal_alacritty" }
-func (p *Provider) Name() string { return "Alacritty" }
+func (p *Factory) ID() string   { return "terminal_alacritty" }
+func (p *Factory) Name() string { return "Alacritty" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "alacritty") {
 		return fmt.Errorf("%w: alacritty not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (terminal.Driver, error) {
+func (p *Factory) New(ctx context.Context) (terminal.Driver, error) {
 	return &Driver{}, nil
 }
 

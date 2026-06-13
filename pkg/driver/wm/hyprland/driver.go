@@ -12,15 +12,15 @@ import (
 )
 
 func init() {
-	driver.Register[api.Driver](&Provider{})
+	driver.Register[api.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "wm_hyprland" }
-func (p *Provider) Name() string { return "Hyprland" }
+func (p *Factory) ID() string   { return "wm_hyprland" }
+func (p *Factory) Name() string { return "Hyprland" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "HYPRLAND_INSTANCE_SIGNATURE") == "" {
 		return fmt.Errorf("%w: HYPRLAND_INSTANCE_SIGNATURE not set", driver.ErrIncompatible)
 	}
@@ -30,7 +30,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (api.Driver, error) {
+func (p *Factory) New(ctx context.Context) (api.Driver, error) {
 	return &Driver{}, nil
 }
 

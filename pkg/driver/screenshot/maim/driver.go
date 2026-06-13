@@ -16,15 +16,15 @@ import (
 )
 
 func init() {
-	driver.Register[screenshot.Driver](&Provider{})
+	driver.Register[screenshot.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "screenshot_maim" }
-func (p *Provider) Name() string { return "Maim (X11)" }
+func (p *Factory) ID() string   { return "screenshot_maim" }
+func (p *Factory) Name() string { return "Maim (X11)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -34,7 +34,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (screenshot.Driver, error) {
+func (p *Factory) New(ctx context.Context) (screenshot.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -45,7 +45,7 @@ func (d *Driver) SelectArea(ctx context.Context) (*api.Rect, error) {
 	// maim -g $(slop) ... is common.
 	// We can run slop directly to get the geometry.
 	if !execdriver.IsBinaryAvailable(ctx, "slop") {
-		return nil, fmt.Errorf("slop not found for selection")
+		return nil, screenshot.ErrSelectionToolNotFound
 	}
 	out, err := execdriver.MustRun(ctx, "slop", "-f", "%x %y %w %h").Output()
 	if err != nil {

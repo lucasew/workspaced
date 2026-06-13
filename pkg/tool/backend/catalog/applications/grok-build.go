@@ -2,6 +2,7 @@ package apps
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,8 @@ import (
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
 )
+
+var ErrGrokBuildProbeFailure = errors.New("failed to probe grok-build latest from x.ai channels")
 
 func init() {
 	catalog.RegisterTool("grok-build", newGrokBuild)
@@ -159,7 +162,7 @@ func (t *grokBuildTool) probeLatest(ctx context.Context) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("failed to probe grok-build latest from x.ai channels")
+	return "", ErrGrokBuildProbeFailure
 }
 
 func (t *grokBuildTool) grokPlatform() string {

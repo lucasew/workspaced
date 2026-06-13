@@ -20,6 +20,19 @@ import (
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
+type dbKey struct{}
+
+// WithDB returns a context that carries the given database connection.
+func WithDB(ctx context.Context, database *DB) context.Context {
+	return context.WithValue(ctx, dbKey{}, database)
+}
+
+// FromContext retrieves the database connection from the context.
+func FromContext(ctx context.Context) (*DB, bool) {
+	database, ok := ctx.Value(dbKey{}).(*DB)
+	return database, ok
+}
+
 type DB struct {
 	*sql.DB
 	Queries *sqlc.Queries

@@ -3,6 +3,7 @@ package miseutil
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,18 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/tool"
+)
+
+var (
+	// ErrMiseInstallPathUnknown is returned when the mise install path cannot be determined.
+	ErrMiseInstallPathUnknown = errors.New("could not determine mise install path")
+	// ErrBinaryNotFound is returned when a binary is not found in the mise install tree.
+	ErrBinaryNotFound = errors.New("binary not found")
+	// ErrMiseInstallFailed is returned when mise installation fails.
+	ErrMiseInstallFailed = errors.New("mise installation failed")
+	// ErrHTTPDownloadFailed is errors.New("HTTP download failed")
+	ErrHTTPDownloadFailed = errors.New("HTTP download failed")
 )
 
 func GetPath() string {
@@ -31,7 +44,7 @@ func GetPath() string {
 func Ensure(ctx context.Context) (string, error) {
 	misePath := GetPath()
 	if misePath == "" {
-		return "", fmt.Errorf("could not determine mise install path")
+		return "", ErrMiseInstallPathUnknown
 	}
 
 	if _, err := os.Stat(misePath); err == nil {
@@ -94,20 +107,11 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 		return "", err
 	}
 
-	candidates := []string{
-		filepath.Join(root, "bin", binName),
-		filepath.Join(root, "bin", binName+".exe"),
-		filepath.Join(root, binName),
-		filepath.Join(root, binName+".exe"),
+	if binPath := tool.FindBinary(root, binName); binPath != "" {
+		return binPath, nil
 	}
 
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("binary %q not found under %s", binName, root)
+	return "", fmt.Errorf("%w: %q under %s", ErrBinaryNotFound, binName, root)
 }
 
 func install(ctx context.Context, misePath string) error {
@@ -127,7 +131,7 @@ func install(ctx context.Context, misePath string) error {
 	defer logging.Close(ctx, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download installer: HTTP %d", resp.StatusCode)
+		return fmt.Errorf("%w: HTTP %d", ErrHTTPDownloadFailed, resp.StatusCode)
 	}
 
 	scriptBytes, err := io.ReadAll(resp.Body)
@@ -150,7 +154,7 @@ func install(ctx context.Context, misePath string) error {
 	}
 
 	if _, err := os.Stat(misePath); err != nil {
-		return fmt.Errorf("mise installation failed - binary not found at %s", misePath)
+		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, misePath)
 	}
 
 	return nil

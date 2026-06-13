@@ -2,8 +2,14 @@ package screenshot
 
 import (
 	"context"
+	"errors"
 	"image"
 	api "workspaced/pkg/driver/wm"
+)
+
+var (
+	ErrSelectionToolNotFound = errors.New("selection tool not found")
+	ErrEmptySelection        = errors.New("empty selection")
 )
 
 type TargetType int

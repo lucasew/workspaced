@@ -1,12 +1,15 @@
 package input
 
 import (
+	"errors"
 	"fmt"
 	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/driver/dialog"
 
 	"github.com/spf13/cobra"
 )
+
+var errCancelled = errors.New("cancelled")
 
 var Registry cmdregistry.CommandRegistry
 
@@ -48,7 +51,7 @@ func GetCommand() *cobra.Command {
 				return err
 			}
 			if !ok {
-				return fmt.Errorf("cancelled")
+				return errCancelled
 			}
 			return nil
 		},

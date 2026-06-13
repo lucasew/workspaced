@@ -8,29 +8,30 @@ import (
 	"workspaced/pkg/types"
 )
 
+type loggerKey struct{}
+
 // GetLogger retrieves the logger instance from the context.
-// It panics if no logger has been injected into the context via ContextWithLogger
-// (or equivalent direct value set for types.LoggerKey). This enforces that all
-// logging goes through a properly provided ctx (never a bare context.Background
-// or context without a logger).
+// It panics if no logger has been injected into the context via ContextWithLogger.
+// This enforces that all logging goes through a properly provided ctx
+// (never a bare context.Background or context without a logger).
 func GetLogger(ctx context.Context) *slog.Logger {
 	if ctx == nil {
 		panic("GetLogger called with nil context")
 	}
-	if logger, ok := ctx.Value(types.LoggerKey).(*slog.Logger); ok && logger != nil {
+	if logger, ok := ctx.Value(loggerKey{}).(*slog.Logger); ok && logger != nil {
 		return logger
 	}
-	panic("no logger present in context (types.LoggerKey); call ContextWithLogger (or equivalent) on a root ctx before any GetLogger / ReportError / Close / RunCleanup etc. See cmd/workspaced/root.go for bootstrap pattern.")
+	panic("no logger present in context; call ContextWithLogger on a root ctx before any GetLogger / ReportError / Close / RunCleanup etc. See cmd/workspaced/root.go for bootstrap pattern.")
 }
 
-// ContextWithLogger returns a context that carries the given *slog.Logger
-// under the standard LoggerKey. This is the way to inject a (possibly
-// derived) logger so that GetLogger and downstream code can retrieve it.
+// ContextWithLogger returns a context that carries the given *slog.Logger.
+// This is the way to inject a (possibly derived) logger so that GetLogger
+// and downstream code can retrieve it.
 func ContextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
 	if l == nil {
 		return ctx
 	}
-	return context.WithValue(ctx, types.LoggerKey, l)
+	return context.WithValue(ctx, loggerKey{}, l)
 }
 
 // NewRootContext returns a fresh root context (derived from context.Background)
@@ -49,7 +50,7 @@ func ContextHasLogger(ctx context.Context) bool {
 	if ctx == nil {
 		return false
 	}
-	l, ok := ctx.Value(types.LoggerKey).(*slog.Logger)
+	l, ok := ctx.Value(loggerKey{}).(*slog.Logger)
 	return ok && l != nil
 }
 

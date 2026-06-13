@@ -11,23 +11,23 @@ import (
 )
 
 func init() {
-	driver.Register[dialog.Chooser](&ChooserProvider{})
-	driver.Register[dialog.Driver](&FullDriverProvider{})
+	driver.Register[dialog.Chooser](&ChooserFactory{})
+	driver.Register[dialog.Driver](&FullDriverFactory{})
 }
 
-type ChooserProvider struct{}
+type ChooserFactory struct{}
 
-func (p *ChooserProvider) ID() string                                      { return "rofi" }
-func (p *ChooserProvider) Name() string                                    { return "Rofi" }
-func (p *ChooserProvider) CheckCompatibility(ctx context.Context) error    { return checkRofi(ctx) }
-func (p *ChooserProvider) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
+func (p *ChooserFactory) ID() string                                      { return "rofi" }
+func (p *ChooserFactory) Name() string                                    { return "Rofi" }
+func (p *ChooserFactory) CheckCompatibility(ctx context.Context) error    { return checkRofi(ctx) }
+func (p *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
 
-type FullDriverProvider struct{}
+type FullDriverFactory struct{}
 
-func (p *FullDriverProvider) ID() string                                     { return "rofi" }
-func (p *FullDriverProvider) Name() string                                   { return "Rofi" }
-func (p *FullDriverProvider) CheckCompatibility(ctx context.Context) error   { return checkRofi(ctx) }
-func (p *FullDriverProvider) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
+func (p *FullDriverFactory) ID() string                                     { return "rofi" }
+func (p *FullDriverFactory) Name() string                                   { return "Rofi" }
+func (p *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { return checkRofi(ctx) }
+func (p *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
 
 func checkRofi(ctx context.Context) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {

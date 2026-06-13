@@ -50,7 +50,7 @@ func ResolveModuleFromConfig(cfg *configcue.Config, moduleName string, modCfg co
 	}
 
 	if cfg == nil {
-		return ResolvedModuleSource{}, fmt.Errorf("module %q references input %q without config", moduleName, inputName)
+		return ResolvedModuleSource{}, fmt.Errorf("%w: module %q references input %q", ErrInputNotConfigured, moduleName, inputName)
 	}
 	inputs, err := cfg.Inputs()
 	if err != nil {
@@ -58,11 +58,11 @@ func ResolveModuleFromConfig(cfg *configcue.Config, moduleName string, modCfg co
 	}
 	input, ok := inputs[inputName]
 	if !ok {
-		return ResolvedModuleSource{}, fmt.Errorf("module %q references unknown input %q", moduleName, inputName)
+		return ResolvedModuleSource{}, fmt.Errorf("%w: module %q references %q", ErrUnknownInput, moduleName, inputName)
 	}
 	spec := strings.TrimSpace(input.From)
 	if spec == "" {
-		return ResolvedModuleSource{}, fmt.Errorf("input %q is missing from", inputName)
+		return ResolvedModuleSource{}, fmt.Errorf("%w: %q", ErrInputMissingFrom, inputName)
 	}
 	modFile, err := ModFileFromConfig(cfg)
 	if err != nil {

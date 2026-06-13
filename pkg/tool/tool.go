@@ -6,9 +6,15 @@
 package tool
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"workspaced/pkg/tool/backend"
+)
+
+var (
+	// ErrBackendNotFound is returned when a requested tool backend is not registered.
+	ErrBackendNotFound = errors.New("tool backend not found")
 )
 
 var (
@@ -31,23 +37,7 @@ func Get(id string) (backend.Backend, error) {
 	defer mu.RUnlock()
 	b, ok := backends[id]
 	if !ok {
-		return nil, fmt.Errorf("tool backend not found: %s", id)
+		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, id)
 	}
 	return b, nil
-}
-
-// --- Transitional shims ---
-// These keep old call sites compiling while we migrate to the new Register/Get names
-// and the Backend interface. They will be removed after migration.
-
-func RegisterProvider(p backend.Backend) {
-	// During transition the concrete backends no longer have ID(), so we cannot
-	// recover the id here. Call sites in inits are being updated to use Register directly.
-	// This shim is a no-op placeholder to avoid immediate compile errors in case
-	// something still calls it; real registration now happens via Register(id, b).
-	_ = p
-}
-
-func GetProvider(id string) (backend.Backend, error) {
-	return Get(id)
 }

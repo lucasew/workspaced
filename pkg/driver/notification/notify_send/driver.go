@@ -9,22 +9,22 @@ import (
 )
 
 func init() {
-	driver.Register[notification.Driver](&Provider{})
+	driver.Register[notification.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "notification_notify_send" }
-func (p *Provider) Name() string { return "notify-send" }
+func (p *Factory) ID() string   { return "notification_notify_send" }
+func (p *Factory) Name() string { return "notify-send" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "notify-send") {
 		return fmt.Errorf("%w: notify-send not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (notification.Driver, error) {
+func (p *Factory) New(ctx context.Context) (notification.Driver, error) {
 	return &Driver{}, nil
 }
 

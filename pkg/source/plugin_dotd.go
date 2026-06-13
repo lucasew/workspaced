@@ -8,13 +8,13 @@ import (
 	"workspaced/pkg/template"
 )
 
-// DotDProcessorPlugin processa diretórios .d.tmpl (concatenação)
+// DotDProcessorPlugin processes .d.tmpl directories (concatenation).
 type DotDProcessorPlugin struct {
 	engine *template.Engine
 	data   any
 }
 
-// NewDotDProcessorPlugin cria plugin de processamento .d.tmpl
+// NewDotDProcessorPlugin creates a .d.tmpl processing plugin.
 func NewDotDProcessorPlugin(engine *template.Engine, data any) *DotDProcessorPlugin {
 	return &DotDProcessorPlugin{
 		engine: engine,

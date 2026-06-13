@@ -12,6 +12,11 @@ import (
 	"workspaced/pkg/driver/notification"
 )
 
+var (
+	// ErrGitRepoSyncNeedsSrcAndDst is returned when a git_repo_sync action is missing src or dst.
+	ErrGitRepoSyncNeedsSrcAndDst = errors.New("git_repo_sync requires src and dst")
+)
+
 func init() {
 	registerActionProvider[GitRepoSyncAction]("git_repo_sync")
 
@@ -25,7 +30,7 @@ type GitRepoSyncAction struct {
 
 func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification) error {
 	if strings.TrimSpace(a.Src) == "" || strings.TrimSpace(a.Dst) == "" {
-		return fmt.Errorf("git_repo_sync requires src and dst")
+		return ErrGitRepoSyncNeedsSrcAndDst
 	}
 	if err := ensureRepoCloned(ctx, a.Src, a.Dst); err != nil {
 		return err

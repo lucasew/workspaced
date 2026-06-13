@@ -5,14 +5,14 @@ import (
 	"fmt"
 )
 
-// ProviderPlugin adapta um Provider para Plugin
-// Permite usar providers legacy no sistema de pipeline
+// ProviderPlugin adapts a Provider to the Plugin interface.
+// Allows legacy providers to be used in the pipeline system.
 type ProviderPlugin struct {
 	provider Provider
 	priority int
 }
 
-// NewProviderPlugin cria plugin a partir de provider legacy
+// NewProviderPlugin creates a plugin from a legacy provider.
 func NewProviderPlugin(provider Provider, priority int) *ProviderPlugin {
 	return &ProviderPlugin{
 		provider: provider,
@@ -30,14 +30,14 @@ func (p *ProviderPlugin) Process(ctx context.Context, files []File) ([]File, err
 		return nil, fmt.Errorf("provider %s failed: %w", p.provider.Name(), err)
 	}
 
-	// Converter DesiredState para source.File
+	// Convert DesiredState to source.File
 	newFiles := make([]File, len(desired))
 	for i, d := range desired {
-		// Providers legacy sempre retornam BufferFiles ou StaticFiles construídos a partir de DesiredState legacy.
-		// No novo modelo, DesiredState já contém um File interface.
+		// Legacy providers always return BufferFiles or StaticFiles built from legacy DesiredState.
+		// In the new model, DesiredState already contains a File interface.
 		newFiles[i] = d.File
 	}
 
-	// Append aos arquivos existentes
+	// Append to existing files
 	return append(files, newFiles...), nil
 }

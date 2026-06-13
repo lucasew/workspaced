@@ -6,7 +6,6 @@ import (
 	"time"
 	"workspaced/pkg/db"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/types"
 
 	"github.com/spf13/cobra"
 )
@@ -20,7 +19,7 @@ func init() {
 				limit, _ := c.Flags().GetInt32("limit")
 				asJSON, _ := c.Flags().GetBool("json")
 
-				database, ok := c.Context().Value(types.DBKey).(*db.DB)
+				database, ok := db.FromContext(c.Context())
 				if !ok {
 					var err error
 					database, err = db.Open(c.Context())

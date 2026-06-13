@@ -15,23 +15,23 @@ import (
 )
 
 func init() {
-	driver.Register[clipboard.Driver](&Provider{})
+	driver.Register[clipboard.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "clipboard_xclip" }
-func (p *Provider) Name() string { return "X11 (xclip)" }
+func (p *Factory) ID() string   { return "clipboard_xclip" }
+func (p *Factory) Name() string { return "X11 (xclip)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "xclip") {
-		return fmt.Errorf("xclip binary not found")
+		return fmt.Errorf("%w: xclip", driver.ErrIncompatible)
 	}
 	// Fallback driver, usually always valid if binary exists
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (clipboard.Driver, error) {
+func (p *Factory) New(ctx context.Context) (clipboard.Driver, error) {
 	return &Driver{}, nil
 }
 

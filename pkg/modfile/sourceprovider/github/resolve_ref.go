@@ -2,9 +2,16 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+)
+
+var (
+	ErrRepoRequired        = errors.New("github source requires repo")
+	ErrMissingDefaultBranch = errors.New("missing default_branch in github response")
+	ErrMissingSHA           = errors.New("missing sha in github response")
 )
 
 var shaRefRe = regexp.MustCompile(`^[a-fA-F0-9]{7,40}$`)
@@ -15,7 +22,7 @@ func (s Source) ResolvePinnedTarballURL(ctx context.Context) (string, error) {
 	}
 	repo := s.Repo()
 	if repo == "" {
-		return "", fmt.Errorf("github source requires repo")
+		return "", ErrRepoRequired
 	}
 
 	ref := strings.TrimSpace(s.Config.Ref)
@@ -46,7 +53,7 @@ func (s Source) resolveDefaultBranch(ctx context.Context, repo string) (string, 
 		return "", fmt.Errorf("repo metadata lookup failed: %w", err)
 	}
 	if strings.TrimSpace(payload.DefaultBranch) == "" {
-		return "", fmt.Errorf("missing default_branch in github response")
+		return "", ErrMissingDefaultBranch
 	}
 	return strings.TrimSpace(payload.DefaultBranch), nil
 }
@@ -60,7 +67,7 @@ func (s Source) resolveCommitSHA(ctx context.Context, repo string, ref string) (
 		return "", fmt.Errorf("commit lookup failed: %w", err)
 	}
 	if strings.TrimSpace(payload.SHA) == "" {
-		return "", fmt.Errorf("missing sha in github response")
+		return "", ErrMissingSHA
 	}
 	return strings.TrimSpace(payload.SHA), nil
 }

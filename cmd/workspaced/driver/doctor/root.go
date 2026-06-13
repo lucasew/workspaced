@@ -61,9 +61,9 @@ func GetCommand() *cobra.Command {
 
 					// Format ID based on verbose flag
 					providerID := d.ID
-					if verbose && d.ProviderType != nil {
-						// Show full provider struct path
-						providerID = getProviderTypeName(d.ProviderType)
+					if verbose && d.FactoryType != nil {
+						// Show full factory struct path
+						providerID = getFactoryTypeName(d.FactoryType)
 					}
 
 					// In verbose mode, show driver name with slug ID
@@ -121,8 +121,8 @@ func getFriendlyInterfaceName(fullPath string) string {
 	return strings.ToLower(pkg) + "." + strings.ToLower(typeName)
 }
 
-// getProviderTypeName returns the full path of a provider type
-func getProviderTypeName(t any) string {
+// getFactoryTypeName returns the full path of a factory type.
+func getFactoryTypeName(t any) string {
 	rt, ok := t.(reflect.Type)
 	if !ok {
 		return fmt.Sprintf("%v", t)

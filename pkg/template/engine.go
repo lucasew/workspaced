@@ -9,15 +9,19 @@ import (
 	"text/template"
 )
 
-// Engine é o motor de renderização de templates do workspaced
+var (
+	ErrNotMultiFile = errors.New("template is not a multi-file template")
+)
+
+// Engine is the workspaced template rendering engine.
 type Engine struct {
 	funcMap template.FuncMap
 }
 
-// Option é uma função de configuração para Engine
+// Option is a configuration function for Engine.
 type Option func(*Engine)
 
-// NewEngine cria uma nova engine de templates
+// NewEngine creates a new template engine.
 func NewEngine(ctx context.Context, opts ...Option) *Engine {
 	e := &Engine{
 		funcMap: makeFuncMap(ctx),
@@ -30,21 +34,21 @@ func NewEngine(ctx context.Context, opts ...Option) *Engine {
 	return e
 }
 
-// WithCustomFunc adiciona uma função customizada ao FuncMap
+// WithCustomFunc adds a custom function to the FuncMap.
 func WithCustomFunc(name string, fn any) Option {
 	return func(e *Engine) {
 		e.funcMap[name] = fn
 	}
 }
 
-// WithFuncMap substitui o FuncMap inteiro
+// WithFuncMap replaces the entire FuncMap.
 func WithFuncMap(funcMap template.FuncMap) Option {
 	return func(e *Engine) {
 		e.funcMap = funcMap
 	}
 }
 
-// Render renderiza um template string com os dados fornecidos
+// Render renders a template string with the provided data.
 func (e *Engine) Render(ctx context.Context, tmpl string, data any) ([]byte, error) {
 	t, err := template.New("template").Funcs(e.funcMap).Parse(tmpl)
 	if err != nil {
@@ -62,7 +66,7 @@ func (e *Engine) Render(ctx context.Context, tmpl string, data any) ([]byte, err
 	return buf.Bytes(), nil
 }
 
-// RenderFile renderiza um arquivo de template
+// RenderFile renders a template file from disk.
 func (e *Engine) RenderFile(ctx context.Context, path string, data any) ([]byte, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -72,7 +76,7 @@ func (e *Engine) RenderFile(ctx context.Context, path string, data any) ([]byte,
 	return e.Render(ctx, string(content), data)
 }
 
-// RenderMultiFile renderiza e retorna múltiplos arquivos
+// RenderMultiFile renders a template and returns multiple output files.
 func (e *Engine) RenderMultiFile(ctx context.Context, tmpl string, data any) ([]MultiFile, error) {
 	rendered, err := e.Render(ctx, tmpl, data)
 	if err != nil {
@@ -81,7 +85,7 @@ func (e *Engine) RenderMultiFile(ctx context.Context, tmpl string, data any) ([]
 
 	files, isMulti := ParseMultiFile(rendered)
 	if !isMulti {
-		return nil, fmt.Errorf("template is not a multi-file template")
+		return nil, ErrNotMultiFile
 	}
 
 	return files, nil

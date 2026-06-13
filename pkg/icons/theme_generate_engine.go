@@ -3,6 +3,7 @@ package icons
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	imagedraw "image/draw"
@@ -26,6 +27,17 @@ import (
 	"workspaced/pkg/taskgroup"
 
 	xdraw "golang.org/x/image/draw"
+)
+
+var (
+	ErrNoValidSizes        = errors.New("no valid sizes provided")
+	ErrBase16NotConfigured = errors.New("module base16 is not configured")
+	ErrInvalidBase16Config = errors.New("invalid modules.base16 config")
+	ErrBase16MissingColors = errors.New("modules.base16 must include at least base00/base05/base0D")
+	ErrInvalidSize         = errors.New("invalid icon size")
+	ErrInvalidJobs         = errors.New("invalid jobs value")
+	ErrInvalidReplaceRule  = errors.New("invalid color replace rule")
+	ErrNoSVGFiles          = errors.New("no .svg or .svg.tmpl files found")
 )
 
 var sizeDirPrefixRe = regexp.MustCompile(`^\d+x\d+$`)
@@ -65,7 +77,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		return err
 	}
 	if len(paths) == 0 {
-		return fmt.Errorf("no .svg or .svg.tmpl files found in %s", inputDir)
+		return fmt.Errorf("%w: %s", ErrNoSVGFiles, inputDir)
 	}
 
 	maxSize := 0
@@ -289,12 +301,12 @@ func parseSizes(raw string) ([]int, error) {
 		}
 		n, err := strconv.Atoi(p)
 		if err != nil || n <= 0 {
-			return nil, fmt.Errorf("invalid size %q", p)
+			return nil, fmt.Errorf("%w: %q", ErrInvalidSize, p)
 		}
 		out = append(out, n)
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no valid sizes provided")
+		return nil, ErrNoValidSizes
 	}
 	sort.Ints(out)
 	return out, nil
@@ -314,7 +326,7 @@ func resolveJobs(raw string) (int, error) {
 	}
 	n, err := strconv.Atoi(s)
 	if err != nil || n < 1 {
-		return 0, fmt.Errorf("invalid --jobs %q (use integer >= 1 or 'auto')", raw)
+		return 0, fmt.Errorf("%w: %q (use integer >= 1 or 'auto')", ErrInvalidJobs, raw)
 	}
 	return n, nil
 }
@@ -326,11 +338,11 @@ func loadBase16Colors(ctx context.Context) (map[string]string, error) {
 	}
 	entry, err := cfg.ModuleEntry("base16")
 	if err != nil {
-		return nil, fmt.Errorf("module base16 is not configured")
+		return nil, ErrBase16NotConfigured
 	}
 	m := entry.Config
 	if m == nil {
-		return nil, fmt.Errorf("invalid modules.base16 config")
+		return nil, ErrInvalidBase16Config
 	}
 
 	out := map[string]string{}
@@ -344,7 +356,7 @@ func loadBase16Colors(ctx context.Context) (map[string]string, error) {
 		out[strings.ToUpper(k)] = s
 	}
 	if out["base00"] == "" || out["base05"] == "" || out["base0D"] == "" {
-		return nil, fmt.Errorf("modules.base16 must include at least base00/base05/base0D")
+		return nil, ErrBase16MissingColors
 	}
 	return out, nil
 }
@@ -354,12 +366,12 @@ func parseColorReplacements(rules []string) (map[string]string, error) {
 	for _, r := range rules {
 		pair := strings.SplitN(r, "=", 2)
 		if len(pair) != 2 {
-			return nil, fmt.Errorf("invalid --replace rule %q (expected old=new)", r)
+			return nil, fmt.Errorf("%w: %q (expected old=new)", ErrInvalidReplaceRule, r)
 		}
 		oldC := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(pair[0]), "#"))
 		newC := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(pair[1]), "#"))
 		if len(oldC) != 6 || len(newC) != 6 {
-			return nil, fmt.Errorf("invalid --replace rule %q (expected 6-digit hex)", r)
+			return nil, fmt.Errorf("%w: %q (expected 6-digit hex)", ErrInvalidReplaceRule, r)
 		}
 		out[oldC] = newC
 	}

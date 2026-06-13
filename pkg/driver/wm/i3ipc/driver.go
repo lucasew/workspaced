@@ -12,15 +12,15 @@ import (
 )
 
 func init() {
-	driver.Register[api.Driver](&SwayProvider{})
-	driver.Register[api.Driver](&I3Provider{})
+	driver.Register[api.Driver](&SwayFactory{})
+	driver.Register[api.Driver](&I3Factory{})
 }
 
-type SwayProvider struct{}
+type SwayFactory struct{}
 
-func (p *SwayProvider) ID() string   { return "screen_wayland_sway" }
-func (p *SwayProvider) Name() string { return "Sway" }
-func (p *SwayProvider) CheckCompatibility(ctx context.Context) error {
+func (p *SwayFactory) ID() string   { return "screen_wayland_sway" }
+func (p *SwayFactory) Name() string { return "Sway" }
+func (p *SwayFactory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -30,15 +30,15 @@ func (p *SwayProvider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *SwayProvider) New(ctx context.Context) (api.Driver, error) {
+func (p *SwayFactory) New(ctx context.Context) (api.Driver, error) {
 	return &Driver{Binary: "swaymsg"}, nil
 }
 
-type I3Provider struct{}
+type I3Factory struct{}
 
-func (p *I3Provider) ID() string   { return "screen_x11_i3" }
-func (p *I3Provider) Name() string { return "i3" }
-func (p *I3Provider) CheckCompatibility(ctx context.Context) error {
+func (p *I3Factory) ID() string   { return "screen_x11_i3" }
+func (p *I3Factory) Name() string { return "i3" }
+func (p *I3Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -48,7 +48,7 @@ func (p *I3Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *I3Provider) New(ctx context.Context) (api.Driver, error) {
+func (p *I3Factory) New(ctx context.Context) (api.Driver, error) {
 	return &Driver{Binary: "i3-msg"}, nil
 }
 

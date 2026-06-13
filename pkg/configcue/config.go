@@ -3,6 +3,7 @@ package configcue
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,11 @@ import (
 	"workspaced/pkg/driver"
 	"workspaced/pkg/env"
 	"workspaced/pkg/taskgroup"
+)
+
+var (
+	ErrKeyNotFound = errors.New("key not found in config")
+	ErrKeyNotMap   = errors.New("config key is not a map")
 )
 
 type Config struct {
@@ -47,11 +53,11 @@ func (c *Config) Lookup(key string) (any, error) {
 	for _, part := range strings.Split(key, ".") {
 		m, ok := current.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("key %q not found or not a map", key)
+			return nil, fmt.Errorf("%w: %q", ErrKeyNotMap, key)
 		}
 		next, ok := m[part]
 		if !ok {
-			return nil, fmt.Errorf("key %q not found in config", key)
+			return nil, fmt.Errorf("%w: %q", ErrKeyNotFound, key)
 		}
 		current = next
 	}

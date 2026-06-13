@@ -2,6 +2,7 @@ package dotfiles
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 	"workspaced/pkg/deployer"
@@ -9,7 +10,14 @@ import (
 	"workspaced/pkg/source"
 )
 
-// Manager é a API principal para gerenciamento de dotfiles
+var (
+	// ErrPipelineRequired is returned when a Manager is created without a pipeline.
+	ErrPipelineRequired = errors.New("pipeline is required")
+	// ErrStateStoreRequired is returned when a Manager is created without a state store.
+	ErrStateStoreRequired = errors.New("state store is required")
+)
+
+// Manager is the main API for dotfiles management.
 type Manager struct {
 	pipeline   *source.Pipeline
 	stateStore deployer.StateStore
@@ -18,26 +26,26 @@ type Manager struct {
 	hooks      []Hook
 }
 
-// Config configura o Manager
+// Config configures the Manager.
 type Config struct {
-	// Pipeline de plugins
+	// Pipeline of plugins.
 	Pipeline *source.Pipeline
 
-	// State store para persistência
+	// StateStore for persistence.
 	StateStore deployer.StateStore
 
-	// Hooks opcionais
+	// Hooks (optional).
 	Hooks []Hook
 }
 
-// NewManager cria um novo manager
+// NewManager creates a new Manager.
 func NewManager(cfg Config) (*Manager, error) {
 	if cfg.Pipeline == nil {
-		return nil, fmt.Errorf("pipeline is required")
+		return nil, ErrPipelineRequired
 	}
 
 	if cfg.StateStore == nil {
-		return nil, fmt.Errorf("state store is required")
+		return nil, ErrStateStoreRequired
 	}
 
 	return &Manager{
@@ -49,13 +57,13 @@ func NewManager(cfg Config) (*Manager, error) {
 	}, nil
 }
 
-// ApplyOptions configura execução do Apply
+// ApplyOptions configures Apply execution.
 type ApplyOptions struct {
-	DryRun   bool // Se true, apenas mostra o que seria feito
-	ShowDiff bool // Se true, mostra diff detalhado
+	DryRun   bool // If true, only shows what would be done.
+	ShowDiff bool // If true, shows a detailed diff.
 }
 
-// ApplyResult contém resultado do Apply
+// ApplyResult contains the result of Apply.
 type ApplyResult struct {
 	FilesCreated int
 	FilesUpdated int
@@ -65,12 +73,12 @@ type ApplyResult struct {
 	Error        error
 }
 
-// Apply executa o ciclo completo de deployment
+// Apply runs the full deployment cycle.
 func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, error) {
 	logger := logging.GetLogger(ctx)
 	result := &ApplyResult{}
 
-	// 1. Executar pipeline
+	// 1. Run pipeline
 	logger.Info("running pipeline", "plugins", len(m.pipeline.GetPlugins()))
 	files, err := m.pipeline.Run(ctx, []source.File{})
 	if err != nil {
@@ -80,7 +88,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	logger.Info("pipeline completed", "files", len(files))
 
-	// 2. Converter source.File para deployer.DesiredState
+	// 2. Convert source.File to deployer.DesiredState
 	desired := make([]deployer.DesiredState, len(files))
 	for i, f := range files {
 		desired[i] = deployer.DesiredState{
@@ -88,7 +96,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		}
 	}
 
-	// 3. Carregar estado atual
+	// 3. Load current state
 	logger.Info("loading state", "store", m.stateStore.Path())
 	state, err := m.stateStore.Load()
 	if err != nil {
@@ -96,7 +104,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		return result, fmt.Errorf("failed to load state: %w", err)
 	}
 
-	// 4. Planejar ações
+	// 4. Plan actions
 	logger.Info("planning actions")
 	planStart := time.Now()
 	actions, err := m.planner.Plan(ctx, desired, state)
@@ -108,7 +116,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	result.Actions = actions
 
-	// Contar ações
+	// Count actions
 	for _, a := range actions {
 		switch a.Type {
 		case deployer.ActionCreate:
@@ -135,13 +143,13 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		"delete", result.FilesDeleted,
 	)
 
-	// Dry-run: para aqui
+	// Dry-run: stop here
 	if opts.DryRun {
 		logger.Info("dry-run: skipping execution")
 		return result, nil
 	}
 
-	// 5. Executar hooks Before
+	// 5. Execute Before hooks
 	for _, hook := range m.hooks {
 		if err := hook.Before(ctx, actions); err != nil {
 			result.Error = err
@@ -149,15 +157,15 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		}
 	}
 
-	// 6. Executar ações
+	// 6. Execute actions
 	logger.Info("executing actions")
 	execErr := m.executor.Execute(ctx, actions, state)
 
-	// 7. Executar hooks After (mesmo se houver erro)
+	// 7. Execute After hooks (even if there was an error)
 	for _, hook := range m.hooks {
 		if err := hook.After(ctx, actions, execErr); err != nil {
 			logger.Error("hook after failed", "error", err)
-			// Continua executando outros hooks
+			// Continue executing other hooks
 		}
 	}
 
@@ -166,7 +174,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		return result, fmt.Errorf("failed to execute: %w", execErr)
 	}
 
-	// 8. Salvar estado
+	// 8. Save state
 	logger.Info("saving state")
 	if err := m.stateStore.Save(state); err != nil {
 		result.Error = err
@@ -177,12 +185,12 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	return result, nil
 }
 
-// GetPipeline retorna pipeline configurado
+// GetPipeline returns the configured pipeline.
 func (m *Manager) GetPipeline() *source.Pipeline {
 	return m.pipeline
 }
 
-// GetStateStore retorna state store configurado
+// GetStateStore returns the configured state store.
 func (m *Manager) GetStateStore() deployer.StateStore {
 	return m.stateStore
 }

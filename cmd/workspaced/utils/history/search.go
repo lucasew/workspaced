@@ -1,17 +1,19 @@
 package history
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/db"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/types"
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/spf13/cobra"
 )
+
+var errNoHistory = errors.New("no history found")
 
 var Registry cmdregistry.CommandRegistry
 
@@ -21,7 +23,7 @@ func init() {
 			Use:   "search [query]",
 			Short: "Search history using fuzzy finder",
 			RunE: func(c *cobra.Command, args []string) error {
-				database, ok := c.Context().Value(types.DBKey).(*db.DB)
+				database, ok := db.FromContext(c.Context())
 				if !ok {
 					var err error
 					database, err = db.Open(c.Context())
@@ -37,7 +39,7 @@ func init() {
 				}
 
 				if len(events) == 0 {
-					return fmt.Errorf("no history found")
+					return errNoHistory
 				}
 
 				// 2. Run fuzzy finder

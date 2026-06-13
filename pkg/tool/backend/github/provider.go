@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,11 @@ import (
 	providerinstall "workspaced/pkg/tool/backend/install"
 )
 
+var (
+	ErrEmptyGitHubRef   = errors.New("github ref cannot be empty (expected owner/repo)")
+	ErrInvalidGitHubRef = errors.New("invalid github ref (expected owner/repo)")
+)
+
 func init() {
 	tool.Register("github", &Provider{})
 }
@@ -33,7 +39,7 @@ func (p *Provider) Tool(ref string) (backend.Tool, error) {
 }
 
 // ParsePackage is kept for transitional use by code that still talks to the
-// old detailed surface on the concrete provider.
+// old detailed surface on the concrete backend.
 func (p *Provider) ParsePackage(spec string) (backend.PackageConfig, error) {
 	parts := strings.Split(spec, "/")
 	if len(parts) != 2 {
@@ -257,29 +263,29 @@ func parseAssetName(name string) (osName, arch string, ok bool) {
 }
 
 // ============================================================================
-// GitHubTool - exported Tool implementation for the github provider
+// GitHubTool - exported Tool implementation for the github backend
 // ============================================================================
 
 // GitHubTool is the concrete Tool for packages distributed via GitHub Releases.
-// It is exported (along with NewTool) so that a future central "registry" provider
+// It is exported (along with NewTool) so that a future central "registry" backend
 // can construct, wrap, or delegate to GitHub-based tools.
 type GitHubTool struct {
 	repo string
-	p    *Provider // delegate to existing provider logic during migration
+	p    *Provider // delegate to existing backend logic during migration
 }
 
 // NewTool constructs a GitHubTool for the given ref ("owner/repo").
-// This is the preferred way for external code (including a future registry provider)
+// This is the preferred way for external code (including a future registry backend)
 // to obtain a github-backed Tool without going through the handler registration.
 func NewTool(ref string) (backend.Tool, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return nil, fmt.Errorf("github ref cannot be empty (expected owner/repo)")
+		return nil, ErrEmptyGitHubRef
 	}
 	// Basic validation to match old ParsePackage behavior
 	parts := strings.Split(ref, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return nil, fmt.Errorf("invalid github ref %q (expected owner/repo)", ref)
+		return nil, fmt.Errorf("%w: %q", ErrInvalidGitHubRef, ref)
 	}
 	return &GitHubTool{repo: ref, p: &Provider{}}, nil
 }

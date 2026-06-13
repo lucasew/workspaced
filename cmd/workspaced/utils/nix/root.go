@@ -1,9 +1,15 @@
 package nix
 
 import (
+	"errors"
 	"workspaced/pkg/cmdregistry"
 
 	"github.com/spf13/cobra"
+)
+
+var (
+	errNoFlakeRef    = errors.New("no flake reference provided")
+	errNoBinaryFound = errors.New("no binary found")
 )
 
 var Registry cmdregistry.CommandRegistry

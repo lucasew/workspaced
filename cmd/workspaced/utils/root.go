@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -144,7 +145,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 					// Run locally this time, next call will hit new daemon
 					return "", false, nil
 				}
-				return "", true, fmt.Errorf("%s", resp.Error)
+				return "", true, errors.New(resp.Error)
 			}
 			return "", true, nil
 		}

@@ -1,11 +1,23 @@
 package modfile
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
 	"workspaced/pkg/configcue"
 	parsespec "workspaced/pkg/parse/spec"
+)
+
+var (
+	ErrInvalidSourceSpec   = errors.New("expected provider:target[@ref]")
+	ErrUnsupportedProvider = errors.New("source provider not supported for lock hash")
+	ErrEmptyHash           = errors.New("provider returned empty hash")
+	ErrInvalidLockEntry    = errors.New("invalid lock entry")
+	ErrInputNotConfigured  = errors.New("module references input without config")
+	ErrUnknownInput        = errors.New("unknown input")
+	ErrInputMissingFrom    = errors.New("input is missing from field")
+	ErrLockEntryShrunk     = errors.New("refusing to shrink source lock entries")
 )
 
 type SourceConfig struct {
@@ -218,7 +230,7 @@ func normalizeGitHubRepo(in string) string {
 func ParseSourceSpec(spec string) (SourceConfig, error) {
 	trimmed := strings.TrimSpace(spec)
 	if !strings.Contains(trimmed, ":") {
-		return SourceConfig{}, fmt.Errorf("expected provider:target[@ref]")
+		return SourceConfig{}, ErrInvalidSourceSpec
 	}
 
 	ts, err := parsespec.Parse(trimmed)

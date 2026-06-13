@@ -10,15 +10,15 @@ import (
 )
 
 func init() {
-	driver.Register[wallpaper.Driver](&Provider{})
+	driver.Register[wallpaper.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "x11_feh" }
-func (p *Provider) Name() string { return "X11 (feh)" }
+func (p *Factory) ID() string   { return "x11_feh" }
+func (p *Factory) Name() string { return "X11 (feh)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("DISPLAY") == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -31,7 +31,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (wallpaper.Driver, error) {
+func (p *Factory) New(ctx context.Context) (wallpaper.Driver, error) {
 	return &Driver{}, nil
 }
 

@@ -18,22 +18,22 @@ import (
 )
 
 func init() {
-	driver.Register[httpclientdriver.Driver](&Provider{})
+	driver.Register[httpclientdriver.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "httpclient_termux" }
-func (p *Provider) Name() string { return "Termux HTTP Client" }
+func (p *Factory) ID() string   { return "httpclient_termux" }
+func (p *Factory) Name() string { return "Termux HTTP Client" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" {
 		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (httpclientdriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (httpclientdriver.Driver, error) {
 	return &Driver{
 		rootCAs: loadTermuxCerts(ctx),
 	}, nil

@@ -3,14 +3,17 @@ package resolution
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/semver"
 )
+
+var ErrToolNotFound = errors.New("tool not found")
 
 type Resolver struct {
 	toolsDir string
@@ -78,7 +81,7 @@ func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error)
 	}
 
 	if len(candidates) == 0 {
-		return "", fmt.Errorf("tool %q not found (version: %s)", toolName, version)
+		return "", fmt.Errorf("%w: %q (version: %s)", ErrToolNotFound, toolName, version)
 	}
 
 	// If multiple candidates, pick one.
@@ -89,28 +92,17 @@ func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error)
 }
 
 func (r *Resolver) checkBin(verDir, toolName string) string {
-	// Check bin/toolName
-	p := filepath.Join(verDir, "bin", toolName)
-	if _, err := os.Stat(p); err == nil {
-		return p
+	candidates := []string{
+		filepath.Join(verDir, "bin", toolName),
+		filepath.Join(verDir, "bin", toolName+".exe"),
+		filepath.Join(verDir, toolName),
+		filepath.Join(verDir, toolName+".exe"),
 	}
-	// Check bin/toolName.exe
-	p = filepath.Join(verDir, "bin", toolName+".exe")
-	if _, err := os.Stat(p); err == nil {
-		return p
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
 	}
-
-	// Check toolName in root
-	p = filepath.Join(verDir, toolName)
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
-	// Check toolName.exe in root
-	p = filepath.Join(verDir, toolName+".exe")
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
-
 	return ""
 }
 
@@ -187,50 +179,6 @@ func readToolVersion(path, toolName string) string {
 
 func sortVersions(versions []string) {
 	sort.Slice(versions, func(i, j int) bool {
-		return compareVersions(versions[i], versions[j]) < 0
+		return semver.Parse(versions[i]).Less(semver.Parse(versions[j]))
 	})
-}
-
-func compareVersions(v1, v2 string) int {
-	p1 := parseVersion(v1)
-	p2 := parseVersion(v2)
-	l := min(len(p2), len(p1))
-	for k := 0; k < l; k++ {
-		if p1[k] < p2[k] {
-			return -1
-		}
-		if p1[k] > p2[k] {
-			return 1
-		}
-	}
-	if len(p1) < len(p2) {
-		return -1
-	}
-	if len(p1) > len(p2) {
-		return 1
-	}
-	return 0
-}
-
-func parseVersion(v string) []int {
-	v = strings.TrimPrefix(v, "v")
-	parts := strings.Split(v, ".")
-	var nums []int
-	for _, part := range parts {
-		numPart := ""
-		for _, r := range part {
-			if r >= '0' && r <= '9' {
-				numPart += string(r)
-			} else {
-				break
-			}
-		}
-		if numPart == "" {
-			nums = append(nums, 0)
-		} else {
-			n, _ := strconv.Atoi(numPart)
-			nums = append(nums, n)
-		}
-	}
-	return nums
 }

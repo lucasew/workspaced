@@ -15,20 +15,20 @@ import (
 )
 
 func init() {
-	driver.Register[fetchurldriver.Driver](&Provider{})
+	driver.Register[fetchurldriver.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "fetchurl" }
-func (p *Provider) Name() string { return "fetchurl" }
+func (p *Factory) ID() string   { return "fetchurl" }
+func (p *Factory) Name() string { return "fetchurl" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	// fetchurl is a pure Go library, always compatible
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (fetchurldriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (fetchurldriver.Driver, error) {
 	httpDriver, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
 		return nil, fmt.Errorf("httpclient driver required: %w", err)
@@ -44,10 +44,10 @@ type Driver struct {
 
 func (d *Driver) Fetch(ctx context.Context, opts fetchurldriver.FetchOptions) error {
 	if len(opts.URLs) == 0 {
-		return fmt.Errorf("no URLs provided")
+		return fetchurldriver.ErrNoURLs
 	}
 	if opts.Out == nil {
-		return fmt.Errorf("no output writer provided")
+		return fetchurldriver.ErrNoOutputWriter
 	}
 
 	g := taskgroup.FromContext(ctx)

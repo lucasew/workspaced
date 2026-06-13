@@ -47,7 +47,7 @@ func QuickSync(ctx context.Context) error {
 	}
 
 	n := &notification.Notification{
-		Title: "Sincronização Git",
+		Title: "Git Sync",
 		Icon:  "git",
 	}
 
@@ -58,7 +58,7 @@ func QuickSync(ctx context.Context) error {
 		}
 
 		repoPath := filepath.Join(repoDir, repoName)
-		n.Message = fmt.Sprintf("Sincronizando %s...", repoName)
+		n.Message = fmt.Sprintf("Syncing %s...", repoName)
 		n.Progress = float64(i) / float64(total)
 		logging.ReportError(ctx, notification.Notify(ctx, n))
 
@@ -66,8 +66,8 @@ func QuickSync(ctx context.Context) error {
 		if err := SyncRepo(ctx, repoPath); err != nil {
 			logger.Error("failed to sync repo", "repo", repoName, "error", err)
 			errN := &notification.Notification{
-				Title:   "Sincronização Falhou",
-				Message: fmt.Sprintf("Conflito ou erro em %s. Intervenção manual necessária.", repoName),
+				Title:   "Sync Failed",
+				Message: fmt.Sprintf("Conflict or error in %s. Manual intervention required.", repoName),
 				Urgency: "critical",
 				Icon:    "dialog-warning",
 			}
@@ -75,7 +75,7 @@ func QuickSync(ctx context.Context) error {
 		}
 	}
 
-	n.Message = "Sincronização concluída."
+	n.Message = "Sync completed."
 	n.Progress = 1.0
 	logging.ReportError(ctx, notification.Notify(ctx, n))
 

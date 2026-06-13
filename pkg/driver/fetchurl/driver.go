@@ -2,7 +2,13 @@ package fetchurl
 
 import (
 	"context"
+	"errors"
 	"io"
+)
+
+var (
+	ErrNoURLs          = errors.New("no URLs provided")
+	ErrNoOutputWriter  = errors.New("no output writer provided")
 )
 
 // FetchOptions configures a download operation

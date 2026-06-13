@@ -2,6 +2,7 @@ package icons
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,6 +13,8 @@ import (
 
 	"workspaced/pkg/env"
 )
+
+var ErrIconSourceDirNotFound = errors.New("icon source directory not found")
 
 type ThemeGenerateOptions struct {
 	InputDir       string
@@ -72,7 +75,7 @@ func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 	outputDir := env.ExpandPath(opts.OutputDir)
 
 	if _, err := os.Stat(inputDir); err != nil {
-		return fmt.Errorf("icon source dir not found: %s", inputDir)
+		return fmt.Errorf("%w: %s", ErrIconSourceDirNotFound, inputDir)
 	}
 
 	if opts.UseCache {

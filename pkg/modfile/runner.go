@@ -2,8 +2,13 @@ package modfile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"workspaced/pkg/configcue"
+)
+
+var (
+	ErrNilConfig = errors.New("config is nil")
 )
 
 type LockResult struct {
@@ -20,7 +25,7 @@ func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 
 func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.Config) (LockResult, error) {
 	if cfg == nil {
-		return LockResult{}, fmt.Errorf("failed to load config: config is nil")
+		return LockResult{}, fmt.Errorf("failed to load config: %w", ErrNilConfig)
 	}
 
 	if err := ws.EnsureFiles(ctx); err != nil {
@@ -45,7 +50,7 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 		}
 		afterSources := len(sum.SourceLocks())
 		if afterSources < beforeSources {
-			return false, fmt.Errorf("refusing to shrink source lock entries: before=%d after=%d", beforeSources, afterSources)
+			return false, fmt.Errorf("%w: before=%d after=%d", ErrLockEntryShrunk, beforeSources, afterSources)
 		}
 		return changed, nil
 	})

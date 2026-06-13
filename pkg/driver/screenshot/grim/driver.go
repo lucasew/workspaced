@@ -16,15 +16,15 @@ import (
 )
 
 func init() {
-	driver.Register[screenshot.Driver](&Provider{})
+	driver.Register[screenshot.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "screenshot_grim" }
-func (p *Provider) Name() string { return "Grim (Wayland)" }
+func (p *Factory) ID() string   { return "screenshot_grim" }
+func (p *Factory) Name() string { return "Grim (Wayland)" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -34,7 +34,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (screenshot.Driver, error) {
+func (p *Factory) New(ctx context.Context) (screenshot.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -42,7 +42,7 @@ type Driver struct{}
 
 func (d *Driver) SelectArea(ctx context.Context) (*api.Rect, error) {
 	if !execdriver.IsBinaryAvailable(ctx, "slurp") {
-		return nil, fmt.Errorf("slurp not found for selection")
+		return nil, screenshot.ErrSelectionToolNotFound
 	}
 	out, err := execdriver.MustRun(ctx, "slurp").Output()
 	if err != nil {
@@ -50,7 +50,7 @@ func (d *Driver) SelectArea(ctx context.Context) (*api.Rect, error) {
 	}
 	raw := strings.TrimSpace(string(out))
 	if raw == "" {
-		return nil, fmt.Errorf("empty selection")
+		return nil, screenshot.ErrEmptySelection
 	}
 	// slurp output: "x,y wxh"
 	parts := strings.FieldsFunc(raw, func(r rune) bool {

@@ -3,35 +3,26 @@ package x11
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/screen"
 	"workspaced/pkg/env"
-	"workspaced/pkg/types"
+	"workspaced/pkg/executil"
 )
 
 func init() {
-	driver.Register[screen.Driver](&Provider{})
+	driver.Register[screen.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "screen_x11" }
-func (p *Provider) Name() string { return "X11" }
+func (p *Factory) ID() string   { return "screen_x11" }
+func (p *Factory) Name() string { return "X11" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
-	display := os.Getenv("DISPLAY")
-	if env, ok := ctx.Value(types.EnvKey).([]string); ok {
-		for _, e := range env {
-			if after, ok0 := strings.CutPrefix(e, "DISPLAY="); ok0 {
-				display = after
-				break
-			}
-		}
-	}
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
+	display := executil.GetEnv(ctx, "DISPLAY")
 
 	if display == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
@@ -45,7 +36,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (screen.Driver, error) {
+func (p *Factory) New(ctx context.Context) (screen.Driver, error) {
 	return &Driver{}, nil
 }
 

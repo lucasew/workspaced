@@ -142,10 +142,10 @@ func normalizeSources(sources map[string]LockedSource) error {
 		lock.URL = strings.TrimSpace(lock.URL)
 		lock.Hash = strings.TrimSpace(lock.Hash)
 		if lock.Provider == "" {
-			return fmt.Errorf("invalid lock entry for source %q: provider is required", name)
+			return fmt.Errorf("%w: source %q: provider is required", ErrInvalidLockEntry, name)
 		}
 		if lock.Hash == "" {
-			return fmt.Errorf("invalid lock entry for source %q: hash is required", name)
+			return fmt.Errorf("%w: source %q: hash is required", ErrInvalidLockEntry, name)
 		}
 		sources[name] = lock
 	}
@@ -157,10 +157,10 @@ func normalizeTools(tools map[string]LockedTool) error {
 		lock.Ref = strings.TrimSpace(lock.Ref)
 		lock.Version = strings.TrimSpace(lock.Version)
 		if lock.Ref == "" {
-			return fmt.Errorf("invalid lock entry for tool %q: ref is required", name)
+			return fmt.Errorf("%w: tool %q: ref is required", ErrInvalidLockEntry, name)
 		}
 		if lock.Version == "" {
-			return fmt.Errorf("invalid lock entry for tool %q: version is required", name)
+			return fmt.Errorf("%w: tool %q: version is required", ErrInvalidLockEntry, name)
 		}
 		tools[name] = lock
 	}

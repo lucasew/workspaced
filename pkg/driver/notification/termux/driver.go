@@ -9,22 +9,22 @@ import (
 )
 
 func init() {
-	driver.Register[notification.Driver](&Provider{})
+	driver.Register[notification.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "notification_termux" }
-func (p *Provider) Name() string { return "Termux" }
+func (p *Factory) ID() string   { return "notification_termux" }
+func (p *Factory) Name() string { return "Termux" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "termux-notification") {
 		return fmt.Errorf("%w: termux-notification not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (notification.Driver, error) {
+func (p *Factory) New(ctx context.Context) (notification.Driver, error) {
 	return &Driver{}, nil
 }
 

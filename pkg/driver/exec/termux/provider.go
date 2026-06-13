@@ -12,21 +12,21 @@ import (
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/types"
 )
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string {
+func (p *Factory) ID() string {
 	return "exec_termux"
 }
 
-func (p *Provider) Name() string {
+func (p *Factory) Name() string {
 	return "Termux"
 }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	// TERMUX_VERSION is not guaranteed to be exported in every shell/session.
 	// Accept additional Termux markers to avoid false negatives.
 	if os.Getenv("TERMUX_VERSION") != "" {
@@ -41,7 +41,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 }
 
-func (p *Provider) New(ctx context.Context) (execdriver.Driver, error) {
+func (p *Factory) New(ctx context.Context) (execdriver.Driver, error) {
 	return &Driver{}, nil
 }
 
@@ -373,7 +373,7 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 	}
 
 	path := os.Getenv("PATH")
-	if env, ok := ctx.Value(types.EnvKey).([]string); ok {
+	if env := executil.Env(ctx); env != nil {
 		for _, e := range env {
 			if after, ok0 := strings.CutPrefix(e, "PATH="); ok0 {
 				path = after
@@ -394,5 +394,5 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 }
 
 func init() {
-	driver.Register[execdriver.Driver](&Provider{})
+	driver.Register[execdriver.Driver](&Factory{})
 }

@@ -9,15 +9,15 @@ import (
 )
 
 func init() {
-	driver.Register[power.Driver](&Provider{})
+	driver.Register[power.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "power_systemd" }
-func (p *Provider) Name() string { return "Systemd" }
+func (p *Factory) ID() string   { return "power_systemd" }
+func (p *Factory) Name() string { return "Systemd" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "loginctl") {
 		return fmt.Errorf("%w: loginctl not found", driver.ErrIncompatible)
 	}
@@ -27,7 +27,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (power.Driver, error) {
+func (p *Factory) New(ctx context.Context) (power.Driver, error) {
 	return &Driver{}, nil
 }
 

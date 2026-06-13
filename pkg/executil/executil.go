@@ -10,23 +10,59 @@ import (
 	"strings"
 	"time"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/types"
 )
+
+type stdoutKey struct{}
+type stderrKey struct{}
+type envKey struct{}
+
+// WithStdout returns a context carrying an io.Writer for standard output.
+func WithStdout(ctx context.Context, w io.Writer) context.Context {
+	return context.WithValue(ctx, stdoutKey{}, w)
+}
+
+// Stdout retrieves the stdout writer from the context, or nil if not set.
+func Stdout(ctx context.Context) io.Writer {
+	w, _ := ctx.Value(stdoutKey{}).(io.Writer)
+	return w
+}
+
+// WithStderr returns a context carrying an io.Writer for standard error.
+func WithStderr(ctx context.Context, w io.Writer) context.Context {
+	return context.WithValue(ctx, stderrKey{}, w)
+}
+
+// Stderr retrieves the stderr writer from the context, or nil if not set.
+func Stderr(ctx context.Context) io.Writer {
+	w, _ := ctx.Value(stderrKey{}).(io.Writer)
+	return w
+}
+
+// WithEnv returns a context carrying environment variables as a slice of "KEY=VALUE" strings.
+func WithEnv(ctx context.Context, env []string) context.Context {
+	return context.WithValue(ctx, envKey{}, env)
+}
+
+// Env retrieves the environment variable slice from the context, or nil if not set.
+func Env(ctx context.Context) []string {
+	env, _ := ctx.Value(envKey{}).([]string)
+	return env
+}
 
 // InheritContextWriters configures the command's Stdout and Stderr to write to the writers
 // stored in the context, allowing output capture or redirection.
 func InheritContextWriters(ctx context.Context, cmd *exec.Cmd) {
-	if stdout, ok := ctx.Value(types.StdoutKey).(io.Writer); ok {
+	if stdout := Stdout(ctx); stdout != nil {
 		cmd.Stdout = stdout
 	}
-	if stderr, ok := ctx.Value(types.StderrKey).(io.Writer); ok {
+	if stderr := Stderr(ctx); stderr != nil {
 		cmd.Stderr = stderr
 	}
 }
 
 // GetEnv retrieves an environment variable from the context or the system.
 func GetEnv(ctx context.Context, key string) string {
-	if env, ok := ctx.Value(types.EnvKey).([]string); ok {
+	if env := Env(ctx); env != nil {
 		for _, e := range env {
 			if strings.HasPrefix(e, key+"=") {
 				return e[len(key)+1:]

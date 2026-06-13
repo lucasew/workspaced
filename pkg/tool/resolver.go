@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,15 @@ import (
 	parsespec "workspaced/pkg/parse/spec"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
+)
+
+var (
+	// ErrNoVersionsFound is returned when a tool has no available versions upstream.
+	ErrNoVersionsFound = errors.New("no versions found")
+	// ErrToolDirNotFound is returned when a tool's version directory doesn't exist.
+	ErrToolDirNotFound = errors.New("tool directory not found")
+	// ErrBinaryNotFound is returned when the binary is not found within a tool's install dir.
+	ErrBinaryNotFound = errors.New("binary not found")
 )
 
 // EnsureInstalled resolves the binary path for a requested tool, triggering a dynamic
@@ -146,23 +156,14 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
 	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
-		return "", fmt.Errorf("tool directory not found: %s", versionDir)
+		return "", fmt.Errorf("%w: %s", ErrToolDirNotFound, versionDir)
 	}
 
-	candidates := []string{
-		filepath.Join(versionDir, "bin", cmdName),
-		filepath.Join(versionDir, "bin", cmdName+".exe"),
-		filepath.Join(versionDir, cmdName),
-		filepath.Join(versionDir, cmdName+".exe"),
+	if binPath := FindBinary(versionDir, cmdName); binPath != "" {
+		return binPath, nil
 	}
 
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
-		}
-	}
-
-	return "", fmt.Errorf("binary %q not found in %s", cmdName, versionDir)
+	return "", fmt.Errorf("%w: %q in %s", ErrBinaryNotFound, cmdName, versionDir)
 }
 
 // ResolveLatestVersion delegates to the underlying tool provider to query the remote
@@ -185,7 +186,7 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 	}
 
 	if len(versions) == 0 {
-		return "", fmt.Errorf("no versions found")
+		return "", ErrNoVersionsFound
 	}
 
 	// We assume the first one is relevant (often latest from the provider).

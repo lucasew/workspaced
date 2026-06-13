@@ -11,22 +11,22 @@ import (
 )
 
 func init() {
-	driver.Register[power.Driver](&Provider{})
+	driver.Register[power.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "power_termux" }
-func (p *Provider) Name() string { return "Termux" }
+func (p *Factory) ID() string   { return "power_termux" }
+func (p *Factory) Name() string { return "Termux" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" {
 		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (power.Driver, error) {
+func (p *Factory) New(ctx context.Context) (power.Driver, error) {
 	return &Driver{}, nil
 }
 

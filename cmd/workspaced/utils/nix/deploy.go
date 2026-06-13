@@ -49,7 +49,7 @@ func init() {
 
 				n := notification.Notification{
 					Title:   "NixOS Deploy",
-					Message: fmt.Sprintf("Deploy concluído para: %s", strings.Join(nodes, ", ")),
+					Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(nodes, ", ")),
 					Icon:    "nix-snowflake",
 				}
 				if err := notification.Notify(ctx, &n); err != nil {

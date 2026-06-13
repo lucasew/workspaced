@@ -10,15 +10,15 @@ import (
 )
 
 func init() {
-	driver.Register[opener.Driver](&Provider{})
+	driver.Register[opener.Driver](&Factory{})
 }
 
-type Provider struct{}
+type Factory struct{}
 
-func (p *Provider) ID() string   { return "opener_termux" }
-func (p *Provider) Name() string { return "termux-open" }
+func (p *Factory) ID() string   { return "opener_termux" }
+func (p *Factory) Name() string { return "termux-open" }
 
-func (p *Provider) CheckCompatibility(ctx context.Context) error {
+func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" {
 		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 	}
@@ -28,7 +28,7 @@ func (p *Provider) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Provider) New(ctx context.Context) (opener.Driver, error) {
+func (p *Factory) New(ctx context.Context) (opener.Driver, error) {
 	return &Driver{}, nil
 }
 

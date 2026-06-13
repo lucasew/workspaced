@@ -31,7 +31,7 @@ var (
 	ErrNotFound     = errors.New("driver not found")
 )
 
-type DriverProvider[T any] interface {
+type DriverFactory[T any] interface {
 	ID() string   // Unique slug for the driver (e.g. "wayland_swaybg")
 	Name() string // Human readable name
 	CheckCompatibility(ctx context.Context) error
@@ -41,7 +41,7 @@ type DriverProvider[T any] interface {
 type doctorEntry struct {
 	InterfaceType reflect.Type
 	InterfaceName string
-	ProviderType  reflect.Type // Type of the provider struct
+	FactoryType   reflect.Type // Type of the factory struct
 	DriverID      string
 	DriverName    string
 	Check         func(context.Context) error
@@ -100,7 +100,7 @@ func SetWeights(w map[string]map[string]int) error {
 	return nil
 }
 
-func Register[T any](provider DriverProvider[T]) {
+func Register[T any](provider DriverFactory[T]) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -124,7 +124,7 @@ func Register[T any](provider DriverProvider[T]) {
 	doctorList = append(doctorList, doctorEntry{
 		InterfaceType: t,
 		InterfaceName: getInterfaceName(t),
-		ProviderType:  reflect.TypeOf(provider),
+		FactoryType:   reflect.TypeOf(provider),
 		DriverID:      id,
 		DriverName:    provider.Name(),
 		Check:         provider.CheckCompatibility,
@@ -173,10 +173,10 @@ func Get[T any](ctx context.Context) (T, error) {
 	logger := logging.GetLogger(ctx)
 	logger.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
 
-	providers := make([]DriverProvider[T], 0)
+	providers := make([]DriverFactory[T], 0)
 	if pMap, ok := Drivers[t]; ok {
 		for _, p := range pMap {
-			providers = append(providers, p.(DriverProvider[T]))
+			providers = append(providers, p.(DriverFactory[T]))
 		}
 	}
 	mu.RUnlock()
@@ -186,11 +186,11 @@ func Get[T any](ctx context.Context) (T, error) {
 		return zero, ErrNotFound
 	}
 
-	// Log all providers before sorting
-	logger.Debug("available providers", "interface", ifaceName, "count", len(providers))
+	// Log all factories before sorting
+	logger.Debug("available driver factories", "interface", ifaceName, "count", len(providers))
 	for _, p := range providers {
 		w := getConfiguredWeight(weights, p.ID())
-		logger.Debug("provider registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
+		logger.Debug("factory registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
 	}
 
 	// Sort providers by weight then ID
@@ -232,7 +232,7 @@ func Get[T any](ctx context.Context) (T, error) {
 type DriverStatus struct {
 	ID           string
 	Name         string
-	ProviderType reflect.Type
+	FactoryType  reflect.Type
 	Weight       int
 	Available    bool
 	Selected     bool
@@ -288,7 +288,7 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 			status := DriverStatus{
 				ID:           d.DriverID,
 				Name:         d.DriverName,
-				ProviderType: d.ProviderType,
+				FactoryType:  d.FactoryType,
 				Weight:       weight,
 				Available:    err == nil,
 				Error:        err,
