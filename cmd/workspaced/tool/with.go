@@ -2,9 +2,11 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/taskgroup"
@@ -17,11 +19,15 @@ func init() {
 	Registry.FromGetter(
 		func() *cobra.Command {
 			return &cobra.Command{
-				Use:   "with <tool-spec> -- <command> [args...]",
-				Short: "Execute a command with a specific tool version",
-				Long: `Execute a command with a specific tool version.
+				Use:   "with <tool-spec>... -- <command> [args...]",
+				Short: "Execute a command with specific tool version(s)",
+				Long: `Execute a command with specific tool version(s).
 
-If the tool is not installed, it will be installed automatically.
+All <tool-spec> arguments before "--" are ensured (installed if missing).
+The <command> is resolved from the first (rightmost) listed tool that provides a binary
+of that name, so the provider of the command does not have to be the last entry.
+
+If a tool is not installed, it will be installed automatically.
 
 Tool spec format:
   provider:package@version  (full spec)
@@ -36,20 +42,43 @@ Examples:
   workspaced tool with github:denoland/deno@1.40.0 -- deno run app.ts
   workspaced tool with ripgrep -- rg pattern
   workspaced tool with uv -- uv --version
-  workspaced tool with mise:go@1.21.0 -- go version`,
-				Args: cobra.MinimumNArgs(2), // Need at least: tool-spec and command
+  workspaced tool with mise:go@1.21.0 -- go version
+  workspaced tool with mise:go@1.21.0 mise:node@20 -- node --version
+  workspaced tool with nodejs uv -- node --help`,
+				Args:               cobra.MinimumNArgs(2), // Need at least: tool-spec and command
+				DisableFlagParsing: true,
 				RunE: func(cmd *cobra.Command, args []string) error {
-					spec := args[0]
-					command := args[1]
-					commandArgs := args[2:]
+					// Parse tools before "--" (supports multiple). If no "--" present,
+					// fall back to legacy single-tool mode for compatibility.
+					var toolSpecs []string
+					var cmdLine []string
+					foundDash := false
+					for i, a := range args {
+						if a == "--" {
+							toolSpecs = args[:i]
+							cmdLine = args[i+1:]
+							foundDash = true
+							break
+						}
+					}
+					if !foundDash {
+						if len(args) < 2 {
+							return fmt.Errorf("at least one tool spec and a command are required (use -- to separate multiple tools)")
+						}
+						toolSpecs = args[:1]
+						cmdLine = args[1:]
+					}
+					if len(toolSpecs) == 0 || len(cmdLine) == 0 {
+						return fmt.Errorf("usage: workspaced tool with <tool-spec>... -- <command> [args...]")
+					}
+
+					command := cmdLine[0]
+					commandArgs := cmdLine[1:]
 
 					var theCmd *exec.Cmd
 
 					g := taskgroup.MustFromContext(cmd.Context())
-					g.Go("tool:with:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-						s.Update("ensuring " + spec)
-						s.Progress(0, 1)
-
+					g.Go("tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 						// Perform the tool resolution/install using the task's context.
 						// This context is tied to the group and supports cancellation
 						// (e.g. ^C during download will abort the fetch/install tasks).
@@ -57,9 +86,40 @@ Examples:
 						if err != nil {
 							return err
 						}
-						binPath, err := m.EnsureInstalled(ctx, spec, command)
-						if err != nil {
-							return fmt.Errorf("failed to ensure tool installed: %w", err)
+
+						// Ensure side tools (everything but we will search for the command provider below).
+						// Using Ensure (not EnsureInstalled) so we don't require the command name to exist
+						// in every listed tool.
+						for _, specStr := range toolSpecs[:len(toolSpecs)-1] {
+							s.Update("ensuring " + specStr)
+							if err := m.Ensure(ctx, specStr); err != nil {
+								return fmt.Errorf("failed to ensure tool %s: %w", specStr, err)
+							}
+						}
+
+						// The command name may be provided by any of the listed tools (search from the end
+						// so the rightmost one that matches wins). This makes "with nodejs uv -- node"
+						// work naturally even if "nodejs" is not the last entry.
+						var binPath string
+						var found bool
+						for i := len(toolSpecs) - 1; i >= 0; i-- {
+							spec := toolSpecs[i]
+							s.Update("ensuring " + spec)
+							bp, err := m.EnsureInstalled(ctx, spec, command)
+							if err == nil {
+								binPath = bp
+								found = true
+								break
+							}
+							if errors.Is(err, tool.ErrBinaryNotFound) || strings.Contains(err.Error(), "binary not found") {
+								// This tool doesn't contain the requested command; try the previous one in the list.
+								continue
+							}
+							// Hard failure (resolution, network, etc.) for a candidate -> surface it.
+							return fmt.Errorf("failed to ensure tool %s: %w", spec, err)
+						}
+						if !found {
+							return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
 						}
 
 						// Create the final *exec.Cmd using a context *detached* from the
@@ -75,7 +135,6 @@ Examples:
 							return err
 						}
 						theCmd = c
-						s.Progress(1, 1)
 						return nil
 					})
 

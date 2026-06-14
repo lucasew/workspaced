@@ -40,6 +40,43 @@ func (m *Manager) Install(ctx context.Context, toolSpecStr string) error {
 	return m.installWithHint(ctx, toolSpecStr, "")
 }
 
+// Ensure ensures the tool for the given spec is present on disk (installing it if the
+// resolved version directory is missing or empty). It handles "latest" by first resolving
+// it to a concrete version (which may query upstream), then checks the corresponding
+// on-disk directory. If a usable directory for that version already exists, it returns
+// quickly with no further network or extraction work. This is useful for "side" tools
+// listed in `tool with` where no specific binary name is known in advance.
+func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
+	spec, err := parsespec.Parse(toolSpecStr)
+	if err != nil {
+		return err
+	}
+
+	actualVersion := spec.Version
+	if spec.Version == "latest" {
+		resolved, err := m.ResolveLatestVersion(ctx, spec)
+		if err != nil {
+			return fmt.Errorf("failed to resolve latest version: %w", err)
+		}
+		actualVersion = resolved
+	}
+
+	normalizedVersion := normalizeVersion(actualVersion)
+	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
+
+	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+		return nil
+	}
+
+	// Missing or empty: let Install perform the work. If we resolved a concrete version
+	// for a "latest" input, pass it pinned so Install skips its own re-resolution.
+	if actualVersion != spec.Version {
+		pinned := fmt.Sprintf("%s:%s@%s", spec.Provider, spec.Package, actualVersion)
+		return m.Install(ctx, pinned)
+	}
+	return m.Install(ctx, toolSpecStr)
+}
+
 // installWithHint executes the core installation flow, optionally taking a binaryHint
 // (such as an expected executable name). When a hint is provided, it attempts an optimized
 // artifact selection (via ArtifactTool) before falling back to standard backend.Tool logic.
