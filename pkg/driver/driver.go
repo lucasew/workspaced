@@ -8,6 +8,16 @@
 // Selection happens via driver.Get[T](ctx), which respects configured weights
 // (from workspaced.cue) and calls CheckCompatibility on candidates.
 //
+// For testing and debugging you can force a particular implementation using an
+// environment variable:
+//
+//	WORKSPACED_FORCE_DRIVER=rsync_gokrazy
+//	WORKSPACED_FORCE_RSYNC_DRIVER=rsync_gokrazy
+//
+// The forced driver (if registered for the interface) is given an effective
+// weight of 101 so it is considered first. If its CheckCompatibility fails,
+// normal fallback to other candidates occurs.
+//
 // The central list of all driver implementations is pulled in via the
 // pkg/driver/prelude package (imported with blank import from cmd/workspaced/root.go).
 package driver
@@ -16,6 +26,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -100,6 +111,48 @@ func SetWeights(w map[string]map[string]int) error {
 	return nil
 }
 
+// forceDriverFromEnv returns a driver ID that should be preferred for the given
+// interface, if any is requested via environment variable.
+//
+// Supported variables (checked in order):
+//   - WORKSPACED_FORCE_DRIVER=<id>          (applies to any interface)
+//   - WORKSPACED_FORCE_RSYNC_DRIVER=<id>    (for rsync.Driver)
+//   - WORKSPACED_FORCE_CLIPBOARD_DRIVER=<id>
+//   - etc. (derived from the interface name)
+//
+// This is intended for testing and debugging (e.g. forcing the pure-Go
+// gokrazy rsync implementation even when the native binary is present).
+func forceDriverFromEnv(ifaceName string) string {
+	if v := os.Getenv("WORKSPACED_FORCE_DRIVER"); v != "" {
+		return v
+	}
+	// Derive a friendly key, e.g.
+	//   "workspaced/pkg/driver/rsync.Driver"        -> WORKSPACED_FORCE_RSYNC_DRIVER
+	//   "workspaced/pkg/driver/clipboard.Driver"    -> WORKSPACED_FORCE_CLIPBOARD_DRIVER
+	//   "workspaced/pkg/driver/dialog.Chooser"      -> WORKSPACED_FORCE_DIALOG_CHOOSER_DRIVER
+	key := ifaceName
+	if idx := strings.LastIndex(key, "/"); idx >= 0 {
+		key = key[idx+1:]
+	}
+	key = strings.TrimSuffix(key, ".Driver")
+	key = strings.ReplaceAll(key, ".", "_")
+	key = "WORKSPACED_FORCE_" + strings.ToUpper(key) + "_DRIVER"
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return ""
+}
+
+// effectiveWeight returns the weight to use for sorting, taking config weights
+// plus any active environment variable force into account.
+// A forced driver gets a weight > 100 so it reliably sorts first.
+func effectiveWeight(weights map[string]int, driverID, ifaceName string) int {
+	if forced := forceDriverFromEnv(ifaceName); forced != "" && forced == driverID {
+		return 101
+	}
+	return getConfiguredWeight(weights, driverID)
+}
+
 func Register[T any](provider DriverFactory[T]) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -179,6 +232,26 @@ func Get[T any](ctx context.Context) (T, error) {
 			providers = append(providers, p.(DriverFactory[T]))
 		}
 	}
+
+	// Apply any WORKSPACED_FORCE_*_DRIVER override for testing/debug.
+	// We only consider it "active" for this interface if one of the registered
+	// drivers actually has the forced ID (prevents log spam from the generic
+	// WORKSPACED_FORCE_DRIVER var).
+	forced := forceDriverFromEnv(ifaceName)
+	if forced != "" {
+		hasMatching := false
+		for _, p := range providers {
+			if p.ID() == forced {
+				hasMatching = true
+				break
+			}
+		}
+		if hasMatching {
+			logger.Info("driver force active via environment variable",
+				"interface", ifaceName, "forced_driver", forced)
+		}
+	}
+
 	mu.RUnlock()
 
 	var zero T
@@ -189,14 +262,15 @@ func Get[T any](ctx context.Context) (T, error) {
 	// Log all factories before sorting
 	logger.Debug("available driver factories", "interface", ifaceName, "count", len(providers))
 	for _, p := range providers {
-		w := getConfiguredWeight(weights, p.ID())
+		w := effectiveWeight(weights, p.ID(), ifaceName)
 		logger.Debug("factory registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
 	}
 
-	// Sort providers by weight then ID
+	// Sort providers by (effective) weight then ID.
+	// A forced driver via env gets weight 101 so it is tried first.
 	sort.Slice(providers, func(i, j int) bool {
-		wi := getConfiguredWeight(weights, providers[i].ID())
-		wj := getConfiguredWeight(weights, providers[j].ID())
+		wi := effectiveWeight(weights, providers[i].ID(), ifaceName)
+		wj := effectiveWeight(weights, providers[j].ID(), ifaceName)
 
 		if wi != wj {
 			return wi > wj // Higher weight first
@@ -207,7 +281,7 @@ func Get[T any](ctx context.Context) (T, error) {
 	var report []string
 
 	for _, provider := range providers {
-		weight := getConfiguredWeight(weights, provider.ID())
+		weight := effectiveWeight(weights, provider.ID(), ifaceName)
 
 		if err := cachedCheck(provider.ID(), provider.CheckCompatibility, ctx); err != nil {
 			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", provider.ID(), provider.Name(), weight, err))
@@ -284,7 +358,7 @@ func Doctor(ctx context.Context) []InterfaceStatus {
 
 		for _, d := range entries {
 			err := cachedCheck(d.DriverID, d.Check, ctx)
-			weight := getConfiguredWeight(weights, d.DriverID)
+			weight := effectiveWeight(weights, d.DriverID, ifaceName)
 			status := DriverStatus{
 				ID:          d.DriverID,
 				Name:        d.DriverName,

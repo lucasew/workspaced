@@ -27,6 +27,8 @@ import (
 	_ "workspaced/pkg/driver/opener/xdg"
 	_ "workspaced/pkg/driver/power/systemd"
 	_ "workspaced/pkg/driver/power/termux"
+	_ "workspaced/pkg/driver/rsync/gokrazy"
+	_ "workspaced/pkg/driver/rsync/native"
 	_ "workspaced/pkg/driver/screen/sway"
 	_ "workspaced/pkg/driver/screen/x11"
 	_ "workspaced/pkg/driver/screenshot/grim"

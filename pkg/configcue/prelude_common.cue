@@ -36,6 +36,9 @@ workspaced: {
 		"workspaced/pkg/driver/power.Driver": {
 			"power_termux": *60 | int
 		}
+		"workspaced/pkg/driver/rsync.Driver": {
+			"rsync_native": *60 | int
+		}
 		"workspaced/pkg/driver/svgraster.Driver": {
 			"resvg": *100 | int
 		}

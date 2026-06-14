@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	"time"
+
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
-	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/driver/rsync"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
@@ -176,37 +178,50 @@ func Rsync(ctx context.Context, src, dst string, n *notification.Notification, e
 	}
 	logger := logging.GetLogger(ctx)
 	logger.Info("rsync sync", "from", src, "to", dst)
-	args := append([]string{"-avP", src, dst}, extraArgs...)
-	cmd := execdriver.MustRun(ctx, "rsync", args...)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return "", err
+	// Map legacy extraArgs into Options best-effort (excludes only; other flags
+	// are passed through by appending to the driver's argv construction is not
+	// exposed, so we ignore unknown extra flags for the driver path and let the
+	// underlying rsync (native or gokrazy) see what it can).
+	opts := rsync.Options{}
+	for _, a := range extraArgs {
+		if strings.HasPrefix(a, "--exclude=") {
+			opts.Excludes = append(opts.Excludes, strings.TrimPrefix(a, "--exclude="))
+		} else if a == "--no-perms" {
+			opts.SkipPermissions = true
+		}
+		// Other legacy extra args are dropped for the structured path; the
+		// caller can migrate to the driver directly for full control.
 	}
-	cmd.Stderr = cmd.Stdout
 
-	if err := cmd.Start(); err != nil {
-		return "", err
-	}
+	// Live notif via Output tee (same pattern as the action).
+	pr, pw := io.Pipe()
+	opts.Output = pw
 
 	lastLine := ""
-	scanner := bufio.NewScanner(stdout)
-	lastUpdate := time.Now()
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line != "" {
-			lastLine = line
-		}
-		if time.Since(lastUpdate) > time.Second {
-			if n != nil {
-				n.Message = line
-				logging.ReportError(ctx, notification.Notify(ctx, n))
+	scanDone := make(chan struct{})
+	go func() {
+		defer close(scanDone)
+		scanner := bufio.NewScanner(pr)
+		lastUpdate := time.Now()
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line != "" {
+				lastLine = line
 			}
-			lastUpdate = time.Now()
+			if time.Since(lastUpdate) > time.Second {
+				if n != nil {
+					n.Message = line
+					logging.ReportError(ctx, notification.Notify(ctx, n))
+				}
+				lastUpdate = time.Now()
+			}
 		}
-	}
+	}()
 
-	err = cmd.Wait()
+	err := rsync.Sync(ctx, src, dst, opts)
+	pw.Close()
+	<-scanDone
+
 	return lastLine, err
 }

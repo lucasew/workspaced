@@ -11,6 +11,7 @@ import (
 	pkg_notification "workspaced/cmd/workspaced/driver/notification"
 	pkg_open "workspaced/cmd/workspaced/driver/open"
 	pkg_power "workspaced/cmd/workspaced/driver/power"
+	pkg_rsync "workspaced/cmd/workspaced/driver/rsync"
 	pkg_screen "workspaced/cmd/workspaced/driver/screen"
 	pkg_screenshot "workspaced/cmd/workspaced/driver/screenshot"
 	pkg_sudo "workspaced/cmd/workspaced/driver/sudo"
@@ -28,6 +29,7 @@ func init() {
 	Registry.FromGetter(pkg_notification.GetCommand)
 	Registry.FromGetter(pkg_open.GetCommand)
 	Registry.FromGetter(pkg_power.GetCommand)
+	Registry.FromGetter(pkg_rsync.GetCommand)
 	Registry.FromGetter(pkg_screen.GetCommand)
 	Registry.FromGetter(pkg_screenshot.GetCommand)
 	Registry.FromGetter(pkg_sudo.GetCommand)

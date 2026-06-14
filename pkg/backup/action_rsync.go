@@ -1,15 +1,16 @@
 package backup
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"io"
 	"strings"
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/logging"
-
-	"bufio"
 	"time"
-	execdriver "workspaced/pkg/driver/exec"
+
+	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/driver/rsync"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -30,47 +31,49 @@ var (
 
 func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) error {
 	logger := logging.GetLogger(ctx)
-	cmdCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	extraArgs := make([]string, 0, len(a.Excludes))
-	for _, x := range a.Excludes {
-		extraArgs = append(extraArgs, "--exclude="+x)
-	}
-	if a.SkipPermissions {
-		extraArgs = append(extraArgs, "--no-perms")
-	}
+
 	if strings.TrimSpace(a.Src) == "" || strings.TrimSpace(a.Dst) == "" {
 		return ErrRsyncNeedsSrcAndDst
 	}
 	logger.Info("rsync sync", "from", a.Src, "to", a.Dst)
-	args := append(extraArgs, "-avP", a.Src, a.Dst)
-	cmd := execdriver.MustRun(cmdCtx, "rsync", args...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	cmd.Stderr = cmd.Stdout
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	scanner := bufio.NewScanner(stdout)
-	lastUpdate := time.Now()
 
-	for scanner.Scan() {
-		if logging.ReportError(ctx, scanner.Err()) {
-			return err
-		}
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			n.Message = line
-			logger.Debug("rsync", "line", line)
-		}
-		if time.Since(lastUpdate) > time.Second {
-			if (*notification.Notification)(n) != nil {
-				logging.ReportError(ctx, notification.Notify(ctx, n))
-			}
-			lastUpdate = time.Now()
-		}
+	// Use a pipe so we can forward rsync output lines to the desktop notification
+	// (preserving the previous live-update behavior) while the driver handles
+	// taskgroup progress.
+	pr, pw := io.Pipe()
+
+	opts := rsync.Options{
+		Excludes:        a.Excludes,
+		SkipPermissions: a.SkipPermissions,
+		Output:          pw,
 	}
-	return cmd.Wait()
+
+	// Scanner goroutine feeds the notification with live rsync status lines.
+	scanDone := make(chan struct{})
+	go func() {
+		defer close(scanDone)
+		scanner := bufio.NewScanner(pr)
+		lastUpdate := time.Now()
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				n.Message = line
+				logger.Debug("rsync", "line", line)
+			}
+			if time.Since(lastUpdate) > time.Second {
+				if (*notification.Notification)(n) != nil {
+					logging.ReportError(ctx, notification.Notify(ctx, n))
+				}
+				lastUpdate = time.Now()
+			}
+		}
+	}()
+
+	err := rsync.Sync(ctx, a.Src, a.Dst, opts)
+
+	// Close write side so the scanner goroutine drains and exits.
+	pw.Close()
+	<-scanDone
+
+	return err
 }
