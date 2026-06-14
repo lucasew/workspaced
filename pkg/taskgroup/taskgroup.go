@@ -283,9 +283,9 @@ type Group struct {
 func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	g := &Group{
-		byID:  make(map[string]*taskEntry),
-		pools: newPools(limits),
-		ctx:   ctx,
+		byID:   make(map[string]*taskEntry),
+		pools:  newPools(limits),
+		ctx:    ctx,
 		cancel: cancel,
 	}
 
