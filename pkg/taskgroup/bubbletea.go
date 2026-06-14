@@ -303,6 +303,14 @@ func (g *Group) RunBubbleTea() error {
 		prog.Send(refreshMsg{})
 	})
 
+	// Install patches for os.Stderr, slog.Default(), and the stdlib log
+	// package. Any output they receive while the program is running is
+	// line-scanned and emitted via prog.Printf + refresh so it appears
+	// in the scrolling transcript above the progress bars. The returned
+	// cleanup restores the previous values (like a context manager exit).
+	cleanupPatches := installTeaPatches(prog)
+	defer cleanupPatches()
+
 	_, err := prog.Run()
 
 	signal.Stop(sigChan)
