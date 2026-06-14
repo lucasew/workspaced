@@ -2,9 +2,11 @@ package tool
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool"
 
@@ -47,7 +49,28 @@ Examples:
 					g.Go("tool:with:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 						s.Update("ensuring " + spec)
 						s.Progress(0, 1)
-						c, err := tool.EnsureAndRun(ctx, spec, command, commandArgs...)
+
+						// Perform the tool resolution/install using the task's context.
+						// This context is tied to the group and supports cancellation
+						// (e.g. ^C during download will abort the fetch/install tasks).
+						m, err := tool.NewManager()
+						if err != nil {
+							return err
+						}
+						binPath, err := m.EnsureInstalled(ctx, spec, command)
+						if err != nil {
+							return fmt.Errorf("failed to ensure tool installed: %w", err)
+						}
+
+						// Create the final *exec.Cmd using a context *detached* from the
+						// task group. taskgroup.Run(g) / Wait() will call cancel() on the
+						// group context (to signal renderers done), even on success.
+						// If the exec.Cmd was created with CommandContext on a ctx that
+						// then gets canceled, the child process gets killed immediately
+						// (or fails to start cleanly). The "with" use case needs the
+						// launched tool to outlive the "ensuring" + TUI teardown phase.
+						execCtx := context.WithoutCancel(ctx)
+						c, err := execdriver.Run(execCtx, binPath, commandArgs...)
 						if err != nil {
 							return err
 						}
