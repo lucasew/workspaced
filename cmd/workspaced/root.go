@@ -69,9 +69,11 @@ func main() {
 	var rootGroup *taskgroup.Group
 
 	cmd := &cobra.Command{
-		Use:     "workspaced",
-		Short:   "workspaced - declarative user environment manager",
-		Version: version.GetBuildID(),
+		Use:           "workspaced",
+		Short:         "workspaced - declarative user environment manager",
+		Version:       version.GetBuildID(),
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
 			// Ensure the command's context always carries a logger so that
 			// GetLogger (and ReportError/Close/RunCleanup etc.) never see a
@@ -159,6 +161,11 @@ func main() {
 	cmd.PersistentFlags().StringVar(&memProfilePath, "memprofile", "", "Write heap profile to file at end (or set WORKSPACED_MEMPROFILE)")
 	Registry.FillCommands(cmd)
 
+	// Silence usage and errors on the entire command tree. Cobra by default
+	// dumps full usage text whenever RunE returns an error (bad args, runtime
+	// failures, etc). We want clean errors via the logger in main() only.
+	setSilenceOnAllCommands(cmd)
+
 	// Set root command for shell completion generation
 	shellgen.SetRootCommand(cmd)
 
@@ -225,4 +232,15 @@ func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) 
 		}
 		return nil
 	}, nil
+}
+
+// setSilenceOnAllCommands disables Cobra's default behavior of printing
+// usage text (and the error itself) when any command returns an error.
+// We centralize error reporting in main() via the structured logger.
+func setSilenceOnAllCommands(c *cobra.Command) {
+	c.SilenceUsage = true
+	c.SilenceErrors = true
+	for _, sub := range c.Commands() {
+		setSilenceOnAllCommands(sub)
+	}
 }
