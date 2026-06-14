@@ -25,9 +25,10 @@ var (
 )
 
 // EnsureInstalled resolves the binary path for a requested tool, triggering a dynamic
-// installation if the tool or its explicit version is missing locally. It checks "latest"
-// tags against upstream providers and gracefully falls back to hinted installations
-// if artifact boundaries are ambiguous.
+// installation if the version folder is missing or empty. "latest" is resolved against
+// the backend first when needed. The install decision is simply: if the version
+// directory exists and is not empty, treat the tool as installed (no refetch).
+// FindBinary is only used to locate the specific cmdName inside an existing folder.
 func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName string) (string, error) {
 	spec, err := parsespec.Parse(toolSpecStr)
 	if err != nil {
@@ -57,62 +58,26 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		return "", err
 	}
 
-	// Try to resolve the binary first (if already installed)
-	binPath, err := m.ResolveBinary(spec, cmdName)
-	if err == nil {
-		return binPath, nil
-	}
-
-	// Not found, check if we need to install
 	normalizedVersion := normalizeVersion(actualVersion)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
 	logger := logging.GetLogger(ctx)
 
-	if _, statErr := os.Stat(versionDir); os.IsNotExist(statErr) {
-		logger.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
-
-		if bt, ok := t.(backend.BinaryTool); ok {
-			var binPath string
-			var installErr error
-			if parent := taskgroup.FromContext(ctx); parent != nil {
-				child, _ := parent.SubGroup(ctx)
-				child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-					s.Update("installing " + normalizedVersion)
-					s.Progress(0, 1)
-					binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
-					s.Progress(1, 1)
-					return installErr
-				})
-				if werr := child.Wait(); werr != nil && installErr == nil {
-					installErr = werr
-				}
-			} else {
-				binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
-			}
-			if installErr != nil {
-				return "", fmt.Errorf("failed to install tool: %w", installErr)
-			}
-			logger.Info("tool installed", "spec", spec, "bin_path", binPath)
+	// Just check if the folder is there and it's not empty.
+	// If a version directory exists and has any contents, treat the tool
+	// version as installed (prevents the fetcher from refetching over and over
+	// due to exact binary name mismatches, prior non-hinted installs, etc.).
+	// We still use FindBinary only to *locate* the requested cmd inside it.
+	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+		if binPath := FindBinary(versionDir, cmdName); binPath != "" {
 			return binPath, nil
 		}
-
-		if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
-			return "", fmt.Errorf("failed to install tool: %w", err)
-		}
-
-		// Try to resolve again
-		binPath, err = m.ResolveBinary(spec, cmdName)
-		if err != nil {
-			return "", fmt.Errorf("tool installed but binary not found: %w", err)
-		}
-		logger.Info("tool installed", "spec", spec, "bin_path", binPath)
-		return binPath, nil
+		return "", fmt.Errorf("%w: %q in %s", ErrBinaryNotFound, cmdName, versionDir)
 	}
 
-	// The version directory exists but the expected binary is missing.
-	// Reinstalling with a binary hint fixes ambiguous artifact selections.
-	logger.Info("reinstalling tool with binary hint", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+	// Folder missing or empty: perform the install.
+	logger.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+
 	if bt, ok := t.(backend.BinaryTool); ok {
 		var binPath string
 		var installErr error
@@ -132,19 +97,22 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
 		}
 		if installErr != nil {
-			return "", installErr
+			return "", fmt.Errorf("failed to install tool: %w", installErr)
 		}
-		logger.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+		logger.Info("tool installed", "spec", spec, "bin_path", binPath)
 		return binPath, nil
 	}
+
 	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
-		return "", fmt.Errorf("failed to reinstall tool: %w", err)
+		return "", fmt.Errorf("failed to install tool: %w", err)
 	}
-	binPath, err = m.ResolveBinary(spec, cmdName)
+
+	// Try to resolve again after a fresh install.
+	binPath, err := m.ResolveBinary(spec, cmdName)
 	if err != nil {
-		return "", fmt.Errorf("tool reinstalled but binary not found: %w", err)
+		return "", fmt.Errorf("tool installed but binary not found: %w", err)
 	}
-	logger.Info("tool reinstalled", "spec", spec, "bin_path", binPath)
+	logger.Info("tool installed", "spec", spec, "bin_path", binPath)
 	return binPath, nil
 }
 
