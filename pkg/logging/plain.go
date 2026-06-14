@@ -13,6 +13,13 @@ import (
 // colorEnabled reports whether we should emit ANSI color codes.
 // Respects the NO_COLOR convention and disables on dumb terminals / CI /
 // non-tty stderr.
+//
+// It checks the current os.Stderr first. If that is not a terminal (for
+// example because installTeaPatches has reassigned the package variable to
+// a pipe so that third-party logs and stderr are captured for the TUI),
+// it falls back to opening /dev/stderr to obtain an independent descriptor
+// referring to the process's original stderr. This keeps color decisions
+// stable for Format*, PlainHandler, etc. even while os.Stderr is redirected.
 func colorEnabled() bool {
 	if os.Getenv("NO_COLOR") != "" {
 		return false
@@ -23,7 +30,25 @@ func colorEnabled() bool {
 	if os.Getenv("CI") != "" {
 		return false
 	}
-	fi, err := os.Stderr.Stat()
+
+	// Fast path using whatever os.Stderr currently is.
+	if fi, err := os.Stderr.Stat(); err == nil {
+		if (fi.Mode() & os.ModeCharDevice) != 0 {
+			return true
+		}
+		// Current value is not a tty (redirected); try the real one below.
+	}
+
+	// Open /dev/stderr to get a fresh fd for whatever the process has on its
+	// original stderr. Closing this file only closes the new fd we received,
+	// not the underlying fd 2. This is resilient to os.Stderr being
+	// monkey-patched (as done by the bubbletea output capture).
+	f, err := os.OpenFile("/dev/stderr", os.O_WRONLY, 0)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	fi, err := f.Stat()
 	if err != nil {
 		return false
 	}
