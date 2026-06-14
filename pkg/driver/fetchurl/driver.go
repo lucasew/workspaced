@@ -21,6 +21,10 @@ type FetchOptions struct {
 	Hash string
 	// Output destination
 	Out io.Writer
+	// Size is the expected total size in bytes (if known). Used to drive
+	// determinate progress reporting for the taskgroup UI when a Group is
+	// present in ctx. 0 or negative means unknown (indeterminate).
+	Size int64
 }
 
 // Driver provides hash-verified downloads

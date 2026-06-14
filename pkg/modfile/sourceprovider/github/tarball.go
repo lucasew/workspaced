@@ -49,6 +49,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 			Algo: "sha256",
 			Hash: expectedHash,
 			Out:  out,
+			Size: 0, // unknown at tarball source fetch time; progress will be indeterminate
 		})
 		closeErr := out.Close()
 		if err != nil {

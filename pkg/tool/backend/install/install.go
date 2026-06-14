@@ -203,6 +203,7 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		Algo: algo,
 		Hash: hash,
 		Out:  outWriter,
+		Size: opts.Size,
 	})
 	if closeErr := outFile.Close(); closeErr != nil {
 		_ = os.Remove(tmp)
