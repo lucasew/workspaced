@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 
@@ -197,24 +198,34 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 }
 
 func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destPath string) error {
-	downloadURL := artifact.URL
+	// Always pass the browser_download_url as the Artifact.URL to downstream
+	// install logic. This ensures filepath.Base(artifact.URL) yields a filename
+	// with the proper extension (e.g. .tar.gz, .zip) so InstallArtifact can
+	// pick the right Extract path and the temp download file is named sensibly.
+	// When a GitHub token is available we rewrite the *request* (not the
+	// artifact metadata) to the authenticated API asset endpoint.
+	browserURL := artifact.URL
 	configure := func(req *http.Request) {
 		githubutil.ApplyAuth(ctx, req)
 		req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
 	}
 
-	// For GitHub release assets, when we have a token, prefer the API
-	// endpoint with proper Accept header. Direct browser_download_url +
-	// Authorization can result in 403 in some cases (rate limits,
-	// token types, redirects).
+	// For GitHub release assets, when we have a token, rewrite the outgoing
+	// request inside ConfigureRequest to the API endpoint + Accept header.
+	// Sending Authorization directly on browser_download_url can 403 for some
+	// token types/redirects; the asset API with octet-stream is the documented
+	// way.
 	if artifact.GitHubAssetID != 0 && artifact.GitHubAssetAPIURL != "" {
 		if token := githubutil.Token(ctx); token != "" {
-			downloadURL = artifact.GitHubAssetAPIURL
-			configure = func(req *http.Request) {
-				githubutil.ApplyAuth(ctx, req)
-				req.Header.Set("Accept", "application/octet-stream")
-				req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
-				req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+			if apiURL, err := url.Parse(artifact.GitHubAssetAPIURL); err == nil {
+				configure = func(req *http.Request) {
+					githubutil.ApplyAuth(ctx, req)
+					req.URL = apiURL
+					req.Host = apiURL.Host
+					req.Header.Set("Accept", "application/octet-stream")
+					req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+					req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+				}
 			}
 		}
 	}
@@ -222,7 +233,7 @@ func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destP
 	return providerinstall.InstallArtifact(ctx, backend.Artifact{
 		OS:   artifact.OS,
 		Arch: artifact.Arch,
-		URL:  downloadURL,
+		URL:  browserURL,
 		Hash: artifact.Hash,
 		Size: artifact.Size,
 	}, destPath, providerinstall.DownloadOptions{
