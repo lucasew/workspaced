@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -22,10 +23,13 @@ func withLogger(t *testing.T) context.Context {
 func TestBasicExecution(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	var ran atomic.Bool
-	g.Go("task1", CPU, func(ctx context.Context, s *Status) error {
+	id := g.Go("task1", CPU, func(ctx context.Context, s *Status) error {
 		ran.Store(true)
 		return nil
 	})
+	if id == "" {
+		t.Fatal("Go returned empty id")
+	}
 	if err := g.Wait(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -267,4 +271,145 @@ func TestMap_UsesProvidedTaskNames(t *testing.T) {
 	// Custom task names are used for the child subgroup tasks (logs, internal
 	// bookkeeping, and if someone renders the child group). They are not
 	// present on the root snapshot (see SubGroup design).
+}
+
+func TestDuplicateDescriptionsAllowed(t *testing.T) {
+	g, _ := New(withLogger(t), DefaultLimits())
+
+	var ran int32
+	var mu sync.Mutex
+	seen := map[string]bool{}
+
+	g.Go("download", IO, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		seen["d1"] = true
+		mu.Unlock()
+		atomic.AddInt32(&ran, 1)
+		return nil
+	})
+	g.Go("download", IO, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		seen["d2"] = true
+		mu.Unlock()
+		atomic.AddInt32(&ran, 1)
+		return nil
+	})
+	g.Go("process", CPU, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		seen["p"] = true
+		mu.Unlock()
+		atomic.AddInt32(&ran, 1)
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ran != 3 {
+		t.Fatalf("expected 3 executions, got %d", ran)
+	}
+	// Both downloads must have run (no panic on duplicate desc).
+	snap := g.Snapshot()
+	if len(snap) != 3 {
+		t.Fatalf("expected 3 in snapshot, got %d", len(snap))
+	}
+	// Descriptions can repeat.
+	names := map[string]int{}
+	for _, ts := range snap {
+		names[ts.Name]++
+	}
+	if names["download"] != 2 {
+		t.Errorf("expected two tasks named 'download', got counts: %v", names)
+	}
+	if !seen["d1"] || !seen["d2"] || !seen["p"] {
+		t.Errorf("not all tasks observed: %v", seen)
+	}
+}
+
+func TestDependencyByDescriptionPicksLatest(t *testing.T) {
+	g, _ := New(withLogger(t), DefaultLimits())
+
+	var mu sync.Mutex
+	seen := map[string]bool{}
+
+	g.Go("setup", CPU, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		seen["setup1"] = true
+		mu.Unlock()
+		return nil
+	})
+	g.Go("setup", CPU, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		seen["setup2"] = true
+		mu.Unlock()
+		return nil
+	})
+	// Depend on description "setup" — should resolve to the most recent one (setup2).
+	g.Go("work", CPU, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		seen["work"] = true
+		if !seen["setup2"] {
+			t.Error("work ran before second setup (latest desc match failed)")
+		}
+		mu.Unlock()
+		return nil
+	}, "setup")
+
+	if err := g.Wait(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDependencyByReturnedID(t *testing.T) {
+	g, _ := New(withLogger(t), DefaultLimits())
+
+	var mu sync.Mutex
+	firstDone := false
+
+	firstID := g.Go("phase", CPU, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		firstDone = true
+		mu.Unlock()
+		return nil
+	})
+
+	// Second task with same desc.
+	g.Go("phase", CPU, func(ctx context.Context, s *Status) error {
+		return nil
+	})
+
+	// Depend specifically on the first one via its returned ID (uuid string).
+	g.Go("after-first", CPU, func(ctx context.Context, s *Status) error {
+		mu.Lock()
+		if !firstDone {
+			t.Error("after-first ran before the specific first phase (id dep failed)")
+		}
+		mu.Unlock()
+		return nil
+	}, firstID)
+
+	if err := g.Wait(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestSnapshotHasID(t *testing.T) {
+	g, _ := New(withLogger(t), DefaultLimits())
+
+	g.Go("thing", CPU, func(ctx context.Context, s *Status) error {
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	snap := g.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("want 1, got %d", len(snap))
+	}
+	if snap[0].ID == "" {
+		t.Fatal("TaskState.ID is empty")
+	}
+	if snap[0].Name != "thing" {
+		t.Errorf("Name = %q, want %q", snap[0].Name, "thing")
+	}
 }

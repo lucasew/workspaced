@@ -18,6 +18,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"workspaced/pkg/logging"
 )
 
@@ -96,7 +98,8 @@ func (s State) String() string {
 // TaskState is a point-in-time snapshot of a single task, safe to read
 // concurrently from a rendering goroutine.
 type TaskState struct {
-	Name    string
+	ID      string // UUIDv7 unique key for this task instance
+	Name    string // Description (human label passed to Go); not unique
 	Pool    PoolKind
 	State   State
 	Message string
@@ -143,7 +146,8 @@ func (s *Status) snapshot() (string, int64, int64, []string) {
 
 // taskEntry is the internal bookkeeping for a scheduled task.
 type taskEntry struct {
-	name string
+	id   string // UUIDv7
+	desc string // description (display label, may not be unique)
 	pool PoolKind
 	fn   func(context.Context, *Status) error
 	deps []string
@@ -179,7 +183,8 @@ func (t *taskEntry) snapshot() TaskState {
 
 	msg, cur, total, logs := t.status.snapshot()
 	return TaskState{
-		Name:    t.name,
+		ID:      t.id,
+		Name:    t.desc,
 		Pool:    t.pool,
 		State:   state,
 		Message: msg,
@@ -245,9 +250,9 @@ func (p *pools) release(kind PoolKind) {
 
 // Group coordinates dependency-aware task execution with pool limits.
 type Group struct {
-	mu     sync.Mutex
-	tasks  []*taskEntry
-	byName map[string]*taskEntry
+	mu    sync.Mutex
+	tasks []*taskEntry
+	byID  map[string]*taskEntry
 
 	pools  *pools
 	ctx    context.Context
@@ -278,9 +283,9 @@ type Group struct {
 func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	g := &Group{
-		byName: make(map[string]*taskEntry),
-		pools:  newPools(limits),
-		ctx:    ctx,
+		byID:  make(map[string]*taskEntry),
+		pools: newPools(limits),
+		ctx:   ctx,
 		cancel: cancel,
 	}
 
@@ -389,34 +394,42 @@ func (g *Group) Context() context.Context {
 	return g.ctx
 }
 
-// Go schedules a named task to run in the given pool after its dependencies complete.
-// Panics if the name is already registered in this group.
-func (g *Group) Go(name string, pool PoolKind, fn func(ctx context.Context, s *Status) error, deps ...string) {
+// Go schedules a task to run in the given pool after its dependencies complete.
+// The desc is a human-readable description (display label) and is not required
+// to be unique; the same description may be used for multiple tasks.
+// Internally a UUIDv7 is used as the unique key.
+//
+// Go returns the task's UUIDv7 string key. This key can be passed in a later
+// Go call's deps list for an exact dependency (preferred when descriptions
+// may repeat). For convenience, a dep string that is not a known key is
+// interpreted as a description and resolves to the most recently scheduled
+// task (in this group) with a matching description.
+func (g *Group) Go(desc string, pool PoolKind, fn func(ctx context.Context, s *Status) error, deps ...string) string {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	if _, exists := g.byName[name]; exists {
-		panic(fmt.Sprintf("taskgroup: duplicate task name %q", name))
-	}
+	id := uuid.Must(uuid.NewV7()).String()
 
 	t := &taskEntry{
-		name: name,
+		id:   id,
+		desc: desc,
 		pool: pool,
 		fn:   fn,
 		deps: deps,
 		done: make(chan struct{}),
 		status: &Status{
-			name:  name,
+			name:  desc,
 			total: -1,
 			onLog: g.onLog,
 		},
 		state: Pending,
 	}
 	g.tasks = append(g.tasks, t)
-	g.byName[name] = t
+	g.byID[id] = t
 
 	g.wg.Add(1)
 	go g.runTask(t)
+	return id
 }
 
 // logRecorder is a slog.Handler wrapper used for task execution.
@@ -478,10 +491,20 @@ func (g *Group) runTask(t *taskEntry) {
 	// Wait for dependencies.
 	for _, dep := range t.deps {
 		g.mu.Lock()
-		depTask, ok := g.byName[dep]
+		depTask, ok := g.byID[dep]
+		if !ok {
+			// Fall back to description match: most recently added task with this desc.
+			for i := len(g.tasks) - 1; i >= 0; i-- {
+				if g.tasks[i].desc == dep {
+					depTask = g.tasks[i]
+					ok = true
+					break
+				}
+			}
+		}
 		g.mu.Unlock()
 		if !ok {
-			t.setError(fmt.Errorf("taskgroup: %w %q for task %q", ErrUnknownDependency, dep, t.name))
+			t.setError(fmt.Errorf("taskgroup: %w %q for task %q", ErrUnknownDependency, dep, t.desc))
 			g.recordError(t.err)
 			return
 		}
@@ -525,18 +548,18 @@ func (g *Group) runTask(t *taskEntry) {
 	// which did not carry the contextKey, only the command-level context did.
 	taskCtx := context.WithValue(g.ctx, contextKey{}, g)
 	if base := logging.GetLogger(g.ctx); base != nil {
-		tagged := base.With("task", t.name)
+		tagged := base.With("task", t.desc)
 		rec := &logRecorder{
 			Handler: tagged.Handler(),
 			group:   g,
-			attrs:   []slog.Attr{slog.String("task", t.name)},
+			attrs:   []slog.Attr{slog.String("task", t.desc)},
 			append: func(msg string) {
 				t.status.mu.Lock()
 				t.status.logs = append(t.status.logs, msg)
 				onLog := t.status.onLog
 				t.status.mu.Unlock()
 				if onLog != nil {
-					onLog(t.name, msg)
+					onLog(t.desc, msg)
 					return
 				}
 				// Belt-and-suspenders fallback: consult the group that owns
@@ -550,7 +573,7 @@ func (g *Group) runTask(t *taskEntry) {
 					onLog = g.onLog
 					g.mu.Unlock()
 					if onLog != nil {
-						onLog(t.name, msg)
+						onLog(t.desc, msg)
 					}
 				}
 			},
@@ -627,27 +650,34 @@ func (g *Group) snapshotRecursive() []TaskState {
 }
 
 // SnapshotSorted returns the tasks from Snapshot, sorted stably for
-// predictable UI ordering: first by PoolKind, then by Name.
+// predictable UI ordering: first by PoolKind, then by Name (description),
+// then by ID for determinism when descriptions repeat.
 func (g *Group) SnapshotSorted() []TaskState {
 	snap := g.Snapshot()
 	sort.SliceStable(snap, func(i, j int) bool {
 		if snap[i].Pool != snap[j].Pool {
 			return snap[i].Pool < snap[j].Pool
 		}
-		return snap[i].Name < snap[j].Name
+		if snap[i].Name != snap[j].Name {
+			return snap[i].Name < snap[j].Name
+		}
+		return snap[i].ID < snap[j].ID
 	})
 	return snap
 }
 
 // snapshotRecursiveSorted is like snapshotRecursive but with stable
-// PoolKind-then-Name ordering.
+// PoolKind-then-Name-then-ID ordering.
 func (g *Group) snapshotRecursiveSorted() []TaskState {
 	snap := g.snapshotRecursive()
 	sort.SliceStable(snap, func(i, j int) bool {
 		if snap[i].Pool != snap[j].Pool {
 			return snap[i].Pool < snap[j].Pool
 		}
-		return snap[i].Name < snap[j].Name
+		if snap[i].Name != snap[j].Name {
+			return snap[i].Name < snap[j].Name
+		}
+		return snap[i].ID < snap[j].ID
 	})
 	return snap
 }
@@ -667,7 +697,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	g.mu.Unlock()
 
 	child := &Group{
-		byName:         make(map[string]*taskEntry),
+		byID:           make(map[string]*taskEntry),
 		pools:          g.pools, // shared pools
 		ctx:            cctx,
 		cancel:         cancel,

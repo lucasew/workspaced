@@ -54,12 +54,13 @@ type refreshMsg struct{}
 
 type bubbleModel struct {
 	group    *Group
-	statuses map[string]string
-	percents map[string]float64
-	pools    map[string]PoolKind
-	order    []string // first-seen order for stable rendering across frames
+	statuses map[string]string   // id (uuid) -> message
+	percents map[string]float64  // id -> pct
+	pools    map[string]PoolKind // id -> pool
+	names    map[string]string   // id -> description (for display)
+	order    []string            // ids in first-seen order (for stable bars)
 
-	// finishedToRemove holds names of tasks whose final 100% frame
+	// finishedToRemove holds ids of tasks whose final 100% frame
 	// was just rendered; they will be deleted at the start of the
 	// next update so they disappear from the list after showing completion.
 	finishedToRemove map[string]struct{}
@@ -76,6 +77,7 @@ func newBubbleModel(g *Group) bubbleModel {
 		statuses:         make(map[string]string),
 		percents:         make(map[string]float64),
 		pools:            make(map[string]PoolKind),
+		names:            make(map[string]string),
 		order:            nil,
 		finishedToRemove: make(map[string]struct{}),
 		finalized:        make(map[string]struct{}),
@@ -111,9 +113,9 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Remove any tasks whose final 100% "payload" (completion frame)
 		// was shown in the previous tick. This is what makes finished
 		// tasks disappear from the list.
-		for name := range m.finishedToRemove {
-			delete(m.statuses, name)
-			delete(m.percents, name)
+		for id := range m.finishedToRemove {
+			delete(m.statuses, id)
+			delete(m.percents, id)
 		}
 		m.finishedToRemove = make(map[string]struct{})
 
@@ -122,39 +124,41 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				allDone = false
 			}
 
+			id := t.ID
 			if t.Total > 0 {
-				if _, already := m.finalized[t.Name]; already {
+				if _, already := m.finalized[id]; already {
 					// This task's completion payload was already displayed
 					// for one frame. Skip re-populating so it stays removed.
 					continue
 				}
 				pct := float64(t.Current) / float64(t.Total)
-				m.percents[t.Name] = pct
-				m.statuses[t.Name] = t.Message
+				m.percents[id] = pct
+				m.statuses[id] = t.Message
 
-				// Record pool and first-seen order the first time we see
+				// Record pool, name, and first-seen order the first time we see
 				// this task with progress. This gives stable ordering in
 				// the progress bar view (tasks don't jump around).
-				if _, ok := m.pools[t.Name]; !ok {
-					m.pools[t.Name] = t.Pool
-					m.order = append(m.order, t.Name)
+				if _, ok := m.pools[id]; !ok {
+					m.pools[id] = t.Pool
+					m.names[id] = t.Name
+					m.order = append(m.order, id)
 				}
 			} else {
-				m.percents[t.Name] = 0
+				m.percents[id] = 0
 			}
 
 			if t.State != Running {
-				if pct, ok := m.percents[t.Name]; ok && pct >= 0.999 {
+				if pct, ok := m.percents[id]; ok && pct >= 0.999 {
 					// Task just finished. We captured its final payload
 					// (Progress(total,total) + last message) so the 100%
 					// bar is visible *this* render. Mark for removal on
 					// the next tick.
-					m.finishedToRemove[t.Name] = struct{}{}
-					m.finalized[t.Name] = struct{}{}
+					m.finishedToRemove[id] = struct{}{}
+					m.finalized[id] = struct{}{}
 					// Leave in percents/statuses for the current View.
 				} else {
-					delete(m.statuses, t.Name)
-					delete(m.percents, t.Name)
+					delete(m.statuses, id)
+					delete(m.percents, id)
 				}
 			}
 		}
@@ -174,18 +178,22 @@ func (m bubbleModel) View() string {
 	var buf bytes.Buffer
 	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 
-	for _, name := range m.order {
-		if _, ok := m.percents[name]; !ok {
+	for _, id := range m.order {
+		if _, ok := m.percents[id]; !ok {
 			continue
 		}
-		pool := m.pools[name]
+		pool := m.pools[id]
 		emoji := poolEmoji(pool)
 
-		st := m.statuses[name]
+		name := m.names[id]
+		if name == "" {
+			name = id
+		}
+		st := m.statuses[id]
 		if st == "" {
 			st = "running"
 		}
-		bar := plainBar(m.percents[name], 30)
+		bar := plainBar(m.percents[id], 30)
 		fmt.Fprintf(tw, "%s %s:\t%s\t%s\n", emoji, name, bar, st)
 	}
 	tw.Flush()
