@@ -82,6 +82,8 @@ func DownloadFile(ctx context.Context, url, dest string, opts DownloadOptions) e
 		if fetchErr == nil {
 			return nil
 		}
+		logger := logging.GetLogger(ctx)
+		logger.Warn("fetchurl verified download failed, falling back to direct http download", "url", url, "err", fetchErr)
 		_ = os.Remove(dest + ".tmp")
 	}
 
@@ -197,15 +199,29 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 	// read) is now handled by wrapping the Transport in the official
 	// httpclient providers. See pkg/driver/httpclient/progress.go.
 	// This is the single place that turns requests into Internet tasks.
+	//
+	// We always run the fetchurl attempt under a SubGroup (MustFromContext per
+	// taskgroup contract). This isolates any "fetch:..." tasks + errors that the
+	// progressTransport creates for the library's requests. DownloadFile's
+	// fallback to downloadDirect can then proceed cleanly against the parent
+	// group.
 
 	algo, hash := parseHash(opts.Hash)
-	fetchErr := fetcher.Fetch(ctx, fetchurl.FetchOptions{
+	g := taskgroup.MustFromContext(ctx)
+	child, childCtx := g.SubGroup(ctx)
+	fetchErr := fetcher.Fetch(childCtx, fetchurl.FetchOptions{
 		URLs: []string{url},
 		Algo: algo,
 		Hash: hash,
 		Out:  outFile,
-		Size: opts.Size, // still passed for API compat / future hints
+		Size: opts.Size,
 	})
+	if werr := child.Wait(); werr != nil {
+		if fetchErr == nil {
+			fetchErr = werr
+		}
+	}
+
 	if closeErr := outFile.Close(); closeErr != nil {
 		_ = os.Remove(tmp)
 		return closeErr
