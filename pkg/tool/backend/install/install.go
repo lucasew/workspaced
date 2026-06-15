@@ -178,11 +178,10 @@ func MoveContents(srcDir, destDir string) error {
 }
 
 func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOptions) error {
-	name := filepath.Base(url)
+	// Note: "name" (basename) used to be for a local progressWriter.
+	// The central progressTransport in the httpclient now handles task naming
+	// ("fetch:<basename>") and progress automatically.
 
-	// No group wrapping here anymore: the fetchurl driver itself now spawns
-	// a "fetch:..." Internet task (via group.Go) when a group is present in ctx.
-	// This makes the fetcher a first-class task with its own progress bar / status.
 	fetcher, err := driver.Get[fetchurl.Driver](ctx)
 	if err != nil {
 		return err
@@ -194,16 +193,18 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		return err
 	}
 
-	pw := newProgressWriter(name, opts.Size)
-	outWriter := io.MultiWriter(outFile, pw)
+	// Progress for HTTP (size from response headers + bytes as the body is
+	// read) is now handled by wrapping the Transport in the official
+	// httpclient providers. See pkg/driver/httpclient/progress.go.
+	// This is the single place that turns requests into Internet tasks.
 
 	algo, hash := parseHash(opts.Hash)
 	fetchErr := fetcher.Fetch(ctx, fetchurl.FetchOptions{
 		URLs: []string{url},
 		Algo: algo,
 		Hash: hash,
-		Out:  outWriter,
-		Size: opts.Size,
+		Out:  outFile,
+		Size: opts.Size, // still passed for API compat / future hints
 	})
 	if closeErr := outFile.Close(); closeErr != nil {
 		_ = os.Remove(tmp)

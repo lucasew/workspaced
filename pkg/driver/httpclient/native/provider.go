@@ -50,24 +50,31 @@ func (d *Driver) Client() *http.Client {
 			FallbackDelay: 300 * time.Millisecond,
 		}
 
-		d.client = &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// Try IPv4 first
-					if network == "tcp" {
-						network = "tcp4"
-					}
-					return dialer.DialContext(ctx, network, addr)
-				},
-				TLSClientConfig: &tls.Config{
-					RootCAs: d.rootCAs,
-				},
-				ForceAttemptHTTP2:     true,
-				MaxIdleConns:          100,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
+		innerTransport := &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// Try IPv4 first
+				if network == "tcp" {
+					network = "tcp4"
+				}
+				return dialer.DialContext(ctx, network, addr)
 			},
+			TLSClientConfig: &tls.Config{
+				RootCAs: d.rootCAs,
+			},
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+
+		// Wrap so that every request made through clients obtained from this
+		// driver can automatically become an Internet task (with progress
+		// derived from ContentLength + body reads) whenever a taskgroup is
+		// present in the request context. This is the central place for
+		// "download as visible task" logic.
+		d.client = &http.Client{
+			Transport: httpclientdriver.WithProgress(innerTransport),
 		}
 	})
 	return d.client

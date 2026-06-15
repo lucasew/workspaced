@@ -74,24 +74,26 @@ func (d *Driver) Client() *http.Client {
 			Resolver:  resolver,
 		}
 
-		d.client = &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-					// Force IPv4
-					if network == "tcp" {
-						network = "tcp4"
-					}
-					return dialer.DialContext(ctx, network, addr)
-				},
-				TLSClientConfig: &tls.Config{
-					RootCAs: d.rootCAs,
-				},
-				ForceAttemptHTTP2:     true,
-				MaxIdleConns:          100,
-				IdleConnTimeout:       90 * time.Second,
-				TLSHandshakeTimeout:   10 * time.Second,
-				ExpectContinueTimeout: 1 * time.Second,
+		innerTransport := &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// Force IPv4
+				if network == "tcp" {
+					network = "tcp4"
+				}
+				return dialer.DialContext(ctx, network, addr)
 			},
+			TLSClientConfig: &tls.Config{
+				RootCAs: d.rootCAs,
+			},
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+
+		d.client = &http.Client{
+			Transport: httpclientdriver.WithProgress(innerTransport),
 		}
 	})
 	return d.client
