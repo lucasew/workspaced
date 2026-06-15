@@ -3,7 +3,6 @@ package apps
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,11 +17,6 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
-)
-
-var (
-	ErrNoGoVersions = errors.New("no go versions found")
-	// ErrNoPlatformArtifact is shared with other catalog tools (e.g. nodejs).
 )
 
 func init() {
@@ -47,7 +41,7 @@ func (t *goTool) Install(ctx context.Context, version string, destDir string) er
 			return err
 		}
 		if len(vers) == 0 {
-			return ErrNoGoVersions
+			return ErrNoVersions
 		}
 		v = vers[0]
 	}
@@ -77,7 +71,7 @@ func (t *goTool) ListArtifacts(ctx context.Context, version string) ([]backend.A
 			return nil, err
 		}
 		if len(vers) == 0 {
-			return nil, ErrNoGoVersions
+			return nil, ErrNoVersions
 		}
 		relVer = goVersionForIndex(vers[0])
 	}

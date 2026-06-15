@@ -3,7 +3,6 @@ package apps
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,11 +17,6 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
-)
-
-var (
-	ErrNoFlutterVersions = errors.New("no flutter versions found")
-	// ErrNoPlatformArtifact is provided by nodejs.go (shared across catalog SDKs).
 )
 
 func init() {
@@ -47,7 +41,7 @@ func (t *flutterTool) Install(ctx context.Context, version string, destDir strin
 			return err
 		}
 		if len(vers) == 0 {
-			return ErrNoFlutterVersions
+			return ErrNoVersions
 		}
 		v = vers[0]
 	}
@@ -78,7 +72,7 @@ func (t *flutterTool) ListArtifacts(ctx context.Context, version string) ([]back
 			return nil, err
 		}
 		if len(vers) == 0 {
-			return nil, ErrNoFlutterVersions
+			return nil, ErrNoVersions
 		}
 		v = vers[0]
 	}
@@ -200,7 +194,7 @@ func (t *flutterTool) listVersions(ctx context.Context) ([]string, error) {
 		}
 	}
 	if len(out) == 0 {
-		return nil, ErrNoFlutterVersions
+		return nil, ErrNoVersions
 	}
 	return out, nil
 }

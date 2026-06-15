@@ -22,7 +22,12 @@ import (
 )
 
 var (
-	ErrNoNodeVersions     = errors.New("no node versions found")
+	// ErrNoVersions is the shared sentinel for "this catalog SDK tool has no
+	// versions available for the current platform".
+	// The older per-tool names are aliases to the same value for compatibility.
+	ErrNoVersions         = errors.New("no versions found")
+	ErrNoGoVersions       = ErrNoVersions
+	ErrNoNodeVersions     = ErrNoVersions
 	ErrNoPlatformArtifact = errors.New("no artifact for current platform")
 )
 
