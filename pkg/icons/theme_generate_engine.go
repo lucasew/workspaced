@@ -91,6 +91,16 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	var dirsUsedMu sync.Mutex
 	var written int64
 
+	// Ensure the rasterizer (resvg) is ready before we even schedule the
+	// icons processing control task. This ensures the tool resolution step
+	// (which may install/download) completes and its progress task finishes
+	// *before* the "icon-theme:..." processing starts.
+	if !opts.NoRaster {
+		if err := svgraster.Ensure(ctx); err != nil {
+			return fmt.Errorf("failed to ensure resvg (needed for icon rasterization): %w", err)
+		}
+	}
+
 	parent := taskgroup.MustFromContext(ctx)
 
 	// Wrap the Map in a Control task. This gives us a top-level aggregate
@@ -101,17 +111,6 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	iconWork.Go("icon-theme:"+opts.ThemeName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Progress(0, totalPaths)
 		s.Update(fmt.Sprintf("theming %d icons", totalPaths))
-
-		// Ensure the rasterizer (resvg) is ready *before* the expensive
-		// per-icon work (theming + rasterization of many SVGs).
-		// This keeps any tool install/download as an upfront step under
-		// this control task (visible in progress UI) instead of happening
-		// inside one of the leaf tasks in the Map.
-		if !opts.NoRaster {
-			if err := svgraster.Ensure(ctx); err != nil {
-				return fmt.Errorf("failed to ensure resvg (needed for icon rasterization): %w", err)
-			}
-		}
 
 		_, err := taskgroup.Map(ctx, taskgroup.CPU, paths,
 			func(_ int, iconPath string) string {
