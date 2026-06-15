@@ -2,15 +2,15 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"math"
-
-	"workspaced/pkg/api"
 )
 
-var ErrDriverNotFound = api.ErrDriverNotFound
+// ErrDriverNotFound is returned by GetDriver for unknown palette driver names.
+var ErrDriverNotFound = errors.New("palette driver not found")
 
 // LAB represents a color in CIELAB color space
 type LAB struct {

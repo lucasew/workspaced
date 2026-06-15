@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errNoHistory = errors.New("no history found")
+var ErrNoHistory = errors.New("no history found")
 
 var Registry cmdregistry.CommandRegistry
 
@@ -39,7 +39,7 @@ func init() {
 				}
 
 				if len(events) == 0 {
-					return errNoHistory
+					return ErrNoHistory
 				}
 
 				// 2. Run fuzzy finder

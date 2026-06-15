@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errSimulated503 = errors.New("simulated 503 from registry (demo failure)")
+var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
 
 var Registry cmdregistry.CommandRegistry
 
@@ -138,7 +138,7 @@ func runTasksDemo(cmd *cobra.Command) error {
 		time.Sleep(140 * time.Millisecond)
 		logger.Info("POST", "path", "/artifacts")
 		time.Sleep(200 * time.Millisecond)
-		return errSimulated503
+		return ErrSimulated503
 	}, "build")
 
 	return g.RunBubbleTea()

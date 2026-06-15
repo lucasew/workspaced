@@ -2,12 +2,7 @@ package wm
 
 import (
 	"context"
-	"workspaced/pkg/api"
 )
-
-// Re-export shared errors for local convenience if needed,
-// or just use the shared ones.
-var ErrDriverNotFound = api.ErrDriverNotFound
 
 // Rect represents a geometry rectangle.
 type Rect struct {

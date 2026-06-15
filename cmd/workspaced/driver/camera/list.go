@@ -22,7 +22,7 @@ func init() {
 					return err
 				}
 				if len(cams) == 0 {
-					return errNoCamerasFound
+					return ErrNoCamerasFound
 				}
 				for _, cam := range cams {
 					cmd.Printf("%s\t%s\n", cam.ID(), cam.Name())

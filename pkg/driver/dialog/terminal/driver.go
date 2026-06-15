@@ -3,7 +3,6 @@ package terminal
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +10,8 @@ import (
 	"workspaced/pkg/driver/dialog"
 
 	"github.com/ktr0731/go-fuzzyfinder"
+
+	"workspaced/pkg/api"
 )
 
 func init() {
@@ -81,15 +82,10 @@ func (d *Driver) Confirm(ctx context.Context, message string) (bool, error) {
 	return false, scanner.Err()
 }
 
-var (
-	ErrRunAppNotImplemented       = errors.New("RunApp not implemented for terminal driver")
-	ErrSwitchWindowNotImplemented = errors.New("SwitchWindow not implemented for terminal driver")
-)
-
 // Legacy compatibility for Driver interface
 func (d *Driver) RunApp(ctx context.Context) error {
-	return ErrRunAppNotImplemented
+	return api.ErrNotImplemented
 }
 func (d *Driver) SwitchWindow(ctx context.Context) error {
-	return ErrSwitchWindowNotImplemented
+	return api.ErrNotImplemented
 }

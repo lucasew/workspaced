@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errCancelled = errors.New("cancelled")
+var ErrCancelled = errors.New("cancelled")
 
 var Registry cmdregistry.CommandRegistry
 
@@ -51,7 +51,7 @@ func GetCommand() *cobra.Command {
 				return err
 			}
 			if !ok {
-				return errCancelled
+				return ErrCancelled
 			}
 			return nil
 		},

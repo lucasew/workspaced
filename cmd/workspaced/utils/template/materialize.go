@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var errTargetRequired = errors.New("--target is required")
+var ErrTargetRequired = errors.New("--target is required")
 
 func init() {
 	Registry.Register(
@@ -23,7 +23,7 @@ func init() {
 			cmd := &cobra.Command{Use: "materialize", Short: "Materialize templates into a directory (low-level)", RunE: func(c *cobra.Command, args []string) error {
 				ctx := c.Context()
 				if targetDir == "" {
-					return errTargetRequired
+					return ErrTargetRequired
 				}
 				cfg, err := configcue.LoadFiles(ctx, configPaths)
 				if err != nil {

@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	errNoFlakeRef    = errors.New("no flake reference provided")
-	errNoBinaryFound = errors.New("no binary found")
+	ErrNoFlakeRef    = errors.New("no flake reference provided")
+	ErrNoBinaryFound = errors.New("no binary found")
 )
 
 var Registry cmdregistry.CommandRegistry

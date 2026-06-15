@@ -2,7 +2,6 @@ package prettier
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,8 +11,7 @@ import (
 	"workspaced/pkg/driver/exec"
 )
 
-// ErrBinaryNotFound is returned when neither node nor bun are found in PATH.
-var ErrBinaryNotFound = errors.New("neither node nor bun found in PATH")
+
 
 // Provider implements the formatter.Formatter interface for Prettier.
 // It executes 'prettier --write .' in the target directory.
@@ -73,5 +71,5 @@ func (p *Provider) Format(ctx context.Context, dir string) error {
 		return cmd.Run()
 	}
 
-	return ErrBinaryNotFound
+	return checks.ErrToolNotAvailable
 }

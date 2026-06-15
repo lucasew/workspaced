@@ -35,7 +35,7 @@ import (
 var (
 	shouldRestartDaemon    bool
 	initialMtime           time.Time
-	errNoRunImplementation = errors.New("command has no run implementation")
+	ErrNoRunImplementation = errors.New("command has no run implementation")
 )
 
 // initialMtime is populated early in the daemon command Run (before RunDaemon)
@@ -450,7 +450,7 @@ func ExecuteViaCobra(ctx context.Context, req types.Request, stdout, stderr io.W
 	} else if targetCmd.Run != nil {
 		targetCmd.Run(targetCmd, argList)
 	} else {
-		err = errNoRunImplementation
+		err = ErrNoRunImplementation
 	}
 
 	return buf.String(), err

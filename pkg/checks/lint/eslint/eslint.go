@@ -21,8 +21,7 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// ErrBinaryNotFound is returned when neither node nor bun are found in PATH.
-var ErrBinaryNotFound = errors.New("neither node nor bun found in PATH")
+
 
 // Provider implements the lint.Linter interface for ESLint.
 type Provider struct{}
@@ -295,7 +294,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	} else if exec.IsBinaryAvailable(ctx, "bun") {
 		cmd, err = exec.Run(ctx, "bun", "run", "--bun", binPath, "-f", "json", ".")
 	} else {
-		return nil, ErrBinaryNotFound
+		return nil, checks.ErrToolNotAvailable
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare eslint command: %w", err)
