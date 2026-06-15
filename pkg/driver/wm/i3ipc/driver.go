@@ -62,9 +62,9 @@ func (d *Driver) MoveWorkspaceToOutput(ctx context.Context, workspace string, ou
 
 func (d *Driver) SwitchToWorkspace(ctx context.Context, ws string, move bool) error {
 	if move {
-		return execdriver.MustRun(ctx, d.Binary, "move", "container", "to", "workspace", ws).Run()
+		return execdriver.MustRun(ctx, d.Binary, "move", "container", "to", "workspace", fmt.Sprintf("%q", ws)).Run()
 	}
-	return execdriver.MustRun(ctx, d.Binary, "workspace", ws).Run()
+	return execdriver.MustRun(ctx, d.Binary, "workspace", fmt.Sprintf("%q", ws)).Run()
 }
 
 func (d *Driver) ToggleScratchpad(ctx context.Context) error {
