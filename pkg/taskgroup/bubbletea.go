@@ -10,7 +10,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Run starts a Bubble Tea renderer for the group. It is a convenience wrapper
@@ -98,8 +98,8 @@ func (m bubbleModel) tick() tea.Cmd {
 
 func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
-	case tea.KeyMsg:
-		km := msg.(tea.KeyMsg)
+	case tea.KeyPressMsg:
+		km := msg.(tea.KeyPressMsg)
 		if km.String() == "q" || km.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -170,9 +170,9 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m bubbleModel) View() string {
+func (m bubbleModel) View() tea.View {
 	if len(m.percents) == 0 {
-		return ""
+		return tea.NewView("")
 	}
 
 	var buf bytes.Buffer
@@ -197,7 +197,7 @@ func (m bubbleModel) View() string {
 		fmt.Fprintf(tw, "%s %s:\t%s\t%s\n", emoji, name, bar, st)
 	}
 	tw.Flush()
-	return buf.String()
+	return tea.NewView(buf.String())
 }
 
 // poolEmoji returns a short emoji prefix based on the task's PoolKind.

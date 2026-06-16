@@ -8,9 +8,9 @@ import (
 	"os"
 	"sync"
 
-	tea "github.com/charmbracelet/bubbletea"
-
 	"workspaced/pkg/logging"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 // teaLineWriter is an io.Writer that line-buffers incoming bytes and, for each
