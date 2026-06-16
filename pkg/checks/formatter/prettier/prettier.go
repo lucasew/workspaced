@@ -11,8 +11,6 @@ import (
 	"workspaced/pkg/driver/exec"
 )
 
-
-
 // Provider implements the formatter.Formatter interface for Prettier.
 // It executes 'prettier --write .' in the target directory.
 type Provider struct{}
