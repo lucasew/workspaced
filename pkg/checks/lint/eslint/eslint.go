@@ -21,8 +21,6 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-
-
 // Provider implements the lint.Linter interface for ESLint.
 type Provider struct{}
 
