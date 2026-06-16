@@ -81,4 +81,3 @@ func (d *Driver) execRsync(ctx context.Context, args []string, st *taskgroup.Sta
 
 	return cmd.Run()
 }
-
