@@ -54,7 +54,6 @@ func TestParseAndConvert(t *testing.T) {
 		t.Errorf("expected level error, got %s", *res1.Level)
 	}
 
-	// Check location
 	loc := res1.Locations[0]
 	if *loc.PhysicalLocation.ArtifactLocation.URI != "/path/to/file.js" {
 		t.Errorf("expected uri /path/to/file.js, got %s", *loc.PhysicalLocation.ArtifactLocation.URI)

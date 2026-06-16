@@ -72,7 +72,6 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 	filename := fmt.Sprintf("Screenshot_%s.png", timestamp)
 	path := filepath.Join(dir, filename)
 
-	// Save to file
 	f, err := os.Create(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to create screenshot file: %w", err)

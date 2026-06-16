@@ -65,7 +65,6 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 	}
 	defer logging.Close(ctx, conn, slog.String("socket", socketPath))
 
-	// Get client binary hash
 	clientHash, _ := executil.GetBinaryHash(ctx)
 
 	req := types.Request{
@@ -75,7 +74,6 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 		BinaryHash: clientHash,
 	}
 
-	// Send request as a StreamPacket
 	payload, _ := json.Marshal(req)
 	packet := types.StreamPacket{
 		Type:    "request",

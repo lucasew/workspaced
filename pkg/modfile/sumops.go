@@ -143,7 +143,6 @@ func upsertToolDependency(deps []RenovateDependency, name string, lock LockedToo
 				dep.Versioning = lock.Versioning
 				dep.Provider = strings.TrimSpace(dep.Provider)
 				if dep.Provider == "" {
-					// best effort from ref
 					if spec, err := parsespec.Parse(lock.Ref); err == nil {
 						dep.Provider = spec.Provider
 					}

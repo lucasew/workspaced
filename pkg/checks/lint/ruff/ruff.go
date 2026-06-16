@@ -57,7 +57,6 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		return nil, fmt.Errorf("ruff execution failed: %w (stderr: %s)", err, stderr.String())
 	}
 
-	// Parse SARIF output
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse sarif output: %w (stdout: %s)", err, stdout.String())

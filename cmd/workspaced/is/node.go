@@ -86,7 +86,6 @@ func init() {
 							return nil
 						}
 					}
-					// Check hostname as fallback
 					if nodeName == hostname {
 						return nil
 					}

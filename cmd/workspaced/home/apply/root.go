@@ -70,13 +70,11 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 
 		logger := logging.GetLogger(ctx)
 
-		// Load configuration
 		cfg, err := configcue.LoadHome(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// Get dotfiles root
 		dotfilesRoot, err := env.GetDotfilesRoot(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get dotfiles root: %w", err)
@@ -93,7 +91,6 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
 
-		// Create shared template engine
 		engine := template.NewEngine(ctx)
 
 		// Configure plugin pipeline
@@ -199,7 +196,6 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 			},
 		}
 
-		// Create manager with pipeline
 		mgr, err := dotfiles.NewManager(dotfiles.Config{
 			Pipeline:   pipeline,
 			StateStore: stateStore,
@@ -209,7 +205,6 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 			return fmt.Errorf("failed to create manager: %w", err)
 		}
 
-		// Apply configurations
 		result, err := mgr.Apply(ctx, dotfiles.ApplyOptions{
 			DryRun: dryRun,
 		})
@@ -217,7 +212,6 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 			return err
 		}
 
-		// Show result
 		if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
 			orderedActions := deployer.SortActions(result.Actions)
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)

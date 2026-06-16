@@ -50,7 +50,6 @@ func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 		baseDir = filepath.Join(home, baseDir[2:])
 	}
 
-	// Check if directory exists
 	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("%w: %s", ErrBaseDirNotExist, baseDir)
 	}
@@ -85,12 +84,10 @@ func (p *ScannerPlugin) Process(ctx context.Context, files []File) ([]File, erro
 			return err
 		}
 
-		// Skip directories (processed separately)
 		if info.IsDir() {
 			return nil
 		}
 
-		// Calculate relative path
 		rel, err := filepath.Rel(p.baseDir, path)
 		if err != nil {
 			return err
@@ -119,6 +116,5 @@ func (p *ScannerPlugin) Process(ctx context.Context, files []File) ([]File, erro
 		return nil, fmt.Errorf("failed to scan directory: %w", err)
 	}
 
-	// Append to existing files
 	return append(files, discovered...), nil
 }

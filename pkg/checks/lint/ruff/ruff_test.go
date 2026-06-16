@@ -16,15 +16,12 @@ func TestRun(t *testing.T) {
 		t.Skip("Skipping integration test in CI")
 	}
 
-	// Create a temporary directory for the test project
 	dir := t.TempDir()
 
-	// Create uv.lock to trigger detection
 	if err := os.WriteFile(filepath.Join(dir, "uv.lock"), []byte(""), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create a python file with lint errors (unused import)
 	pyFile := filepath.Join(dir, "main.py")
 	if err := os.WriteFile(pyFile, []byte("import os\n"), 0644); err != nil {
 		t.Fatal(err)
@@ -33,13 +30,11 @@ func TestRun(t *testing.T) {
 	p := New()
 	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
 
-	// Verify detection
 	err := p.Detect(ctx, dir)
 	if err != nil {
 		t.Fatalf("Detect failed: %v", err)
 	}
 
-	// Run lint
 	run, err := p.Run(ctx, dir)
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)

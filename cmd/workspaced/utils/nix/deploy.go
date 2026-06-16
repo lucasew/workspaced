@@ -86,7 +86,6 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 	// 3. Auto-detect action if not specified
 	if action == "" {
 		action = "boot"
-		// Check if same nixpkgs is used
 		localUsedOut, err := execdriver.MustRun(ctx, "realpath", fmt.Sprintf("%s/etc/.nixpkgs-used", toplevel)).Output()
 		if err == nil {
 			localUsed := strings.TrimSpace(string(localUsedOut))
@@ -102,7 +101,6 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 
 	// 3. Switch System Configuration
 	logger.Info("Switching system configuration on node", "action", action)
-	// Check if already running
 	currentSystemOut, err := execdriver.MustRun(ctx, "ssh", node, "realpath /run/current-system").Output()
 	if err == nil {
 		currentSystem := strings.TrimSpace(string(currentSystemOut))

@@ -37,13 +37,11 @@ func init() {
 					return err
 				}
 
-				// Run analysis using all registered linters
 				report, err := lint.RunAll(cmd.Context(), path)
 				if err != nil {
 					return err
 				}
 
-				// Check for CI environment variables to save SARIF report
 				saveSarifToCI(cmd.Context(), report)
 
 				return printReport(report, format)
@@ -60,7 +58,6 @@ func saveSarifToCI(ctx context.Context, report *sarif.Report) {
 	sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
 	for _, envVar := range sarifEnvVars {
 		if outputDir := os.Getenv(envVar); outputDir != "" {
-			// Ensure directory exists
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
 				logger := logging.GetLogger(ctx)
 				logger.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)

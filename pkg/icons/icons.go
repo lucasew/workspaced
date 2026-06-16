@@ -127,7 +127,6 @@ func makeBackgroundTransparent(img image.Image) image.Image {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 
-	// Detect target color at (0,0)
 	targetColor := img.At(bounds.Min.X, bounds.Min.Y)
 	tr, tg, tb, ta := targetColor.RGBA()
 
@@ -136,7 +135,6 @@ func makeBackgroundTransparent(img image.Image) image.Image {
 		return img
 	}
 
-	// Create mutable image
 	dst := image.NewNRGBA(bounds)
 	draw.Draw(dst, bounds, img, bounds.Min, draw.Src)
 
@@ -179,7 +177,6 @@ func makeBackgroundTransparent(img image.Image) image.Image {
 		p := queue[head]
 		head++
 
-		// Set transparent
 		dst.SetNRGBA(p.x, p.y, color.NRGBA{0, 0, 0, 0})
 
 		// Check neighbors

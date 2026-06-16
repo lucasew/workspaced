@@ -118,12 +118,10 @@ func RunDaemon(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Ensure logs go to stderr
 	slog.SetDefault(slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	logger := logging.GetLogger(ctx)
 	logger.Info("daemon starting", "pid", os.Getpid())
 
-	// Load home config to set driver weights.
 	if _, err := configcue.LoadHome(ctx); err != nil {
 		logger.Warn("failed to load config", "error", err)
 	} else {
@@ -138,7 +136,6 @@ func RunDaemon(ctx context.Context) error {
 
 	go media.Watch(ctx)
 
-	// Initialize tray
 	go func() {
 		logger := logging.GetLogger(ctx)
 		t, err := tray.GetDefault(ctx)
@@ -270,7 +267,6 @@ func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
 		}
 	}()
 
-	// Read loop for packets from client
 	go func() {
 		logger := logging.GetLogger(ctx)
 		for {
@@ -358,7 +354,6 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 			// Signal daemon to restart after closing this connection
 			shouldRestartDaemon = true
 
-			// Send response and close connection
 			resp := types.Response{
 				Error: "DAEMON_RESTARTING",
 			}
@@ -374,7 +369,6 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	logger := logging.GetLogger(ctx)
 	logger.Info("executing command", "command", req.Command, "args", req.Args)
 
-	// Create per-request streaming logger and inject it
 	handler := &logging.ChannelLogHandler{
 		Out:    outCh,
 		Parent: slog.Default().Handler(),
@@ -382,7 +376,6 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	}
 	reqLogger := slog.New(handler)
 
-	// Build context
 	stdout := &StreamPacketWriter{Out: outCh, Type: "stdout"}
 	stderr := &StreamPacketWriter{Out: outCh, Type: "stderr"}
 

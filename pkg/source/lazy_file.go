@@ -18,7 +18,6 @@ type TemplateFile struct {
 }
 
 func (f *TemplateFile) Reader() (io.ReadCloser, error) {
-	// Read source content
 	srcReader, err := f.SourceFile.Reader()
 	if err != nil {
 		return nil, err
@@ -30,7 +29,6 @@ func (f *TemplateFile) Reader() (io.ReadCloser, error) {
 		return nil, err
 	}
 
-	// Render
 	rendered, err := f.Engine.Render(f.Context, string(srcContent), f.Data)
 	if err != nil {
 		return nil, err
@@ -58,7 +56,6 @@ func (f *ConcatenatedFile) Reader() (io.ReadCloser, error) {
 		// For safety, let's wrap them.
 		readers = append(readers, &autoCloserReader{r})
 
-		// Add newline between components if not the last one
 		if i < len(f.Components)-1 {
 			readers = append(readers, bytes.NewReader([]byte("\n")))
 		}

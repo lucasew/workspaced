@@ -77,13 +77,11 @@ func (d *Driver) Generate(ctx context.Context, path string, command []string) er
 		return err
 	}
 
-	// Ensure parent directory exists
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	// Write shim file
 	if err := os.WriteFile(path, []byte(content), 0755); err != nil {
 		return fmt.Errorf("failed to write shim to %s: %w", path, err)
 	}

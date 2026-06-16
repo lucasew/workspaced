@@ -25,7 +25,6 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: failed to connect to session bus: %v", driver.ErrIncompatible, err)
 	}
-	// Check if the notifications service is available
 	var names []string
 	err = conn.BusObject().Call("org.freedesktop.DBus.ListNames", 0).Store(&names)
 	if err != nil {

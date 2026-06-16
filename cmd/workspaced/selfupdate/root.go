@@ -113,19 +113,16 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
 	installPath := filepath.Join(installDir, "workspaced")
 
-	// Get build dependencies
 	goVersion := getGoVersion()
 	if goVersion == "" {
 		return ErrGoVersionUnknown
 	}
 
-	// Ensure mise is installed (auto-install if needed)
 	misePath, err := ensureMise(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to ensure mise: %w", err)
 	}
 
-	// Prepare build directory
 	if err := os.MkdirAll(installDir, 0755); err != nil {
 		return err
 	}
@@ -144,7 +141,6 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 		return nil
 	}, "path", tmpPath)
 
-	// Build
 	goSpec := fmt.Sprintf("go@%s", goVersion)
 	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
 		"go", "build", "-v", "-o", tmpPath, "./cmd/workspaced")
@@ -247,7 +243,6 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
 	tmpDir := filepath.Join(installDir, ".tmp-"+normalizedLatest)
 
-	// Create temp directory
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return err
 	}
@@ -259,13 +254,11 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
-	// Find the workspaced binary in tmpDir
 	workspacedBin, err := findBinary(tmpDir)
 	if err != nil {
 		return fmt.Errorf("workspaced binary not found in downloaded archive: %w", err)
 	}
 
-	// Move to final location
 	targetName := "workspaced"
 	if runtime.GOOS == "windows" {
 		targetName = "workspaced.exe"
@@ -432,7 +425,6 @@ func getGoVersion() string {
 func ensureMise(ctx context.Context) (string, error) {
 	misePath := getMisePath()
 
-	// Check if mise already exists
 	if _, err := os.Stat(misePath); err == nil {
 		return misePath, nil
 	}
@@ -461,7 +453,6 @@ func getMisePath() string {
 }
 
 func installMise(ctx context.Context, misePath string) error {
-	// Create directory
 	if err := os.MkdirAll(filepath.Dir(misePath), 0755); err != nil {
 		return fmt.Errorf("failed to create mise directory: %w", err)
 	}
@@ -469,7 +460,6 @@ func installMise(ctx context.Context, misePath string) error {
 	logger := logging.GetLogger(ctx)
 	logger.Info("downloading mise installer from https://mise.run")
 
-	// Download installer
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get http client: %w", err)
@@ -490,7 +480,6 @@ func installMise(ctx context.Context, misePath string) error {
 		return fmt.Errorf("failed to read installer: %w", err)
 	}
 
-	// Run installer
 	installCmd, err := execdriver.Run(ctx, "bash", "-s")
 	if err != nil {
 		return fmt.Errorf("failed to create install command: %w", err)
@@ -505,7 +494,6 @@ func installMise(ctx context.Context, misePath string) error {
 		return fmt.Errorf("failed to install mise: %w", err)
 	}
 
-	// Verify installation
 	if _, err := os.Stat(misePath); err != nil {
 		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, misePath)
 	}

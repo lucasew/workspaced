@@ -82,7 +82,6 @@ func (d *Driver) Client() *http.Client {
 
 // loadSystemCerts attempts to load system CA certificates from multiple locations
 func loadSystemCerts(ctx context.Context) *x509.CertPool {
-	// Try to load system cert pool first (works on most platforms)
 	if pool, err := x509.SystemCertPool(); err == nil && pool != nil {
 		return pool
 	}

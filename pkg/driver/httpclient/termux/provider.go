@@ -125,7 +125,6 @@ func loadTermuxCerts(ctx context.Context) *x509.CertPool {
 		"/system/etc/security/cacerts",
 	}
 
-	// Try to load from each location
 	for _, certFile := range certFiles {
 		if certs, err := os.ReadFile(certFile); err == nil {
 			if pool.AppendCertsFromPEM(certs) {

@@ -142,7 +142,6 @@ func RotateWorkspaces(ctx context.Context) error {
 		}
 	}
 
-	// Restore the original focus
 	if focusedWorkspace != "" {
 		if err := switchToWorkspace(ctx, focusedWorkspace, false); err != nil {
 			logging.ReportError(ctx, err)

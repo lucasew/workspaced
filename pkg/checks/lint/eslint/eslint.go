@@ -70,7 +70,6 @@ const (
 
 func sanitizeESLintOutput(raw []byte) []byte {
 	b := bytes.TrimSpace(raw)
-	// Remove UTF-8 BOM if present.
 	b = bytes.TrimPrefix(b, []byte{0xEF, 0xBB, 0xBF})
 	if len(b) == 0 {
 		return b

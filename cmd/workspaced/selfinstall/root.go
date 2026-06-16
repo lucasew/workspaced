@@ -43,7 +43,6 @@ A shim is created in:
 }
 
 func runSelfInstall(ctx context.Context, force bool) error {
-	// Get current binary path
 	currentBinary, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get current binary: %w", err)
@@ -60,7 +59,6 @@ func runSelfInstall(ctx context.Context, force bool) error {
 
 	currentVersion := version.Version()
 
-	// Check if already installed
 	alreadyInstalled := false
 	if !force {
 		if _, err := os.Stat(installPath); err == nil {
@@ -124,7 +122,6 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 
 	shimPath := filepath.Join(localBin, "workspaced")
 
-	// Use shimdriver
 	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
 		return err
 	}
@@ -150,7 +147,6 @@ func createMiseShim(ctx context.Context) error {
 
 	shimPath := filepath.Join(localBin, "mise")
 
-	// Create shim pointing to mise binary
 	if err := shim.Generate(ctx, shimPath, []string{misePath}); err != nil {
 		return err
 	}

@@ -26,7 +26,6 @@ func GetDriver(ctx context.Context, name string) (api.Driver, error) {
 
 // ExtractFromFile loads an image from a file and extracts a color palette
 func ExtractFromFile(ctx context.Context, path string, driver string, opts api.Options) (*api.Palette, error) {
-	// Load image from file
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open image: %w", err)
@@ -38,7 +37,6 @@ func ExtractFromFile(ctx context.Context, path string, driver string, opts api.O
 		return nil, fmt.Errorf("failed to decode image: %w", err)
 	}
 
-	// Get driver and extract
 	d, err := GetDriver(ctx, driver)
 	if err != nil {
 		return nil, err

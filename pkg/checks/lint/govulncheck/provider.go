@@ -66,7 +66,6 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		return nil, err
 	}
 
-	// Parse SARIF output
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
 		return nil, err

@@ -32,7 +32,6 @@ func (p *Factory) New(ctx context.Context) (envdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	// Check each candidate path
 	for _, path := range constants.DotfilesCandidates {
 		// Expand ~ and environment variables
 		expanded := envdriver.ExpandPath(path)

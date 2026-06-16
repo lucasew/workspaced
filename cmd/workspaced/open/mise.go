@@ -41,7 +41,6 @@ func installMise(ctx *cobra.Command) error {
 		return miseutil.ErrMiseInstallPathUnknown
 	}
 
-	// Create directory if it doesn't exist
 	miseDir := filepath.Dir(misePath)
 	if err := os.MkdirAll(miseDir, 0755); err != nil {
 		return fmt.Errorf("failed to create mise directory: %w", err)
@@ -50,7 +49,6 @@ func installMise(ctx *cobra.Command) error {
 	logger := logging.GetLogger(ctx.Context())
 	logger.Info("installing mise", "path", misePath)
 
-	// Download installer script using httpclient driver
 	logger.Info("downloading mise installer", "url", "https://mise.run")
 	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
 	if err != nil {
@@ -72,13 +70,11 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("failed to read installer script: %w", err)
 	}
 
-	// Run the installer script via sh
 	installCmd, err := execdriver.Run(ctx.Context(), bash.GetShell(ctx.Context()), "-s")
 	if err != nil {
 		return fmt.Errorf("failed to create install command: %w", err)
 	}
 
-	// Pipe the script to sh's stdin
 	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
 	installCmd.Stdout = os.Stderr
 	installCmd.Stderr = os.Stderr
@@ -88,7 +84,6 @@ func installMise(ctx *cobra.Command) error {
 		return fmt.Errorf("failed to install mise: %w", err)
 	}
 
-	// Verify installation
 	if _, err := os.Stat(misePath); os.IsNotExist(err) {
 		return fmt.Errorf("%w: binary not found at %s", miseutil.ErrMiseInstallFailed, misePath)
 	}
@@ -105,7 +100,6 @@ func ensureMise(ctx *cobra.Command) (string, error) {
 		return "", miseutil.ErrMiseInstallPathUnknown
 	}
 
-	// Check if mise exists
 	if _, err := os.Stat(misePath); os.IsNotExist(err) {
 		if err := installMise(ctx); err != nil {
 			return "", err
@@ -133,7 +127,6 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 
 	workspacedBin := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
 
-	// Check if wrapper already exists and is correct
 	if content, err := os.ReadFile(wrapperPath); err == nil {
 		expectedContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 		if string(content) == expectedContent {
@@ -141,12 +134,10 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 		}
 	}
 
-	// Create directory if it doesn't exist
 	if err := os.MkdirAll(wrapperDir, 0755); err != nil {
 		return fmt.Errorf("failed to create wrapper directory: %w", err)
 	}
 
-	// Generate wrapper script that calls workspaced open mise
 	wrapperContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
 
 	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
@@ -182,24 +173,20 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			// Ensure mise is installed
 			misePath, err := ensureMise(cmd)
 			if err != nil {
 				return err
 			}
 
-			// Create command using driver
 			miseCmd, err := execdriver.Run(ctx, misePath, args...)
 			if err != nil {
 				return fmt.Errorf("failed to create command: %w", err)
 			}
 
-			// Connect stdio
 			miseCmd.Stdin = os.Stdin
 			miseCmd.Stdout = os.Stdout
 			miseCmd.Stderr = os.Stderr
 
-			// Run and return exit code
 			if err := miseCmd.Run(); err != nil {
 				return err
 			}

@@ -46,7 +46,6 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			continue
 		}
 
-		// Compute RelPath without .tmpl
 		relPath := f.RelPath()
 		if parts[len(parts)-1] == "tmpl" {
 			// file.tmpl → file
@@ -82,7 +81,6 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			return nil, fmt.Errorf("failed to render template %s: %w", f.SourceInfo(), err)
 		}
 
-		// Check if the output is multi-file
 		multiFiles, isMulti := template.ParseMultiFile(rendered)
 
 		if isMulti {

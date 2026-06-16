@@ -11,18 +11,15 @@ import (
 
 // ProcessDotD processes a .d.tmpl directory (file concatenation).
 func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]byte, error) {
-	// Check if directory exists
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return nil, nil // Empty content if directory doesn't exist
 	}
 
-	// Read directory entries
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sort entries alphabetically (ReadDir already returns sorted)
 	var fileNames []string
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -38,7 +35,6 @@ func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]b
 			return nil, fmt.Errorf("failed to read %s: %w", fileName, err)
 		}
 
-		// Check if file is a template (ends with .tmpl)
 		if strings.HasSuffix(fileName, ".tmpl") {
 			rendered, err := e.Render(ctx, string(content), data)
 			if err != nil {
@@ -49,7 +45,6 @@ func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]b
 			result.Write(content)
 		}
 
-		// Add newline separator between files
 		result.WriteString("\n")
 	}
 

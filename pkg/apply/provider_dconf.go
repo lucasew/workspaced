@@ -148,7 +148,6 @@ func formatDconfValue(v any) string {
 	case int, int64, float64:
 		return fmt.Sprintf("%v", val)
 	case []any:
-		// Handle arrays
 		parts := make([]string, len(val))
 		for i, item := range val {
 			parts[i] = formatDconfValue(item)

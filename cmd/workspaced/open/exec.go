@@ -27,7 +27,6 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
-			// Create command using driver
 			command, err := execdriver.Run(ctx, args[0], args[1:]...)
 			if err != nil {
 				return fmt.Errorf("failed to create command: %w", err)
@@ -85,7 +84,6 @@ Examples:
 			command.Stdout = os.Stdout
 			command.Stderr = os.Stderr
 
-			// Run and return exit code
 			if err := command.Run(); err != nil {
 				return err
 			}

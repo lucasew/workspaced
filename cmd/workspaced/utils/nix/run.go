@@ -31,7 +31,6 @@ func init() {
 					runArgs = runArgs[1:]
 				}
 
-				// Parse ref: repo#item/binary
 				parts := strings.Split(ref, "#")
 				repo := parts[0]
 				item := ""
@@ -46,13 +45,11 @@ func init() {
 					binary = itemParts[1]
 				}
 
-				// Build with cache
 				resultPath, err := nix.Build(ctx, repo+"#"+item, true)
 				if err != nil {
 					return err
 				}
 
-				// Find binary
 				binDir := filepath.Join(resultPath, "bin")
 				if binary == "" {
 					entries, err := os.ReadDir(binDir)
@@ -73,7 +70,6 @@ func init() {
 					}
 				}
 
-				// Run
 				ec := execdriver.MustRun(ctx, binPath, runArgs...)
 				executil.InheritContextWriters(ctx, ec)
 				ec.Stdin = os.Stdin

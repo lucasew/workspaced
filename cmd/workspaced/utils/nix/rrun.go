@@ -32,7 +32,6 @@ func init() {
 					runArgs = runArgs[1:]
 				}
 
-				// Parse ref: repo#item/binary
 				parts := strings.Split(ref, "#")
 				repo := parts[0]
 				item := ""
@@ -53,7 +52,6 @@ func init() {
 					return err
 				}
 
-				// Find binary
 				binDir := filepath.Join(resultPath, "bin")
 				if binary == "" {
 					// Guess binary name from package name or first file in bin/
@@ -76,7 +74,6 @@ func init() {
 					}
 				}
 
-				// Run
 				ec := execdriver.MustRun(ctx, binPath, runArgs...)
 				executil.InheritContextWriters(ctx, ec)
 				ec.Stdin = os.Stdin

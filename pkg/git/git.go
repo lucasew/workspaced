@@ -52,7 +52,6 @@ func QuickSync(ctx context.Context) error {
 	}
 
 	for i, repoName := range repos {
-		// Check for context cancellation
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -86,13 +85,11 @@ func SyncRepo(ctx context.Context, path string) error {
 	hostname, _ := os.Hostname()
 	logger := logging.GetLogger(ctx)
 
-	// git add -A
 	logger.Info("git add", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "add", "-A").Run(); err != nil {
 		return fmt.Errorf("git add failed: %w", err)
 	}
 
-	// git commit -sm "backup checkpoint <host>"
 	// Check if there are changes to commit
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "diff-index", "HEAD", "--exit-code").Run(); err != nil {
 		commitMsg := fmt.Sprintf("backup checkpoint %s", hostname)
@@ -102,14 +99,12 @@ func SyncRepo(ctx context.Context, path string) error {
 		}
 	}
 
-	// git pull --rebase
 	logger.Info("git pull --rebase", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "pull", "--rebase").Run(); err != nil {
 		_ = execdriver.MustRun(ctx, "git", "-C", path, "rebase", "--abort").Run()
 		return fmt.Errorf("git pull rebase failed (conflict?): %w", err)
 	}
 
-	// git push
 	logger.Info("git push", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "push").Run(); err != nil {
 		return fmt.Errorf("git push failed: %w", err)
@@ -120,7 +115,6 @@ func SyncRepo(ctx context.Context, path string) error {
 
 // GetRoot returns the root directory of the git repository containing path.
 func GetRoot(ctx context.Context, path string) (string, error) {
-	// Ensure path exists
 	if _, err := os.Stat(path); err != nil {
 		return "", err
 	}

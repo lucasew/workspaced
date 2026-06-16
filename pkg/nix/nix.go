@@ -141,9 +141,6 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	outLink := fmt.Sprintf("%s/%s", remoteCache, uuid)
 
 	buildCmd := "nix build"
-	// if useNom {
-	// 	buildCmd = "nom build"
-	// }
 
 	safeRef := fmt.Sprintf("%s#%s", sourcePath, item)
 	remoteArgs := []string{
@@ -158,7 +155,6 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 		return "", fmt.Errorf("%w: remote build failed: %w", api.ErrBuildFailed, err)
 	}
 
-	// Get result path
 	out, err := execdriver.MustRun(ctx, "ssh", target, "realpath", outLink).Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve result path: %w", err)

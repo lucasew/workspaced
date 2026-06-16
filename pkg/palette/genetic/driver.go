@@ -44,17 +44,14 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	maxGenerations := 100 // Safety limit
 
 	for generation < maxGenerations {
-		// Check for context cancellation
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
 
-		// Calculate fitness for all individuals
 		scored := scorePop(population, labColors, opts.Polarity)
 
-		// Check convergence (fitness stopped improving)
 		bestFitness := scored[0].fitness
 		logger.Info("generation completed",
 			"generation", generation,
@@ -67,13 +64,11 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 		}
 		prevBestFitness = bestFitness
 
-		// Select survivors (top numSurvivors)
 		survivors := scored
 		if len(survivors) > numSurvivors {
 			survivors = survivors[:numSurvivors]
 		}
 
-		// Generate offspring via crossover + mutation
 		population = evolve(rng, survivors, labColors)
 
 		generation++
@@ -94,7 +89,6 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 func mapToPalette(ind Individual, colorCount int) *api.Palette {
 	pal := &api.Palette{}
 
-	// Convert LAB colors back to hex strings
 	hexColors := make([]string, len(ind.colors))
 	for i, lab := range ind.colors {
 		rgb := api.LABToRGB(lab)

@@ -20,10 +20,8 @@ func Parse(v string) SemVer {
 		return SemVer{Original: v, Parts: nil}
 	}
 
-	// Remove 'v' prefix if present
 	v = strings.TrimPrefix(v, "v")
 
-	// Parse version parts
 	parts := strings.Split(v, ".")
 	var nums []int
 	for _, part := range parts {
@@ -79,7 +77,6 @@ func (v SemVer) Compare(other SemVer) int {
 		return 0
 	}
 
-	// Compare numeric parts
 	maxLen := max(len(other.Parts), len(v.Parts))
 
 	for i := 0; i < maxLen; i++ {

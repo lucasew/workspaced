@@ -62,7 +62,6 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		logger.Debug("biome execution returned error (likely lint issues)", "err", runErr, "stderr", stderr.String())
 	}
 
-	// Parse SARIF output
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
 		logging.ReportError(ctx, err, "stdout", stdout.String(), "context", "failed to parse sarif output from biome")

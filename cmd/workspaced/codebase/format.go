@@ -26,19 +26,16 @@ func init() {
 					path = args[0]
 				}
 
-				// Resolve path to absolute
 				absPath, err := filepath.Abs(path)
 				if err != nil {
 					return err
 				}
 
-				// Find git root
 				root, err := git.GetRoot(cmd.Context(), absPath)
 				if err != nil {
 					return fmt.Errorf("failed to find git root (format must run inside a git repo): %w", err)
 				}
 
-				// Run formatters at git root
 				return formatter.RunAll(cmd.Context(), root)
 			},
 		})

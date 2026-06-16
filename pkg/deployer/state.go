@@ -36,7 +36,6 @@ func NewFileStateStore(path string) (*FileStateStore, error) {
 		expanded = filepath.Join(home, expanded[1:])
 	}
 
-	// Ensure parent directory exists
 	dir := filepath.Dir(expanded)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create state directory: %w", err)
@@ -62,7 +61,6 @@ func (s *FileStateStore) Load() (*State, error) {
 		return nil, fmt.Errorf("failed to parse state file: %w", err)
 	}
 
-	// Ensure map is not nil
 	if state.Files == nil {
 		state.Files = make(map[string]ManagedInfo)
 	}

@@ -22,7 +22,6 @@ func initPopulation(rng *rand.Rand, colors []api.LAB, count int, size int) []Ind
 			colors: make([]api.LAB, count),
 		}
 
-		// Generate completely random colors in LAB space
 		for j := range count {
 			individual.colors[j] = api.LAB{
 				L: rng.Float64() * 100,     // Lightness: 0-100
@@ -46,7 +45,6 @@ func crossover(p1, p2 Individual) Individual {
 		colors: make([]api.LAB, size),
 	}
 
-	// Alternating zip: take from p1, then p2, alternating
 	for i := 0; i < size; i++ {
 		if i%2 == 0 {
 			offspring.colors[i] = p1.colors[i]
@@ -65,13 +63,11 @@ func mutate(rng *rand.Rand, ind Individual, colors []api.LAB, rate float64) Indi
 		return ind
 	}
 
-	// Clone the individual
 	mutated := Individual{
 		colors: make([]api.LAB, len(ind.colors)),
 	}
 	copy(mutated.colors, ind.colors)
 
-	// Replace one random color
 	pos := rng.Intn(len(mutated.colors))
 	mutated.colors[pos] = colors[rng.Intn(len(colors))]
 
@@ -83,21 +79,16 @@ func mutate(rng *rand.Rand, ind Individual, colors []api.LAB, rate float64) Indi
 func evolve(rng *rand.Rand, survivors []scoredIndividual, imageColors []api.LAB) []Individual {
 	newPopulation := make([]Individual, 0, numSurvivors+numNewborns)
 
-	// Elitism: keep best individual unchanged
 	if len(survivors) > 0 {
 		newPopulation = append(newPopulation, survivors[0].individual)
 	}
 
-	// Generate offspring via crossover
 	for i := 1; i < numSurvivors+numNewborns; i++ {
-		// Select two random parents
 		p1 := survivors[rng.Intn(len(survivors))].individual
 		p2 := survivors[rng.Intn(len(survivors))].individual
 
-		// Crossover
 		offspring := crossover(p1, p2)
 
-		// Mutate (skip first individual - elite)
 		if i > 0 {
 			offspring = mutate(rng, offspring, imageColors, mutationRate)
 		}

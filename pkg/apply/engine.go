@@ -71,7 +71,6 @@ func Plan(ctx context.Context, desired []DesiredState, currentState *State) ([]A
 			continue
 		}
 
-		// Validate and determine if update is needed
 		needsUpdate := false
 		reason := ""
 
@@ -99,7 +98,6 @@ func Plan(ctx context.Context, desired []DesiredState, currentState *State) ([]A
 					needsUpdate = true
 					reason = fmt.Sprintf("permissions mismatch (current: %o, desired: %o)", info.Mode().Perm(), d.Mode.Perm())
 				} else {
-					// Validate content
 					srcData, err := os.ReadFile(d.Source)
 					if err != nil {
 						needsUpdate = true
@@ -162,7 +160,6 @@ func Execute(ctx context.Context, actions []Action, state *State) error {
 				logger.Info("updating", "target", action.Target, "source", action.Desired.Source)
 			}
 
-			// Ensure parent directory exists
 			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
 				return fmt.Errorf("failed to create parent directory for %s: %w", action.Target, err)
 			}
@@ -197,15 +194,12 @@ func Execute(ctx context.Context, actions []Action, state *State) error {
 				}
 			}
 
-			// Create the desired state
 			if action.Desired.Mode == 0 {
-				// Create symlink
 				if err := os.Symlink(action.Desired.Source, action.Target); err != nil {
 					return fmt.Errorf("failed to create symlink %s -> %s: %w", action.Target, action.Desired.Source, err)
 				}
 				logger.Debug("symlink created", "target", action.Target, "source", action.Desired.Source)
 			} else {
-				// Create/overwrite regular file
 				data, err := os.ReadFile(action.Desired.Source)
 				if err != nil {
 					return fmt.Errorf("failed to read source file %s: %w", action.Desired.Source, err)
@@ -216,7 +210,6 @@ func Execute(ctx context.Context, actions []Action, state *State) error {
 				logger.Debug("file written", "target", action.Target, "size", len(data), "mode", action.Desired.Mode)
 			}
 
-			// Track in state
 			state.Files[action.Target] = ManagedInfo{Source: action.Desired.Source}
 		}
 	}

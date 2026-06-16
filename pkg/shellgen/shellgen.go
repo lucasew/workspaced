@@ -48,7 +48,6 @@ func Generate(ctx context.Context) (string, error) {
 	results := make(chan result, len(generators))
 	var wg sync.WaitGroup
 
-	// Execute all generators in parallel
 	for key, gen := range generators {
 		wg.Add(1)
 		go func(k string, g Generator) {
@@ -59,7 +58,6 @@ func Generate(ctx context.Context) (string, error) {
 		}(key, gen)
 	}
 
-	// Wait and close
 	go func() {
 		wg.Wait()
 		close(results)
@@ -86,7 +84,6 @@ func Generate(ctx context.Context) (string, error) {
 		return "", errors.Join(errs...)
 	}
 
-	// Build output in order (sorted by key)
 	keys := make([]string, 0, len(resultMap))
 	for k := range resultMap {
 		keys = append(keys, k)
