@@ -86,4 +86,3 @@ func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.S
 	_, err := cmd.Run(ctx)
 	return err
 }
-
