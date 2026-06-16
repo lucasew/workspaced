@@ -1,4 +1,4 @@
-# Workspaced Development
+g Workspaced Development
 
 **Essential reading order for agents**:
 1. [README.md](README.md) — one-sentence terms + minimal architecture.
@@ -57,3 +57,4 @@ See CODEMAP.md for the short "how to locate X" recipes.
 - Make sure a inner scope is not getting a logger or ctx from the outer scope.
 - Prefer to use channels  over shared mutable state with a lock if it makes stuff simpler, which is often.
 - All context.Background and alike situations must have a good reason. Just not having a context in scope is not a good reason.
+- Actual data that could be piped to another program should be written to stdout. The rest of command output must be written to stderr. stdout is normally only used to pipe data suitable to other command line software where it must not have to take more than one line into consideration for a specific operation (things where each thing is a line, or JSONL).

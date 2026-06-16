@@ -3,6 +3,7 @@ package catalog
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"workspaced/pkg/tool"
@@ -57,4 +58,16 @@ func NewTool(ref string) (backend.Tool, error) {
 	// For direct construction of "registry:foo", we go through the same
 	// named dispatch. This makes `catalog.NewTool("uv")` do the right thing.
 	return (&catalog{}).Tool(ref)
+}
+
+// ListTools returns the sorted list of all known curated short names.
+// These are the bare names (e.g. "uv", "ripgrep", "nodejs") usable without a
+// provider prefix; they are served by the "registry" backend.
+func ListTools() []string {
+	names := make([]string, 0, len(namedTools))
+	for n := range namedTools {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
 }
