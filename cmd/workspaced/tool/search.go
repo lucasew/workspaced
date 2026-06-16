@@ -18,10 +18,7 @@ func init() {
 
 If no query is given, lists every known short name (alphabetical).
 If a query is given, prints only names containing the query (case-insensitive match).
-These names can be used directly as tool-specs (they resolve via the "registry" backend).
-
-The matching names are the command's final output ("verdict") and are written to stdout.
-This means e.g. 'workspaced tool search u 2>/dev/null' will still produce the list on stdout.`,
+These names can be used directly as tool-specs (they resolve via the "registry" backend).`,
 			Args: cobra.MaximumNArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				query := ""
@@ -30,7 +27,6 @@ This means e.g. 'workspaced tool search u 2>/dev/null' will still produce the li
 				}
 				for _, name := range catalog.ListTools() {
 					if query == "" || strings.Contains(strings.ToLower(name), query) {
-						// Final verdict (the list of matches) goes explicitly to the command's stdout.
 						fmt.Fprintln(cmd.OutOrStdout(), name)
 					}
 				}

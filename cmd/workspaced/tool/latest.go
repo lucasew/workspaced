@@ -17,9 +17,7 @@ func init() {
 			Short: "Print the latest version string for a tool ref",
 			Long: `Resolve and print the latest version for the tool ref (no install performed).
 
-Equivalent to the first entry returned by "tool versions <tool-spec>".
-
-The version string is written to stdout as the command's primary output ("final verdict").`,
+Equivalent to the first entry returned by "tool versions <tool-spec>".`,
 			Args: cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				specStr := args[0]
@@ -44,7 +42,6 @@ The version string is written to stdout as the command's primary output ("final 
 				if len(versions) == 0 {
 					return fmt.Errorf("no versions found for %s", specStr)
 				}
-				// Final verdict (the resolved latest version) is written to stdout.
 				fmt.Fprintln(cmd.OutOrStdout(), versions[0])
 				return nil
 			},

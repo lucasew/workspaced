@@ -19,9 +19,7 @@ func init() {
 
 The first version printed is the one considered "latest" by the backend.
 This works for curated short names (resolved via registry), github:owner/repo, mise:xxx etc.
-No installation is performed.
-
-The list is written to stdout (one version per line) as the command's primary output.`,
+No installation is performed.`,
 			Args: cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				specStr := args[0]
@@ -43,7 +41,6 @@ The list is written to stdout (one version per line) as the command's primary ou
 				if err != nil {
 					return err
 				}
-				// Final verdict (the list) goes to the command's stdout.
 				for _, v := range versions {
 					fmt.Fprintln(cmd.OutOrStdout(), v)
 				}
