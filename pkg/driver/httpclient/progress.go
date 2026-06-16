@@ -86,10 +86,16 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		// From this point the caller owns the (possibly wrapped) Body.
 		resCh <- result{resp: resp, err: nil}
 
-		// Park here until the *caller* has fully consumed or closed the body.
-		// This keeps the Internet task "in flight" for the duration of the
-		// transfer, which is what we want for the UI.
-		<-bodyComplete
+		// Park here until the *caller* has fully consumed or closed the body,
+		// *or* our task ctx is canceled. The latter ensures the promoted task
+		// always reaches Done (so bubbletea model can Quit and group wgs can
+		// make progress) even if the caller/library never closes the body or
+		// in shutdown races. Parent Waits + recordError will cancel the group
+		// ctxs, unblocking any stragglers.
+		select {
+		case <-bodyComplete:
+		case <-ctx.Done():
+		}
 
 		if total > 0 {
 			s.Progress(total, total)

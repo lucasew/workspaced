@@ -85,11 +85,17 @@ func installTeaPatches(prog *tea.Program) (cleanup func()) {
 	oldLogWriter := log.Default().Writer()
 
 	// Line printer used by both the stderr pipe pump and the teaLineWriter.
-	// We Printf the content then Send(refresh) so the model recomputes bar
-	// positions immediately (same pattern used by the task onLog handler).
+	// We Printf the content (and Send refresh for the onLog path).
+	// For the catch-all pump/tlw path we intentionally omit Send(refreshMsg{}):
+	// prog.Send after Quit can block the caller (the pump goroutine), which
+	// would hang the <-pumpDone in cleanupPatches and thus prevent return
+	// from RunBubbleTea / the command after the model has already decided to
+	// quit. The 100ms tick loop will refresh bars on its own schedule.
 	printLine := func(s string) {
 		prog.Printf("%s", s)
-		prog.Send(refreshMsg{})
+		// Only the primary task onLog handler (see RunBubbleTea) does the
+		// Printf+Send combination for "log line just appeared, push bars down".
+		// The patches path skips Send to keep shutdown (pump drain) robust.
 	}
 
 	// Set up a pipe so that writes to the os.Stderr package var after this
@@ -143,8 +149,13 @@ func installTeaPatches(prog *tea.Program) (cleanup func()) {
 			pw.Close()
 		}
 		if pr != nil {
-			<-pumpDone
+			// Eagerly close the read side too. This guarantees the bufio.Scanner
+			// in the pump sees EOF and exits even if a concurrent printLine
+			// (or other) would otherwise slow it. We still wait for the goroutine
+			// to close pumpDone for cleanliness, but the double close makes
+			// hangs in the drain much less likely.
 			pr.Close()
+			<-pumpDone
 		}
 
 		// Restore the os.Stderr var for any code that reads it after us.
