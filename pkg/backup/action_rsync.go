@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -45,7 +46,7 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 	opts := rsync.Options{
 		Excludes:        a.Excludes,
 		SkipPermissions: a.SkipPermissions,
-		Output:          pw,
+		Output:          io.MultiWriter(pw, os.Stderr),
 	}
 
 	// Scanner goroutine feeds the notification with live rsync status lines.
