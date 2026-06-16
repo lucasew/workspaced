@@ -10,7 +10,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Run starts a Bubble Tea renderer for the group. It is a convenience wrapper
