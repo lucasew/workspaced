@@ -1,13 +1,11 @@
 package gokrazy
 
 import (
-	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"strings"
-	"time"
 
 	"workspaced/pkg/driver"
 	rsyncdriver "workspaced/pkg/driver/rsync"
@@ -75,63 +73,17 @@ func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.S
 	// rsynccmd gives us a drop-in replacement for spawning rsync.
 	cmd := gokrsync.Command("rsync", args...)
 
-	// Capture combined output via a pipe so the scanner can drive taskgroup Status
-	// (and forward lines to extraOut for notification consumers).
-	pr, pw := io.Pipe()
-	cmd.Stdout = pw
-	cmd.Stderr = pw
+	// Use the real process stdout/stderr directly (standard terminal behavior).
+	// No pipes, no line scanning, no progress extraction inside the driver.
+	// rsync's own output (including --progress chatter, file lists, errors, etc.)
+	// will appear on the caller's terminal exactly as a normal rsync invocation
+	// would. This is the requested "no fancy stuff" behavior.
+	// Both streams to stderr (user request: no fancy capture, rsync should
+	// behave like a plain command but with all its chatter on stderr).
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
 
-	done := make(chan error, 1)
-	go func() {
-		_, err := cmd.Run(ctx)
-		pw.Close()
-		done <- err
-	}()
-
-	scanner := bufio.NewScanner(pr)
-	lastUpdate := time.Now()
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			if st != nil {
-				st.Update(trimmed)
-				if cur, tot, ok := parseRsyncProgress(trimmed); ok {
-					st.Progress(cur, tot)
-				}
-			}
-			if extraOut != nil {
-				_, _ = io.WriteString(extraOut, line+"\n")
-			}
-			logger.Debug("rsync", "line", trimmed)
-		}
-		if time.Since(lastUpdate) > time.Second {
-			lastUpdate = time.Now()
-		}
-	}
-
-	// Wait for the rsynccmd.Run to finish.
-	runErr := <-done
-	if scanErr := scanner.Err(); scanErr != nil {
-		return scanErr
-	}
-	return runErr
+	_, err := cmd.Run(ctx)
+	return err
 }
 
-func parseRsyncProgress(line string) (current, total int64, ok bool) {
-	if !strings.Contains(line, "%") {
-		return 0, 0, false
-	}
-	fields := strings.Fields(line)
-	for _, f := range fields {
-		if strings.HasSuffix(f, "%") {
-			pctStr := strings.TrimSuffix(f, "%")
-			var pct int
-			if _, err := fmt.Sscanf(pctStr, "%d", &pct); err == nil && pct >= 0 && pct <= 100 {
-				return int64(pct), 100, true
-			}
-		}
-	}
-	return 0, 0, false
-}
