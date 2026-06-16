@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"workspaced/pkg/logging"
@@ -31,6 +32,7 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	name := taskName(req)
+	msgName := strings.TrimPrefix(name, "fetch:")
 
 	// Channel used to hand the response (headers) back to the caller of RoundTrip
 	// as soon as they are available. The body may still be streaming.
@@ -44,7 +46,7 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		l := logging.GetLogger(ctx)
 		l.Debug("http request promoted to internet task", "name", name, "url", req.URL.String())
 
-		s.Update("fetching " + name)
+		s.Update("fetching " + msgName)
 
 		// Run the actual request inside the task's context (for cancellation etc.).
 		req = req.WithContext(ctx)
@@ -58,22 +60,24 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		total := resp.ContentLength
 		if total > 0 {
 			s.Progress(0, total)
+			s.Update(fmt.Sprintf("fetching %s (0 / %s)", msgName, humanBytes(total)))
 			resp.Body = &progressReadCloser{
 				ReadCloser:   resp.Body,
 				s:            s,
 				total:        total,
-				name:         name,
+				name:         msgName,
 				completionCh: bodyComplete,
 			}
 		} else {
 			// Unknown size (no Content-Length). Keep the task visible with a
 			// running byte counter. The task will complete when body is closed.
 			s.Progress(0, 1)
+			s.Update("fetching " + msgName)
 			resp.Body = &progressReadCloser{
 				ReadCloser:   resp.Body,
 				s:            s,
 				total:        0,
-				name:         name,
+				name:         msgName,
 				completionCh: bodyComplete,
 			}
 		}
@@ -89,8 +93,10 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 		if total > 0 {
 			s.Progress(total, total)
+			s.Update(fmt.Sprintf("fetched %s (%s)", msgName, humanBytes(total)))
 		} else {
 			s.Progress(1, 1)
+			s.Update("fetched " + msgName)
 		}
 		return nil
 	})
@@ -135,17 +141,15 @@ func (p *progressReadCloser) Read(b []byte) (int, error) {
 
 		if p.total > 0 {
 			p.s.Progress(cur, p.total)
-			// Throttle the message updates.
-			if (p.written%(64*1024) == 0) || (p.total > 0 && p.written >= p.total) {
-				pct := int(100 * p.written / p.total)
-				p.s.Update(fmt.Sprintf("fetching %s (%d%%)", p.name, pct))
-			}
+			// Update the description (the text after the bar) on every data read
+			// so the x/y MiB (and %) live-updates in the progress bars.
+			// The model only snapshots every ~100ms so this is not spammy in UI.
+			pct := int(100 * p.written / p.total)
+			p.s.Update(fmt.Sprintf("fetching %s (%s / %s, %d%%)", p.name, humanBytes(p.written), humanBytes(p.total), pct))
 		} else {
 			// Unknown total: at least show increasing bytes so the task stays alive.
 			p.s.Progress(p.written, 0)
-			if p.written%(128*1024) == 0 {
-				p.s.Update(fmt.Sprintf("fetching %s (%d bytes)", p.name, p.written))
-			}
+			p.s.Update(fmt.Sprintf("fetching %s (%s)", p.name, humanBytes(p.written)))
 		}
 	}
 
@@ -169,17 +173,49 @@ func (p *progressReadCloser) signalComplete() {
 	})
 }
 
+// humanBytes returns a human readable size using binary units (MiB etc).
+// Used to put x/y size hints into the live task description/message.
+func humanBytes(b int64) string {
+	if b <= 0 {
+		return "0 B"
+	}
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
+}
+
 // taskName chooses a friendly name for the internet task.
-// It prefers "fetch:<basename>" for typical archive/asset downloads so the UI
-// shows something like "fetch:flutter_linux_3.44.2-stable.tar.xz".
+// Real asset downloads (names containing ".") get a "fetch:" prefix so bars
+// render as "🌐 fetch:thefile.tar.gz: [bar] ...".
+// API/resource calls (e.g. paths ending in UUIDs, numeric IDs, or segments
+// without dots) get a plain base so we don't fake "fetch:" labels for them.
 func taskName(req *http.Request) string {
 	if req == nil || req.URL == nil {
 		return "http:request"
 	}
 	if base := filepath.Base(req.URL.Path); base != "" && base != "." && base != "/" {
-		return "fetch:" + base
+		if strings.Contains(base, ".") {
+			return "fetch:" + base
+		}
+		if looksLikeUUID(base) {
+			// Opaque resource IDs (e.g. some API or internal paths) should not
+			// pollute the UI with raw UUIDs as task labels.
+			return "http:" + req.URL.Host
+		}
+		return base
 	}
 	return "http:" + req.URL.Host
+}
+
+func looksLikeUUID(s string) bool {
+	return len(s) == 36 && strings.Count(s, "-") == 4
 }
 
 // WithProgress wraps the given RoundTripper so that every request made
