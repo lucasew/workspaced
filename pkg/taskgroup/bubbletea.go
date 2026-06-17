@@ -197,7 +197,19 @@ func (m bubbleModel) View() tea.View {
 		fmt.Fprintf(tw, "%s %s:\t%s\t%s\n", emoji, name, bar, st)
 	}
 	tw.Flush()
-	return tea.NewView(buf.String())
+
+	v := tea.NewView(buf.String())
+	// Force zero KeyboardEnhancements on every view we return.
+	// Bubbletea's cursed_renderer enables the Kitty keyboard protocol
+	// (ansi.KittyKeyboard + KittyReportEventTypes etc.) for kitty terms
+	// (and similar) during render if the view's enhancements differ from last.
+	// Since we never want enhanced key reporting (we use WithInput(nil) and
+	// only internal ticks for progress), returning zero on the (final) view
+	// makes the renderer send the disable/reset sequence as part of normal
+	// output. This is the proper "deeper" place instead of post-Run hacks
+	// that can leak raw bytes or arrive too late for the prompt.
+	v.KeyboardEnhancements = tea.KeyboardEnhancements{}
+	return v
 }
 
 // poolEmoji returns a short emoji prefix based on the task's PoolKind.
