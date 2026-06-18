@@ -25,24 +25,88 @@ func TestContainsAnyOf(t *testing.T) {
 	}
 }
 
-func TestScoreArtifactForHint(t *testing.T) {
+func TestScoreArtifact(t *testing.T) {
+	const (
+		osName = "linux"
+		arch   = "amd64"
+	)
+
 	tests := []struct {
-		name string
-		url  string
-		hint string
-		want int
+		name   string
+		art    Artifact
+		hint   string
+		want   int
 	}{
-		{name: "empty hint", url: "https://example.com/foo.tar.gz", hint: "", want: 0},
-		{name: "exact token match", url: "https://example.com/resvg-linux.tar.gz", hint: "resvg", want: 190},
-		{name: "substring match", url: "https://example.com/myresvgtool.tar.gz", hint: "resvg", want: 70},
-		{name: "no match", url: "https://example.com/other.tar.gz", hint: "resvg", want: 10},
-		{name: "debug penalty", url: "https://example.com/resvg-debug.tar.gz", hint: "resvg", want: 170},
+		{
+			name: "empty hint (eligible archive gets positive baseline)",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/foo.tar.gz"},
+			hint: "",
+			want: 11, // baseline 1 + 10 for archive
+		},
+		{
+			name: "exact token match",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/resvg-linux.tar.gz"},
+			hint: "resvg",
+			want: 190,
+		},
+		{
+			name: "substring match",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/myresvgtool.tar.gz"},
+			hint: "resvg",
+			want: 70,
+		},
+		{
+			name: "no name match but good archive",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/other.tar.gz"},
+			hint: "resvg",
+			want: 10,
+		},
+		{
+			name: "token match + debug penalty",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/resvg-debug.tar.gz"},
+			hint: "resvg",
+			want: 170,
+		},
+
+		// Ineligibility cases (must return 0)
+		{
+			name: "wrong OS",
+			art:  Artifact{OS: "darwin", Arch: arch, URL: "https://example.com/resvg-linux.tar.gz"},
+			hint: "resvg",
+			want: 0,
+		},
+		{
+			name: "wrong arch",
+			art:  Artifact{OS: osName, Arch: "arm64", URL: "https://example.com/resvg-linux.tar.gz"},
+			hint: "resvg",
+			want: 0,
+		},
+		{
+			name: ".deb is ineligible even on matching platform",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/foo_amd64.deb"},
+			hint: "foo",
+			want: 0,
+		},
+		{
+			name: ".rpm is ineligible even on matching platform",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/foo.x86_64.rpm"},
+			hint: "foo",
+			want: 0,
+		},
+		{
+			name: "no hint + ineligible deb",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/pkg.deb"},
+			hint: "",
+			want: 0,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := scoreArtifactForHint(tt.url, tt.hint)
+			got := ScoreArtifact(tt.art, osName, arch, tt.hint)
 			if got != tt.want {
-				t.Errorf("scoreArtifactForHint(%q, %q) = %d, want %d", tt.url, tt.hint, got, tt.want)
+				t.Errorf("ScoreArtifact(%+v, %q, %q, %q) = %d, want %d",
+					tt.art, osName, arch, tt.hint, got, tt.want)
 			}
 		})
 	}

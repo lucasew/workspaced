@@ -124,41 +124,100 @@ func ContainsAnyOf(haystack string, needles ...string) bool {
 	return false
 }
 
-// SelectArtifact chooses the best artifact for the given OS/arch from the list,
-// applying optional binary hint scoring (used by both the manager and
-// backend Tool implementations during the migration).
+// ScoreArtifact returns a score indicating how well the artifact matches the
+// requested platform (osName + arch) and optional binaryHint.
 //
-// For android, if no android-specific artifact is found for the arch, it
-// falls back to trying linux artifacts (many projects do not publish
-// dedicated Android builds).
-func SelectArtifact(artifacts []Artifact, osName, arch, binaryHint string) *Artifact {
-	// Build ordered list of OSes to try. Android falls back to linux.
+// A return value of 0 means the artifact is ineligible (wrong OS/arch after
+// android→linux fallback, or a .deb/.rpm package). Eligible artifacts always
+// receive a positive score.
+//
+// Higher scores are better. SelectArtifact (and custom selection logic) can
+// use this to filter (score > 0) and to rank.
+func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
+	// Acceptable OSes (android falls back to linux for many projects).
 	oses := []string{osName}
 	if osName == "android" {
 		oses = append(oses, "linux")
 	}
 
-	var candidates []Artifact
-	for _, a := range artifacts {
-		if ContainsAnyOf(a.URL, ".deb", ".rpm") {
-			continue
+	// Platform match?
+	matchesPlatform := false
+	for _, o := range oses {
+		if a.OS == o && a.Arch == arch {
+			matchesPlatform = true
+			break
 		}
-		for _, candidateOS := range oses {
-			if a.OS == candidateOS && a.Arch == arch {
-				candidates = append(candidates, a)
+	}
+	if !matchesPlatform {
+		return 0
+	}
+
+	// Package types we never want as direct artifacts.
+	if ContainsAnyOf(a.URL, ".deb", ".rpm") {
+		return 0
+	}
+
+	hint := strings.ToLower(strings.TrimSpace(binaryHint))
+	base := strings.ToLower(filepath.Base(a.URL))
+
+	score := 0
+
+	if hint != "" {
+		// Strong tokenized match (e.g. "resvg-linux", "foo_resvg_bar", "x.resvg.")
+		for _, sep := range []string{"-", "_", "."} {
+			if strings.Contains(base, hint+sep) || strings.Contains(base, sep+hint+sep) || strings.Contains(base, sep+hint+".") {
+				score += 120
 				break
 			}
 		}
+		// Generic substring fallback
+		if strings.Contains(base, hint) {
+			score += 60
+		}
+	} else {
+		// No hint provided: reserve 0 strictly for ineligibility by giving
+		// eligible artifacts a minimal positive baseline.
+		score = 1
 	}
 
+	// Mild preference for common CLI archive formats.
+	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") {
+		score += 10
+	}
+
+	// Soft penalty for obvious debug/minimal builds.
+	if strings.Contains(base, "debug") {
+		score -= 20
+	}
+
+	// Never let penalties turn an otherwise-eligible artifact into 0.
+	if score <= 0 {
+		score = 1
+	}
+
+	return score
+}
+
+// SelectArtifact chooses the best artifact for the given OS/arch from the list
+// using ScoreArtifact for both eligibility (score > 0) and ranking.
+//
+// For android, if no android-specific artifact is found for the arch, it
+// falls back to trying linux artifacts (many projects do not publish
+// dedicated Android builds).
+func SelectArtifact(artifacts []Artifact, osName, arch, binaryHint string) *Artifact {
+	var candidates []Artifact
+	for _, a := range artifacts {
+		if ScoreArtifact(a, osName, arch, binaryHint) > 0 {
+			candidates = append(candidates, a)
+		}
+	}
 	if len(candidates) == 0 {
 		return nil
 	}
 
-	hint := strings.ToLower(strings.TrimSpace(binaryHint))
 	sort.Slice(candidates, func(i, j int) bool {
-		si := scoreArtifactForHint(candidates[i].URL, hint)
-		sj := scoreArtifactForHint(candidates[j].URL, hint)
+		si := ScoreArtifact(candidates[i], osName, arch, binaryHint)
+		sj := ScoreArtifact(candidates[j], osName, arch, binaryHint)
 		if si != sj {
 			return si > sj
 		}
@@ -166,38 +225,4 @@ func SelectArtifact(artifacts []Artifact, osName, arch, binaryHint string) *Arti
 	})
 
 	return &candidates[0]
-}
-
-func scoreArtifactForHint(url string, hint string) int {
-	if hint == "" {
-		return 0
-	}
-
-	base := strings.ToLower(filepath.Base(url))
-	score := 0
-
-	// Strong matches for tokenized binary names (resvg-*, *_resvg_*, etc.)
-	for _, sep := range []string{"-", "_", "."} {
-		if strings.Contains(base, hint+sep) || strings.Contains(base, sep+hint+sep) || strings.Contains(base, sep+hint+".") {
-			score += 120
-			break
-		}
-	}
-
-	// Generic match fallback
-	if strings.Contains(base, hint) {
-		score += 60
-	}
-
-	// Slightly prefer common distributable archives for CLI tools
-	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") {
-		score += 10
-	}
-
-	// Avoid obvious debug/minimal artifacts when possible
-	if strings.Contains(base, "debug") {
-		score -= 20
-	}
-
-	return score
 }
