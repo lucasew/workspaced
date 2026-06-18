@@ -273,8 +273,6 @@ func (g *Group) RunBubbleTea() error {
 	// prevents entry unless WORKSPACED_FORCE_TUI or a real tty).
 	prog := tea.NewProgram(model,
 		tea.WithOutput(os.Stderr),
-		tea.WithInput(nil),
-		tea.WithoutSignalHandler(),
 		tea.WithContext(g.ctx),
 	)
 
