@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -97,9 +95,9 @@ func (m bubbleModel) tick() tea.Cmd {
 }
 
 func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		km := msg.(tea.KeyPressMsg)
+		km := msg
 		if km.String() == "q" || km.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -242,10 +240,7 @@ func plainBar(pct float64, width int) string {
 	if pct > 1 {
 		pct = 1
 	}
-	filled := int(pct*float64(width) + 0.5)
-	if filled > width {
-		filled = width
-	}
+	filled := min(int(pct*float64(width)+0.5), width)
 	return "[" + strings.Repeat("=", filled) + strings.Repeat("-", width-filled) + "]"
 }
 
@@ -286,19 +281,8 @@ func (g *Group) RunBubbleTea() error {
 		tea.WithOutput(os.Stderr),
 		tea.WithInput(nil),
 		tea.WithoutSignalHandler(),
+		tea.WithContext(g.ctx),
 	)
-
-	// We use WithoutSignalHandler() (see comment above) so bubbletea will
-	// not install its own interrupt handler. We must catch SIGINT/SIGTERM
-	// ourselves and call prog.Kill() so that bubbletea performs terminal
-	// restoration (exits raw mode, shows the cursor, etc.) on the way out.
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		prog.Kill()
-	}()
 
 	// Activate the renderer flag first so that any concurrent logs from
 	// already-running (or about-to-run) tasks will skip the normal slog
@@ -332,8 +316,6 @@ func (g *Group) RunBubbleTea() error {
 	defer cleanupPatches()
 
 	_, err := prog.Run()
-
-	signal.Stop(sigChan)
 
 	// Clear handler after exit.
 	g.SetLogHandler(nil)
