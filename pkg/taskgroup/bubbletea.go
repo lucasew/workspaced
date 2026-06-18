@@ -168,9 +168,13 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m bubbleModel) View() tea.View {
+func (m bubbleModel) View() (view tea.View) {
+	view.KeyboardEnhancements = tea.KeyboardEnhancements{}
+	view.AltScreen = false
+	view.MouseMode = tea.MouseModeNone
 	if len(m.percents) == 0 {
-		return tea.NewView("")
+		view.SetContent("")
+		return
 	}
 
 	var buf bytes.Buffer
@@ -196,18 +200,8 @@ func (m bubbleModel) View() tea.View {
 	}
 	tw.Flush()
 
-	v := tea.NewView(buf.String())
-	// Force zero KeyboardEnhancements on every view we return.
-	// Bubbletea's cursed_renderer enables the Kitty keyboard protocol
-	// (ansi.KittyKeyboard + KittyReportEventTypes etc.) for kitty terms
-	// (and similar) during render if the view's enhancements differ from last.
-	// Since we never want enhanced key reporting (we use WithInput(nil) and
-	// only internal ticks for progress), returning zero on the (final) view
-	// makes the renderer send the disable/reset sequence as part of normal
-	// output. This is the proper "deeper" place instead of post-Run hacks
-	// that can leak raw bytes or arrive too late for the prompt.
-	v.KeyboardEnhancements = tea.KeyboardEnhancements{}
-	return v
+	view.SetContent(buf.String())
+	return
 }
 
 // poolEmoji returns a short emoji prefix based on the task's PoolKind.
