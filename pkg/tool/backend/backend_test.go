@@ -32,10 +32,10 @@ func TestScoreArtifact(t *testing.T) {
 	)
 
 	tests := []struct {
-		name   string
-		art    Artifact
-		hint   string
-		want   int
+		name string
+		art  Artifact
+		hint string
+		want int
 	}{
 		{
 			name: "empty hint (eligible archive gets positive baseline)",
