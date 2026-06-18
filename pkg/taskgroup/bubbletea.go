@@ -303,7 +303,7 @@ func (g *Group) RunBubbleTea() error {
 	//
 	// The bar rendering + Snapshot polling still goes through the tea program.
 	g.SetLogHandler(func(taskName, msg string) {
-		prog.Printf("%s", strings.TrimSpace(msg))
+		prog.Printf("%s", msg)
 		prog.Send(refreshMsg{})
 	})
 
