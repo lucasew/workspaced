@@ -98,7 +98,7 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		km := msg
-		if km.String() == "q" || km.String() == "ctrl+c" {
+		if km.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 	case tickMsg, refreshMsg:
