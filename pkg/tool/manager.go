@@ -65,6 +65,17 @@ func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
 	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+		// best-effort repair using the tool (e.g. ruby shebang fix) without forcing re-download
+		if p, perr := Get(spec.Provider); perr == nil {
+			if tt, terr := p.Tool(spec.Package); terr == nil {
+				if fixer, ok := tt.(backend.InstallFixer); ok {
+					if ferr := fixer.Fix(ctx, versionDir); ferr != nil {
+						logger := logging.GetLogger(ctx)
+						logger.Warn("post-install fix failed", "err", ferr, "dir", versionDir)
+					}
+				}
+			}
+		}
 		return nil
 	}
 

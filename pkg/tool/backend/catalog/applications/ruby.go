@@ -1,6 +1,7 @@
 package apps
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -126,7 +127,10 @@ func (t *rubyTool) ListArtifacts(ctx context.Context, version string) ([]backend
 }
 
 func (t *rubyTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	if err := providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{}); err != nil {
+		return err
+	}
+	return t.fixRubyShebangs(destDir)
 }
 
 func (t *rubyTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
@@ -147,6 +151,10 @@ func (t *rubyTool) EnsureBinary(ctx context.Context, version string, cmdName str
 	return "", fmt.Errorf("binary %q not found in Ruby installation at %s", cmdName, destDir)
 }
 
+func (t *rubyTool) Fix(_ context.Context, destDir string) error {
+	return t.fixRubyShebangs(destDir)
+}
+
 // --- helpers (as methods to avoid littering package scope) ---
 
 func (t *rubyTool) normalizeVersion(version string) string {
@@ -159,5 +167,54 @@ func (t *rubyTool) normalizeVersion(version string) string {
 	return v
 }
 
-
+func (t *rubyTool) fixRubyShebangs(destDir string) error {
+	targetRuby := filepath.Join(destDir, "bin", "ruby")
+	return filepath.Walk(destDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return err
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil // skip unreadable
+		}
+		if !bytes.HasPrefix(b, []byte("#!")) {
+			return nil
+		}
+		// locate end of shebang line
+		end := bytes.IndexByte(b, '\n')
+		if end == -1 {
+			end = len(b)
+		}
+		shebang := string(b[:end])
+		if !strings.Contains(strings.ToLower(shebang), "ruby") {
+			return nil
+		}
+		after := strings.TrimPrefix(shebang, "#!")
+		// split at first whitespace to separate interpreter from args
+		cut := len(after)
+		for i := 0; i < len(after); i++ {
+			if after[i] == ' ' || after[i] == '\t' {
+				cut = i
+				break
+			}
+		}
+		interp := strings.TrimSpace(after[:cut])
+		argPart := after[cut:]
+		if interp == targetRuby {
+			return nil
+		}
+		// only rewrite if it refers to a ruby interpreter
+		base := strings.ToLower(filepath.Base(interp))
+		if !strings.HasPrefix(base, "ruby") && !strings.Contains(strings.ToLower(interp), "ruby") {
+			return nil
+		}
+		newShebang := "#!" + targetRuby + argPart
+		newContent := newShebang + string(b[end:])
+		mode := info.Mode().Perm()
+		if mode == 0 {
+			mode = 0o755
+		}
+		return os.WriteFile(path, []byte(newContent), mode)
+	})
+}
 

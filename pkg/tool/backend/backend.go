@@ -76,6 +76,14 @@ type BinaryTool interface {
 	EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error)
 }
 
+// InstallFixer is an optional extension for Tools that need to perform
+// post-extraction repairs on the destDir (e.g. rewriting hashbangs in
+// scripts that were baked with CI paths by prebuilt tarballs).
+// Fix should be idempotent and cheap when no changes are needed.
+type InstallFixer interface {
+	Fix(ctx context.Context, destDir string) error
+}
+
 // --- Transitional / compatibility surface ---
 // These are kept while we migrate internal call sites to the Tool-based path.
 // New code should prefer Backend.Tool(ref) + the Tool interface and its extensions.

@@ -70,6 +70,13 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	// We still use FindBinary only to *locate* the requested cmd inside it.
 	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
 		if binPath := FindBinary(versionDir, cmdName); binPath != "" {
+			// Run optional post-install/repair step for tools that need it
+			// (e.g. registry ruby needs shebang fixups even for pre-existing trees).
+			if fixer, ok := t.(backend.InstallFixer); ok {
+				if ferr := fixer.Fix(ctx, versionDir); ferr != nil {
+					logging.GetLogger(ctx).Warn("post-install fix failed", "err", ferr, "dir", versionDir)
+				}
+			}
 			return binPath, nil
 		}
 		return "", fmt.Errorf("%w: %q in %s", ErrBinaryNotFound, cmdName, versionDir)
