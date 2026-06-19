@@ -19,8 +19,8 @@ import (
 	"workspaced/pkg/semver"
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
-	providerinstall "workspaced/pkg/tool/backend/install"
 	"workspaced/pkg/tool/backend/github"
+	providerinstall "workspaced/pkg/tool/backend/install"
 )
 
 func init() {

@@ -24,8 +24,8 @@ import (
 var (
 	ErrEmptyGitHubRef   = errors.New("github ref cannot be empty (expected owner/repo)")
 	ErrInvalidGitHubRef = errors.New("invalid github ref (expected owner/repo)")
-	ErrAPIError = errors.New("github api error")
-	ErrNoArtifact = errors.New("no suitable artifact")
+	ErrAPIError         = errors.New("github api error")
+	ErrNoArtifact       = errors.New("no suitable artifact")
 )
 
 func init() {
