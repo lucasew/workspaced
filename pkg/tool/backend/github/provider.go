@@ -24,6 +24,8 @@ import (
 var (
 	ErrEmptyGitHubRef   = errors.New("github ref cannot be empty (expected owner/repo)")
 	ErrInvalidGitHubRef = errors.New("invalid github ref (expected owner/repo)")
+	ErrAPIError = errors.New("github api error")
+	ErrNoArtifact = errors.New("no suitable artifact")
 )
 
 func init() {
@@ -44,7 +46,7 @@ func (p *Provider) Tool(ref string) (backend.Tool, error) {
 func (p *Provider) ParsePackage(spec string) (backend.PackageConfig, error) {
 	parts := strings.Split(spec, "/")
 	if len(parts) != 2 {
-		return backend.PackageConfig{}, fmt.Errorf("invalid GitHub spec: %s (expected owner/repo)", spec)
+		return backend.PackageConfig{}, fmt.Errorf("invalid GitHub spec: %s: %w", spec, ErrInvalidGitHubRef)
 	}
 
 	return backend.PackageConfig{
@@ -97,12 +99,12 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 		body, _ := io.ReadAll(resp.Body)
 		msg := strings.TrimSpace(string(body))
 		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
-			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s", url, resp.Status)
+			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", url, resp.Status, ErrAPIError)
 		}
 		if msg != "" {
-			return nil, fmt.Errorf("github api error for %s: %s: %s", url, resp.Status, msg)
+			return nil, fmt.Errorf("github api error for %s: %s: %s: %w", url, resp.Status, msg, ErrAPIError)
 		}
-		return nil, fmt.Errorf("github api error for %s: %s", url, resp.Status)
+		return nil, fmt.Errorf("github api error for %s: %s: %w", url, resp.Status, ErrAPIError)
 	}
 
 	var releases []release
@@ -151,12 +153,12 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 		body, _ := io.ReadAll(resp.Body)
 		msg := strings.TrimSpace(string(body))
 		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
-			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s", url, resp.Status)
+			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", url, resp.Status, ErrAPIError)
 		}
 		if msg != "" {
-			return nil, fmt.Errorf("github api error for %s: %s: %s", url, resp.Status, msg)
+			return nil, fmt.Errorf("github api error for %s: %s: %s: %w", url, resp.Status, msg, ErrAPIError)
 		}
-		return nil, fmt.Errorf("github api error for %s: %s", url, resp.Status)
+		return nil, fmt.Errorf("github api error for %s: %s: %w", url, resp.Status, ErrAPIError)
 	}
 
 	var r release
@@ -321,7 +323,7 @@ func (t *GitHubTool) Install(ctx context.Context, version string, destDir string
 
 	artifact := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "")
 	if artifact == nil {
-		return fmt.Errorf("no suitable artifact found for %s/%s for github:%s@%s", runtime.GOOS, runtime.GOARCH, t.repo, version)
+		return fmt.Errorf("no suitable artifact found for %s/%s for github:%s@%s: %w", runtime.GOOS, runtime.GOARCH, t.repo, version, ErrNoArtifact)
 	}
 
 	return t.p.Install(ctx, *artifact, destDir)
