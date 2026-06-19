@@ -249,7 +249,7 @@ func parseAssetName(name string) (osName, arch string, ok bool) {
 	// OS Detection
 	if backend.ContainsAnyOf(name, "android") {
 		osName = "android"
-	} else if backend.ContainsAnyOf(name, "linux") {
+	} else if backend.ContainsAnyOf(name, "linux", "ubuntu") {
 		osName = "linux"
 	} else if backend.ContainsAnyOf(name, "darwin", "macos", "apple") {
 		osName = "darwin"
