@@ -69,7 +69,7 @@ jobs:
         PR_NUMBER: ${{ steps.pr_create.outputs.pull-request-number }}
       run: |
         if [[ ! -z "$PR_NUMBER" ]]; then
-          echo "The update scripts changed something and a PR was created. Giving up deploy." >> $GITHUB_STEP_SUMMARY
+          echo "The update scripts changed something and a PR was created. Giving up deploy." >> "$GITHUB_STEP_SUMMARY"
           exit 1
         fi
 
@@ -78,4 +78,4 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         NEW_VERSION: ${{ github.event.inputs.new_version }}
-      run: "mise release $NEW_VERSION"
+      run: "mise release \"$NEW_VERSION\""

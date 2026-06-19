@@ -86,7 +86,7 @@ if [[ ":${PATH}:" != *":${HOME}/.local/bin:"* ]]; then
 	echo ""
 	echo "Add the following to your shell configuration (~/.bashrc, ~/.zshrc, etc):"
 	echo ""
-	echo '    export PATH="$HOME/.local/bin:$PATH"'
+	echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
 	echo ""
 fi
 
