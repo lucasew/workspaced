@@ -24,6 +24,7 @@ func GetCommand() *cobra.Command {
 	var urlFlag string
 	var profileFlag string
 	var extraFlags []string
+	var chromiumFlag string
 
 	webappCmd := &cobra.Command{
 		Use:   "webapp [name]",
@@ -58,6 +59,9 @@ func GetCommand() *cobra.Command {
 			if len(extraFlags) > 0 {
 				wa.ExtraFlags = append(wa.ExtraFlags, extraFlags...)
 			}
+			if chromiumFlag != "" {
+				wa.Chromium = chromiumFlag
+			}
 
 			return opener.OpenWebapp(c.Context(), wa)
 		},
@@ -66,6 +70,7 @@ func GetCommand() *cobra.Command {
 	webappCmd.Flags().StringVarP(&urlFlag, "url", "u", "", "URL to open")
 	webappCmd.Flags().StringVarP(&profileFlag, "profile", "p", "", "Browser profile name")
 	webappCmd.Flags().StringSliceVarP(&extraFlags, "extra-flag", "e", nil, "Extra browser flags")
+	webappCmd.Flags().StringVar(&chromiumFlag, "chromium", "", "Chromium-like binary to use (overrides browser.webapp)")
 
 	cmd.AddCommand(webappCmd)
 

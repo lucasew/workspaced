@@ -16,6 +16,7 @@ type WebappConfig struct {
 	URL        string
 	Profile    string
 	ExtraFlags []string
+	Chromium   string
 }
 
 // Open opens a generic target (file or URL) using the available opener driver.
@@ -41,6 +42,9 @@ func OpenWebapp(ctx context.Context, wa WebappConfig) error {
 	}
 
 	engine := browser.Engine
+	if wa.Chromium != "" {
+		engine = wa.Chromium
+	}
 	args := []string{}
 	if wa.URL != "" {
 		args = append(args, "--app="+env.NormalizeURL(wa.URL))
