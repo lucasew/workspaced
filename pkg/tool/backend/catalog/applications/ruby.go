@@ -27,8 +27,6 @@ type rubyTool struct {
 	inner backend.Tool
 }
 
-
-
 func newRuby() (backend.Tool, error) {
 	inner, err := github.NewTool("ruby/ruby-builder")
 	if err != nil {
@@ -221,4 +219,3 @@ func (t *rubyTool) fixRubyShebangs(destDir string) error {
 		return os.WriteFile(path, []byte(newContent), mode)
 	})
 }
-
