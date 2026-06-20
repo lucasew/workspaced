@@ -29,7 +29,7 @@ func GetCommand() *cobra.Command {
 		Use:   "webapp [name]",
 		Short: "Launch a configured webapp",
 		RunE: func(c *cobra.Command, args []string) error {
-			cfg, err := configcue.LoadHome(cmd.Context())
+			cfg, err := configcue.LoadHome(c.Context())
 			if err != nil {
 				return err
 			}
