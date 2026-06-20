@@ -107,9 +107,8 @@ func (t *llvmTool) Install(ctx context.Context, version string, destDir string) 
 }
 
 func (t *llvmTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	entry.Provider = "registry"
 	if strings.TrimSpace(entry.CurrentValue) == "" {
-		entry.CurrentValue = entry.Version
+		// caller pre-populates CurrentValue
 	}
 	// LLVM prebuilts come from llvm/llvm-project GitHub releases under llvmorg-* tags.
 }

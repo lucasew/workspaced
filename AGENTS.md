@@ -41,6 +41,10 @@ Register by importing the impl package from the central prelude.
 
 - `workspaced.cue` = declarative inputs.
 - `workspaced.lock.json` = resolved pins (source URLs, hashes, tool versions).
+  - Apart from ref and and kind, all fields are hints for Renovate
+    - kind = tool
+      - ref => tool ref, like workspaced tool
+      - source => reference key for an item in workspaced.inputs
 
 ## Anti-Patterns
 

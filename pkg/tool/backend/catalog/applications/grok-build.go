@@ -59,9 +59,8 @@ func (t *grokBuildTool) Install(ctx context.Context, version string, destDir str
 }
 
 func (t *grokBuildTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	entry.Provider = "registry"
 	if strings.TrimSpace(entry.CurrentValue) == "" {
-		entry.CurrentValue = entry.Version
+		// caller pre-populates CurrentValue
 	}
 }
 

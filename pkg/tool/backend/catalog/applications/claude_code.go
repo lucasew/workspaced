@@ -100,10 +100,9 @@ func (t *claudeCodeTool) Install(ctx context.Context, version string, destDir st
 }
 
 func (t *claudeCodeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	entry.Provider = "registry"
 	entry.Versioning = "semver"
 	if strings.TrimSpace(entry.CurrentValue) == "" {
-		entry.CurrentValue = entry.Version
+		// caller pre-populates CurrentValue
 	}
 }
 

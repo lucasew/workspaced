@@ -105,12 +105,15 @@ type RenovateDependency struct {
 }
 type SumFile struct {
 	Dependencies []RenovateDependency `json:"dependencies,omitempty"`
+
+	// runtime alias -> lock (not serialized to sumFileDisk; aliases are
+	// not part of the clean renovate dep entries)
+	sourceLocks map[string]LockedSource
+	toolLocks   map[string]LockedTool
 }
 
 type sumFileDisk struct {
-	Dependencies []RenovateDependency    `json:"dependencies,omitempty"`
-	Sources      map[string]LockedSource `json:"sources,omitempty"` // backward-compat read only
-	Tools        map[string]LockedTool   `json:"tools,omitempty"`   // backward-compat read only
+	Dependencies []RenovateDependency `json:"dependencies,omitempty"`
 }
 
 func LoadSumFile(path string) (*SumFile, error) {
@@ -127,23 +130,7 @@ func LoadSumFile(path string) (*SumFile, error) {
 		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
 	}
 
-	// Preferred format: dependencies-only.
-	if len(disk.Dependencies) > 0 {
-		out.Dependencies = disk.Dependencies
-		if err := normalizeDependencies(out.Dependencies); err != nil {
-			return nil, err
-		}
-		return out, nil
-	}
-
-	// Backward compatibility for old lockfiles.
-	if err := normalizeSources(disk.Sources); err != nil {
-		return nil, err
-	}
-	if err := normalizeTools(disk.Tools); err != nil {
-		return nil, err
-	}
-	out.Dependencies = BuildRenovateDependenciesFromLocks(disk.Sources, disk.Tools)
+	out.Dependencies = disk.Dependencies
 	if err := normalizeDependencies(out.Dependencies); err != nil {
 		return nil, err
 	}
@@ -153,30 +140,12 @@ func LoadSumFile(path string) (*SumFile, error) {
 func normalizeDependencies(deps []RenovateDependency) error {
 	for i, dep := range deps {
 		dep.Kind = strings.TrimSpace(dep.Kind)
-		dep.Name = strings.TrimSpace(dep.Name)
-		dep.Provider = strings.TrimSpace(dep.Provider)
 		dep.Ref = strings.TrimSpace(dep.Ref)
-		dep.Version = strings.TrimSpace(dep.Version)
-		dep.Path = strings.TrimSpace(dep.Path)
-		dep.Repo = strings.TrimSpace(dep.Repo)
-		dep.URL = strings.TrimSpace(dep.URL)
-		dep.Hash = strings.TrimSpace(dep.Hash)
 		dep.DepName = strings.TrimSpace(dep.DepName)
 		dep.CurrentValue = strings.TrimSpace(dep.CurrentValue)
 		dep.Datasource = strings.TrimSpace(dep.Datasource)
 		dep.PackageName = strings.TrimSpace(dep.PackageName)
 		dep.Versioning = strings.TrimSpace(dep.Versioning)
-		switch dep.Kind {
-		case "source":
-			if dep.Ref == "" {
-				dep.Ref = dep.CurrentValue
-			}
-		case "tool":
-			if dep.Version == "" {
-				dep.Version = dep.CurrentValue
-			}
-			dep = enrichToolDependency(dep)
-		}
 		deps[i] = dep
 	}
 
@@ -187,63 +156,27 @@ func normalizeDependencies(deps []RenovateDependency) error {
 	return nil
 }
 
-func normalizeSources(sources map[string]LockedSource) error {
-	for name, lock := range sources {
-		lock.Provider = strings.TrimSpace(lock.Provider)
-		lock.Path = strings.TrimSpace(lock.Path)
-		lock.Repo = strings.TrimSpace(lock.Repo)
-		lock.Ref = strings.TrimSpace(lock.Ref)
-		lock.URL = strings.TrimSpace(lock.URL)
-		lock.Hash = strings.TrimSpace(lock.Hash)
-		if lock.Provider == "" {
-			return fmt.Errorf("%w: source %q: provider is required", ErrInvalidLockEntry, name)
-		}
-		if lock.Hash == "" {
-			return fmt.Errorf("%w: source %q: hash is required", ErrInvalidLockEntry, name)
-		}
-		sources[name] = lock
-	}
-	return nil
-}
-
-func normalizeTools(tools map[string]LockedTool) error {
-	for name, lock := range tools {
-		lock.Ref = strings.TrimSpace(lock.Ref)
-		lock.Version = strings.TrimSpace(lock.Version)
-		if lock.Ref == "" {
-			return fmt.Errorf("%w: tool %q: ref is required", ErrInvalidLockEntry, name)
-		}
-		if lock.Version == "" {
-			return fmt.Errorf("%w: tool %q: version is required", ErrInvalidLockEntry, name)
-		}
-		tools[name] = lock
-	}
-	return nil
-}
-
 func rebuildSourceLocksFromDependencies(sum *SumFile) map[string]LockedSource {
 	out := map[string]LockedSource{}
 	if sum == nil {
 		return out
 	}
 	for _, dep := range sum.Dependencies {
-		switch dep.Kind {
-		case "source":
-			if dep.Name == "" || dep.Provider == "" || dep.Hash == "" {
-				continue
-			}
-			ref := dep.Ref
-			if dep.CurrentValue != "" {
-				ref = dep.CurrentValue
-			}
-			out[dep.Name] = LockedSource{
-				Provider: dep.Provider,
-				Path:     dep.Path,
-				Repo:     dep.Repo,
-				Ref:      ref,
-				URL:      dep.URL,
-				Hash:     dep.Hash,
-			}
+		if dep.Kind != "source" {
+			continue
+		}
+		key := strings.TrimSpace(dep.Ref)
+		if key == "" {
+			key = strings.TrimSpace(dep.DepName)
+		}
+		if key == "" {
+			continue
+		}
+		// Best effort from available clean fields. Hash may be in CurrentDigest.
+		hash := strings.TrimSpace(dep.CurrentDigest)
+		out[key] = LockedSource{
+			Ref:  key,
+			Hash: hash,
 		}
 	}
 	return out
@@ -255,42 +188,106 @@ func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
 		return out
 	}
 	for _, dep := range sum.Dependencies {
-		if dep.Kind != "tool" || dep.Name == "" || dep.Ref == "" {
+		if dep.Kind != "tool" {
 			continue
 		}
-		version := dep.Version
+		key := strings.TrimSpace(dep.Ref)
+		if key == "" {
+			key = strings.TrimSpace(dep.DepName)
+		}
+		if key == "" {
+			continue
+		}
+		version := strings.TrimSpace(dep.CurrentValue)
 		if version == "" {
-			version = dep.CurrentValue
+			version = strings.TrimSpace(dep.CurrentVersion)
 		}
 		if version == "" {
 			continue
 		}
-		out[dep.Name] = LockedTool{
-			Ref:         dep.Ref,
+		out[key] = LockedTool{
+			Ref:         key,
 			Version:     version,
-			DepName:     dep.DepName,
-			Datasource:  dep.Datasource,
-			PackageName: dep.PackageName,
-			Versioning:  dep.Versioning,
+			DepName:     strings.TrimSpace(dep.DepName),
+			Datasource:  strings.TrimSpace(dep.Datasource),
+			PackageName: strings.TrimSpace(dep.PackageName),
+			Versioning:  strings.TrimSpace(dep.Versioning),
 		}
 	}
 	return out
 }
 
 func (s *SumFile) SourceLocks() map[string]LockedSource {
+	if s != nil && len(s.sourceLocks) > 0 {
+		cp := make(map[string]LockedSource, len(s.sourceLocks))
+		for k, v := range s.sourceLocks {
+			cp[k] = v
+		}
+		return cp
+	}
 	return rebuildSourceLocksFromDependencies(s)
 }
 
 func (s *SumFile) ToolLocks() map[string]LockedTool {
+	if s != nil && len(s.toolLocks) > 0 {
+		cp := make(map[string]LockedTool, len(s.toolLocks))
+		for k, v := range s.toolLocks {
+			cp[k] = v
+		}
+		return cp
+	}
 	return rebuildToolLocksFromDependencies(s)
 }
 
 func (s *SumFile) FindSource(name string) (LockedSource, bool) {
-	lock, ok := s.SourceLocks()[strings.TrimSpace(name)]
-	return lock, ok
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return LockedSource{}, false
+	}
+	locks := s.SourceLocks()
+	if lock, ok := locks[name]; ok {
+		return lock, true
+	}
+	// Fallback: scan deps using kind + ref (or depName) as identity.
+	for _, dep := range s.Dependencies {
+		if dep.Kind != "source" {
+			continue
+		}
+		if dep.Ref == name || dep.DepName == name {
+			return LockedSource{Ref: dep.Ref, Hash: dep.CurrentDigest}, true
+		}
+	}
+	return LockedSource{}, false
 }
 
 func (s *SumFile) FindTool(name string) (LockedTool, bool) {
-	lock, ok := s.ToolLocks()[strings.TrimSpace(name)]
-	return lock, ok
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return LockedTool{}, false
+	}
+	locks := s.ToolLocks()
+	if lock, ok := locks[name]; ok {
+		return lock, true
+	}
+	// Fallback scan using kind + ref as key per updated model.
+	for _, dep := range s.Dependencies {
+		if dep.Kind != "tool" {
+			continue
+		}
+		if dep.Ref == name || dep.DepName == name {
+			ver := dep.CurrentValue
+			if ver == "" {
+				ver = dep.CurrentVersion
+			}
+			return LockedTool{
+				Ref:         dep.Ref,
+				Version:     ver,
+				DepName:     dep.DepName,
+				Datasource:  dep.Datasource,
+				PackageName: dep.PackageName,
+				Versioning:  dep.Versioning,
+			}, true
+		}
+	}
+	return LockedTool{}, false
 }

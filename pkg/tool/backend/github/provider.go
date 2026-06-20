@@ -351,11 +351,10 @@ func (t *GitHubTool) InstallArtifact(ctx context.Context, artifact backend.Artif
 // lock update the current version of this method runs and can migrate
 // attributes if the Tool's logic has changed.
 func (t *GitHubTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	entry.Provider = "github"
 	entry.DepName = t.repo
 	entry.Datasource = "github-releases"
 
 	if strings.TrimSpace(entry.CurrentValue) == "" {
-		entry.CurrentValue = entry.Version
+		// Caller should have set CurrentValue from the resolved version.
 	}
 }

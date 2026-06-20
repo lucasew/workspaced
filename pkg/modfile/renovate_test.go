@@ -52,23 +52,20 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	if toolDep.CurrentValue != "v10.3.0" {
 		t.Fatalf("currentValue mismatch for tool dep: got=%q", toolDep.CurrentValue)
 	}
-	if toolDep.Datasource != "github-releases" || toolDep.Provider != "github" {
+	if toolDep.Datasource != "github-releases" {
 		t.Fatalf("tool dep missing renovate fields: %#v", toolDep)
 	}
 
-	// mise tool should still be persisted (for lock state) but without renovate datasource
+	// mise tool produces entry keyed by ref, no extra provider/name.
 	var fzfDep *RenovateDependency
 	for i := range got {
-		if got[i].Name == "fzf" && got[i].Ref == "mise:fzf" {
+		if got[i].Ref == "mise:fzf" {
 			fzfDep = &got[i]
 			break
 		}
 	}
 	if fzfDep == nil {
 		t.Fatalf("expected fzf tool dep to be included for lock state")
-	}
-	if fzfDep.Provider != "mise" {
-		t.Fatalf("expected fzf provider=mise, got=%s", fzfDep.Provider)
 	}
 	if fzfDep.Datasource != "" {
 		t.Fatalf("mise tool should not have renovate datasource, got=%s", fzfDep.Datasource)
@@ -112,19 +109,13 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 	existing := []RenovateDependency{
 		{
 			Kind:         "tool",
-			Name:         "fd",
-			Provider:     "github",
 			Ref:          "github:sharkdp/fd",
-			Version:      "v10.2.0",
 			DepName:      "sharkdp/fd",
 			CurrentValue: "v10.2.0",
 			Datasource:   "github-releases",
 		},
 		{
 			Kind:         "source",
-			Name:         "icons",
-			Provider:     "github",
-			Repo:         "PapirusDevelopmentTeam/papirus-icon-theme",
 			Ref:          "v2026.02.01",
 			DepName:      "PapirusDevelopmentTeam/papirus-icon-theme",
 			CurrentValue: "v2026.02.01",
@@ -135,10 +126,7 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 	generated := []RenovateDependency{
 		{
 			Kind:         "tool",
-			Name:         "fd",
-			Provider:     "github",
 			Ref:          "github:sharkdp/fd",
-			Version:      "v10.3.0",
 			DepName:      "sharkdp/fd",
 			CurrentValue: "v10.3.0",
 			Datasource:   "github-releases",
@@ -150,14 +138,18 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 		t.Fatalf("expected 2 dependencies after merge, got=%d", len(got))
 	}
 
-	byName := map[string]RenovateDependency{}
+	byRef := map[string]RenovateDependency{}
 	for _, dep := range got {
-		byName[dep.Name] = dep
+		k := dep.Ref
+		if k == "" {
+			k = dep.DepName
+		}
+		byRef[k] = dep
 	}
-	if byName["fd"].CurrentValue != "v10.3.0" {
-		t.Fatalf("expected fd to be updated, got=%q", byName["fd"].CurrentValue)
+	if byRef["github:sharkdp/fd"].CurrentValue != "v10.3.0" {
+		t.Fatalf("expected fd to be updated, got=%q", byRef["github:sharkdp/fd"].CurrentValue)
 	}
-	if byName["icons"].CurrentValue != "v2026.02.01" {
-		t.Fatalf("expected icons to be preserved, got=%q", byName["icons"].CurrentValue)
+	if byRef["v2026.02.01"].CurrentValue != "v2026.02.01" {
+		t.Fatalf("expected icons to be preserved, got=%q", byRef["v2026.02.01"].CurrentValue)
 	}
 }

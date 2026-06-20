@@ -4,8 +4,6 @@ import (
 	"net/url"
 	"sort"
 	"strings"
-
-	parsespec "workspaced/pkg/parse/spec"
 )
 
 func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
@@ -15,49 +13,26 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 	return BuildRenovateDependenciesFromLocks(sum.SourceLocks(), sum.ToolLocks())
 }
 
-// enrichToolDependency is now minimal: it only fills basic tool lock state
-// (kind, name, ref, version, currentValue, provider). Most logic for the
-// renovate reference (depName/datasource etc.) lives in the Tool
-// implementations (via EnrichLockfile). Callers that have a live Tool
-// (e.g. lazy locking) obtain the data by calling EnrichLockfile on a
-// (temp or real) RenovateDependency; this func is mainly for normalizing
-// the common fields.
+// enrichToolDependency ensures basic fields on a renovate dep entry for a tool.
 func enrichToolDependency(dep RenovateDependency) RenovateDependency {
 	dep.Kind = "tool"
-	dep.Name = strings.TrimSpace(dep.Name)
 	dep.Ref = strings.TrimSpace(dep.Ref)
-	dep.Version = strings.TrimSpace(dep.Version)
-	dep.Provider = strings.TrimSpace(dep.Provider)
-
-	if dep.Ref == "" || dep.Version == "" {
+	if dep.Ref == "" {
 		return dep
 	}
-
-	dep.CurrentValue = dep.Version
-
-	if dep.Provider == "" {
-		if spec, err := parsespec.Parse(dep.Ref); err == nil {
-			dep.Provider = spec.Provider
-		}
+	if dep.CurrentValue == "" {
+		// version info should be in CurrentValue by caller
 	}
-
 	return dep
 }
 
 func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools map[string]LockedTool) []RenovateDependency {
 	deps := make([]RenovateDependency, 0, len(tools)+len(sources))
-	for alias, src := range sources {
+	for _, src := range sources {
 		dep := RenovateDependency{
-			Kind:     "source",
-			Name:     strings.TrimSpace(alias),
-			Provider: strings.TrimSpace(src.Provider),
-			Path:     strings.TrimSpace(src.Path),
-			Repo:     strings.TrimSpace(src.Repo),
-			Ref:      strings.TrimSpace(src.Ref),
-			URL:      strings.TrimSpace(src.URL),
-			Hash:     strings.TrimSpace(src.Hash),
+			Kind: "source",
+			Ref:  strings.TrimSpace(src.Ref),
 		}
-		// Always persist lock state for sources. Renovate fields are optional.
 		deps = append(deps, dep)
 
 		switch strings.TrimSpace(src.Provider) {
@@ -82,28 +57,24 @@ func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools m
 			deps[len(deps)-1] = dep
 		}
 	}
-	for name, tool := range tools {
+	for _, tool := range tools {
 		ref := strings.TrimSpace(tool.Ref)
 		version := strings.TrimSpace(tool.Version)
 		if ref == "" || version == "" {
 			continue
 		}
-
-		// The renovate reference (depName, datasource, ...) is populated
-		// by calling EnrichLockfile on the live Tool (at lock time).
-		// enrichToolDependency only fills the basic ref/version lock state.
 		dep := RenovateDependency{
 			Kind:        "tool",
-			Name:        strings.TrimSpace(name),
 			Ref:         ref,
-			Version:     version,
 			DepName:     strings.TrimSpace(tool.DepName),
 			Datasource:  strings.TrimSpace(tool.Datasource),
 			PackageName: strings.TrimSpace(tool.PackageName),
 			Versioning:  strings.TrimSpace(tool.Versioning),
 		}
+		if dep.CurrentValue == "" {
+			dep.CurrentValue = version
+		}
 		dep = enrichToolDependency(dep)
-		// Always persist lock state for tools. Renovate fields come from the Tool.
 		deps = append(deps, dep)
 	}
 
@@ -154,8 +125,8 @@ func MergeRenovateDependencies(existing, generated []RenovateDependency) []Renov
 		if out[i].Kind != out[j].Kind {
 			return out[i].Kind < out[j].Kind
 		}
-		if out[i].Name != out[j].Name {
-			return out[i].Name < out[j].Name
+		if out[i].Ref != out[j].Ref {
+			return out[i].Ref < out[j].Ref
 		}
 		if out[i].Datasource != out[j].Datasource {
 			return out[i].Datasource < out[j].Datasource
@@ -168,9 +139,9 @@ func MergeRenovateDependencies(existing, generated []RenovateDependency) []Renov
 
 func dependencyMergeKey(dep RenovateDependency) string {
 	kind := strings.TrimSpace(dep.Kind)
-	name := strings.TrimSpace(dep.Name)
-	if kind != "" && name != "" {
-		return kind + ":" + name
+	ref := strings.TrimSpace(dep.Ref)
+	if kind != "" && ref != "" {
+		return kind + ":" + ref
 	}
 	ds := strings.TrimSpace(dep.Datasource)
 	dn := strings.TrimSpace(dep.DepName)

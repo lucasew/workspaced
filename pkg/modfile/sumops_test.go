@@ -5,20 +5,15 @@ import "testing"
 func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 	t.Parallel()
 
-	sum := &SumFile{
-		Dependencies: []RenovateDependency{{
-			Kind:         "tool",
-			Name:         "gh",
-			Ref:          "github:cli/cli",
-			Version:      "2.89.0",
-			Provider:     "github",
-			DepName:      "cli/cli",
-			CurrentValue: "2.89.0",
-			Datasource:   "github-releases",
-		}},
-	}
+	sum := &SumFile{}
+	sum.EnsureTool("gh", LockedTool{
+		Ref:        "github:cli/cli",
+		Version:    "2.89.0",
+		DepName:    "cli/cli",
+		Datasource: "github-releases",
+	})
 
-	lock, ok := sum.Tool("gh")
+	lock, ok := sum.Tool("github:cli/cli")
 	if !ok {
 		t.Fatal("expected tool lock")
 	}
@@ -39,15 +34,13 @@ func TestSumFileEnsureToolIsIdempotent(t *testing.T) {
 }
 
 func TestUpsertToolRefreshesStaleCurrentValue(t *testing.T) {
-	sum := &SumFile{Dependencies: []RenovateDependency{{
-		Kind:         "tool",
-		Name:         "tirith",
-		Ref:          "registry:tirith",
-		Version:      "v0.3.1",
-		CurrentValue: "threatdb-26874685865-1",
-		DepName:      "sheeki03/tirith",
-		Datasource:   "github-releases",
-	}}}
+	sum := &SumFile{}
+	sum.EnsureTool("tirith", LockedTool{
+		Ref:        "registry:tirith",
+		Version:    "v0.3.1",
+		DepName:    "sheeki03/tirith",
+		Datasource: "github-releases",
+	})
 
 	changed := sum.EnsureTool("tirith", LockedTool{
 		Ref:        "registry:tirith",

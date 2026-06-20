@@ -56,11 +56,10 @@ func (t *goTool) Install(ctx context.Context, version string, destDir string) er
 }
 
 func (t *goTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	entry.Provider = "registry"
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		entry.CurrentValue = entry.Version
-	}
 	// No standard renovate datasource for the custom go.dev tarballs.
+	if strings.TrimSpace(entry.CurrentValue) == "" {
+		// caller pre-populates CurrentValue
+	}
 }
 
 func (t *goTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {

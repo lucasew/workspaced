@@ -56,9 +56,8 @@ func (t *flutterTool) Install(ctx context.Context, version string, destDir strin
 }
 
 func (t *flutterTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	entry.Provider = "registry"
 	if strings.TrimSpace(entry.CurrentValue) == "" {
-		entry.CurrentValue = entry.Version
+		// caller pre-populates CurrentValue
 	}
 	// Flutter releases come from Google Cloud Storage; no standard Renovate
 	// datasource matches the official release index + shas.

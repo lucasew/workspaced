@@ -45,8 +45,9 @@ func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
 	}
 
 	_, err := LoadSumFile(sumPath)
-	if err == nil {
-		t.Fatal("expected provider required error")
+	// sources top-level is no longer processed (leftovers removed); load succeeds with empty deps.
+	if err != nil {
+		t.Fatalf("unexpected error on legacy sources shape: %v", err)
 	}
 }
 
@@ -69,8 +70,9 @@ func TestLoadSumFileRequiresSourceHash(t *testing.T) {
 	}
 
 	_, err := LoadSumFile(sumPath)
-	if err == nil {
-		t.Fatal("expected hash required error")
+	// sources top-level is no longer processed (leftovers removed).
+	if err != nil {
+		t.Fatalf("unexpected error on legacy sources shape: %v", err)
 	}
 }
 
@@ -112,7 +114,7 @@ func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load sum: %v", err)
 	}
-	lock, ok := got.Tool("ripgrep")
+	lock, ok := got.Tool("github:burntsushi/ripgrep")
 	if !ok {
 		t.Fatalf("missing ripgrep lock")
 	}

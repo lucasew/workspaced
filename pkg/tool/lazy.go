@@ -146,9 +146,9 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 	parent := taskgroup.FromContext(ctx)
 	if parent != nil {
 		// Run resolution for tools that need updates under the group.
-		// This lets network work (ListVersions) happen in parallel under the
-		// Internet pool with per-tool Status updates and proper logging attribution.
-		_, mapErr := taskgroup.Map(ctx, taskgroup.Internet, needsWork,
+		// Resolution of "latest" (which does ListVersions) is treated as Control
+		// (orchestration) work rather than consuming the Internet pool.
+		_, mapErr := taskgroup.Map(ctx, taskgroup.Control, needsWork,
 			func(i int, name string) string { return "tool:" + name },
 			func(ctx context.Context, s *taskgroup.Status, name string) (struct{}, error) {
 				toolCfg := lazyTools[name]
@@ -377,28 +377,24 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	// receives it by pointer via EnrichLockfile and can mutate attributes.
 	// On save, any logic migrations in the Tool are applied automatically.
 	if changed, err := ws.UpdateSumFile(ctx, func(sum *modfile.SumFile) (bool, error) {
-		// Find or create the dep entry for this tool name.
+		// Find or create the dep entry using kind + ref as key.
 		var dep *modfile.RenovateDependency
 		for i := range sum.Dependencies {
 			d := &sum.Dependencies[i]
-			if d.Kind == "tool" && d.Name == toolName {
-				if d.Ref == "" || d.Ref == lockRef {
-					dep = d
-					break
-				}
+			if d.Kind == "tool" && (d.Ref == "" || d.Ref == lockRef) {
+				dep = d
+				break
 			}
 		}
 		if dep == nil {
 			sum.Dependencies = append(sum.Dependencies, modfile.RenovateDependency{
 				Kind: "tool",
-				Name: toolName,
 			})
 			dep = &sum.Dependencies[len(sum.Dependencies)-1]
 		}
 
 		// Set identity that the Tool should see (the ref is the reference key).
 		dep.Ref = lockRef
-		dep.Version = spec.Version
 		if dep.CurrentValue == "" {
 			dep.CurrentValue = spec.Version
 		}
@@ -501,10 +497,11 @@ func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec)
 	// Create a skeleton of the actual structure that will live in the
 	// lockfile's dependencies list and let the Tool mutate it directly.
 	entry := modfile.RenovateDependency{
-		Kind:    "tool",
-		Name:    "", // the alias; set by caller context if desired
-		Ref:     lockRef,
-		Version: version,
+		Kind: "tool",
+		Ref:  lockRef,
+	}
+	if entry.CurrentValue == "" {
+		entry.CurrentValue = version
 	}
 	tt.EnrichLockfile(&entry)
 
