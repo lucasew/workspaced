@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
 	"workspaced/pkg/taskgroup"
@@ -35,27 +36,29 @@ func NewExecutor() *Executor {
 }
 
 // Execute applies a list of actions and updates state.
-// If a taskgroup.Group is available in ctx, progress is reported via Status.
+// When a taskgroup.Group is present in ctx, actions are applied concurrently
+// (bounded by the IO pool) using Map. State mutations are protected by a mutex.
 func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) error {
 	logger := logging.GetLogger(ctx)
 	orderedActions := SortActions(actions)
 
-	// Get the status handle if we're inside a taskgroup task.
-	// The caller may wrap this in a taskgroup.Go call.
-
-	total := int64(0)
+	// Collect non-noop work items.
+	work := make([]Action, 0, len(orderedActions))
 	for _, a := range orderedActions {
 		if a.Type != ActionNoop {
-			total++
+			work = append(work, a)
 		}
 	}
+	if len(work) == 0 {
+		return nil
+	}
 
-	var done int64
-	for _, action := range orderedActions {
+	var stateMu sync.Mutex
+
+	// applyOne performs the filesystem work for a single action and updates
+	// the state map under the mutex (safe for concurrent use).
+	applyOne := func(ctx context.Context, action Action) error {
 		switch action.Type {
-		case ActionNoop:
-			continue
-
 		case ActionDelete:
 			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
 			if _, err := os.Lstat(action.Target); err == nil {
@@ -63,7 +66,10 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 					return fmt.Errorf("failed to remove orphaned file %s: %w", action.Target, err)
 				}
 			}
+			stateMu.Lock()
 			delete(state.Files, action.Target)
+			stateMu.Unlock()
+			return nil
 
 		case ActionCreate, ActionUpdate:
 			if action.Type == ActionCreate {
@@ -90,9 +96,10 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 				if err := os.Symlink(linkTarget, action.Target); err != nil {
 					return fmt.Errorf("failed to create symlink %s -> %s: %w", action.Target, linkTarget, err)
 				}
+				stateMu.Lock()
 				state.Files[action.Target] = ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
-				done++
-				continue
+				stateMu.Unlock()
+				return nil
 			}
 
 			f, err := os.OpenFile(action.Target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, action.Desired.File.Mode())
@@ -114,11 +121,48 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 				return fmt.Errorf("failed to write content to %s: %w", action.Target, err)
 			}
 
+			stateMu.Lock()
 			state.Files[action.Target] = ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
-			done++
+			stateMu.Unlock()
+			return nil
 		}
+		return nil
 	}
 
+	// If we have a task group in context, run the actions in parallel
+	// using the IO pool. Each action gets its own task + Status.
+	if taskgroup.FromContext(ctx) != nil {
+		_, err := taskgroup.Map(ctx, taskgroup.IO, work,
+			func(_ int, a Action) string {
+				p := PrettyPath(a.Target)
+				switch a.Type {
+				case ActionCreate:
+					return "create:" + p
+				case ActionUpdate:
+					return "update:" + p
+				case ActionDelete:
+					return "delete:" + p
+				default:
+					return "apply:" + p
+				}
+			},
+			func(ctx context.Context, s *taskgroup.Status, a Action) (struct{}, error) {
+				s.Progress(0, 1)
+				if err := applyOne(ctx, a); err != nil {
+					return struct{}{}, err
+				}
+				s.Progress(1, 1)
+				return struct{}{}, nil
+			})
+		return err
+	}
+
+	// Sequential fallback (no taskgroup in ctx).
+	for _, a := range work {
+		if err := applyOne(ctx, a); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
