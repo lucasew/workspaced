@@ -122,9 +122,6 @@ func (t *cmakeTool) Install(ctx context.Context, version string, destDir string)
 }
 
 func (t *cmakeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// caller pre-populates CurrentValue
-	}
 	entry.Versioning = "semver"
 	// Official downloads via cmake.org; files-v1.json + SHA-256.txt sidecar.
 }

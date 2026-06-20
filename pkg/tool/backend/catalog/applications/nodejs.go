@@ -68,9 +68,6 @@ func (t *nodejsTool) Install(ctx context.Context, version string, destDir string
 }
 
 func (t *nodejsTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// caller pre-populates CurrentValue
-	}
 	// No standard renovate datasource for direct nodejs.org; shasums give us
 	// verification at install time via fetchurl.
 }

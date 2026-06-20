@@ -1,13 +1,16 @@
 package catalog
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
+	"workspaced/pkg/modfile"
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/backend"
+	"workspaced/pkg/tool/backend/github"
 )
 
 var (
@@ -28,6 +31,59 @@ func RegisterTool(name string, f func() (backend.Tool, error)) {
 		panic(fmt.Sprintf("catalog: tool %s is being defined twice", name))
 	}
 	namedTools[name] = f
+}
+
+// curatedGitHub is the standard adapter used by most github-backed entries
+// in the tool catalog (the "registry"). It normalizes versions (strips
+// leading "v") and install attempts (tries v-prefixed tag first) which is
+// the common convention for curated short names.
+type curatedGitHub struct {
+	inner backend.Tool
+}
+
+func newCuratedGitHub(repo string) (backend.Tool, error) {
+	inner, err := github.NewTool(repo)
+	if err != nil {
+		return nil, err
+	}
+	return &curatedGitHub{inner: inner}, nil
+}
+
+func (t *curatedGitHub) ListVersions(ctx context.Context) ([]string, error) {
+	vers, err := t.inner.ListVersions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(vers))
+	for _, v := range vers {
+		out = append(out, strings.TrimPrefix(strings.TrimSpace(v), "v"))
+	}
+	return out, nil
+}
+
+func (t *curatedGitHub) Install(ctx context.Context, version string, destDir string) error {
+	v := strings.TrimSpace(version)
+	if v == "" || v == "latest" {
+		return t.inner.Install(ctx, v, destDir)
+	}
+	if !strings.HasPrefix(v, "v") {
+		if err := t.inner.Install(ctx, "v"+v, destDir); err == nil {
+			return nil
+		}
+	}
+	return t.inner.Install(ctx, v, destDir)
+}
+
+func (t *curatedGitHub) EnrichLockfile(entry *modfile.RenovateDependency) {
+	t.inner.EnrichLockfile(entry)
+}
+
+// RegisterGitHub registers a simple github-backed curated tool. It uses the
+// standard v-prefix handling used across the catalog for such entries.
+func RegisterGitHub(name, repo string) {
+	RegisterTool(name, func() (backend.Tool, error) {
+		return newCuratedGitHub(repo)
+	})
 }
 
 // catalog is the backend for short/curated tool names. It dispatches to

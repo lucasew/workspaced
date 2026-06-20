@@ -109,9 +109,6 @@ func (t *heliumBrowserTool) Install(ctx context.Context, version string, destDir
 }
 
 func (t *heliumBrowserTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// caller pre-populates CurrentValue
-	}
 	entry.Versioning = "semver"
 }
 

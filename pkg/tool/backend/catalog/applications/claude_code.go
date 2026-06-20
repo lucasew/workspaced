@@ -101,9 +101,6 @@ func (t *claudeCodeTool) Install(ctx context.Context, version string, destDir st
 
 func (t *claudeCodeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 	entry.Versioning = "semver"
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// caller pre-populates CurrentValue
-	}
 }
 
 func (t *claudeCodeTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {

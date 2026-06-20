@@ -97,9 +97,6 @@ func (t *rubyTool) Install(ctx context.Context, version string, destDir string) 
 }
 
 func (t *rubyTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// caller pre-populates CurrentValue
-	}
 	entry.Versioning = "semver"
 }
 

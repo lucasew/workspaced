@@ -59,9 +59,7 @@ func (t *grokBuildTool) Install(ctx context.Context, version string, destDir str
 }
 
 func (t *grokBuildTool) EnrichLockfile(entry *modfile.RenovateDependency) {
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// caller pre-populates CurrentValue
-	}
+	// no renovate datasource metadata for this internal tool
 }
 
 func (t *grokBuildTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
