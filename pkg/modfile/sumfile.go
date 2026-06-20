@@ -29,26 +29,80 @@ type LockedTool struct {
 	PackageName string `json:"packageName,omitempty"`
 	Versioning  string `json:"versioning,omitempty"`
 }
-
 type RenovateDependency struct {
+	// === Workspace-specific / custom fields ===
+
+	// Kind is your own category or classification for the dependency.
+	// Examples: "library", "tool", "internal", "cli"
 	Kind string `json:"kind,omitempty"`
-	Name string `json:"name,omitempty"`
 
-	Provider string `json:"provider,omitempty"`
-	Ref      string `json:"ref,omitempty"`
-	Version  string `json:"version,omitempty"`
-	Path     string `json:"path,omitempty"`
-	Repo     string `json:"repo,omitempty"`
-	URL      string `json:"url,omitempty"`
-	Hash     string `json:"hash,omitempty"`
+	// Ref is your internal reference or identifier for this dependency.
+	// Can be a repository path, module path, or any custom reference.
+	Ref string `json:"ref,omitempty"`
 
-	DepName      string `json:"depName,omitempty"`
-	CurrentValue string `json:"currentValue,omitempty"`
-	Datasource   string `json:"datasource,omitempty"`
-	PackageName  string `json:"packageName,omitempty"`
-	Versioning   string `json:"versioning,omitempty"`
+	// === Core identification ===
+
+	// DepName is the human-readable name of the package.
+	// This is what appears in Renovate PR titles, commit messages,
+	// and the Dependency Dashboard.
+	DepName string `json:"depName"`
+
+	// PackageName is the exact name used for registry lookup.
+	// Use this when it differs from DepName (e.g. scoped packages).
+	// Falls back to DepName if not set.
+	PackageName string `json:"packageName,omitempty"`
+
+	// === Current version information ===
+
+	// CurrentValue is the exact version (or version range) string
+	// currently present in your JSON file.
+	// This field is required.
+	CurrentValue string `json:"currentValue"`
+
+	// CurrentDigest is the current digest/hash.
+	// Mainly used for Docker/OCI images.
+	CurrentDigest string `json:"currentDigest,omitempty"`
+
+	// CurrentVersion is the resolved/pinned version (if different
+	// from CurrentValue). Optional.
+	CurrentVersion string `json:"currentVersion,omitempty"`
+
+	// === Lookup & source configuration ===
+
+	// Datasource tells Renovate where to fetch new versions from.
+	// Required. Common values: "npm", "go", "docker", "github-tags",
+	// "maven", "pypi", etc.
+	Datasource string `json:"datasource"`
+
+	// Versioning defines the version comparison strategy.
+	// Common values: "semver", "docker", "loose", "pep440", "maven"
+	Versioning string `json:"versioning,omitempty"`
+
+	// ExtractVersion is a regex used to extract a clean version
+	// from messy tags (e.g. "v1.2.3-alpine" or "release-2024.01").
+	// Use named capture group: (?<version>...)
+	ExtractVersion string `json:"extractVersion,omitempty"`
+
+	// RegistryUrls contains custom or private registry URLs.
+	RegistryUrls []string `json:"registryUrls,omitempty"`
+
+	// === Optional context / metadata ===
+
+	// DepType indicates the type/category of the dependency.
+	// Useful for applying different packageRules.
+	// Examples: "dependencies", "devDependencies", "tools"
+	DepType string `json:"depType,omitempty"`
+
+	// SourceUrl is the URL to the project's homepage or repository.
+	SourceUrl string `json:"sourceUrl,omitempty"`
+
+	// Manager is an optional hint for which Renovate manager should handle this.
+	Manager string `json:"manager,omitempty"`
+
+	// SkipReason tells Renovate to skip this dependency and why.
+	// Common values: "disabled", "ignored", "not-supported"
+	SkipReason string `json:"skipReason,omitempty"`
 }
-
 type SumFile struct {
 	Dependencies []RenovateDependency `json:"dependencies,omitempty"`
 }
