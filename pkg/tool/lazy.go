@@ -126,7 +126,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		if err != nil {
 			return 0, fmt.Errorf("lazy tool %q: %w", name, err)
 		}
-		if locked, ok := sum.Tool(name); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
+		if locked, ok := sum.Tool(lockRef); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 			continue
 		}
 		needsWork = append(needsWork, name)
@@ -342,7 +342,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 	}
 	logger.Debug("resolving lazy tool", "tool", toolName, "workspace", ws.Root, "lockfile", ws.SumPath())
 
-	if locked, ok := sum.Tool(toolName); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
+	if locked, ok := sum.Tool(lockRef); ok && strings.TrimSpace(locked.Ref) == lockRef && strings.TrimSpace(locked.Version) != "" {
 		spec.Version = strings.TrimSpace(locked.Version)
 	}
 

@@ -34,9 +34,10 @@ workspaced: {
   "dependencies": [
     {
       "kind": "tool",
-      "name": "gh",
       "ref": "github:cli/cli",
-      "version": "0.1.0"
+      "currentValue": "0.1.0",
+      "depName": "cli/cli",
+      "datasource": "github-releases"
     }
   ]
 }
