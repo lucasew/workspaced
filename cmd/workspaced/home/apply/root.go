@@ -43,8 +43,10 @@ func GetCommand() *cobra.Command {
 			showNoop, _ := cmd.Flags().GetBool("show-noop")
 
 			g := taskgroup.MustFromContext(ctx)
-			Schedule(g, cmd, dryRun, showNoop)
-			return taskgroup.Run(g)
+			printReport := Schedule(g, cmd, dryRun, showNoop)
+			runErr := taskgroup.Run(g)
+			printReport()
+			return runErr
 		},
 	}
 	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
@@ -54,14 +56,18 @@ func GetCommand() *cobra.Command {
 // Schedule wires the home apply/plan work into the given task Group.
 // Both "home apply" and "home plan" use this so the work always runs in-process
 // (under the caller's taskgroup and any active bubbletea renderer).
-// The caller is responsible for calling taskgroup.Run(g) afterwards.
-func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
+// The caller is responsible for calling taskgroup.Run(g) afterwards and then
+// calling the returned function to emit the final plan/apply report (after any
+// bubbletea renderer has exited, so direct stderr writes are reliable).
+func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
 		taskName = "home:plan"
 		updateMsg = "planning changes"
 	}
+
+	var finalResult *dotfiles.ApplyResult
 
 	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(updateMsg)
@@ -212,28 +218,38 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 			return err
 		}
 
-		if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
-			orderedActions := deployer.SortActions(result.Actions)
-			w := tabwriter.NewWriter(os.Stderr, 0, 0, 2, ' ', 0)
-			for _, a := range orderedActions {
-				if a.Type == deployer.ActionNoop && !showNoop {
-					continue
-				}
-				sourceInfo := ""
-				if a.Desired.File != nil {
-					sourceInfo = a.Desired.File.SourceInfo()
-				}
-				target := deployer.PrettyPath(a.Target)
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo)
-			}
-			_ = w.Flush()
-			fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
-			if showNoop {
-				fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp)
-			}
-			fmt.Fprintln(os.Stderr)
-		}
-
+		finalResult = result
 		return nil
 	})
+
+	return func() {
+		printPlanOutput(finalResult, showNoop)
+	}
+}
+
+func printPlanOutput(result *dotfiles.ApplyResult, showNoop bool) {
+	if result == nil {
+		return
+	}
+	if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
+		orderedActions := deployer.SortActions(result.Actions)
+		w := tabwriter.NewWriter(os.Stderr, 0, 0, 2, ' ', 0)
+		for _, a := range orderedActions {
+			if a.Type == deployer.ActionNoop && !showNoop {
+				continue
+			}
+			sourceInfo := ""
+			if a.Desired.File != nil {
+				sourceInfo = a.Desired.File.SourceInfo()
+			}
+			target := deployer.PrettyPath(a.Target)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo)
+		}
+		_ = w.Flush()
+		fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
+		if showNoop {
+			fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp)
+		}
+		fmt.Fprintln(os.Stderr)
+	}
 }

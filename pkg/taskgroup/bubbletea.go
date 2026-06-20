@@ -314,9 +314,9 @@ func (g *Group) RunBubbleTea() error {
 			logger.Debug("group finished, triggering prog.Quit()", "remaining_tasks", len(snap))
 		}
 		// Flush/drain the patched log buffers (the os.Stderr pipe pump + teaLineWriter)
-		// so that the final plan table (and any other late output written to os.Stderr
-		// inside the last task) is actually delivered via prog.Printf before we quit.
-		// The deferred cleanup will run again after prog.Run() returns; that's harmless.
+		// before we quit. The deferred cleanup will run again after prog.Run() returns;
+		// that's harmless. Final result tables (e.g. home plan) are now emitted after
+		// Run returns so they no longer depend on the patch drain.
 		cleanupPatches()
 		prog.Quit()
 	}()
