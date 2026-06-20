@@ -9,6 +9,7 @@ import (
 
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/version"
 
 	"github.com/spf13/cobra"
@@ -34,7 +35,16 @@ The binary is installed in:
 A shim is created in:
   ~/.local/bin/workspaced`,
 		RunE: func(c *cobra.Command, args []string) error {
-			return runSelfInstall(c.Context(), force)
+			ctx := c.Context()
+			g := taskgroup.FromContext(ctx)
+
+			g.Go("self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+				s.Update("self-installing workspaced")
+				s.Progress(0, 1)
+				defer s.Progress(1, 1)
+				return runSelfInstall(ctx, force)
+			})
+			return taskgroup.Run(g)
 		},
 	}
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"workspaced/pkg/logging"
 )
 
 // Run starts a Bubble Tea renderer for the group. It is a convenience wrapper
@@ -106,7 +107,6 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.tick()
 		}
 		snap := m.group.snapshotRecursive()
-		allDone := true
 
 		// Remove any tasks whose final 100% "payload" (completion frame)
 		// was shown in the previous tick. This is what makes finished
@@ -118,10 +118,6 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.finishedToRemove = make(map[string]struct{})
 
 		for _, t := range snap {
-			if t.State != Done && t.State != Failed {
-				allDone = false
-			}
-
 			id := t.ID
 			if t.Total > 0 {
 				if _, already := m.finalized[id]; already {
@@ -159,9 +155,6 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					delete(m.percents, id)
 				}
 			}
-		}
-		if allDone && len(snap) > 0 {
-			return m, tea.Quit
 		}
 		return m, m.tick()
 	}
@@ -267,9 +260,10 @@ func (g *Group) RunBubbleTea() error {
 
 	model := newBubbleModel(g)
 	// WithInput(nil) + WithoutSignalHandler: we don't need interactive key
-	// input for this use (the primary quit is when the group is all done).
-	// This also avoids requiring /dev/tty when forcing the TUI path in
-	// test harnesses, pipes, or certain CI setups (the guard already
+	// input for this use. The program's lifetime is driven by a background
+	// waiter that calls Quit() once g.Wait() returns (i.e. when the group
+	// is done). This also avoids requiring /dev/tty when forcing the TUI
+	// path in test harnesses, pipes, or certain CI setups (the guard already
 	// prevents entry unless WORKSPACED_FORCE_TUI or a real tty).
 	prog := tea.NewProgram(model,
 		tea.WithOutput(os.Stderr),
@@ -306,6 +300,21 @@ func (g *Group) RunBubbleTea() error {
 	// cleanup restores the previous values (like a context manager exit).
 	cleanupPatches := installTeaPatches(prog)
 	defer cleanupPatches()
+
+	// Drive quit from the group directly, instead of the model polling until
+	// its percents (displayed progress bar list) becomes empty / allDone.
+	// A goroutine waits on the group (authoritative completion of all work
+	// and side-effects inside task fns) and then tells the program to quit.
+	// The model continues to tick/snapshot for live updates until then.
+	go func() {
+		g.Wait()
+		if logging.ContextHasLogger(g.ctx) {
+			logger := logging.GetLogger(g.ctx)
+			snap := g.snapshotRecursive()
+			logger.Debug("group finished, triggering prog.Quit()", "remaining_tasks", len(snap))
+		}
+		prog.Quit()
+	}()
 
 	_, err := prog.Run()
 

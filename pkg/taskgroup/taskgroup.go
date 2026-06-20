@@ -601,9 +601,13 @@ func (g *Group) recordError(err error) {
 // Wait blocks until all tasks complete and returns the first error, if any.
 func (g *Group) Wait() error {
 	g.wg.Wait()
-	// Don't cancel on success — only on error (already done in recordError).
-	// But cancel the context so renderers know we're done.
-	g.cancel()
+	// Only cancel on error (to abort other waiting tasks/pools).
+	// On success we no longer cancel here; renderers now drive their own
+	// lifetime via explicit waiter + prog.Quit() (avoids returning "context canceled"
+	// from tea programs that use WithContext(g.ctx)).
+	if g.err != nil {
+		g.cancel()
+	}
 	return g.err
 }
 
