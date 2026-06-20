@@ -214,7 +214,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 
 		if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
 			orderedActions := deployer.SortActions(result.Actions)
-			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
+			w := tabwriter.NewWriter(os.Stderr, 0, 0, 2, ' ', 0)
 			for _, a := range orderedActions {
 				if a.Type == deployer.ActionNoop && !showNoop {
 					continue
@@ -223,14 +223,15 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) {
 				if a.Desired.File != nil {
 					sourceInfo = a.Desired.File.SourceInfo()
 				}
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, a.Target, sourceInfo)
+				target := deployer.PrettyPath(a.Target)
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo)
 			}
 			_ = w.Flush()
-			cmd.Printf("\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
+			fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
 			if showNoop {
-				cmd.Printf(", %d no-op", result.FilesNoOp)
+				fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp)
 			}
-			cmd.Printf("\n")
+			fmt.Fprintln(os.Stderr)
 		}
 
 		return nil

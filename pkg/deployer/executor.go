@@ -12,8 +12,8 @@ import (
 	"workspaced/pkg/taskgroup"
 )
 
-// prettyPath converts an absolute path to a path relative to $HOME.
-func prettyPath(path string) string {
+// PrettyPath converts an absolute path to a path relative to $HOME.
+func PrettyPath(path string) string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return path
@@ -57,7 +57,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			continue
 
 		case ActionDelete:
-			logger.Info("pruning orphaned file", "target", prettyPath(action.Target))
+			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
 			if _, err := os.Lstat(action.Target); err == nil {
 				if err := os.Remove(action.Target); err != nil {
 					return fmt.Errorf("failed to remove orphaned file %s: %w", action.Target, err)
@@ -67,9 +67,9 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 
 		case ActionCreate, ActionUpdate:
 			if action.Type == ActionCreate {
-				logger.Info("creating", "target", prettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+				logger.Info("creating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
 			} else {
-				logger.Info("updating", "target", prettyPath(action.Target), "source", action.Desired.File.SourceInfo())
+				logger.Info("updating", "target", PrettyPath(action.Target), "source", action.Desired.File.SourceInfo())
 			}
 
 			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
