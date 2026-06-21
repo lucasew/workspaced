@@ -31,14 +31,14 @@ All demos use the exact same rules as production code:
 - RunBubbleTea is a no-op (plain Wait + normal slog) when TERM=dumb / CI / non-tty
 
 Run subcommands to see different aspects:
-  workspaced demo          - default tasks showcase (calls RunBubbleTea)
-  workspaced demo tasks    - same as above
-  workspaced demo plain    - schedules but does NOT call RunBubbleTea (plain transcript)
-  workspaced demo nested   - SubGroup + explicit RunBubbleTea
-  workspaced demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar
-  workspaced demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)`,
+  workspaced experiments demo          - default tasks showcase (calls RunBubbleTea)
+  workspaced experiments demo tasks    - same as above
+  workspaced experiments demo plain    - schedules but does NOT call RunBubbleTea (plain transcript)
+  workspaced experiments demo nested   - SubGroup + explicit RunBubbleTea
+  workspaced experiments demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar
+  workspaced experiments demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Bare "demo" runs the main tasks showcase for convenience.
+			// Bare "experiments demo" runs the main tasks showcase for convenience.
 			return runTasksDemo(cmd)
 		},
 	}
@@ -46,7 +46,7 @@ Run subcommands to see different aspects:
 	return cmd
 }
 
-// runTasksDemo is the body used by both bare "demo" and "demo tasks".
+// runTasksDemo is the body used by both bare "experiments demo" and "demo tasks".
 func runTasksDemo(cmd *cobra.Command) error {
 	// All non-root code must get the group from the context provided by the
 	// top-level command. MustFromContext panics if it is absent.
