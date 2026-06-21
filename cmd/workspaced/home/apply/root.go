@@ -19,7 +19,6 @@ import (
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/source"
 	"workspaced/pkg/taskgroup"
-	"workspaced/pkg/template"
 	"workspaced/pkg/tool"
 
 	"github.com/spf13/cobra"
@@ -97,43 +96,31 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
 
-		engine := template.NewEngine(ctx)
-
-		// Configure plugin pipeline
-		configDir := filepath.Join(dotfilesRoot, "config")
+		// 1. Provider dconf (home-specific)
 		pipeline := source.NewPipeline()
-
-		// 1. Provider dconf (legacy)
 		pipeline.AddPlugin(source.NewProviderPlugin(&apply.DconfProvider{}, 50))
 
-		// 2. Scanner - discovers files in config/
-		if _, err := os.Stat(configDir); err == nil {
-			scanner, err := source.NewScannerPlugin(source.ScannerConfig{
-				Name:       "legacy-config",
-				BaseDir:    configDir,
-				TargetBase: home,
-				Priority:   50, // Legacy has lower priority than modules
-			})
-			if err != nil {
-				return fmt.Errorf("failed to create scanner: %w", err)
-			}
-			pipeline.AddPlugin(scanner)
-		}
-
-		// 2.5 Modules Scanner
+		// 2. Standard sources for this dotfiles repo targeting home
+		configDir := filepath.Join(dotfilesRoot, "config")
 		modulesDir := ws.ModulesBaseDir()
+
+		stdOpts := source.StandardDotfilesOptions{
+			ConfigTreeDir:   configDir,
+			ConfigTreeTarget: home,
+		}
 		if _, err := os.Stat(modulesDir); err == nil {
-			pipeline.AddPlugin(source.NewModuleScannerPlugin(modulesDir, cfg, 100))
+			stdOpts.ModulesDir = modulesDir
+			stdOpts.ModulesCfg = cfg
 		}
 
-		// 3. TemplateExpander - renders .tmpl (includes multi-file)
-		pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg))
-
-		// 4. DotDProcessor - concatenates .d.tmpl/
-		pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg))
-
-		// 5. StrictConflictResolver - ensures total uniqueness
-		pipeline.AddPlugin(source.NewStrictConflictResolverPlugin())
+		stdPipeline, err := source.NewStandardDotfilesPipeline(ctx, cfg, stdOpts)
+		if err != nil {
+			return err
+		}
+		// Transfer plugins (dconf was added before, standard has the rest)
+		for _, pl := range stdPipeline.GetPlugins() {
+			pipeline.AddPlugin(pl)
+		}
 
 		// StateStore
 		stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json")

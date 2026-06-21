@@ -24,14 +24,14 @@ func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {
 				RelPathStr:    "rg",
 				TargetBaseDir: dir,
 				FileMode:      0o755,
-				Info:          "source:legacy-config (.local/bin/_index.tmpl) (multi:rg)",
+				Info:          "source:config-tree (.local/bin/_index.tmpl) (multi:rg)",
 				FileType:      source.TypeMultiFile,
 			},
 			Content: []byte("#!/usr/bin/env bash\n# locked: new\nexec true\n"),
 		},
 	}}
 	state := &State{Files: map[string]ManagedInfo{
-		target: {SourceInfo: "source:legacy-config (.local/bin/_index.tmpl) (multi:rg)"},
+		target: {SourceInfo: "source:config-tree (.local/bin/_index.tmpl) (multi:rg)"},
 	}}
 
 	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())

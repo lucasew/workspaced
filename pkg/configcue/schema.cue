@@ -82,14 +82,16 @@ package workspaced
 #BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive 
 
 workspaced: {
-	inputs?: {
-		self?: #Input & {
+	inputs: {
+		self: #Input & {
 			from: "self"
 		}
 		[string]: #Input
 	}
 	runtime?: #Runtime
-	modules?: [string]: #ModuleRef
+	modules: {
+		[string]: #ModuleRef
+	}
 	workspaces?: [string]: int
 	desktop?: {
 		dark_mode?: bool

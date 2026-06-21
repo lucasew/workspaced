@@ -3,7 +3,10 @@ package source
 import (
 	"context"
 	"fmt"
+
+	"workspaced/pkg/configcue"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/template"
 )
 
 // Plugin processes a list of files and returns a new list.
@@ -55,4 +58,81 @@ func (p *Pipeline) Run(ctx context.Context, initial []File) ([]File, error) {
 // GetPlugins returns the list of configured plugins.
 func (p *Pipeline) GetPlugins() []Plugin {
 	return p.plugins
+}
+
+// StandardDotfilesOptions controls how to build a pipeline that
+// processes a typical dotfiles repo (direct config tree + modules).
+type StandardDotfilesOptions struct {
+	// ConfigTreeDir is the directory containing the direct file tree
+	// (usually "<dotfiles>/config"). Files here are placed according to
+	// their relative path (with .tmpl / .d.tmpl processing).
+	// If empty, this source is not used.
+	ConfigTreeDir string
+
+	// ConfigTreeTarget is the TargetBase for files coming from ConfigTreeDir.
+	ConfigTreeTarget string
+
+	// ModulesDir, if non-empty, will cause a ModuleScannerPlugin to be added
+	// (with priority 100).
+	ModulesDir string
+	// ModulesCfg is the config passed to the module scanner.
+	ModulesCfg *configcue.Config
+
+	// RelocateTo, if non-empty, adds a RelocatePlugin early (right after
+	// scanners). This forces *all* files (config tree + modules) to use this
+	// physical root, interpreting their RelPaths relative to it.
+	RelocateTo string
+}
+
+// NewStandardDotfilesPipeline builds the common plugin sequence used by
+// "home apply", "codebase apply", and similar flows:
+//
+//   - (optional) direct config tree (the "config/" directory with .tmpl rules)
+//   - (optional) module scanner
+//   - (optional) relocate plugin
+//   - template expander
+//   - dotd processor
+//   - strict conflict resolver
+//
+// It does *not* add home-specific things like the dconf provider.
+//
+// The "config tree" is just one way to provide files (with the familiar
+// template conventions). Modules are another. Both end up as File entries
+// that get placed according to their final TargetBase + RelPath.
+func NewStandardDotfilesPipeline(
+	ctx context.Context,
+	cfg *configcue.Config,
+	opts StandardDotfilesOptions,
+) (*Pipeline, error) {
+
+	p := NewPipeline()
+
+	if opts.ConfigTreeDir != "" {
+		scanner, err := NewScannerPlugin(ScannerConfig{
+			Name:       "config-tree",
+			BaseDir:    opts.ConfigTreeDir,
+			TargetBase: opts.ConfigTreeTarget,
+			Priority:   50,
+		})
+		if err != nil {
+			return nil, err
+		}
+		p.AddPlugin(scanner)
+	}
+
+	if opts.ModulesDir != "" && opts.ModulesCfg != nil {
+		p.AddPlugin(NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
+	}
+
+	if opts.RelocateTo != "" {
+		p.AddPlugin(NewRelocatePlugin(opts.RelocateTo))
+	}
+
+	engine := template.NewEngine(ctx)
+
+	p.AddPlugin(NewTemplateExpanderPlugin(engine, cfg))
+	p.AddPlugin(NewDotDProcessorPlugin(engine, cfg))
+	p.AddPlugin(NewStrictConflictResolverPlugin())
+
+	return p, nil
 }
