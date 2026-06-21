@@ -39,6 +39,10 @@ func (p Provider) Normalize(src modfile.SourceConfig) modfile.SourceConfig {
 	return src
 }
 
+func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src modfile.LockedSource) {
+	// local sources don't get renovate metadata
+}
+
 func init() {
 	modfile.RegisterSourceProvider(Provider{})
 }

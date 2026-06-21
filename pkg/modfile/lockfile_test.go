@@ -32,8 +32,10 @@ func TestWriteSumFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load written: %v", err)
 	}
-	// Lookups now keyed by ref (kind+ref) in the rebuilt locks.
-	_, ok := got.FindSource("main")
+	// After persist, sources are keyed in deps by stable source ref
+	// (e.g. "github:..." or by depName in fallback). The LockedSource.Ref
+	// holds the pinned value.
+	_, ok := got.FindSource("PapirusDevelopmentTeam/papirus-icon-theme")
 	if !ok {
 		t.Fatalf("missing source lock entry: %#v", got.Dependencies)
 	}

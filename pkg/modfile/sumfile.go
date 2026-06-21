@@ -173,9 +173,15 @@ func rebuildSourceLocksFromDependencies(sum *SumFile) map[string]LockedSource {
 			continue
 		}
 		// Best effort from available clean fields. Hash may be in CurrentDigest.
+		// The Ref here should be the resolved/pinned value (for source overlay etc),
+		// while the renovate "ref" field is the stable source ref.
 		hash := strings.TrimSpace(dep.CurrentDigest)
+		pinned := strings.TrimSpace(dep.CurrentValue)
+		if pinned == "" {
+			pinned = key
+		}
 		out[key] = LockedSource{
-			Ref:  key,
+			Ref:  pinned,
 			Hash: hash,
 		}
 	}
@@ -254,7 +260,11 @@ func (s *SumFile) FindSource(name string) (LockedSource, bool) {
 			continue
 		}
 		if dep.Ref == name || dep.DepName == name {
-			return LockedSource{Ref: dep.Ref, Hash: dep.CurrentDigest}, true
+			pinned := dep.CurrentValue
+			if pinned == "" {
+				pinned = dep.Ref
+			}
+			return LockedSource{Ref: pinned, Hash: dep.CurrentDigest}, true
 		}
 	}
 	return LockedSource{}, false

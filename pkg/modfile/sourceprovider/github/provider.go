@@ -54,6 +54,46 @@ func (p Provider) LockHash(ctx context.Context, alias string, src modfile.Source
 	return strings.TrimSpace(meta.Hash), normalized.Config, nil
 }
 
+func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src modfile.LockedSource) {
+	if dep == nil {
+		return
+	}
+	repo := strings.TrimSpace(src.Repo)
+	if repo == "" {
+		return
+	}
+	cv := strings.TrimSpace(dep.CurrentValue)
+	if cv == "" {
+		cv = strings.TrimSpace(src.Ref)
+	}
+	// Only attach renovate info if we have a usable (non-HEAD or with URL)
+	// per the best-effort semantics.
+	hasUsable := !strings.EqualFold(cv, "HEAD") || strings.TrimSpace(src.URL) != ""
+	if !hasUsable {
+		return
+	}
+	// Fill renovate fields for this github source. The stable "ref" is the
+	// source identifier "github:owner/repo" (like tool refs), depName and
+	// datasource for renovate to manage it.
+	dep.Ref = "github:" + repo
+	dep.DepName = repo
+	dep.Datasource = "github-tags"
+	// Set a usable currentValue from URL if not set (e.g. when Ref was empty,
+	// extract the ref from codeload URL).
+	if strings.TrimSpace(dep.CurrentValue) == "" {
+		if u := modfile.RefFromTarballURL(src.URL); u != "" {
+			dep.CurrentValue = u
+		}
+	}
+	// If currentValue is HEAD (from config), try to use resolved from URL
+	// (the pinned sha) so renovate sees a concrete value.
+	if strings.EqualFold(strings.TrimSpace(dep.CurrentValue), "HEAD") {
+		if u := modfile.RefFromTarballURL(src.URL); u != "" {
+			dep.CurrentValue = u
+		}
+	}
+}
+
 func init() {
 	modfile.RegisterSourceProvider(Provider{})
 }

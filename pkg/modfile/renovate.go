@@ -30,32 +30,14 @@ func BuildRenovateDependenciesFromLocks(sources map[string]LockedSource, tools m
 	deps := make([]RenovateDependency, 0, len(tools)+len(sources))
 	for _, src := range sources {
 		dep := RenovateDependency{
-			Kind: "source",
-			Ref:  strings.TrimSpace(src.Ref),
+			Kind:         "source",
+			Ref:          strings.TrimSpace(src.Ref),
+			CurrentValue: strings.TrimSpace(src.Ref),
+		}
+		if p, ok := getSourceProvider(src.Provider); ok {
+			p.EnrichRenovateDependency(&dep, src)
 		}
 		deps = append(deps, dep)
-
-		switch strings.TrimSpace(src.Provider) {
-		case "github":
-			depName := strings.TrimSpace(src.Repo)
-			if depName == "" {
-				continue
-			}
-			currentValue := strings.TrimSpace(src.Ref)
-			if strings.EqualFold(currentValue, "HEAD") {
-				currentValue = ""
-			}
-			if currentValue == "" {
-				currentValue = refFromTarballURL(src.URL)
-			}
-			if currentValue == "" {
-				continue
-			}
-			dep.DepName = depName
-			dep.CurrentValue = currentValue
-			dep.Datasource = "github-tags"
-			deps[len(deps)-1] = dep
-		}
 	}
 	for _, tool := range tools {
 		ref := strings.TrimSpace(tool.Ref)
@@ -151,7 +133,7 @@ func dependencyMergeKey(dep RenovateDependency) string {
 	return ""
 }
 
-func refFromTarballURL(rawURL string) string {
+func RefFromTarballURL(rawURL string) string {
 	rawURL = strings.TrimSpace(rawURL)
 	if rawURL == "" {
 		return ""

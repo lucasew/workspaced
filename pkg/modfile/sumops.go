@@ -130,12 +130,22 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	}
 	s.sourceLocks[name] = lock
 
-	// Keyed by kind + ref in the deps list.
+	dep := RenovateDependency{
+		Kind:          "source",
+		Ref:           lock.Ref,
+		CurrentValue:  lock.Ref,
+		CurrentDigest: lock.Hash,
+	}
+	if p, ok := getSourceProvider(lock.Provider); ok {
+		p.EnrichRenovateDependency(&dep, lock)
+	}
+
+	// Keyed by kind + ref (the provider-filled stable ref) in the deps list.
 	found := false
 	changed := false
 	for i := range s.Dependencies {
 		d := &s.Dependencies[i]
-		if d.Kind != "source" || strings.TrimSpace(d.Ref) != lock.Ref {
+		if d.Kind != "source" || strings.TrimSpace(d.Ref) != dep.Ref {
 			continue
 		}
 		found = true
@@ -147,40 +157,17 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 			d.CurrentDigest = lock.Hash
 			changed = true
 		}
-		// Enrich/sync renovate metadata from the source lock info.
-		// This ensures that sources declared with github: etc. get
-		// depName + datasource in the persisted lock, the same way
-		// whether the caller is the home dotfiles apply or a general
-		// codebase workspace.
-		if lock.Provider == "github" {
-			repo := strings.TrimSpace(lock.Repo)
-			if repo != "" {
-				if d.DepName != repo {
-					d.DepName = repo
-					changed = true
-				}
-				if d.Datasource != "github-tags" {
-					d.Datasource = "github-tags"
-					changed = true
-				}
-			}
+		if dep.DepName != "" && d.DepName != dep.DepName {
+			d.DepName = dep.DepName
+			changed = true
+		}
+		if dep.Datasource != "" && d.Datasource != dep.Datasource {
+			d.Datasource = dep.Datasource
+			changed = true
 		}
 		break
 	}
 	if !found {
-		dep := RenovateDependency{
-			Kind:          "source",
-			Ref:           lock.Ref,
-			CurrentValue:  lock.Ref,
-			CurrentDigest: lock.Hash,
-		}
-		if lock.Provider == "github" {
-			repo := strings.TrimSpace(lock.Repo)
-			if repo != "" {
-				dep.DepName = repo
-				dep.Datasource = "github-tags"
-			}
-		}
 		s.Dependencies = append(s.Dependencies, dep)
 		changed = true
 	}

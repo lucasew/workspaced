@@ -7,6 +7,7 @@ type SourceProvider interface {
 	ResolvePath(ctx context.Context, alias string, src SourceConfig, rel string, modulesBaseDir string) (string, error)
 	LockHash(ctx context.Context, alias string, src SourceConfig, modulesBaseDir string) (string, SourceConfig, error)
 	Normalize(src SourceConfig) SourceConfig
+	EnrichRenovateDependency(dep *RenovateDependency, src LockedSource)
 }
 
 var sourceProviders = map[string]SourceProvider{}
