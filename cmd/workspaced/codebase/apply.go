@@ -200,5 +200,3 @@ func printCodebasePlanOutput(result *dotfiles.ApplyResult, showNoop bool, dryRun
 		fmt.Fprintln(os.Stderr, "No changes needed (repo root is up to date)")
 	}
 }
-
-

@@ -105,7 +105,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		modulesDir := ws.ModulesBaseDir()
 
 		stdOpts := source.StandardDotfilesOptions{
-			ConfigTreeDir:   configDir,
+			ConfigTreeDir:    configDir,
 			ConfigTreeTarget: home,
 		}
 		// Always provide ModulesDir even if it doesn't exist on disk yet.
