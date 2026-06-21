@@ -61,7 +61,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	layers := make([]Layer, 0)
 
 	if !opts.HomeMode {
-		repoPath, err := resolveWorkspaceCuePath(ctx, opts.Cwd)
+		repoPath, err := ResolveWorkspaceCuePath(ctx, opts.Cwd)
 		if err != nil {
 			return DiscoverResult{}, err
 		}
@@ -297,7 +297,20 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		if err := layerValue.Err(); err != nil {
 			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w", path, err)
 		}
-		v = v.Unify(layerValue)
+		// Support both wrapped style (`workspaced: { modules: ... }`)
+		// and bare style (top-level `modules: ...` etc. directly in the file).
+		// This makes sure modules etc from the cue are always under the workspaced value.
+		if ws := layerValue.LookupPath(cue.ParsePath("workspaced")); ws.Exists() {
+			// wrapped style: the src itself starts with "workspaced: { ... }"
+			// unify the full layerValue so the "workspaced" key merges properly
+			v = v.Unify(layerValue)
+		} else {
+			// bare style (top-level modules, inputs etc. without the wrapper)
+			// wrap by filling the bare value under workspaced
+			template := ctx.CompileString(`workspaced: {}`)
+			wrapped := template.Fill(layerValue, "workspaced")
+			v = v.Unify(wrapped)
+		}
 		if err := v.Err(); err != nil {
 			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w", path, err)
 		}
@@ -709,7 +722,7 @@ func findUp(start string, name string) (string, error) {
 	}
 }
 
-func resolveWorkspaceCuePath(ctx context.Context, start string) (string, error) {
+func ResolveWorkspaceCuePath(ctx context.Context, start string) (string, error) {
 	if start == "" {
 		var err error
 		start, err = os.Getwd()
@@ -718,14 +731,12 @@ func resolveWorkspaceCuePath(ctx context.Context, start string) (string, error) 
 		}
 	}
 
-	if root, err := getGitRoot(ctx, start); err == nil && root != "" {
-		candidate := filepath.Join(root, "workspaced.cue")
-		if fileExists(candidate) {
-			return candidate, nil
-		}
-		return "", nil
-	}
-
+	// Always walk up from the starting directory to find the *closest*
+	// workspaced.cue. This supports sub-workspaces inside a git repo
+	// (e.g. a skills sub-project having its own workspaced.cue deeper
+	// than the git root).
+	// The git root check is no longer used to short-circuit, because
+	// we want the most specific (innermost) config.
 	return findUp(start, "workspaced.cue")
 }
 

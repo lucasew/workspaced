@@ -68,28 +68,32 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 		logger := logging.GetLogger(ctx)
 
-		// Codebase operations are strictly workspace/repo-centric.
-		// We NEVER use LoadHome, HomeMode, GetDotfilesRoot for config,
-		// or anything that would pull user home config/state.
-		//
-		// - Config discovery uses default workspace mode (git root / walk-up from CWD).
-		// - This loads the repo's workspaced.cue + prelude_codebase.cue.
-		// - No ~/workspaced.cue, no home config dir layers, no home prelude.
-		// - State is always .workspaced/state.json inside the repo.
-		// - Target is always the repo root (see RelocateTo + ConfigTreeTarget).
-		//
-		// Contrast with home/* commands which intentionally use LoadHome + home layers.
-		cfg, err := configcue.Load(ctx)
+		// Discover the closest workspaced.cue from current CWD.
+		// The directory containing it becomes the workspace root for
+		// this "codebase" run (target + .workspaced/ location).
+		// This lets sub-projects like LEWTEC/skills have their own
+		// workspaced.cue (with their own modules/placers) and be treated
+		// independently.
+		cuePath, _ := configcue.ResolveWorkspaceCuePath(ctx, "")
+		dotfilesRoot := ""
+		if cuePath != "" {
+			dotfilesRoot = filepath.Dir(cuePath)
+		} else {
+			// Fallback to git / dotfiles detection
+			ws, err := modfile.DetectWorkspace(ctx, "")
+			if err != nil {
+				return fmt.Errorf("failed to detect workspace: %w", err)
+			}
+			dotfilesRoot = ws.Root
+		}
+
+		cfg, err := configcue.Load(ctx)  // will use the same discovery
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		ws, err := modfile.DetectWorkspace(ctx, "")
-		if err != nil {
-			return fmt.Errorf("failed to detect workspace: %w", err)
-		}
-		dotfilesRoot := ws.Root
-
+		// For lockfile and modules base, we use the same root as the .cue
+		ws := modfile.NewWorkspace(dotfilesRoot)
 		lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg)
 		if err != nil {
 			return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
@@ -98,11 +102,10 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 		pipeline := source.NewPipeline()
 
-		// Standard sources for codebase, reading the base overlay from
-		// .workspaced/config (instead of the home-oriented "config/").
-		// Everything is forced under the repo root via ConfigTreeTarget + RelocateTo.
+		// Standard sources for codebase.
+		// The workspace root is the dir containing the discovered workspaced.cue .
 		configDir := filepath.Join(dotfilesRoot, ".workspaced", "config")
-		modulesDir := ws.ModulesBaseDir()
+		modulesDir := filepath.Join(dotfilesRoot, "modules")
 
 		stdOpts := source.StandardDotfilesOptions{
 			ConfigTreeTarget: dotfilesRoot,
@@ -111,10 +114,10 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		if _, err := os.Stat(configDir); err == nil {
 			stdOpts.ConfigTreeDir = configDir
 		}
-		if _, err := os.Stat(modulesDir); err == nil {
-			stdOpts.ModulesDir = modulesDir
-			stdOpts.ModulesCfg = cfg
-		}
+		// Always provide ModulesDir (even if not on disk) so placer modules
+		// (core:place etc.) are considered even in fresh workspaces.
+		stdOpts.ModulesDir = modulesDir
+		stdOpts.ModulesCfg = cfg
 
 		stdPipeline, err := source.NewStandardDotfilesPipeline(ctx, cfg, stdOpts)
 		if err != nil {

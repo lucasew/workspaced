@@ -120,6 +120,9 @@ func NewStandardDotfilesPipeline(
 		p.AddPlugin(scanner)
 	}
 
+	// Note: we add the module scanner even if opts.ModulesDir does not
+	// exist on disk. This is required for pure core:place (and similar)
+	// modules that don't require a local modules/ checkout.
 	if opts.ModulesDir != "" && opts.ModulesCfg != nil {
 		p.AddPlugin(NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
 	}

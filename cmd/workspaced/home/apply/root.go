@@ -108,10 +108,11 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			ConfigTreeDir:   configDir,
 			ConfigTreeTarget: home,
 		}
-		if _, err := os.Stat(modulesDir); err == nil {
-			stdOpts.ModulesDir = modulesDir
-			stdOpts.ModulesCfg = cfg
-		}
+		// Always provide ModulesDir even if it doesn't exist on disk yet.
+		// This allows core:place (and other core modules) to be processed
+		// without requiring a pre-existing modules/ directory.
+		stdOpts.ModulesDir = modulesDir
+		stdOpts.ModulesCfg = cfg
 
 		stdPipeline, err := source.NewStandardDotfilesPipeline(ctx, cfg, stdOpts)
 		if err != nil {
