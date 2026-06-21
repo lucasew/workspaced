@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
+	cueerrors "cuelang.org/go/cue/errors"
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/configcue"
-	cueerrors "cuelang.org/go/cue/errors"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
