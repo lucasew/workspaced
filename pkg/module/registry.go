@@ -49,3 +49,23 @@ func ResolveProviderAndRef(from string, moduleName string) (string, string, erro
 	}
 	return provider, ref, nil
 }
+
+var (
+	coreModules   = map[string]CoreModule{}
+	coreModulesMu sync.RWMutex
+)
+
+// RegisterCoreModule registers a module that will be available as core:<ref>.
+func RegisterCoreModule(m CoreModule) {
+	coreModulesMu.Lock()
+	defer coreModulesMu.Unlock()
+	coreModules[m.Ref()] = m
+}
+
+// GetCoreModule returns the core module registered for the given ref (the part after "core:").
+func GetCoreModule(ref string) (CoreModule, bool) {
+	coreModulesMu.RLock()
+	defer coreModulesMu.RUnlock()
+	m, ok := coreModules[ref]
+	return m, ok
+}

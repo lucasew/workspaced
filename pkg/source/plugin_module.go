@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
-	"strings"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
@@ -79,17 +78,19 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 		logger.Info("loading module", "module", modName, "from", sourceSpec)
 
 		moduleConfig := modEntry.Config
+		if moduleConfig == nil {
+			moduleConfig = map[string]any{}
+		}
 
-		// core:base16-icons-linux keeps module source in "from=core:...",
-		// while input_dir can be provided as a source ref (e.g. "papirus:Papirus").
-		if providerID == "core" && ref == "base16-icons-linux" {
-			if inputRef, ok := moduleConfig["input_dir"].(string); ok && strings.TrimSpace(inputRef) != "" {
-				resolvedInputDir, resolved, err := modFile.TryResolveSourceRefToPath(ctx, inputRef, p.baseDir)
-				if err != nil {
-					return nil, fmt.Errorf("module %q input %q: %w", modName, inputRef, err)
+		// Give registered core modules a chance to rewrite their config
+		// (e.g. resolve "alias:path" source refs to real directories).
+		if providerID == "core" {
+			if cm, ok := module.GetCoreModule(ref); ok {
+				resolver := func(ctx context.Context, spec, base string) (string, bool, error) {
+					return modFile.TryResolveSourceRefToPath(ctx, spec, base)
 				}
-				if resolved {
-					moduleConfig["input_dir"] = resolvedInputDir
+				if err := cm.Prepare(ctx, moduleConfig, resolver, p.baseDir); err != nil {
+					return nil, fmt.Errorf("module %q: %w", modName, err)
 				}
 			}
 		}
