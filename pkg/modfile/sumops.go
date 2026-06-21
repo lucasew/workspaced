@@ -147,15 +147,41 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 			d.CurrentDigest = lock.Hash
 			changed = true
 		}
+		// Enrich/sync renovate metadata from the source lock info.
+		// This ensures that sources declared with github: etc. get
+		// depName + datasource in the persisted lock, the same way
+		// whether the caller is the home dotfiles apply or a general
+		// codebase workspace.
+		if lock.Provider == "github" {
+			repo := strings.TrimSpace(lock.Repo)
+			if repo != "" {
+				if d.DepName != repo {
+					d.DepName = repo
+					changed = true
+				}
+				if d.Datasource != "github-tags" {
+					d.Datasource = "github-tags"
+					changed = true
+				}
+			}
+		}
 		break
 	}
 	if !found {
-		s.Dependencies = append(s.Dependencies, RenovateDependency{
+		dep := RenovateDependency{
 			Kind:          "source",
 			Ref:           lock.Ref,
 			CurrentValue:  lock.Ref,
 			CurrentDigest: lock.Hash,
-		})
+		}
+		if lock.Provider == "github" {
+			repo := strings.TrimSpace(lock.Repo)
+			if repo != "" {
+				dep.DepName = repo
+				dep.Datasource = "github-tags"
+			}
+		}
+		s.Dependencies = append(s.Dependencies, dep)
 		changed = true
 	}
 	return changed

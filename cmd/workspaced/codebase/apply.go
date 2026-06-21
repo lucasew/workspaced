@@ -13,6 +13,7 @@ import (
 	"workspaced/pkg/dotfiles"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
+	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/source"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool"
@@ -68,32 +69,41 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 		logger := logging.GetLogger(ctx)
 
-		// Discover the closest workspaced.cue from current CWD.
-		// The directory containing it becomes the workspace root for
-		// this "codebase" run (target + .workspaced/ location).
-		// This lets sub-projects like LEWTEC/skills have their own
-		// workspaced.cue (with their own modules/placers) and be treated
-		// independently.
+		// Discover the closest workspaced.cue from current CWD (or fall back
+		// to git root). The directory containing the cue is the workspace root
+		// for this run: both the apply target and the lockfile location.
+		//
+		// This is deliberate. "codebase" is the general mechanism for operating
+		// on *any* repo/tree that has a workspaced.cue (including sub-projects,
+		// skill trees, random checkouts, the dotfiles repo itself, etc.).
+		// It must not reach out to the user's personal dotfiles root.
+		//
+		// Locking uses the same *mechanism* as home apply:
+		//   - Load config anchored to the specific workspace root
+		//     (LoadForWorkspace, like home uses LoadHome for its root)
+		//   - RefreshWorkspaceLocks (non-force path for sources + lazy tools)
+		//     instead of the force=true mod lock path.
+		// This makes ref/hash filling, skipping of already-locked HEAD inputs,
+		// and tool lock enrichment behave consistently.
 		cuePath, _ := configcue.ResolveWorkspaceCuePath(ctx, "")
-		dotfilesRoot := ""
+		workspaceRoot := ""
 		if cuePath != "" {
-			dotfilesRoot = filepath.Dir(cuePath)
+			workspaceRoot = filepath.Dir(cuePath)
 		} else {
-			// Fallback to git / dotfiles detection
+			// Fallback to git root (or dotfiles root as last resort)
 			ws, err := modfile.DetectWorkspace(ctx, "")
 			if err != nil {
 				return fmt.Errorf("failed to detect workspace: %w", err)
 			}
-			dotfilesRoot = ws.Root
+			workspaceRoot = ws.Root
 		}
 
-		cfg, err := configcue.Load(ctx)  // will use the same discovery
+		cfg, err := configcue.LoadForWorkspace(ctx, workspaceRoot)
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		// For lockfile and modules base, we use the same root as the .cue
-		ws := modfile.NewWorkspace(dotfilesRoot)
+		ws := modfile.NewWorkspace(workspaceRoot)
 		lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg)
 		if err != nil {
 			return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
@@ -104,12 +114,12 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 		// Standard sources for codebase.
 		// The workspace root is the dir containing the discovered workspaced.cue .
-		configDir := filepath.Join(dotfilesRoot, ".workspaced", "config")
-		modulesDir := filepath.Join(dotfilesRoot, "modules")
+		configDir := filepath.Join(workspaceRoot, ".workspaced", "config")
+		modulesDir := filepath.Join(workspaceRoot, "modules")
 
 		stdOpts := source.StandardDotfilesOptions{
-			ConfigTreeTarget: dotfilesRoot,
-			RelocateTo:       dotfilesRoot,
+			ConfigTreeTarget: workspaceRoot,
+			RelocateTo:       workspaceRoot,
 		}
 		if _, err := os.Stat(configDir); err == nil {
 			stdOpts.ConfigTreeDir = configDir
@@ -130,7 +140,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		// State lives in the repo next to the lock
 		// Repo-local state for codebase operations. Never use the global
 		// ~/.config/workspaced state.
-		statePath := filepath.Join(dotfilesRoot, ".workspaced", "state.json")
+		statePath := filepath.Join(workspaceRoot, ".workspaced", "state.json")
 		stateStore, err := deployer.NewFileStateStore(statePath)
 		if err != nil {
 			return fmt.Errorf("failed to create state store: %w", err)
