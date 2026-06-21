@@ -60,7 +60,9 @@ type RenovateDependency struct {
 	CurrentValue string `json:"currentValue"`
 
 	// CurrentDigest is the current digest/hash.
-	// Mainly used for Docker/OCI images.
+	// Mainly used for Docker/OCI images. Source entries intentionally omit
+	// this: renovate cannot handle digest updates for our lockfile manager,
+	// and commit pins live in CurrentValue with datasource=github-commits.
 	CurrentDigest string `json:"currentDigest,omitempty"`
 
 	// CurrentVersion is the resolved/pinned version (if different
@@ -70,8 +72,8 @@ type RenovateDependency struct {
 	// === Lookup & source configuration ===
 
 	// Datasource tells Renovate where to fetch new versions from.
-	// Required. Common values: "npm", "go", "docker", "github-tags",
-	// "maven", "pypi", etc.
+	// Required. Common values: "npm", "go", "docker", "github-commits",
+	// "github-releases", "maven", "pypi", etc.
 	Datasource string `json:"datasource"`
 
 	// Versioning defines the version comparison strategy.

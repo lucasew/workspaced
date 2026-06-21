@@ -36,11 +36,14 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing source dependency for papirus: %#v", got)
 	}
-	if sourceDep.Datasource != "github-tags" {
+	if sourceDep.Datasource != "github-commits" {
 		t.Fatalf("datasource mismatch for source dep: got=%q", sourceDep.Datasource)
 	}
 	if sourceDep.CurrentValue != "v2026.03.01" {
 		t.Fatalf("currentValue mismatch for source dep: got=%q", sourceDep.CurrentValue)
+	}
+	if sourceDep.CurrentDigest != "" {
+		t.Fatalf("source dep must not set currentDigest, got=%q", sourceDep.CurrentDigest)
 	}
 	toolDep, ok := byName["sharkdp/fd"]
 	if !ok {
@@ -119,7 +122,7 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 			Ref:          "v2026.02.01",
 			DepName:      "PapirusDevelopmentTeam/papirus-icon-theme",
 			CurrentValue: "v2026.02.01",
-			Datasource:   "github-tags",
+			Datasource:   "github-commits",
 		},
 	}
 

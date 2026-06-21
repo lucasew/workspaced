@@ -75,23 +75,26 @@ func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src 
 	// Fill renovate fields for this github source. The stable "ref" is the
 	// source identifier "github:owner/repo" (like tool refs), depName and
 	// datasource for renovate to manage it.
+	//
+	// Default tracking is latest commit on the default branch (github-commits),
+	// not latest tag (github-tags). The pinned commit SHA lives in currentValue
+	// only — never currentDigest, which renovate cannot update via our manager.
 	dep.Ref = "github:" + repo
 	dep.DepName = repo
-	dep.Datasource = "github-tags"
-	// Set a usable currentValue from URL if not set (e.g. when Ref was empty,
-	// extract the ref from codeload URL).
-	if strings.TrimSpace(dep.CurrentValue) == "" {
-		if u := modfile.RefFromTarballURL(src.URL); u != "" {
-			dep.CurrentValue = u
+	dep.Datasource = "github-commits"
+	// Prefer the resolved commit SHA from the tarball URL over a symbolic ref
+	// (HEAD/branch/tag) so renovate sees a concrete, updatable pin.
+	if u := modfile.RefFromTarballURL(src.URL); u != "" {
+		dep.CurrentValue = u
+	} else if strings.TrimSpace(dep.CurrentValue) == "" {
+		if r := strings.TrimSpace(src.Ref); r != "" && !strings.EqualFold(r, "HEAD") {
+			dep.CurrentValue = r
 		}
+	} else if strings.EqualFold(strings.TrimSpace(dep.CurrentValue), "HEAD") {
+		// No URL/sha yet; leave empty so we don't attach unusable renovate fields.
+		dep.CurrentValue = ""
 	}
-	// If currentValue is HEAD (from config), try to use resolved from URL
-	// (the pinned sha) so renovate sees a concrete value.
-	if strings.EqualFold(strings.TrimSpace(dep.CurrentValue), "HEAD") {
-		if u := modfile.RefFromTarballURL(src.URL); u != "" {
-			dep.CurrentValue = u
-		}
-	}
+	dep.CurrentDigest = ""
 }
 
 func init() {

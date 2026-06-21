@@ -131,10 +131,11 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	s.sourceLocks[name] = lock
 
 	dep := RenovateDependency{
-		Kind:          "source",
-		Ref:           lock.Ref,
-		CurrentValue:  lock.Ref,
-		CurrentDigest: lock.Hash,
+		Kind:         "source",
+		Ref:          lock.Ref,
+		CurrentValue: lock.Ref,
+		// Intentionally omit CurrentDigest: renovate's custom manager cannot
+		// handle digest updates for source pins (commit SHAs live in currentValue).
 	}
 	if p, ok := getSourceProvider(lock.Provider); ok {
 		p.EnrichRenovateDependency(&dep, lock)
@@ -149,12 +150,13 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 			continue
 		}
 		found = true
-		if d.CurrentValue != lock.Ref {
-			d.CurrentValue = lock.Ref
+		if d.CurrentValue != dep.CurrentValue {
+			d.CurrentValue = dep.CurrentValue
 			changed = true
 		}
-		if strings.TrimSpace(d.CurrentDigest) != lock.Hash {
-			d.CurrentDigest = lock.Hash
+		// Drop any previously-written digest; renovate cannot handle it.
+		if d.CurrentDigest != "" {
+			d.CurrentDigest = ""
 			changed = true
 		}
 		if dep.DepName != "" && d.DepName != dep.DepName {
