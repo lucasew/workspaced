@@ -24,7 +24,7 @@ func NewResolver(toolsDir string) *Resolver {
 }
 
 func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error) {
-	version := r.resolveVersion(toolName)
+	version := r.resolveVersion(ctx, toolName)
 
 	// Search for the tool binary in installed packages
 	entries, err := os.ReadDir(r.toolsDir)
@@ -106,9 +106,9 @@ func (r *Resolver) checkBin(verDir, toolName string) string {
 	return ""
 }
 
-func (r *Resolver) resolveVersion(toolName string) string {
+func (r *Resolver) resolveVersion(ctx context.Context, toolName string) string {
 	// 1. .tool-versions
-	if v := r.findInToolVersions(toolName); v != "" {
+	if v := r.findInToolVersions(ctx, toolName); v != "" {
 		return v
 	}
 
@@ -122,7 +122,7 @@ func (r *Resolver) resolveVersion(toolName string) string {
 	return "latest"
 }
 
-func (r *Resolver) findInToolVersions(toolName string) string {
+func (r *Resolver) findInToolVersions(ctx context.Context, toolName string) string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ""
@@ -131,7 +131,7 @@ func (r *Resolver) findInToolVersions(toolName string) string {
 	for {
 		p := filepath.Join(cwd, ".tool-versions")
 		if _, err := os.Stat(p); err == nil {
-			if v := readToolVersion(p, toolName); v != "" {
+			if v := readToolVersion(ctx, p, toolName); v != "" {
 				return v
 			}
 		}
@@ -147,7 +147,7 @@ func (r *Resolver) findInToolVersions(toolName string) string {
 	if err == nil {
 		p := filepath.Join(home, ".config", "workspaced", ".tool-versions")
 		if _, err := os.Stat(p); err == nil {
-			if v := readToolVersion(p, toolName); v != "" {
+			if v := readToolVersion(ctx, p, toolName); v != "" {
 				return v
 			}
 		}
@@ -156,12 +156,12 @@ func (r *Resolver) findInToolVersions(toolName string) string {
 	return ""
 }
 
-func readToolVersion(path, toolName string) string {
+func readToolVersion(ctx context.Context, path, toolName string) string {
 	f, err := os.Open(path)
 	if err != nil {
 		return ""
 	}
-	defer logging.Close(context.Background(), f)
+	defer logging.Close(ctx, f)
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

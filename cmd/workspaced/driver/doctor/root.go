@@ -1,7 +1,6 @@
 package doctor
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -24,7 +23,7 @@ func GetCommand() *cobra.Command {
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 			if _, err := fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE"); err != nil {
-				logging.ReportError(context.Background(), err)
+				logging.ReportError(cmd.Context(), err)
 				return
 			}
 
@@ -73,13 +72,13 @@ func GetCommand() *cobra.Command {
 					}
 
 					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg); err != nil {
-						logging.ReportError(context.Background(), err)
+						logging.ReportError(cmd.Context(), err)
 						return
 					}
 				}
 			}
 			if err := w.Flush(); err != nil {
-				logging.ReportError(context.Background(), err)
+				logging.ReportError(cmd.Context(), err)
 			}
 		},
 	}

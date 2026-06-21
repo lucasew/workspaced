@@ -122,7 +122,7 @@ func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {
 		if !ok {
 			continue
 		}
-		if err := extractTarEntry(tr, hdr, target); err != nil {
+		if err := extractTarEntry(ctx, tr, hdr, target); err != nil {
 			return err
 		}
 	}
@@ -153,7 +153,7 @@ func splitFirst(s string, sep byte) []string {
 	return []string{s}
 }
 
-func extractTarEntry(tr *tar.Reader, hdr *tar.Header, target string) error {
+func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, target string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		return os.MkdirAll(target, 0755)
@@ -166,7 +166,7 @@ func extractTarEntry(tr *tar.Reader, hdr *tar.Header, target string) error {
 			return err
 		}
 		if _, err := io.Copy(f, tr); err != nil {
-			logging.Close(context.Background(), f)
+			logging.Close(ctx, f)
 			return err
 		}
 		return f.Close()
