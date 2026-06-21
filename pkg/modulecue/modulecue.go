@@ -13,6 +13,7 @@ import (
 	"cuelang.org/go/cue/ast"
 	"cuelang.org/go/cue/build"
 	"cuelang.org/go/cue/cuecontext"
+	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
 	"cuelang.org/go/cue/token"
@@ -46,7 +47,7 @@ func Load(modPath string) (*Definition, error) {
 
 	moduleValue := v.LookupPath(cue.ParsePath("module"))
 	if err := moduleValue.Err(); err != nil {
-		return nil, fmt.Errorf("lookup module in %s: %w", FilePath(modPath), err)
+		return nil, fmt.Errorf("lookup module in %s:\n%s", FilePath(modPath), cueerrors.Details(err, nil))
 	}
 
 	data, err := moduleValue.MarshalJSON()
@@ -90,7 +91,7 @@ func ResolveConfigWithRoot(modPath string, cfg map[string]any, root map[string]a
 
 	configSchema := v.LookupPath(cue.ParsePath("module.config"))
 	if err := configSchema.Err(); err != nil {
-		return nil, fmt.Errorf("lookup module.config in %s: %w", FilePath(modPath), err)
+		return nil, fmt.Errorf("lookup module.config in %s:\n%s", FilePath(modPath), cueerrors.Details(err, nil))
 	}
 
 	if cfg == nil {
@@ -103,12 +104,12 @@ func ResolveConfigWithRoot(modPath string, cfg map[string]any, root map[string]a
 
 	cfgValue := ctx.CompileBytes(data, cue.Filename("module-config.json"))
 	if err := cfgValue.Err(); err != nil {
-		return nil, fmt.Errorf("compile module config for %s: %w", modPath, err)
+		return nil, fmt.Errorf("compile module config for %s:\n%s", modPath, cueerrors.Details(err, nil))
 	}
 
 	unified := configSchema.Unify(cfgValue)
 	if err := unified.Validate(cue.Concrete(true)); err != nil {
-		return nil, fmt.Errorf("config validation failed for module %q: %w", filepath.Base(modPath), err)
+		return nil, fmt.Errorf("config validation failed for module %q:\n%s", filepath.Base(modPath), cueerrors.Details(err, nil))
 	}
 
 	resolvedJSON, err := unified.MarshalJSON()
@@ -174,7 +175,7 @@ func compileModuleWithContext(ctx *cue.Context, modPath string, root map[string]
 	}
 	v := ctx.BuildInstance(inst)
 	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile %s: %w", path, err)
+		return cue.Value{}, fmt.Errorf("compile %s:\n%s", path, cueerrors.Details(err, nil))
 	}
 	return v, nil
 }

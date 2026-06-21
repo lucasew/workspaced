@@ -321,18 +321,19 @@ func (g *Group) RunBubbleTea() error {
 		prog.Quit()
 	}()
 
-	_, err := prog.Run()
+	_, progErr := prog.Run()
 
 	// Clear handler after exit.
 	g.SetLogHandler(nil)
 
-	// Surface any task error (the prog just waits for done state; Wait
-	// returns the first error if any). Demos often ignore it to match
-	// previous behavior where failure was observed in PostRun.
-	if werr := g.Wait(); werr != nil {
-		if err == nil {
-			err = werr
-		}
+	// Surface the task error in preference to any ctx error from the tea
+	// program (which can happen if recordError canceled the ctx while prog
+	// was running). This ensures that the original error (e.g. a CUE
+	// validation error from config or modules) is what gets returned to the
+	// caller, instead of "context canceled".
+	taskErr := g.Wait()
+	if taskErr != nil {
+		return taskErr
 	}
-	return err
+	return progErr
 }

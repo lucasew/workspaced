@@ -15,6 +15,7 @@ import (
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/configcue"
+	cueerrors "cuelang.org/go/cue/errors"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
@@ -177,7 +178,11 @@ func main() {
 			}
 		}
 		logger := logging.GetLogger(rootCtx)
-		logger.Error("error", "err", err)
+		if details := cueerrors.Details(err, nil); details != "" {
+			logger.Error("error", "err", err, "details", "\n"+details)
+		} else {
+			logger.Error("error", "err", err)
+		}
 		os.Exit(1)
 	}
 }
