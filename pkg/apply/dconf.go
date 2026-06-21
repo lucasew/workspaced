@@ -14,13 +14,15 @@ import (
 	"workspaced/pkg/source"
 )
 
-type DconfProvider struct{}
+// DconfPlugin emits a content-hash marker so dconf changes participate in deploy planning.
+// Implements source.Plugin directly (no legacy Provider adapter).
+type DconfPlugin struct{}
 
-func (p *DconfProvider) Name() string {
+func (p *DconfPlugin) Name() string {
 	return "dconf"
 }
 
-func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredState, error) {
+func (p *DconfPlugin) Process(ctx context.Context, files []source.File) ([]source.File, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -30,26 +32,23 @@ func (p *DconfProvider) GetDesiredState(ctx context.Context) ([]source.DesiredSt
 		return nil, err
 	}
 	if dconfContent == "" {
-		return nil, nil
+		return files, nil
 	}
 
 	// Use content hash as marker to track changes
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(dconfContent)))
 
-	return []source.DesiredState{
-		{
-			File: &source.BufferFile{
-				BasicFile: source.BasicFile{
-					RelPathStr:    "dconf.marker",
-					TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
-					FileMode:      0644,
-					Info:          "provider:dconf (marker)",
-					FileType:      source.TypeStatic,
-				},
-				Content: []byte(hash),
-			},
+	marker := &source.BufferFile{
+		BasicFile: source.BasicFile{
+			RelPathStr:    "dconf.marker",
+			TargetBaseDir: filepath.Join(home, ".config", "workspaced"),
+			FileMode:      0644,
+			Info:          "dconf (marker)",
+			FileType:      source.TypeStatic,
 		},
-	}, nil
+		Content: []byte(hash),
+	}
+	return append(files, marker), nil
 }
 
 func ApplyHomeDconf(ctx context.Context) error {

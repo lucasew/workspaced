@@ -82,6 +82,3 @@ func SortActions(actions []Action) []Action {
 	})
 	return ordered
 }
-
-// Provider is an alias for source.Provider.
-type Provider = source.Provider

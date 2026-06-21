@@ -126,9 +126,3 @@ type DesiredState struct {
 func (d DesiredState) Target() string {
 	return filepath.Join(d.File.TargetBase(), d.File.RelPath())
 }
-
-// Provider generates desired states (legacy interface, kept for compatibility).
-type Provider interface {
-	Name() string
-	GetDesiredState(ctx context.Context) ([]DesiredState, error)
-}

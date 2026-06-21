@@ -94,7 +94,7 @@ type StandardDotfilesOptions struct {
 //   - dotd processor
 //   - strict conflict resolver
 //
-// It does *not* add home-specific things like the dconf provider.
+// It does *not* add home-specific things like the dconf plugin.
 //
 // The "config tree" is just one way to provide files (with the familiar
 // template conventions). Modules are another. Both end up as File entries

@@ -96,9 +96,9 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			return fmt.Errorf("failed to get home directory: %w", err)
 		}
 
-		// 1. Provider dconf (home-specific)
+		// 1. dconf marker plugin (home-specific)
 		pipeline := source.NewPipeline()
-		pipeline.AddPlugin(source.NewProviderPlugin(&apply.DconfProvider{}, 50))
+		pipeline.AddPlugin(&apply.DconfPlugin{})
 
 		// 2. Standard sources for this dotfiles repo targeting home
 		configDir := filepath.Join(dotfilesRoot, "config")
