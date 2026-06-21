@@ -2,7 +2,10 @@
 #
 # Bootstrap workspaced from GitHub Releases without assuming a fixed asset
 # naming scheme. Mirrors the Go github backend: fetch release metadata, score
-# assets by OS/arch (+ optional APPNAME hint), download + extract, run.
+# assets by OS/arch (+ optional APPNAME hint), download + extract, then run
+# `self-install` so the binary lives in the normal tool location (shim in
+# ~/.local/bin, binary in ~/.local/share/workspaced/bin). Any remaining args
+# are forwarded to that installed binary.
 #
 # Env overrides:
 #   REPO          owner/repo (default: lucasew/workspaced)
@@ -284,37 +287,81 @@ find_binary() {
 # Main
 # ---------------------------------------------------------------------------
 
-BIN="${DOWNLOAD_DIR}/${APPNAME}"
-if [[ ! -x $BIN ]]; then
-	# Maybe extracted previously under a different name/path
-	if found=$(find_binary "$DOWNLOAD_DIR" 2>/dev/null); then
-		BIN=$found
+ensure_bootstrap_binary() {
+	local bin found
+	bin="${DOWNLOAD_DIR}/${APPNAME}"
+	if [[ ! -x $bin ]]; then
+		if found=$(find_binary "$DOWNLOAD_DIR" 2>/dev/null); then
+			bin=$found
+		fi
 	fi
-fi
 
-if [[ ! -x ${BIN:-/nonexistent} ]]; then
-	API_URL=$(release_api_url)
-	RELEASE_JSON=$(github_api "$API_URL")
+	if [[ -x ${bin:-/nonexistent} ]]; then
+		echo "$bin"
+		return 0
+	fi
 
-	# Record resolved tag for debugging
+	local api_url release_json asset_line asset_name asset_url archive
+	api_url=$(release_api_url)
+	release_json=$(github_api "$api_url")
+
 	if command -v python3 >/dev/null 2>&1; then
-		RESOLVED_TAG=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name",""))' <<<"$RELEASE_JSON" 2>/dev/null || true)
-		VERSION="${VERSION:-${RESOLVED_TAG:-latest}}"
+		local resolved_tag
+		resolved_tag=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name",""))' <<<"$release_json" 2>/dev/null || true)
+		VERSION="${VERSION:-${resolved_tag:-latest}}"
 	fi
 
-	ASSET_LINE=$(pick_asset "$RELEASE_JSON")
-	ASSET_NAME=${ASSET_LINE%%	*}
-	ASSET_URL=${ASSET_LINE#*	}
+	asset_line=$(pick_asset "$release_json")
+	asset_name=${asset_line%%	*}
+	asset_url=${asset_line#*	}
 
-	ARCHIVE="${DOWNLOAD_DIR}/${ASSET_NAME}"
-	curl -fsSL -o "$ARCHIVE" "$ASSET_URL"
-	extract_archive "$ARCHIVE" "$DOWNLOAD_DIR"
+	archive="${DOWNLOAD_DIR}/${asset_name}"
+	curl -fsSL -o "$archive" "$asset_url"
+	extract_archive "$archive" "$DOWNLOAD_DIR"
 
-	BIN=$(find_binary "$DOWNLOAD_DIR") || {
-		echo "error: downloaded ${ASSET_NAME} but could not find ${APPNAME} binary in ${DOWNLOAD_DIR}" >&2
-		exit 1
+	bin=$(find_binary "$DOWNLOAD_DIR") || {
+		echo "error: downloaded ${asset_name} but could not find ${APPNAME} binary in ${DOWNLOAD_DIR}" >&2
+		return 1
 	}
-	chmod +x "$BIN" 2>/dev/null || true
+	chmod +x "$bin" 2>/dev/null || true
+	echo "$bin"
+}
+
+installed_binary() {
+	local candidates=(
+		"${HOME}/.local/bin/${APPNAME}"
+		"${HOME}/.local/share/workspaced/bin/${APPNAME}"
+		"${HOME}/.local/share/workspaced/bin/${APPNAME}.exe"
+	)
+	local c
+	for c in "${candidates[@]}"; do
+		if [[ -x $c ]]; then
+			echo "$c"
+			return 0
+		fi
+	done
+	return 1
+}
+
+BIN=$(ensure_bootstrap_binary)
+
+# Place the release binary in its final location via self-install (shim + share/bin).
+# If the caller invoked setup as `setup self-install …`, pass those flags through
+# and stop (install is the whole job).
+if [[ ${1:-} == self-install ]]; then
+	shift
+	exec "$BIN" self-install "$@"
 fi
 
-exec "$BIN" "$@"
+"$BIN" self-install -f
+
+INSTALLED=$(installed_binary) || {
+	echo "error: self-install succeeded but ${APPNAME} not found under ~/.local" >&2
+	exit 1
+}
+
+if [[ $# -eq 0 ]]; then
+	exit 0
+fi
+
+exec "$INSTALLED" "$@"
