@@ -16,6 +16,10 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	logger := logging.GetLogger(ctx)
 	logger.Info("computing source lock hashes", "sources", len(entries))
 	for alias, entry := range entries {
+		if strings.TrimSpace(entry.Hash) != "" {
+			logger.Debug("source lock hash already present, skipping re-resolution", "source", alias)
+			continue
+		}
 		logger.Info("computing source lock hash", "source", alias, "provider", entry.Provider)
 		src, ok := modFile.Sources[alias]
 		if !ok {

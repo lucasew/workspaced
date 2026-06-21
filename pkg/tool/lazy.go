@@ -250,7 +250,7 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 		return LockRefreshResult{}, ErrNilConfig
 	}
 
-	lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg)
+	lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg, false)
 	if err != nil {
 		return LockRefreshResult{}, err
 	}

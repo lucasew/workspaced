@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"workspaced/pkg/configcue"
 )
 
@@ -20,10 +22,10 @@ func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 	if err != nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
-	return GenerateLockWithConfig(ctx, ws, cfg)
+	return GenerateLockWithConfig(ctx, ws, cfg, true)
 }
 
-func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.Config) (LockResult, error) {
+func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.Config, force bool) (LockResult, error) {
 	if cfg == nil {
 		return LockResult{}, fmt.Errorf("failed to load config: %w", ErrNilConfig)
 	}
@@ -37,6 +39,33 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
 	}
 	sourceEntries := BuildSourceLockEntries(mod)
+
+	if !force {
+		// Pre-load hashes from the existing sumfile for sources that are already
+		// resolved/pinned. This avoids re-resolving (and re-hitting the network or
+		// even the "resolving github source" logs) on every refresh, mirroring the
+		// "skip if already locked with version" logic used for lazy tools.
+		// Only skip when not force (i.e. mod lock forces re-pinning).
+		if cursum, lerr := ws.LoadSumFile(); lerr == nil {
+			for name, entry := range sourceEntries {
+				if locked, ok := cursum.FindSource(name); ok && strings.TrimSpace(locked.Hash) != "" {
+					desiredRef := strings.TrimSpace(entry.Ref)
+					lockedRef := strings.TrimSpace(locked.Ref)
+					if desiredRef == "" || desiredRef == "HEAD" || desiredRef == lockedRef {
+						entry.Hash = locked.Hash
+						if strings.TrimSpace(locked.URL) != "" {
+							entry.URL = locked.URL
+						}
+						if lockedRef != "" {
+							entry.Ref = lockedRef
+						}
+						sourceEntries[name] = entry
+					}
+				}
+			}
+		}
+	}
+
 	if err := PopulateSourceLockHashes(ctx, mod, ws.ModulesBaseDir(), sourceEntries); err != nil {
 		return LockResult{}, err
 	}
