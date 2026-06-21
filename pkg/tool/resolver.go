@@ -164,8 +164,7 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 		return "", ErrNoVersionsFound
 	}
 
-	// We assume the first one is relevant (often latest from the provider).
-	// TODO: Add proper sorting/semver logic if provider doesn't guarantee order.
+	// Backends are expected to return versions newest-first; take the first.
 	return versions[0], nil
 }
 

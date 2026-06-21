@@ -115,7 +115,7 @@ func ensureRepoCloned(ctx context.Context, repoPath, remoteURL string) error {
 	return nil
 }
 
-func runCommand(ctx context.Context, cmd *exec.Cmd) error {
+func runCommand(_ context.Context, cmd *exec.Cmd) error {
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }

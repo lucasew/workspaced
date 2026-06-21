@@ -35,8 +35,9 @@ func GetProvider(id string) (Provider, error) {
 
 func ResolveProviderAndRef(from string, moduleName string) (string, string, error) {
 	f := strings.TrimSpace(from)
-	if f == "" || f == "local" {
-		return "local", moduleName, nil
+	if f == "" || f == "self" || f == "local" {
+		// "local" kept as a compatibility alias for the pre-rename provider id.
+		return "self", moduleName, nil
 	}
 	parts := strings.SplitN(f, ":", 2)
 	if len(parts) != 2 {

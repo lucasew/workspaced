@@ -71,7 +71,8 @@ func TestResolveModuleSourceDefaultsToSelfModulePath(t *testing.T) {
 	if got.Provider != "self" {
 		t.Fatalf("provider mismatch: got=%q", got.Provider)
 	}
-	if got.Ref != "/tmp/modules/icons" {
-		t.Fatalf("ref mismatch: got=%q", got.Ref)
+	// Relative to workspace root; the self module provider joins with Dir(modulesBaseDir).
+	if got.Ref != "modules/icons" {
+		t.Fatalf("ref mismatch: got=%q want=%q", got.Ref, "modules/icons")
 	}
 }

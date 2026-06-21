@@ -112,7 +112,9 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	}
 
 	switch provider {
-	case "self":
+	case "self", "local":
+		// Source inputs still say provider "local"; module provider ID is "self".
+		// Both mean "filesystem path relative to workspace (or absolute)".
 		base := filepath.Dir(modulesBaseDir)
 		customBase := strings.TrimSpace(src.Path)
 		if customBase != "" {
@@ -121,6 +123,9 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 			} else {
 				base = filepath.Join(base, customBase)
 			}
+		} else if provider == "local" {
+			// Bare local alias with no path: treat modulesBaseDir as the root.
+			base = modulesBaseDir
 		}
 		ref, version := splitRefAndVersion(right)
 		resolved, err := applyVersionLock(moduleName, "self", filepath.Join(base, ref), version, sumFile)

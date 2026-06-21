@@ -183,10 +183,6 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	}
 
 	logger.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
-
-	// TODO: Shell integration will handle PATH management
-	// Shim generation removed - see shell hooks for dynamic PATH injection
-
 	return nil
 }
 

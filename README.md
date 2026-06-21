@@ -14,4 +14,4 @@
 
 # TODO
 - [x] Rename DriverProvider to DriverFactory
-- [ ] Dismember check into linter and formatter?
+- [x] Dismember check into linter and formatter (pkg/checks/lint + pkg/checks/formatter)
