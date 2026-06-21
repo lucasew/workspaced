@@ -12,8 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/driver"
-	fetchurldriver "workspaced/pkg/driver/fetchurl"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/githubutil"
 	"workspaced/pkg/logging"
 )
 
@@ -32,46 +32,18 @@ func downloadAndExtractTarball(ctx context.Context, source Source, destDir strin
 	}, nil
 }
 
+// fetchAndExtractTarballURL downloads a GitHub tarball via httpclient with auth.
+// We cannot use the fetchurl driver here: private repos need Authorization on the
+// request, and fetchurl has no ConfigureRequest hook. Hash is verified locally
+// when expectedHash is set.
 func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, expectedHash string) (string, error) {
-	archivePath := filepath.Join(destDir, ".source.tar.gz")
-
-	if expectedHash != "" {
-		fetcher, err := driver.Get[fetchurldriver.Driver](ctx)
-		if err != nil {
-			return "", fmt.Errorf("failed to get fetchurl driver: %w", err)
-		}
-		out, err := os.Create(archivePath)
-		if err != nil {
-			return "", err
-		}
-		err = fetcher.Fetch(ctx, fetchurldriver.FetchOptions{
-			URLs: []string{url},
-			Algo: "sha256",
-			Hash: expectedHash,
-			Out:  out,
-			Size: 0, // unknown at tarball source fetch time; progress will be indeterminate
-		})
-		closeErr := out.Close()
-		if err != nil {
-			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
-			return "", err
-		}
-		if closeErr != nil {
-			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
-			return "", closeErr
-		}
-		if err := extractTarGzFromPath(ctx, archivePath, destDir); err != nil {
-			logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
-			return "", err
-		}
-		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(archivePath) })
-		return expectedHash, nil
-	}
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
+	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+	githubutil.ApplyAuth(ctx, req)
+
 	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get http client driver: %w", err)
@@ -82,23 +54,24 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	}
 	defer logging.Close(ctx, resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status: %s", resp.Status)
+		hint := ""
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+			if githubutil.Token(ctx) == "" {
+				hint = " (private repos require GITHUB_TOKEN or 'gh auth login')"
+			}
+		}
+		return "", fmt.Errorf("unexpected status: %s%s", resp.Status, hint)
 	}
 
 	h := sha256.New()
 	if err := extractTarGz(ctx, io.TeeReader(resp.Body, h), destDir); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
-func extractTarGzFromPath(ctx context.Context, path string, destDir string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
+	got := hex.EncodeToString(h.Sum(nil))
+	if expectedHash != "" && got != expectedHash {
+		return "", fmt.Errorf("hash mismatch: expected %s, got %s", expectedHash, got)
 	}
-	defer logging.Close(ctx, f)
-	return extractTarGz(ctx, f, destDir)
+	return got, nil
 }
 
 func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {

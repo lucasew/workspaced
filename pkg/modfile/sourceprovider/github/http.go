@@ -22,7 +22,8 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "workspaced")
+	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	githubutil.ApplyAuth(ctx, req)
 	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
@@ -30,7 +31,13 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	}
 	defer logging.Close(ctx, resp.Body)
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status: %s", resp.Status)
+		hint := ""
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+			if githubutil.Token(ctx) == "" {
+				hint = " (private repos require GITHUB_TOKEN or 'gh auth login')"
+			}
+		}
+		return fmt.Errorf("unexpected status: %s%s", resp.Status, hint)
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }
