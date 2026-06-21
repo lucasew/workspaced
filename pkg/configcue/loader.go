@@ -695,7 +695,7 @@ func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []str
 	return append(out, '\n'), nil
 }
 
-func findUp(start string, name string) (string, error) {
+func findUp(ctx context.Context, start string, name string) (string, error) {
 	if start == "" {
 		var err error
 		start, err = os.Getwd()
@@ -709,6 +709,17 @@ func findUp(start string, name string) (string, error) {
 		return "", err
 	}
 
+	// Determine the git root of the starting point (if any). We will not
+	// walk above it when looking for workspaced.cue. This ensures nested
+	// git repos don't see outer workspaced.cue files.
+	gitRoot, gitErr := getGitRoot(ctx, dir)
+	hasGitBoundary := gitErr == nil && gitRoot != ""
+	var absGit string
+	if hasGitBoundary {
+		absGit, _ = filepath.Abs(gitRoot)
+		absGit = filepath.Clean(absGit)
+	}
+
 	for {
 		candidate := filepath.Join(dir, name)
 		if fileExists(candidate) {
@@ -717,6 +728,14 @@ func findUp(start string, name string) (string, error) {
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			return "", nil
+		}
+		if hasGitBoundary {
+			absParent, _ := filepath.Abs(parent)
+			absParent = filepath.Clean(absParent)
+			if absParent != absGit && !strings.HasPrefix(absParent, absGit+string(filepath.Separator)) {
+				// would leave the git repo root; stop without considering parent
+				return "", nil
+			}
 		}
 		dir = parent
 	}
@@ -731,13 +750,11 @@ func ResolveWorkspaceCuePath(ctx context.Context, start string) (string, error) 
 		}
 	}
 
-	// Always walk up from the starting directory to find the *closest*
-	// workspaced.cue. This supports sub-workspaces inside a git repo
-	// (e.g. a skills sub-project having its own workspaced.cue deeper
-	// than the git root).
-	// The git root check is no longer used to short-circuit, because
-	// we want the most specific (innermost) config.
-	return findUp(start, "workspaced.cue")
+	// Walk up from the starting directory to find the *closest* workspaced.cue,
+	// but stop at the git root of the starting dir. This supports sub-workspaces
+	// (cues deeper in the tree) inside a git repo, while ensuring that a git repo
+	// nested inside another git repo does not inherit the parent's workspaced.cue.
+	return findUp(ctx, start, "workspaced.cue")
 }
 
 func getGitRoot(ctx context.Context, path string) (string, error) {
