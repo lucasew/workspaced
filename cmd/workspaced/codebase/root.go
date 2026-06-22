@@ -16,5 +16,4 @@ func GetCommand() *cobra.Command {
 		SilenceUsage:       true,
 	}
 	return Registry.FillCommands(cmd)
-
 }

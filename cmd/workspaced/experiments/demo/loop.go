@@ -27,6 +27,7 @@ func init() {
 				// Schedule using the task primitive (same as all other demos).
 				g.Go("loop-demo", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 					logger := logging.GetLogger(ctx)
+
 					for i := 1; i <= 5; i++ {
 						time.Sleep(1 * time.Second)
 						logger.Info("log line from loop", "iteration", i)
