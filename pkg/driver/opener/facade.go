@@ -7,7 +7,7 @@ import (
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/executil"
 )
 
@@ -47,7 +47,7 @@ func OpenWebapp(ctx context.Context, wa WebappConfig) error {
 	}
 	args := []string{}
 	if wa.URL != "" {
-		args = append(args, "--app="+env.NormalizeURL(wa.URL))
+		args = append(args, "--app="+envdriver.NormalizeURL(wa.URL))
 	}
 
 	if wa.Profile != "" {

@@ -11,7 +11,6 @@ import (
 	"text/template"
 	envdriver "workspaced/pkg/driver/env"
 	shimdriver "workspaced/pkg/driver/shim"
-	"workspaced/pkg/env"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
@@ -29,13 +28,13 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return "", ErrFileSkipped
 		},
 		"dotfiles": func() (string, error) {
-			return env.GetDotfilesRoot(ctx)
+			return envdriver.GetDotfilesRoot(ctx)
 		},
 		"home": func() (string, error) {
 			return envdriver.GetHomeDir(ctx)
 		},
 		"userDataDir": func() (string, error) {
-			return env.GetUserDataDir(ctx)
+			return envdriver.GetUserDataDir(ctx)
 		},
 		"file": func(name string, mode ...string) string {
 			perm := "0644"
@@ -92,7 +91,7 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return text.ToTitleCase(s)
 		},
 		"normalizeURL": func(url string) string {
-			return env.NormalizeURL(url)
+			return envdriver.NormalizeURL(url)
 		},
 		// Filesystem helpers
 		"readDir": func(path string) ([]string, error) {
@@ -109,7 +108,7 @@ func makeFuncMap(ctx context.Context) template.FuncMap {
 			return names, nil
 		},
 		"isPhone": func() bool {
-			return env.IsPhone(ctx)
+			return envdriver.IsPhone(ctx)
 		},
 		// Shim helpers
 		"shim": func(command ...string) (string, error) {

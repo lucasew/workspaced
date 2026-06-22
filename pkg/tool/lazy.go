@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"workspaced/pkg/configcue"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/git"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
@@ -267,7 +267,7 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 
 func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) (*modfile.Workspace, error) {
 	if homeMode {
-		dotfilesRoot, err := env.GetDotfilesRoot(ctx)
+		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get dotfiles root: %w", err)
 		}

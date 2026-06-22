@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/db/sqlc"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/types"
 
@@ -39,7 +39,7 @@ type DB struct {
 }
 
 func Open(ctx context.Context) (*DB, error) {
-	dataDir, err := env.GetUserDataDir(ctx)
+	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
 	}

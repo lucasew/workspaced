@@ -13,7 +13,7 @@ import (
 	"workspaced/pkg/api"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/logging"
@@ -41,7 +41,7 @@ func parseFlakeRef(ref string) (repo string, item string) {
 
 func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
 	if repo == "" || repo == "." || repo == "," {
-		root, err := env.GetDotfilesRoot(ctx)
+		root, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -222,16 +222,16 @@ func Build(ctx context.Context, ref string, useCache bool) (string, error) {
 }
 
 func Rebuild(ctx context.Context, action string, flake string) error {
-	hostname := env.GetHostname(ctx)
+	hostname, _ := envdriver.GetHostname(ctx)
 	if flake == "" || flake == "." || flake == "," {
-		root, err := env.GetDotfilesRoot(ctx)
+		root, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
 			return err
 		}
 		flake = root
 	}
 
-	if env.IsInStore(ctx) {
+	if envdriver.IsInStore(ctx) {
 		flake = "github:lucasew/nixcfg"
 	}
 
@@ -273,14 +273,14 @@ func Rebuild(ctx context.Context, action string, flake string) error {
 
 func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
 	if flake == "" || flake == "." || flake == "," {
-		root, err := env.GetDotfilesRoot(ctx)
+		root, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
 			return err
 		}
 		flake = root
 	}
 
-	if env.IsInStore(ctx) {
+	if envdriver.IsInStore(ctx) {
 		flake = "github:lucasew/nixcfg"
 	}
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"workspaced/pkg/driver"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/taskgroup"
 )
 
@@ -154,7 +154,7 @@ func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
 		return Load(ctx)
 	}
 
-	dotfilesRoot, err := env.GetDotfilesRoot(ctx)
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err == nil && filepath.Clean(dotfilesRoot) == filepath.Clean(root) {
 		return LoadHome(ctx)
 	}

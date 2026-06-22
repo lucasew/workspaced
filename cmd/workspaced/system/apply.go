@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
@@ -19,7 +19,7 @@ func RunApply(ctx context.Context, action string) error {
 	logger := logging.GetLogger(ctx)
 	dryRun := cmdctx.IsDryRun(ctx)
 
-	dotfilesRoot, err := env.GetDotfilesRoot(ctx)
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get dotfiles root: %w", err)
 	}
@@ -33,7 +33,7 @@ func RunApply(ctx context.Context, action string) error {
 	}
 	logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
 
-	if !env.IsNixOS(ctx) {
+	if !envdriver.IsNixOS(ctx) {
 		logger.Info("not running on NixOS; skipping system apply")
 		return nil
 	}
@@ -45,7 +45,7 @@ func RunApply(ctx context.Context, action string) error {
 	}
 
 	flake := ""
-	hostname := env.GetHostname(ctx)
+	hostname, _ := envdriver.GetHostname(ctx)
 	if hostname == "riverwood" {
 		logger.Info("performing remote build for riverwood")
 		ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)

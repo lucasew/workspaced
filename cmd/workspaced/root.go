@@ -17,7 +17,7 @@ import (
 	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/configcue"
 	_ "workspaced/pkg/driver/prelude"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/taskgroup"
@@ -93,7 +93,7 @@ func main() {
 			// where we call into env driver code that leads to GetLogger).
 			// This ensures the ctx is the one from the actual root, not a
 			// disconnected Background.
-			env.SetupEssentialPaths(c.Context())
+			envdriver.SetupEssentialPaths(c.Context())
 
 			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
 			c.SetContext(cmdctx.WithDryRun(c.Context(), dryRun))

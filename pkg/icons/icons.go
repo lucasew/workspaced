@@ -19,7 +19,7 @@ import (
 
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
@@ -27,7 +27,7 @@ import (
 var ErrBadHTTPStatus = errors.New("unexpected HTTP status")
 
 func GetIconPath(ctx context.Context, url string) (string, error) {
-	configDir, err := env.GetConfigDir(ctx)
+	configDir, err := envdriver.GetConfigDir(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -36,7 +36,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		return "", err
 	}
 
-	normalized := env.NormalizeURL(url)
+	normalized := envdriver.NormalizeURL(url)
 	hash := sha256.Sum256([]byte(normalized))
 	hashStr := hex.EncodeToString(hash[:])
 	path := filepath.Join(iconsDir, hashStr+".png")

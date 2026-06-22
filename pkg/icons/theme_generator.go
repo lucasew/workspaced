@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 )
 
 var ErrIconSourceDirNotFound = errors.New("icon source directory not found")
@@ -71,8 +71,8 @@ func (o ThemeGenerateOptions) WithDefaults() ThemeGenerateOptions {
 
 func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 	opts = opts.WithDefaults()
-	inputDir := env.ExpandPath(opts.InputDir)
-	outputDir := env.ExpandPath(opts.OutputDir)
+	inputDir := envdriver.ExpandPath(opts.InputDir)
+	outputDir := envdriver.ExpandPath(opts.OutputDir)
 
 	if _, err := os.Stat(inputDir); err != nil {
 		return fmt.Errorf("%w: %s", ErrIconSourceDirNotFound, inputDir)

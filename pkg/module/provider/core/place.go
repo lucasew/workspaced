@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/module"
 )
 
@@ -70,7 +70,7 @@ func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 			continue
 		}
 
-		srcPath := env.ExpandPath(s)
+		srcPath := envdriver.ExpandPath(s)
 		destClean := strings.Trim(dest, "/")
 
 		st, err := os.Stat(srcPath)

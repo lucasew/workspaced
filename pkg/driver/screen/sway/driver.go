@@ -8,7 +8,7 @@ import (
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/screen"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/executil"
 )
 
@@ -54,7 +54,7 @@ func (d *Driver) IsDPMSOn(ctx context.Context) (bool, error) {
 }
 
 func (d *Driver) Reset(ctx context.Context) error {
-	hostname := env.GetHostname(ctx)
+	hostname, _ := envdriver.GetHostname(ctx)
 	if hostname == "riverwood" {
 		// eDP-1 (notebook) on the LEFT (0,0), HDMI-A-1 on the RIGHT
 		if err := execdriver.MustRun(ctx, "swaymsg", "output", "eDP-1", "mode", "1366x768", "pos", "0", "0").Run(); err != nil {

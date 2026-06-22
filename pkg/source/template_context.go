@@ -5,7 +5,7 @@ import (
 	"os"
 	"runtime"
 	"workspaced/pkg/configcue"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 
 	"github.com/pbnjay/memory"
 )
@@ -34,16 +34,17 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 	}
 
 	home, _ := os.UserHomeDir()
-	dotfilesRoot, _ := env.GetDotfilesRoot(ctx)
-	userDataDir, _ := env.GetUserDataDir(ctx)
+	dotfilesRoot, _ := envdriver.GetDotfilesRoot(ctx)
+	userDataDir, _ := envdriver.GetUserDataDir(ctx)
+	hostname, _ := envdriver.GetHostname(ctx)
 
 	runtime := map[string]any{
 		"module_name":   moduleName,
 		"dotfiles_root": dotfilesRoot,
 		"home":          home,
 		"user_data_dir": userDataDir,
-		"is_phone":      env.IsPhone(ctx),
-		"hostname":      env.GetHostname(ctx),
+		"is_phone":      envdriver.IsPhone(ctx),
+		"hostname":      hostname,
 		"goos":          runtime.GOOS,
 		"goarch":        runtime.GOARCH,
 		"memory":        memory.TotalMemory(),

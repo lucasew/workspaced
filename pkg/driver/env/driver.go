@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"workspaced/pkg/driver"
 )
 
@@ -134,4 +136,32 @@ func ExpandPath(path string) string {
 		}
 	}
 	return os.ExpandEnv(path)
+}
+
+// NormalizeURL normalizes a URL by adding a protocol if missing.
+// Absolute/tilde paths become file://; everything else gets https://.
+func NormalizeURL(url string) string {
+	if strings.HasPrefix(url, "file://") || strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+	if strings.HasPrefix(url, "/") || strings.HasPrefix(url, "~/") {
+		return "file://" + ExpandPath(url)
+	}
+	return "https://" + url
+}
+
+// SetupEssentialPaths adjusts the current process $PATH to include platform
+// essential directories (from the selected env driver). Call from root command
+// setup with a ctx that already has a logger.
+func SetupEssentialPaths(ctx context.Context) {
+	essential := GetEssentialPaths(ctx)
+	newPath := strings.Split(os.Getenv("PATH"), ":")
+	for _, path := range essential {
+		if !slices.Contains(newPath, path) {
+			newPath = append([]string{path}, newPath...)
+		}
+	}
+	if err := os.Setenv("PATH", strings.Join(newPath, ":")); err != nil {
+		panic(err)
+	}
 }

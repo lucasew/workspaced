@@ -13,7 +13,7 @@ import (
 	"workspaced/pkg/deployer"
 	"workspaced/pkg/dotfiles"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
@@ -80,7 +80,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		dotfilesRoot, err := env.GetDotfilesRoot(ctx)
+		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get dotfiles root: %w", err)
 		}
@@ -158,7 +158,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 					if execErr != nil {
 						return nil // Don't execute if there was an error
 					}
-					if env.IsPhone(ctx) {
+					if envdriver.IsPhone(ctx) {
 						return nil // Don't execute on phone
 					}
 

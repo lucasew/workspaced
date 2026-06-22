@@ -21,7 +21,7 @@ import (
 	"cuelang.org/go/cue/ast"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modulecue"
 
@@ -71,7 +71,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	}
 
 	if opts.HomeMode {
-		dotfilesRoot, err := env.GetDotfilesRoot(ctx)
+		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err == nil && dotfilesRoot != "" {
 			p := filepath.Join(dotfilesRoot, "workspaced.cue")
 			if fileExists(p) {
@@ -91,7 +91,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	}
 
 	if opts.HomeMode {
-		configDir, err := env.GetConfigDir(ctx)
+		configDir, err := envdriver.GetConfigDir(ctx)
 		if err == nil && configDir != "" {
 			p := filepath.Join(configDir, "workspaced.cue")
 			if fileExists(p) {
@@ -776,13 +776,13 @@ func fileExists(path string) bool {
 
 func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[string]any) (string, error) {
 	home, _ := os.UserHomeDir()
-	dotfilesRoot, _ := env.GetDotfilesRoot(ctx)
-	configDir, _ := env.GetConfigDir(ctx)
-	userDataDir, _ := env.GetUserDataDir(ctx)
-	hostname := env.GetHostname(ctx)
+	dotfilesRoot, _ := envdriver.GetDotfilesRoot(ctx)
+	configDir, _ := envdriver.GetConfigDir(ctx)
+	userDataDir, _ := envdriver.GetUserDataDir(ctx)
+	hostname, _ := envdriver.GetHostname(ctx)
 
 	runtimeMap := map[string]any{
-		"is_phone":      env.IsPhone(ctx),
+		"is_phone":      envdriver.IsPhone(ctx),
 		"hostname":      hostname,
 		"home":          home,
 		"dotfiles_root": dotfilesRoot,

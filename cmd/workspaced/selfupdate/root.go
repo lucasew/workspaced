@@ -17,7 +17,7 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
@@ -390,12 +390,12 @@ func findSourcePath(ctx context.Context) (string, bool) {
 	var candidates []string
 
 	// 1. ~/.config/workspaced/src/
-	if configDir, err := env.GetConfigDir(ctx); err == nil {
+	if configDir, err := envdriver.GetConfigDir(ctx); err == nil {
 		candidates = append(candidates, filepath.Join(configDir, "src"))
 	}
 
 	// 2. $DOTFILES/workspaced/
-	if dotfilesRoot, err := env.GetDotfilesRoot(ctx); err == nil {
+	if dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx); err == nil {
 		candidates = append(candidates, filepath.Join(dotfilesRoot, "workspaced"))
 	}
 

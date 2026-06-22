@@ -6,7 +6,7 @@ import (
 	"strings"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/nix"
@@ -28,7 +28,7 @@ func init() {
 
 				flake, _ := cmd.Flags().GetString("flake")
 				if flake == "" {
-					root, err := env.GetDotfilesRoot(ctx)
+					root, err := envdriver.GetDotfilesRoot(ctx)
 					if err != nil {
 						return err
 					}

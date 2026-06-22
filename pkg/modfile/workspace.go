@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/git"
 )
 
@@ -31,7 +31,7 @@ func DetectWorkspace(ctx context.Context, wd string) (*Workspace, error) {
 		return NewWorkspace(root), nil
 	}
 
-	root, err := env.GetDotfilesRoot(ctx)
+	root, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect workspace root from git and dotfiles root: %w", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 )
 
@@ -20,7 +20,7 @@ type CASWriter struct {
 }
 
 func NewCASWriter(ctx context.Context) (*CASWriter, error) {
-	dataDir, err := env.GetUserDataDir(ctx)
+	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
 	}

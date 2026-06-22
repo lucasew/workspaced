@@ -13,7 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/icons"
 	"workspaced/pkg/module"
 )
@@ -84,11 +84,11 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 	if strings.TrimSpace(cfg.InputDir) == "" {
 		return nil, ErrInputDirRequired
 	}
-	cfg.InputDir = env.ExpandPath(cfg.InputDir)
+	cfg.InputDir = envdriver.ExpandPath(cfg.InputDir)
 	if cfg.OutputDir == "" {
 		cfg.OutputDir = filepath.Join("~/.local/share/icons", cfg.ThemeName)
 	}
-	cfg.OutputDir = env.ExpandPath(cfg.OutputDir)
+	cfg.OutputDir = envdriver.ExpandPath(cfg.OutputDir)
 
 	if _, err := os.Stat(cfg.InputDir); err != nil {
 		return nil, fmt.Errorf("invalid input_dir %q: %w", cfg.InputDir, err)
@@ -106,7 +106,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 		return nil, err
 	}
 
-	cacheRoot := env.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
+	cacheRoot := envdriver.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
 	cacheDir := filepath.Join(cacheRoot, fp)
 	if _, err := os.Stat(filepath.Join(cacheDir, "index.theme")); os.IsNotExist(err) {
 		if err := os.MkdirAll(cacheDir, 0755); err != nil {

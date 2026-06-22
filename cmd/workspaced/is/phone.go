@@ -2,7 +2,7 @@ package is
 
 import (
 	"errors"
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 
 	"github.com/spf13/cobra"
 )
@@ -15,7 +15,7 @@ func init() {
 			Use:   "phone",
 			Short: "Check if environment is a phone",
 			RunE: func(c *cobra.Command, args []string) error {
-				if !env.IsPhone(c.Context()) {
+				if !envdriver.IsPhone(c.Context()) {
 					return ErrNotPhone
 				}
 				return nil

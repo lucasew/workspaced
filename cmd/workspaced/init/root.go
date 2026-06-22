@@ -12,7 +12,6 @@ import (
 	"text/template"
 	"workspaced/pkg/constants"
 	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/env"
 	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
@@ -53,7 +52,7 @@ func runInit(ctx context.Context, force bool) error {
 	}
 
 	// 1. Detect dotfiles root
-	dotfilesRoot, err := env.GetDotfilesRoot(ctx)
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil || dotfilesRoot == "" {
 		// Use first candidate from constants (typically ~/.dotfiles)
 		dotfilesRoot = envdriver.ExpandPath(constants.DotfilesCandidates[0])

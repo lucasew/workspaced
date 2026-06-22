@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"workspaced/pkg/env"
+	envdriver "workspaced/pkg/driver/env"
 )
 
 // GenerateDaemon generates daemon startup code
@@ -18,7 +18,7 @@ fi
 
 // GenerateFlags generates shell init flags
 func GenerateFlags(ctx context.Context) (string, error) {
-	root, _ := env.GetDotfilesRoot(ctx)
+	root, _ := envdriver.GetDotfilesRoot(ctx)
 	return fmt.Sprintf(`# Flag to indicate workspaced shell init is being used
 export WORKSPACED_SHELL_INIT=1
 export SD_ROOT=%q/bin
