@@ -20,8 +20,8 @@ import (
 
 	"cuelang.org/go/cue/ast"
 	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
 	envdriver "workspaced/pkg/driver/env"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modulecue"
 

@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	execdriver "workspaced/pkg/driver/exec"
 	envdriver "workspaced/pkg/driver/env"
+	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
 )
 
