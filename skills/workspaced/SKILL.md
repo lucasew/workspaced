@@ -23,6 +23,8 @@ two references; **link** or say “see X”.
 | Flags, arg shapes, invocation examples | **`workspaced … --help`** (and `Example`/`Long` on the command) | Skill body, tables of every subcommand |
 | Mental model, when/why, cross-subsystem gotchas | **This skill** (`SKILL.md` + `references/`) | Duplicating help Examples blocks |
 | Template kinds, functions, pitfalls | **`references/templates.md` only** | Second template guide elsewhere in repo |
+| CUE **language** (unify, lattice, defs, `?`/`!`, defaults) | **`skills/cue-language/`** | Re-teaching CUE in this skill’s `cue.md` |
+| Workspaced **host** contracts for CUE (roots, evaluated keys, merge edges) | **`references/cue.md`** + `modules.md` | cue-language skill (it points here instead) |
 | Hard contributor rules (CUE schema order, preludes) | **`AGENTS.md` / `CODEMAP.md`** | This skill (usage only) |
 | User’s real config | **Their `workspaced.cue` + modules on disk** | Assuming init shape is universal |
 
@@ -55,17 +57,36 @@ lists, generator fast-path, inspect internals, every practical example).
 | Essential | Modules / inputs / lock | `references/modules.md` | Model + lock + gotchas |
 | Essential | Tools / PATH / `tool with` meaning | `references/tools-and-access.md` | Access modes + gotchas; **not** help examples |
 | Essential | Drivers vs apply | `references/drivers.md` | Whole file is short |
-| Deep | CUE authoring / merge edges | `references/cue.md` | When writing/refactoring cue |
+| Deep | Workspaced + CUE host contracts | `references/cue.md` | When writing/refactoring *workspaced* cue |
+| Deep | CUE language mechanics | **`../cue-language/`** (sibling skill) | Unify/`_|_`/defs/disjunctions/defaults — not duplicated here |
 | Deep | Writing/editing templates | `references/templates.md` | Kinds table first; functions/examples/internal/generator only if authoring |
 | Optional | Demos / experiments | `references/demos-and-experiments.md` | Only if exploring `experiments`/`utils demo` |
 
-Paths are relative to `skills/workspaced/`. **Usually 1 essential ref**, plus
-deep only if editing that subsystem.
+Paths are relative to `skills/workspaced/` unless noted. **Usually 1 essential
+ref**, plus deep only if editing that subsystem.
+
+## With `cue-language` (sibling skill)
+
+Both may trigger on `workspaced.cue`. **Order matters:**
+
+1. **Product / ops first** (this skill): wrong root, modules, lock, plan/apply,
+   tools, drivers, templates — even if the file extension is `.cue`.
+2. **Language when the obstacle is CUE** (`skills/cue-language/`): unification
+   fails, `_|_`, defaults (`*`), definitions (`#…`), optional/required (`?`/`!`),
+   closedness, comprehensions as *language*.
+3. **Both when authoring non-trivial workspaced config:** cue-language (legal
+   CUE) then this skill’s `references/cue.md` + `modules.md` (usable for this
+   host). Always prefer the user’s on-disk cue over either skill’s examples.
+
+Do **not** load cue-language for apply/lock/tools/drivers-only tasks. Do **not**
+use cue-language answers as a substitute for which `workspaced.cue` loads or
+whether to plan/apply.
 
 ## Not this skill
 
 - Implementing workspaced internals: `AGENTS.md` / `CODEMAP.md`.
 - Argv encyclopedias: `workspaced [path…] --help`.
+- CUE language textbook: `skills/cue-language/` (see above).
 
 ## Universals (only facts allowed to repeat everywhere in one line)
 
@@ -96,5 +117,8 @@ paragraphs.
 - **Change dotfiles:** user’s cue + `modules.md` essential; if editing files
   under `config/`, then `templates.md` (deep as needed) + plan/apply
 - **One-shot tool:** `tools-and-access.md` essential; `tool with --help` for specs
-- **Clever cue:** `cue.md` then `modules.md`
+- **Clever / non-trivial cue for workspaced:** `skills/cue-language/` for
+  mechanics, then `references/cue.md` + `modules.md` for host contracts
+- **CUE unify/`_|_`/defs only (not workspaced behavior):** `skills/cue-language/`
+  alone; add this skill only if apply/lock/roots/modules are in play
 - **Demos only:** `demos-and-experiments.md`

@@ -1,7 +1,14 @@
 # CUE and workspaced
 
-**Deep** by default (only when authoring/refactoring cue). For “what is
-workspaced” without editing cue, skip this file. Universals: **SKILL.md**.
+**Not a CUE language tutorial.** Lattice, unification, disjunctions, defaults
+(`*`), definitions (`#…`), field qualifiers (`?`/`!`), closedness, and general
+authoring mechanics live in the sibling skill **`skills/cue-language/`**. Load
+that when the problem is *CUE itself* (e.g. `_|_`, wrong default arm, closed
+struct surprises). Load **this file** when the problem is *workspaced’s contract*
+with evaluated config.
+
+**Deep** by default (only when authoring/refactoring workspaced cue). For “what
+is workspaced” without editing cue, skip this file. Universals: **SKILL.md**.
 
 ## Stance
 
@@ -13,12 +20,15 @@ Outside-the-box is welcome: definitions (`#…`), comprehensions, shared fragmen
 per-host overlays, factoring palettes/tools into reusable blocks, building maps
 from lists **inside CUE** so the *output* is merge-friendly, embedding files,
 splitting packages — whatever still evaluates to what workspaced understands.
+Use **cue-language** for *how* those constructs work; use **this file** for
+*whether workspaced will honor the result*.
 
 **Prefer the user’s existing `workspaced.cue` as the local dialect.** Init’s
 minimal example is a starter, not law.
 
-This skill is not a CUE language tutorial. If you need CUE mechanics, use CUE
-docs; here we only cover how workspaced meets CUE.
+**Inspect product-side evaluation** with workspaced config commands (`home` /
+`codebase` `config` get/eval/dump/layers — see `--help`), not only standalone
+`cue eval` (which may not use the same loaders/preludes/roots).
 
 ## What workspaced actually consumes
 
