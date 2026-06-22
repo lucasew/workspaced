@@ -78,6 +78,7 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		_ = out.Close()
 	}()

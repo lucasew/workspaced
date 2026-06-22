@@ -65,6 +65,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(updateMsg)
 		s.Progress(0, 1)
+
 		defer s.Progress(1, 1)
 
 		logger := logging.GetLogger(ctx)

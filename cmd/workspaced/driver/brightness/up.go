@@ -13,7 +13,6 @@ func init() {
 			Use:   "up",
 			Short: "Increase brightness",
 			RunE: func(c *cobra.Command, args []string) error {
-
 				d, err := driver.Get[brightness.Driver](c.Context())
 				if err != nil {
 					return err

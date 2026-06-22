@@ -26,7 +26,6 @@ func init() {
 					return err
 				}
 				return brightness.ShowStatus(c.Context())
-
 			},
 		})
 	})
