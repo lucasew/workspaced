@@ -20,7 +20,7 @@ workspaced: {
 			bins: *["actionlint"] | [...string]
 		}
 		biome: {
-			ref:  *"github:biomejs/biome" | string
+			ref:  *"registry:biome" | string
 			bins: *["biome"] | [...string]
 		}
 		nodejs: {
