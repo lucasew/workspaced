@@ -34,9 +34,9 @@ func TestBiomeVersionFromTag(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		tag  string
-		ver  string
-		ok   bool
+		tag string
+		ver string
+		ok  bool
 	}{
 		{"@biomejs/biome@2.5.0", "2.5.0", true},
 		{"@biomejs/js-api@6.0.0", "", false},
