@@ -4,7 +4,7 @@ g Workspaced Development
 1. [README.md](README.md) — one-sentence terms + minimal architecture.
 2. [CODEMAP.md](CODEMAP.md) — quick navigation + how to find things.
 3. This file — hard rules and gotchas.
-4. [TEMPLATES.md](TEMPLATES.md) — **critical** before touching any templates.
+4. [skills/workspaced/references/templates.md](skills/workspaced/references/templates.md) — **critical** before touching any templates (usage skill; kinds, functions, pitfalls).
 
 ## Hard Rules (break these and things will be wrong)
 

@@ -44,7 +44,7 @@ See README.md (one sentence per term). We are actively removing "provider" overl
 
 ## Documentation Style This Project Likes
 
-See `TEMPLATES.md` — decision tree + concrete examples + quick reference tables. Do the same for complex subsystems.
+See `skills/workspaced/references/templates.md` — decision tree + concrete examples + quick reference tables. Do the same for complex subsystems (usage skill under `skills/workspaced/`).
 
 `AGENTS.md` contains the "when you do X, touch these files in this order" rules.
 
@@ -54,6 +54,6 @@ See `TEMPLATES.md` — decision tree + concrete examples + quick reference table
 - Use `pkg/driver/exec` outside of driver implementations.
 - Import driver/tool preludes only from `cmd/workspaced/root.go`.
 
-See AGENTS.md and TEMPLATES.md for the rest.
+See AGENTS.md and `skills/workspaced/` for the rest.
 
 **Update this file when big structure changes happen.**
