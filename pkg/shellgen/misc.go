@@ -18,7 +18,10 @@ fi
 
 // GenerateFlags generates shell init flags
 func GenerateFlags(ctx context.Context) (string, error) {
-	root, _ := envdriver.GetDotfilesRoot(ctx)
+	root, err := envdriver.GetDotfilesRoot(ctx)
+	if err != nil {
+		return "", fmt.Errorf("dotfiles root: %w", err)
+	}
 	return fmt.Sprintf(`# Flag to indicate workspaced shell init is being used
 export WORKSPACED_SHELL_INIT=1
 export SD_ROOT=%q/bin

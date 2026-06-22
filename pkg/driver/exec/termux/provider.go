@@ -218,7 +218,12 @@ func setupTermuxEnv(ctx context.Context, prefix string) []string {
 
 	// Fix HOME for Termux (mise and other tools use this for shims)
 	// Use env driver to get correct home (handles chroot)
-	if actualHome, err := envdriver.GetHomeDir(ctx); err == nil {
+	actualHome, err := envdriver.GetHomeDir(ctx)
+	if err != nil {
+		// Cannot safely fix HOME/mise paths; leave env as-is rather than guess.
+		// Caller still gets a usable command; mise may mis-resolve in chroot.
+		logging.ReportError(ctx, err, "context", "termux exec: GetHomeDir failed")
+	} else {
 		envMap["HOME"] = actualHome
 
 		// Configure mise to use correct paths

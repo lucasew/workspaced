@@ -45,7 +45,10 @@ func RunApply(ctx context.Context, action string) error {
 	}
 
 	flake := ""
-	hostname, _ := envdriver.GetHostname(ctx)
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return fmt.Errorf("hostname: %w", err)
+	}
 	if hostname == "riverwood" {
 		logger.Info("performing remote build for riverwood")
 		ref := fmt.Sprintf(".#nixosConfigurations.%s.config.system.build.toplevel", hostname)

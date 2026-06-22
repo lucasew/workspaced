@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"runtime"
 	"workspaced/pkg/configcue"
@@ -33,10 +34,22 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 		}
 	}
 
-	home, _ := os.UserHomeDir()
-	dotfilesRoot, _ := envdriver.GetDotfilesRoot(ctx)
-	userDataDir, _ := envdriver.GetUserDataDir(ctx)
-	hostname, _ := envdriver.GetHostname(ctx)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("user home dir: %w", err)
+	}
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dotfiles root: %w", err)
+	}
+	userDataDir, err := envdriver.GetUserDataDir(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("user data dir: %w", err)
+	}
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("hostname: %w", err)
+	}
 
 	runtime := map[string]any{
 		"module_name":   moduleName,

@@ -54,7 +54,10 @@ func (d *Driver) IsDPMSOn(ctx context.Context) (bool, error) {
 }
 
 func (d *Driver) Reset(ctx context.Context) error {
-	hostname, _ := envdriver.GetHostname(ctx)
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return err
+	}
 	if hostname == "riverwood" {
 		// eDP-1 (notebook) on the LEFT (0,0), HDMI-A-1 on the RIGHT
 		if err := execdriver.MustRun(ctx, "swaymsg", "output", "eDP-1", "mode", "1366x768", "pos", "0", "0").Run(); err != nil {

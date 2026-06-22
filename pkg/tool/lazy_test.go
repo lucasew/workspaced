@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"workspaced/pkg/configcue"
+	_ "workspaced/pkg/driver/env/native"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"

@@ -60,7 +60,11 @@ in ~/.local/bin/workspaced is updated automatically.`,
 			// emoji/type in the progress UI.
 			pool := taskgroup.Control
 			msg := "self-updating workspaced"
-			if _, found := findSourcePath(ctx); found {
+			srcPath, err := findSourcePath(ctx)
+			if err != nil {
+				return err
+			}
+			if srcPath != "" {
 				pool = taskgroup.CPU // compiling is CPU-bound
 				msg = "compiling from source"
 			} else {
@@ -89,7 +93,11 @@ in ~/.local/bin/workspaced is updated automatically.`,
 
 func runSelfUpdate(ctx context.Context, force bool) error {
 	// Try source build first (dev mode - always rebuilds)
-	if srcPath, found := findSourcePath(ctx); found {
+	srcPath, err := findSourcePath(ctx)
+	if err != nil {
+		return err
+	}
+	if srcPath != "" {
 		logger := logging.GetLogger(ctx)
 		logger.Info("building from source (always rebuilds)", "path", srcPath)
 		return buildAndInstallFromSource(ctx, srcPath)
@@ -386,26 +394,31 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 // Helper functions
 // ============================================================================
 
-func findSourcePath(ctx context.Context) (string, bool) {
+func findSourcePath(ctx context.Context) (string, error) {
 	var candidates []string
 
 	// 1. ~/.config/workspaced/src/
-	if configDir, err := envdriver.GetConfigDir(ctx); err == nil {
-		candidates = append(candidates, filepath.Join(configDir, "src"))
+	configDir, err := envdriver.GetConfigDir(ctx)
+	if err != nil {
+		return "", fmt.Errorf("config dir: %w", err)
 	}
+	candidates = append(candidates, filepath.Join(configDir, "src"))
 
 	// 2. $DOTFILES/workspaced/
-	if dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx); err == nil {
-		candidates = append(candidates, filepath.Join(dotfilesRoot, "workspaced"))
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
+	if err != nil {
+		return "", fmt.Errorf("dotfiles root: %w", err)
 	}
+	candidates = append(candidates, filepath.Join(dotfilesRoot, "workspaced"))
 
 	for _, path := range candidates {
 		if _, err := os.Stat(path); err == nil {
-			return path, true
+			return path, nil
 		}
 	}
 
-	return "", false
+	// No candidate exists on disk; caller falls back to GitHub update.
+	return "", nil
 }
 
 func getGoVersion() string {

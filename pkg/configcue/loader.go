@@ -775,11 +775,26 @@ func fileExists(path string) bool {
 }
 
 func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[string]any) (string, error) {
-	home, _ := os.UserHomeDir()
-	dotfilesRoot, _ := envdriver.GetDotfilesRoot(ctx)
-	configDir, _ := envdriver.GetConfigDir(ctx)
-	userDataDir, _ := envdriver.GetUserDataDir(ctx)
-	hostname, _ := envdriver.GetHostname(ctx)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("user home dir: %w", err)
+	}
+	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
+	if err != nil {
+		return "", fmt.Errorf("dotfiles root: %w", err)
+	}
+	configDir, err := envdriver.GetConfigDir(ctx)
+	if err != nil {
+		return "", fmt.Errorf("config dir: %w", err)
+	}
+	userDataDir, err := envdriver.GetUserDataDir(ctx)
+	if err != nil {
+		return "", fmt.Errorf("user data dir: %w", err)
+	}
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return "", fmt.Errorf("hostname: %w", err)
+	}
 
 	runtimeMap := map[string]any{
 		"is_phone":      envdriver.IsPhone(ctx),

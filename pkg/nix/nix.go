@@ -222,7 +222,10 @@ func Build(ctx context.Context, ref string, useCache bool) (string, error) {
 }
 
 func Rebuild(ctx context.Context, action string, flake string) error {
-	hostname, _ := envdriver.GetHostname(ctx)
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return fmt.Errorf("hostname: %w", err)
+	}
 	if flake == "" || flake == "." || flake == "," {
 		root, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
