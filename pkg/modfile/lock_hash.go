@@ -51,12 +51,11 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		}
 		if strings.TrimSpace(resolved.URL) != "" {
 			entry.URL = strings.TrimSpace(resolved.URL)
-			if pinnedRef := refFromCodeloadTarballURL(entry.URL); pinnedRef != "" {
-				entry.Ref = pinnedRef
-			}
 		}
-		if strings.TrimSpace(entry.Ref) == "" && strings.TrimSpace(resolved.Ref) != "" {
-			entry.Ref = strings.TrimSpace(resolved.Ref)
+		// Prefer the provider's resolved symbolic ref (branch/tag for renovate
+		// git-refs). Commit pins live in the tarball URL / currentDigest, not Ref.
+		if r := strings.TrimSpace(resolved.Ref); r != "" {
+			entry.Ref = r
 		}
 		entry.Hash = hash
 		entries[alias] = entry

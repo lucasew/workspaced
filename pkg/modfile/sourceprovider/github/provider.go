@@ -51,6 +51,18 @@ func (p Provider) LockHash(ctx context.Context, alias string, src modfile.Source
 	}
 
 	normalized.Config.URL = strings.TrimSpace(meta.URL)
+	// Renovate git-refs needs a real branch/tag in currentValue — never HEAD and
+	// never a commit SHA (those live in the tarball URL / currentDigest).
+	// Empty, HEAD, or SHA config => track the repo default branch for updates.
+	trackRef := strings.TrimSpace(normalized.Config.Ref)
+	if trackRef == "" || strings.EqualFold(trackRef, "HEAD") || shaRefRe.MatchString(trackRef) {
+		branch, berr := normalized.resolveDefaultBranch(ctx, normalized.Repo())
+		if berr != nil {
+			return "", src, fmt.Errorf("failed to resolve default branch for renovate tracking: %w", berr)
+		}
+		trackRef = branch
+	}
+	normalized.Config.Ref = trackRef
 	return strings.TrimSpace(meta.Hash), normalized.Config, nil
 }
 
@@ -62,39 +74,50 @@ func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src 
 	if repo == "" {
 		return
 	}
-	cv := strings.TrimSpace(dep.CurrentValue)
-	if cv == "" {
-		cv = strings.TrimSpace(src.Ref)
+
+	pinnedSHA := ""
+	if u := modfile.RefFromTarballURL(src.URL); shaRefRe.MatchString(u) {
+		pinnedSHA = u
+	} else if shaRefRe.MatchString(strings.TrimSpace(src.Ref)) {
+		pinnedSHA = strings.TrimSpace(src.Ref)
+	} else if shaRefRe.MatchString(strings.TrimSpace(dep.CurrentDigest)) {
+		pinnedSHA = strings.TrimSpace(dep.CurrentDigest)
+	} else if shaRefRe.MatchString(strings.TrimSpace(dep.CurrentValue)) {
+		// Legacy lock entries stored the SHA in currentValue (pre git-refs).
+		pinnedSHA = strings.TrimSpace(dep.CurrentValue)
 	}
-	// Only attach renovate info if we have a usable (non-HEAD or with URL)
-	// per the best-effort semantics.
-	hasUsable := !strings.EqualFold(cv, "HEAD") || strings.TrimSpace(src.URL) != ""
-	if !hasUsable {
+
+	// Prefer explicit branch/tag; never emit HEAD or a commit as currentValue.
+	trackRef := trackingGitRef(src.Ref, dep.CurrentValue)
+	if trackRef == "" {
+		// Incomplete lock row (SHA-only / HEAD-only). Do not partially write
+		// renovate fields — UpsertSource must not persist lock.Ref as identity.
 		return
 	}
-	// Fill renovate fields for this github source. The stable "ref" is the
-	// source identifier "github:owner/repo" (like tool refs), depName and
-	// datasource for renovate to manage it.
-	//
-	// Default tracking is latest commit on the default branch (github-commits),
-	// not latest tag (github-tags). The pinned commit SHA lives in currentValue
-	// only — never currentDigest, which renovate cannot update via our manager.
+
+	// Stable lock identity (kind+ref), independent of the tracked git ref.
 	dep.Ref = "github:" + repo
 	dep.DepName = repo
-	dep.Datasource = "github-commits"
-	// Prefer the resolved commit SHA from the tarball URL over a symbolic ref
-	// (HEAD/branch/tag) so renovate sees a concrete, updatable pin.
-	if u := modfile.RefFromTarballURL(src.URL); u != "" {
-		dep.CurrentValue = u
-	} else if strings.TrimSpace(dep.CurrentValue) == "" {
-		if r := strings.TrimSpace(src.Ref); r != "" && !strings.EqualFold(r, "HEAD") {
-			dep.CurrentValue = r
+	// Renovate tracks latest commit on a git ref via git-refs: symbolic ref in
+	// currentValue, commit SHA in currentDigest, full clone URL in packageName.
+	dep.Datasource = "git-refs"
+	dep.PackageName = "https://github.com/" + repo
+	dep.CurrentValue = trackRef
+	dep.CurrentDigest = pinnedSHA
+}
+
+// trackingGitRef is the symbolic git ref Renovate should follow (branch/tag).
+// Commit SHAs and HEAD are not usable as git-refs currentValue — SHAs belong
+// in currentDigest; HEAD is only Renovate's fallback when currentValue is empty.
+func trackingGitRef(srcRef, currentValue string) string {
+	for _, candidate := range []string{srcRef, currentValue} {
+		c := strings.TrimSpace(candidate)
+		if c == "" || strings.EqualFold(c, "HEAD") || shaRefRe.MatchString(c) {
+			continue
 		}
-	} else if strings.EqualFold(strings.TrimSpace(dep.CurrentValue), "HEAD") {
-		// No URL/sha yet; leave empty so we don't attach unusable renovate fields.
-		dep.CurrentValue = ""
+		return c
 	}
-	dep.CurrentDigest = ""
+	return ""
 }
 
 func init() {

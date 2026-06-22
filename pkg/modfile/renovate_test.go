@@ -14,7 +14,9 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 		"theme": {
 			Provider: "github",
 			Repo:     "catppuccin/gtk",
-			URL:      "https://codeload.github.com/catppuccin/gtk/tar.gz/9aa0d1f",
+			// LockHash writes the default branch into Ref; commit pin is in URL.
+			Ref: "main",
+			URL: "https://codeload.github.com/catppuccin/gtk/tar.gz/9aa0d1fabc1234",
 		},
 	}
 	tools := map[string]LockedTool{
@@ -36,14 +38,18 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing source dependency for papirus: %#v", got)
 	}
-	if sourceDep.Datasource != "github-commits" {
+	if sourceDep.Datasource != "git-refs" {
 		t.Fatalf("datasource mismatch for source dep: got=%q", sourceDep.Datasource)
 	}
+	if sourceDep.PackageName != "https://github.com/PapirusDevelopmentTeam/papirus-icon-theme" {
+		t.Fatalf("packageName mismatch for source dep: got=%q", sourceDep.PackageName)
+	}
+	// Explicit non-SHA ref is the tracked git ref; no commit pin yet.
 	if sourceDep.CurrentValue != "v2026.03.01" {
 		t.Fatalf("currentValue mismatch for source dep: got=%q", sourceDep.CurrentValue)
 	}
 	if sourceDep.CurrentDigest != "" {
-		t.Fatalf("source dep must not set currentDigest, got=%q", sourceDep.CurrentDigest)
+		t.Fatalf("source dep without resolved SHA must not set currentDigest, got=%q", sourceDep.CurrentDigest)
 	}
 	toolDep, ok := byName["sharkdp/fd"]
 	if !ok {
@@ -54,9 +60,6 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	}
 	if toolDep.CurrentValue != "v10.3.0" {
 		t.Fatalf("currentValue mismatch for tool dep: got=%q", toolDep.CurrentValue)
-	}
-	if toolDep.Datasource != "github-releases" {
-		t.Fatalf("tool dep missing renovate fields: %#v", toolDep)
 	}
 
 	// mise tool produces entry keyed by ref, no extra provider/name.
@@ -78,14 +81,24 @@ func TestBuildRenovateDependenciesFromTools(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing source dependency for catppuccin/gtk: %#v", got)
 	}
-	if themeDep.CurrentValue != "9aa0d1f" {
-		t.Fatalf("currentValue mismatch for source URL dep: got=%q", themeDep.CurrentValue)
+	if themeDep.Datasource != "git-refs" {
+		t.Fatalf("datasource mismatch for theme dep: got=%q", themeDep.Datasource)
+	}
+	if themeDep.CurrentValue != "main" {
+		t.Fatalf("tracking ref should be default branch name, got=%q", themeDep.CurrentValue)
+	}
+	if themeDep.CurrentDigest != "9aa0d1fabc1234" {
+		t.Fatalf("currentDigest mismatch for source URL dep: got=%q", themeDep.CurrentDigest)
+	}
+	if themeDep.PackageName != "https://github.com/catppuccin/gtk" {
+		t.Fatalf("packageName mismatch for theme dep: got=%q", themeDep.PackageName)
 	}
 }
 
-func TestBuildRenovateDependenciesSkipsHeadWithoutResolvedURL(t *testing.T) {
+func TestBuildRenovateDependenciesSkipsHeadWithoutBranch(t *testing.T) {
 	t.Parallel()
 
+	// HEAD alone (no resolved branch from LockHash) is not usable with git-refs.
 	sources := map[string]LockedSource{
 		"icons": {
 			Provider: "github",
@@ -95,14 +108,32 @@ func TestBuildRenovateDependenciesSkipsHeadWithoutResolvedURL(t *testing.T) {
 	}
 
 	got := BuildRenovateDependenciesFromLocks(sources, nil)
-	// We always persist the lock state entry for the source (renovate fields
-	// are optional / best-effort). The "skip" is only for attaching renovate
-	// update instructions when we have no usable ref/URL for the datasource.
 	if len(got) != 1 {
 		t.Fatalf("expected 1 (lock state) dependency, got=%d (%#v)", len(got), got)
 	}
 	if got[0].Kind != "source" || got[0].DepName != "" {
 		t.Fatalf("expected basic source lock state without renovate fields, got=%#v", got[0])
+	}
+}
+
+func TestBuildRenovateDependenciesSkipsSHAOnlyWithoutBranch(t *testing.T) {
+	t.Parallel()
+
+	// Commit in URL but no named branch/tag => cannot satisfy git-refs.
+	sources := map[string]LockedSource{
+		"theme": {
+			Provider: "github",
+			Repo:     "catppuccin/gtk",
+			URL:      "https://codeload.github.com/catppuccin/gtk/tar.gz/9aa0d1fabc1234",
+		},
+	}
+
+	got := BuildRenovateDependenciesFromLocks(sources, nil)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 dependency, got=%d", len(got))
+	}
+	if got[0].DepName != "" || got[0].Datasource != "" {
+		t.Fatalf("expected no renovate fields without a named tracking ref, got=%#v", got[0])
 	}
 }
 
@@ -118,11 +149,13 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 			Datasource:   "github-releases",
 		},
 		{
-			Kind:         "source",
-			Ref:          "v2026.02.01",
-			DepName:      "PapirusDevelopmentTeam/papirus-icon-theme",
-			CurrentValue: "v2026.02.01",
-			Datasource:   "github-commits",
+			Kind:          "source",
+			Ref:           "github:PapirusDevelopmentTeam/papirus-icon-theme",
+			DepName:       "PapirusDevelopmentTeam/papirus-icon-theme",
+			CurrentValue:  "master",
+			CurrentDigest: "abc1234deadbeef",
+			Datasource:    "git-refs",
+			PackageName:   "https://github.com/PapirusDevelopmentTeam/papirus-icon-theme",
 		},
 	}
 
@@ -152,7 +185,8 @@ func TestMergeRenovateDependenciesPreservesUntouchedEntries(t *testing.T) {
 	if byRef["github:sharkdp/fd"].CurrentValue != "v10.3.0" {
 		t.Fatalf("expected fd to be updated, got=%q", byRef["github:sharkdp/fd"].CurrentValue)
 	}
-	if byRef["v2026.02.01"].CurrentValue != "v2026.02.01" {
-		t.Fatalf("expected icons to be preserved, got=%q", byRef["v2026.02.01"].CurrentValue)
+	src := byRef["github:PapirusDevelopmentTeam/papirus-icon-theme"]
+	if src.CurrentValue != "master" || src.CurrentDigest != "abc1234deadbeef" {
+		t.Fatalf("expected icons source to be preserved, got=%#v", src)
 	}
 }

@@ -60,9 +60,9 @@ type RenovateDependency struct {
 	CurrentValue string `json:"currentValue"`
 
 	// CurrentDigest is the current digest/hash.
-	// Mainly used for Docker/OCI images. Source entries intentionally omit
-	// this: renovate cannot handle digest updates for our lockfile manager,
-	// and commit pins live in CurrentValue with datasource=github-commits.
+	// For github sources (datasource=git-refs) this is the pinned commit SHA;
+	// CurrentValue holds the tracked git ref (HEAD/branch/tag). Also used for
+	// Docker/OCI image digests.
 	CurrentDigest string `json:"currentDigest,omitempty"`
 
 	// CurrentVersion is the resolved/pinned version (if different
@@ -72,7 +72,7 @@ type RenovateDependency struct {
 	// === Lookup & source configuration ===
 
 	// Datasource tells Renovate where to fetch new versions from.
-	// Required. Common values: "npm", "go", "docker", "github-commits",
+	// Required. Common values: "npm", "go", "docker", "git-refs",
 	// "github-releases", "maven", "pypi", etc.
 	Datasource string `json:"datasource"`
 
@@ -174,17 +174,18 @@ func rebuildSourceLocksFromDependencies(sum *SumFile) map[string]LockedSource {
 		if key == "" {
 			continue
 		}
-		// Best effort from available clean fields. Hash may be in CurrentDigest.
-		// The Ref here should be the resolved/pinned value (for source overlay etc),
-		// while the renovate "ref" field is the stable source ref.
-		hash := strings.TrimSpace(dep.CurrentDigest)
-		pinned := strings.TrimSpace(dep.CurrentValue)
+		// Prefer commit pin in CurrentDigest (git-refs); fall back to CurrentValue
+		// for legacy lock entries that stored the SHA there.
+		pinned := strings.TrimSpace(dep.CurrentDigest)
+		if pinned == "" {
+			pinned = strings.TrimSpace(dep.CurrentValue)
+		}
 		if pinned == "" {
 			pinned = key
 		}
 		out[key] = LockedSource{
 			Ref:  pinned,
-			Hash: hash,
+			Hash: strings.TrimSpace(dep.CurrentDigest),
 		}
 	}
 	return out
@@ -262,7 +263,10 @@ func (s *SumFile) FindSource(name string) (LockedSource, bool) {
 			continue
 		}
 		if dep.Ref == name || dep.DepName == name {
-			pinned := dep.CurrentValue
+			pinned := strings.TrimSpace(dep.CurrentDigest)
+			if pinned == "" {
+				pinned = strings.TrimSpace(dep.CurrentValue)
+			}
 			if pinned == "" {
 				pinned = dep.Ref
 			}

@@ -12,7 +12,7 @@
         "/(^|/)workspaced\\.lock\\.json$/"
       ],
       "matchStrings": [
-        "dependencies.{\"depName\": depName, \"currentValue\": currentValue, \"datasource\": datasource, \"packageName\": packageName, \"versioning\": versioning}"
+        "dependencies.{\"depName\": depName, \"currentValue\": currentValue, \"currentDigest\": currentDigest, \"datasource\": datasource, \"packageName\": packageName, \"versioning\": versioning}"
       ]
     }
   ]

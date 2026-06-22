@@ -122,7 +122,14 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	lock.Provider = strings.TrimSpace(lock.Provider)
 	lock.Ref = strings.TrimSpace(lock.Ref)
 	lock.Hash = strings.TrimSpace(lock.Hash)
-	if lock.Provider == "" || lock.Hash == "" || lock.Ref == "" {
+	lock.URL = strings.TrimSpace(lock.URL)
+	lock.Repo = strings.TrimSpace(lock.Repo)
+	// Ref may be empty before first resolve; accept hash+provider alone so
+	// EnrichRenovateDependency can still derive commit pins from URL.
+	if lock.Provider == "" || lock.Hash == "" {
+		return false
+	}
+	if lock.Ref == "" && lock.URL == "" {
 		return false
 	}
 	if s.sourceLocks == nil {
@@ -130,15 +137,22 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	}
 	s.sourceLocks[name] = lock
 
-	dep := RenovateDependency{
-		Kind:         "source",
-		Ref:          lock.Ref,
-		CurrentValue: lock.Ref,
-		// Intentionally omit CurrentDigest: renovate's custom manager cannot
-		// handle digest updates for source pins (commit SHAs live in currentValue).
-	}
+	dep := RenovateDependency{Kind: "source"}
 	if p, ok := getSourceProvider(lock.Provider); ok {
 		p.EnrichRenovateDependency(&dep, lock)
+	}
+	// Providers that don't implement renovate enrichment fall back to lock.Ref.
+	if strings.TrimSpace(dep.Ref) == "" {
+		dep.Ref = lock.Ref
+		dep.CurrentValue = lock.Ref
+	}
+	// Never persist incomplete github-style rows (commit SHA as identity with
+	// empty depName/datasource) — that is lock/enrich corruption.
+	if lock.Provider == "github" && (strings.TrimSpace(dep.DepName) == "" || strings.TrimSpace(dep.Datasource) == "") {
+		return false
+	}
+	if strings.TrimSpace(dep.Ref) == "" {
+		return false
 	}
 
 	// Keyed by kind + ref (the provider-filled stable ref) in the deps list.
@@ -154,9 +168,8 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 			d.CurrentValue = dep.CurrentValue
 			changed = true
 		}
-		// Drop any previously-written digest; renovate cannot handle it.
-		if d.CurrentDigest != "" {
-			d.CurrentDigest = ""
+		if d.CurrentDigest != dep.CurrentDigest {
+			d.CurrentDigest = dep.CurrentDigest
 			changed = true
 		}
 		if dep.DepName != "" && d.DepName != dep.DepName {
@@ -165,6 +178,10 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 		}
 		if dep.Datasource != "" && d.Datasource != dep.Datasource {
 			d.Datasource = dep.Datasource
+			changed = true
+		}
+		if dep.PackageName != "" && d.PackageName != dep.PackageName {
+			d.PackageName = dep.PackageName
 			changed = true
 		}
 		break
