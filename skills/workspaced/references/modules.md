@@ -1,6 +1,10 @@
 # Modules and inputs
 
-## Model
+**Essential:** model, lock vs cue, gotchas. **Deep:** cue examples beyond init,
+on-disk layout detail. Universals (cue/lock/plan): **SKILL.md** — do not
+re-expand them here.
+
+## Model (essential)
 
 A **module** is a unit of environment contribution: on-disk content (static
 files, templates, providers) plus a **`config`** object from cue that templates

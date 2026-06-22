@@ -1,5 +1,8 @@
 # CUE and workspaced
 
+**Deep** by default (only when authoring/refactoring cue). For “what is
+workspaced” without editing cue, skip this file. Universals: **SKILL.md**.
+
 ## Stance
 
 **CUE is a feature, not a cage.** Workspaced cares about the **evaluated**

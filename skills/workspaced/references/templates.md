@@ -1,6 +1,15 @@
 # Templates
 
-## Model
+**Canonical** template guide for this repo (no separate `TEMPLATES.md`).
+
+| Depth | Sections | When |
+|-------|----------|------|
+| **Essential** | Model, decision tree, kinds table, context, gotchas (kind/layout + ops) | Choosing kind, debugging “file didn’t appear”, light edits |
+| **Deep** | Per-kind examples, function catalog, practical examples, internal flow, generator fast-path | Authoring/editing templates or generator modules |
+
+Stop after **essential** unless you are writing or substantially changing templates.
+
+## Model (essential)
 
 Templates are how modules turn **source layout + config/context** into
 **target files** (usually under home for home modules, or into a codebase tree
@@ -23,7 +32,7 @@ Templates are inert until the source pipeline runs in **plan** (preview) or
 module enablement, path/kind, `skip`/conditionals, or wrong workspace — not
 “template engine broken.” See `plan-and-apply.md` and `modules.md`.
 
-## Decision tree
+## Decision tree (essential)
 
 ```mermaid
 %%{init: {"theme": "neutral"}}%%
@@ -50,7 +59,7 @@ flowchart TD
 One-liner: dynamic? → not static. Many outputs from one generator? → multi-file
 vs index (subdir or not). Many sources into one output? → `.d.tmpl`.
 
-## Artifact kinds
+## Artifact kinds (essential summary)
 
 | Kind | Source shape | Result | Use when |
 |------|--------------|--------|----------|
@@ -59,6 +68,8 @@ vs index (subdir or not). Many sources into one output? → `.d.tmpl`.
 | **Multi-file** | a `.tmpl` that uses `file` / `endfile` (often with `range`) | Many files under a target **subdir** | Loop-driven set of files in a folder |
 | **Index** | `_index.tmpl` with `file` / `endfile` | Many files at target **root** (no extra subfolder) | Same as multi-file but flat placement |
 | **Concat (`.d.tmpl/`)** | Directory of ordered fragments (some may be `.tmpl`) | **One** target file, pieces concatenated | bashrc-style composable single file |
+
+## Kind examples (deep)
 
 ### 1. Static file
 
@@ -112,7 +123,7 @@ config/.bashrc.d.tmpl/
 
 → `~/.bashrc` (all together, alphabetical order)
 
-## Context (what templates see)
+## Context (essential)
 
 Templates are not only module `config`. Example module docs show patterns like:
 
@@ -127,7 +138,7 @@ templates and cue** in that module/user tree rather than inventing `.Foo`.
 Go `text/template` syntax applies underneath:
 https://pkg.go.dev/text/template
 
-## Essential functions
+## Functions (deep)
 
 ### Control
 
@@ -184,7 +195,7 @@ https://pkg.go.dev/text/template
 {{ favicon "https://..." }}         # download favicon, returns path
 ```
 
-## Practical examples
+## Practical examples (deep)
 
 ### Desktop file
 
@@ -232,7 +243,7 @@ config/.bashrc.d.tmpl/
 {{- end }}
 ```
 
-## Internal flow
+## Internal flow (deep)
 
 Conceptual pipeline when scanning module `config/`:
 
@@ -250,7 +261,7 @@ Implementation lives under `pkg/source/` and apply/deployer paths in this repo
 (older docs may mention `provider_symlink`-style names; trust current package
 layout when navigating code).
 
-## Generator bundle fast-path
+## Generator bundle fast-path (deep; generator authors)
 
 For generator modules (e.g. icons), the provider should include a **bundle
 fingerprint** in `SourceInfo` so the planner can skip heavy per-file content
@@ -281,18 +292,13 @@ Fingerprint best practices:
 This section matters mainly when **authoring generator-style modules** (icons,
 themes), not for ordinary static/tmpl files.
 
-## Trying changes
+## Trying changes (essential pointer)
 
-```bash
-workspaced home plan
-# or, depending on flags in your build:
-workspaced home apply --dry-run
-```
+Prefer **`home`/`codebase` `plan`** then apply; flags/dry-run from
+`workspaced home apply --help`. Loop: `plan-and-apply.md`. Do not maintain a
+second flag list here.
 
-Prefer **plan** for a first-class “what would change” view; see
-`plan-and-apply.md`. Confirm exact flags with `workspaced home apply --help`.
-
-## Gotchas
+## Gotchas (essential)
 
 ### Kind / layout mistakes
 
@@ -304,7 +310,7 @@ Prefer **plan** for a first-class “what would change” view; see
 | `{{ file "script" }}` for executables | `{{ file "script" "0755" }}` | Scripts need execute mode |
 | `{{ skip }}` mid-file | `{{- if cond }}{{ skip }}{{- end }}` **at the beginning** | Skip mid-stream breaks the parser/flow |
 
-### Skill / ops gotchas
+### Ops / selection
 
 - **Static file but content has `{{`** — won’t render; use `.tmpl` (or accept
   literal braces).
@@ -323,6 +329,6 @@ Prefer **plan** for a first-class “what would change” view; see
 - **Conditionals / `skip` always true** — “missing” file is intentional; check
   `isPhone`, enable flags, etc. in cue/runtime.
 - **Generator module slow every apply** — missing/unstable `bundle:` fingerprint
-  in `SourceInfo`; planner can’t fast-path noops.
+  in `SourceInfo`; see deep generator section above.
 - **Confusing plan empty with engine bug** — usually enablement, kind, `skip`,
   or wrong workspace (`config-and-roots.md`).

@@ -1,5 +1,8 @@
 # Plan and apply
 
+**Essential** whole file is short. Invocation/flags: `workspaced home plan|apply
+--help` (and codebase equivalents). Universals: **SKILL.md**.
+
 ## Model
 
 **Plan** computes desired state from cue + modules (+ lock/resolution as needed)
