@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -36,7 +35,7 @@ func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer logging.Close(ctx, file, slog.String("path", path))
+	defer logging.Close(ctx, file, "path", path)
 
 	var events []types.HistoryEvent
 	scanner := bufio.NewScanner(file)
@@ -73,7 +72,7 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open atuin database: %w", err)
 	}
-	defer logging.Close(ctx, dbConn, slog.String("path", dbPath))
+	defer logging.Close(ctx, dbConn, "path", dbPath)
 
 	rows, err := dbConn.Query("SELECT command, cwd, timestamp, exit, duration FROM history")
 	if err != nil {
@@ -126,7 +125,7 @@ func sendHistoryEvent(ctx context.Context, event types.HistoryEvent) error {
 	if err != nil {
 		return err // Return error so caller can fallback
 	}
-	defer logging.Close(ctx, conn, slog.String("socket", socketPath))
+	defer logging.Close(ctx, conn, "socket", socketPath)
 
 	_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
 	payload, _ := json.Marshal(event)

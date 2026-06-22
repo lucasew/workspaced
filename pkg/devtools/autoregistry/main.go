@@ -150,6 +150,6 @@ func main() {
 
 	cmd.SetContext(rootCtx)
 	if err := cmd.ExecuteContext(rootCtx); err != nil {
-		logging.ReportError(rootCtx, err, slog.String("context", "fatal error"))
+		logging.ReportError(rootCtx, err, "context", "fatal error")
 	}
 }

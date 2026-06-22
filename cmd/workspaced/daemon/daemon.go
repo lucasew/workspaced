@@ -149,7 +149,7 @@ func RunDaemon(ctx context.Context) error {
 		if err == nil {
 			f, err := os.Open(iconPath)
 			if err == nil {
-				defer logging.Close(ctx, f, slog.String("path", iconPath))
+				defer logging.Close(ctx, f, "path", iconPath)
 				icon, _, _ = image.Decode(f)
 			}
 		}
@@ -206,7 +206,7 @@ func RunDaemon(ctx context.Context) error {
 		listener = listeners[0]
 	} else {
 		socketPath := getSocketPath()
-		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, slog.String("path", socketPath))
+		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, "path", socketPath)
 		l, err := net.Listen("unix", socketPath)
 		if err != nil {
 			return fmt.Errorf("failed to listen on socket: %w", err)

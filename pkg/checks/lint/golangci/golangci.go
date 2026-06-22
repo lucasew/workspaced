@@ -3,7 +3,6 @@ package golangci
 import (
 	"bytes"
 	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -45,7 +44,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Falls back to registry:golangci-lint (the catalog entry normalizes v-prefixes on GitHub tags).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "golangci_lint", "golangci-lint", "registry:golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")
 	if err != nil {
-		logging.ReportError(ctx, err, slog.String("context", "failed to setup golangci-lint"))
+		logging.ReportError(ctx, err, "context", "failed to setup golangci-lint")
 		return nil, err
 	}
 
@@ -56,7 +55,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		logging.ReportError(ctx, err, slog.String("stderr", stderr.String()), slog.String("context", "golangci-lint execution failed"))
+		logging.ReportError(ctx, err, "stderr", stderr.String(), "context", "golangci-lint execution failed")
 		return nil, err
 	}
 

@@ -205,7 +205,7 @@ func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) 
 			return nil, fmt.Errorf("failed to create cpuprofile file: %w", err)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			logging.Close(ctx, f, slog.String("path", cpuProfilePath))
+			logging.Close(ctx, f, "path", cpuProfilePath)
 			return nil, fmt.Errorf("failed to start CPU profile: %w", err)
 		}
 		cpuFile = f
@@ -228,7 +228,7 @@ func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) 
 			}
 			runtime.GC()
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				logging.Close(ctx, f, slog.String("path", memProfilePath))
+				logging.Close(ctx, f, "path", memProfilePath)
 				return fmt.Errorf("failed to write heap profile: %w", err)
 			}
 			if err := f.Close(); err != nil {

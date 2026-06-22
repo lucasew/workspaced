@@ -103,14 +103,57 @@ func (h *ChannelLogHandler) WithGroup(name string) slog.Handler {
 	return &ChannelLogHandler{Out: h.Out, Parent: h.Parent.WithGroup(name), Ctx: h.Ctx}
 }
 
+// normalizeLogArgs converts caller-friendly variadic args into the alternating
+// key/value form that slog.Logger methods accept.
+//
+// Accepted forms (mixed ok):
+//   - key/value pairs: "stderr", s, "context", "failed"
+//   - slog.Attr (kept for gradual migration / internal callers)
+//
+// A trailing key without a value is dropped.
+func normalizeLogArgs(args ...any) []any {
+	if len(args) == 0 {
+		return nil
+	}
+	out := make([]any, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		if a, ok := args[i].(slog.Attr); ok {
+			out = append(out, a.Key, a.Value.Any())
+			continue
+		}
+		if i+1 >= len(args) {
+			return out
+		}
+		key, ok := args[i].(string)
+		if !ok {
+			// Non-string, non-Attr leading element: stash under a generic key.
+			out = append(out, "extra", args[i])
+			continue
+		}
+		val := args[i+1]
+		if a, ok := val.(slog.Attr); ok {
+			// key followed by Attr — emit Attr under its own key, ignore outer key.
+			out = append(out, a.Key, a.Value.Any())
+		} else {
+			out = append(out, key, val)
+		}
+		i++
+	}
+	return out
+}
+
 // ReportError logs an unexpected error using the logger from the context.
 // It serves as the centralized error reporting function.
+//
+// Extra args are key/value pairs (e.g. "stderr", buf.String(), "context", "lint failed").
+// slog.Attr is also accepted so internal helpers need not care about the form.
 func ReportError(ctx context.Context, err error, args ...any) bool {
 	if err == nil {
 		return false
 	}
 	logger := GetLogger(ctx)
-	args = append(args, "error", err)
-	logger.Error("unexpected error", args...)
+	norm := normalizeLogArgs(args...)
+	norm = append(norm, "error", err)
+	logger.Error("unexpected error", norm...)
 	return true
 }

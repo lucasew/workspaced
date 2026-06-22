@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	os_exec "os/exec"
 	"path/filepath"
@@ -316,7 +315,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		if len(rawStdout) > 2048 {
 			rawStdout = rawStdout[:2048] + "...(truncated)"
 		}
-		logging.ReportError(ctx, err, slog.String("stderr", stderr.String()), slog.String("stdout", rawStdout), slog.String("context", "eslint failed to produce valid JSON"))
+		logging.ReportError(ctx, err, "stderr", stderr.String(), "stdout", rawStdout, "context", "eslint failed to produce valid JSON")
 		return nil, fmt.Errorf("eslint failed: %w: %s", err, stderr.String())
 	}
 

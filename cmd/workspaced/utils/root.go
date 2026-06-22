@@ -63,7 +63,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 		logger.Info("daemon not reachable, running locally", "error", err)
 		return "", false, nil
 	}
-	defer logging.Close(ctx, conn, slog.String("socket", socketPath))
+	defer logging.Close(ctx, conn, "socket", socketPath)
 
 	clientHash, _ := executil.GetBinaryHash(ctx)
 
@@ -109,9 +109,9 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 			case "ERROR":
 				level = slog.LevelError
 			}
-			attrs := []any{}
+			attrs := make([]any, 0, len(entry.Attrs)*2)
 			for k, v := range entry.Attrs {
-				attrs = append(attrs, slog.Any(k, v))
+				attrs = append(attrs, k, v)
 			}
 			l := logging.GetLogger(ctx)
 			l.Log(ctx, level, entry.Message, attrs...)

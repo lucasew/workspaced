@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -51,7 +50,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	cmd, err := exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")
 	if err != nil {
-		logging.ReportError(ctx, err, slog.String("context", "failed to setup govulncheck"))
+		logging.ReportError(ctx, err, "context", "failed to setup govulncheck")
 		return nil, err
 	}
 
@@ -62,7 +61,7 @@ func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		logging.ReportError(ctx, err, slog.String("context", "govulncheck execution failed"))
+		logging.ReportError(ctx, err, "context", "govulncheck execution failed")
 		return nil, err
 	}
 
