@@ -23,13 +23,6 @@
     },
     {
       "kind": "tool",
-      "ref": "github:koalaman/shellcheck",
-      "depName": "koalaman/shellcheck",
-      "currentValue": "v0.11.0",
-      "datasource": "github-releases"
-    },
-    {
-      "kind": "tool",
       "ref": "github:rhysd/actionlint",
       "depName": "rhysd/actionlint",
       "currentValue": "v1.7.12",
@@ -42,6 +35,13 @@
       "currentValue": "2.5.0",
       "datasource": "github-releases",
       "versioning": "semver"
+    },
+    {
+      "kind": "tool",
+      "ref": "registry:shellcheck",
+      "depName": "koalaman/shellcheck",
+      "currentValue": "0.11.0",
+      "datasource": "github-releases"
     },
     {
       "kind": "tool",

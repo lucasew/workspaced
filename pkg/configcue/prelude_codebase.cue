@@ -8,7 +8,7 @@ workspaced: {
 			bins: *["golangci-lint"] | [...string]
 		}
 		shellcheck: {
-			ref:  *"github:koalaman/shellcheck" | string
+			ref:  *"registry:shellcheck" | string
 			bins: *["shellcheck"] | [...string]
 		}
 		ruff: {
