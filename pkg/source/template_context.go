@@ -38,10 +38,6 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 	if err != nil {
 		return nil, fmt.Errorf("user home dir: %w", err)
 	}
-	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("dotfiles root: %w", err)
-	}
 	userDataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("user data dir: %w", err)
@@ -51,9 +47,8 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 		return nil, fmt.Errorf("hostname: %w", err)
 	}
 
-	runtime := map[string]any{
+	runtimeData := map[string]any{
 		"module_name":   moduleName,
-		"dotfiles_root": dotfilesRoot,
 		"home":          home,
 		"user_data_dir": userDataDir,
 		"is_phone":      envdriver.IsPhone(ctx),
@@ -62,11 +57,14 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 		"goarch":        runtime.GOARCH,
 		"memory":        memory.TotalMemory(),
 	}
+	if dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx); err == nil && dotfilesRoot != "" {
+		runtimeData["dotfiles_root"] = dotfilesRoot
+	}
 
 	out := map[string]any{
 		"root":    root,
 		"module":  module,
-		"runtime": runtime,
+		"runtime": runtimeData,
 	}
 
 	return out, nil

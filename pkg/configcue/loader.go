@@ -779,10 +779,6 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 	if err != nil {
 		return "", fmt.Errorf("user home dir: %w", err)
 	}
-	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
-	if err != nil {
-		return "", fmt.Errorf("dotfiles root: %w", err)
-	}
 	configDir, err := envdriver.GetConfigDir(ctx)
 	if err != nil {
 		return "", fmt.Errorf("config dir: %w", err)
@@ -800,13 +796,17 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 		"is_phone":      envdriver.IsPhone(ctx),
 		"hostname":      hostname,
 		"home":          home,
-		"dotfiles_root": dotfilesRoot,
 		"config_dir":    configDir,
 		"user_data_dir": userDataDir,
 		"cpus":          runtime.NumCPU(),
 		"goos":          runtime.GOOS,
 		"goarch":        runtime.GOARCH,
 		"memory":        memory.TotalMemory(),
+	}
+	// Optional: personal tree may be absent (CI, plain codebase checkouts).
+	// Home prelude uses it via optional schema field; missing key fails only if cue requires it.
+	if dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx); err == nil && dotfilesRoot != "" {
+		runtimeMap["dotfiles_root"] = dotfilesRoot
 	}
 	if len(resolvedInputs) > 0 {
 		runtimeMap["inputs"] = resolvedInputs
