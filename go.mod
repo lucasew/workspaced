@@ -12,7 +12,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
-	github.com/lucasew/fetchurl v0.0.0-20260612135057-bc37d5971f3e
+	github.com/lucasew/fetchurl v0.0.0-20260622145636-9bed060fa440
 	github.com/owenrumney/go-sarif/v2 v2.3.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/spf13/cobra v1.10.2
