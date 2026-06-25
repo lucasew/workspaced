@@ -313,10 +313,10 @@ func (g *Group) RunBubbleTea() error {
 			snap := g.snapshotRecursive()
 			logger.Debug("group finished, triggering prog.Quit()", "remaining_tasks", len(snap))
 		}
-		// Flush/drain the patched log buffers (the os.Stderr pipe pump + teaLineWriter)
-		// before we quit. The deferred cleanup will run again after prog.Run() returns;
-		// that's harmless. Final result tables (e.g. home plan) are now emitted after
-		// Run returns so they no longer depend on the patch drain.
+		// Drain the teaWriter (stderr pipe + line buffer) before we quit. The
+		// deferred cleanup runs again after prog.Run() returns; that's harmless.
+		// Final result tables (e.g. home plan) are emitted after Run returns so
+		// they no longer depend on the patch drain.
 		cleanupPatches()
 		prog.Quit()
 	}()

@@ -1,8 +1,8 @@
 package taskgroup
 
 import (
-	"bufio"
 	"bytes"
+	"io"
 	"log"
 	"log/slog"
 	"os"
@@ -13,22 +13,26 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// teaLineWriter is an io.Writer that line-buffers incoming bytes and, for each
-// complete line (terminated by '\n'), invokes the provided print func with the
-// line content (without the delimiter). Partial final lines are held until a
-// terminating newline arrives or flush is called.
+// teaWriter is the single line-buffering front door for TUI transcript output
+// while bubbletea owns the terminal. For each complete line (terminated by
+// '\n') it invokes print with the line content (without the delimiter).
+// Partial final lines are held until a terminating newline arrives or close.
 //
-// This is used to route raw stderr writes and default slog records through
-// prog.Printf while a bubbletea program owns the terminal, so that
-// third-party libraries using the stdlib logger, slog.Default(), or direct
-// writes to os.Stderr still appear in the TUI transcript above the bars.
-type teaLineWriter struct {
+// Direct io.Writer users (slog, stdlib log) call Write. Callers that need an
+// *os.File (os.Stderr, exec inheritance) use File(), which opens a pipe and
+// runs go io.Copy(w, readEnd) so all bytes still pass through Write.
+type teaWriter struct {
 	print func(string)
-	mu    sync.Mutex
-	buf   []byte
+
+	mu  sync.Mutex
+	buf []byte
+
+	// Pipe backing File(); nil until File() succeeds.
+	pipeR, pipeW *os.File
+	copyDone     chan struct{}
 }
 
-func (w *teaLineWriter) Write(p []byte) (int, error) {
+func (w *teaWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.buf = append(w.buf, p...)
@@ -46,9 +50,64 @@ func (w *teaLineWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// flush emits any buffered partial line (no trailing newline). Called on
-// restore so the last line from a library that forgot the \n is not lost.
-func (w *teaLineWriter) flush() {
+// File returns an *os.File whose writes are bridged into w via a background
+// io.Copy. The same File is returned on every successful call. Call close
+// (via the installTeaPatches cleanup) to tear the pipe down and flush.
+//
+// The background copy is started without holding mu so Write can lock.
+func (w *teaWriter) File() (*os.File, error) {
+	w.mu.Lock()
+	if w.pipeW != nil {
+		f := w.pipeW
+		w.mu.Unlock()
+		return f, nil
+	}
+	w.mu.Unlock()
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = io.Copy(w, pr)
+	}()
+
+	w.mu.Lock()
+	if w.pipeW != nil {
+		// Lost a race; keep the winner and discard this pipe.
+		f := w.pipeW
+		w.mu.Unlock()
+		_ = pw.Close()
+		_ = pr.Close()
+		<-done
+		return f, nil
+	}
+	w.pipeR, w.pipeW, w.copyDone = pr, pw, done
+	w.mu.Unlock()
+	return pw, nil
+}
+
+// close tears down the optional File() pipe, waits for the background copy,
+// and emits any trailing partial line. Safe to call when File() was never used.
+func (w *teaWriter) close() {
+	w.mu.Lock()
+	pw, pr, done := w.pipeW, w.pipeR, w.copyDone
+	w.pipeW, w.pipeR, w.copyDone = nil, nil, nil
+	w.mu.Unlock()
+
+	if pw != nil {
+		_ = pw.Close()
+	}
+	if pr != nil {
+		// Unblock Copy if stuck in a slow Write, then wait for it.
+		_ = pr.Close()
+	}
+	if done != nil {
+		<-done
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if len(w.buf) == 0 {
@@ -65,14 +124,8 @@ func (w *teaLineWriter) flush() {
 // taskgroup onLog path still has its output appear inside the active
 // bubbletea program.
 //
-// It does three things, only while the returned cleanup has not run:
-//   - Monkey-patches os.Stderr (via an os.Pipe whose read end is scanned
-//     and each line fed to prog.Printf + refreshMsg). This catches direct
-//     writes from sub-libraries and exec.Cmds that inherited the var.
-//   - Replaces slog.Default() with a logger whose handler writes formatted
-//     records through a teaLineWriter -> prog.Printf. This catches any
-//     code doing slog.SetDefault or just using the package default.
-//   - Replaces the output of the stdlib log.Default() the same way.
+// All patched sources converge on one teaWriter: slog/log write to it
+// directly; os.Stderr is reassigned to tw.File() (*os.File for exec).
 //
 // The style is deliberately "Python context manager": save originals,
 // install, return a func that puts everything back. Call the func with defer.
@@ -84,84 +137,25 @@ func installTeaPatches(prog *tea.Program) (cleanup func()) {
 	oldSlog := slog.Default()
 	oldLogWriter := log.Default().Writer()
 
-	// Line printer used by both the stderr pipe pump and the teaLineWriter.
-	// We Printf the content (and Send refresh for the onLog path).
-	// For the catch-all pump/tlw path we intentionally omit Send(refreshMsg{}):
-	// prog.Send after Quit can block the caller (the pump goroutine), which
-	// would hang the <-pumpDone in cleanupPatches and thus prevent return
-	// from RunBubbleTea / the command after the model has already decided to
-	// quit. The 100ms tick loop will refresh bars on its own schedule.
-	printLine := func(s string) {
-		prog.Printf("%s", s)
-		// Only the primary task onLog handler (see RunBubbleTea) does the
-		// Printf+Send combination for "log line just appeared, push bars down".
-		// The patches path skips Send to keep shutdown (pump drain) robust.
+	// Printf only — no Send(refreshMsg{}). prog.Send after Quit can block the
+	// background io.Copy writer path and stall cleanup. Bars refresh via the
+	// 100ms tick; task onLog in RunBubbleTea still does Printf+Send.
+	tw := &teaWriter{print: func(s string) { prog.Printf("%s", s) }}
+
+	if f, err := tw.File(); err == nil {
+		os.Stderr = f
 	}
 
-	// Set up a pipe so that writes to the os.Stderr package var after this
-	// point are routed into a scanner that emits via printLine.
-	pr, pw, perr := os.Pipe()
-	if perr != nil {
-		// Pipe failed (very rare); proceed with slog/log patches only.
-		pr = nil
-		pw = nil
-	} else {
-		os.Stderr = pw
-	}
-
-	// Pump goroutine: read lines (and final unterminated line) from the pipe
-	// read end and forward them into the tea program.
-	pumpDone := make(chan struct{})
-	if pr != nil {
-		go func() {
-			defer close(pumpDone)
-			sc := bufio.NewScanner(pr)
-			for sc.Scan() {
-				printLine(sc.Text())
-			}
-		}()
-	} else {
-		close(pumpDone)
-	}
-
-	// teaLineWriter is the io.Writer used by the slog handler (and stdlib log).
-	// Each complete line it extracts is sent via printLine (printf+refresh).
-	tlw := &teaLineWriter{print: printLine}
-
-	// Install a new default slog whose records render with our project's
-	// compact formatter and ultimately land in the tea program.
-	h := logging.NewPlainHandler(tlw, &slog.HandlerOptions{
+	h := logging.NewPlainHandler(tw, &slog.HandlerOptions{
 		Level: slog.LevelDebug, // capture everything third parties emit
 	})
 	slog.SetDefault(slog.New(h))
+	log.SetOutput(tw)
 
-	// Also capture the stdlib "log" package output.
-	log.SetOutput(tlw)
-
-	// The cleanup func is the "exit" of the context-manager.
 	return func() {
-		// Stop new log records from being produced into our writers first.
 		slog.SetDefault(oldSlog)
 		log.SetOutput(oldLogWriter)
-
-		// Close the pipe write end so the scanner goroutine sees EOF and exits.
-		if pw != nil {
-			pw.Close()
-		}
-		if pr != nil {
-			// Eagerly close the read side too. This guarantees the bufio.Scanner
-			// in the pump sees EOF and exits even if a concurrent printLine
-			// (or other) would otherwise slow it. We still wait for the goroutine
-			// to close pumpDone for cleanliness, but the double close makes
-			// hangs in the drain much less likely.
-			pr.Close()
-			<-pumpDone
-		}
-
-		// Restore the os.Stderr var for any code that reads it after us.
 		os.Stderr = oldStderr
-
-		// Best-effort: emit a trailing partial line that had no '\n'.
-		tlw.flush()
+		tw.close()
 	}
 }
