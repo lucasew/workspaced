@@ -48,7 +48,9 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	if err := ensureRemoteURL(ctx, a.Src, BackupGitRemoteName, a.Dst); err != nil {
 		return fmt.Errorf("failed to ensure remote %s for %s: %w", BackupGitRemoteName, a.Src, err)
 	}
-	branchOut, err := execdriver.MustRun(ctx, "git", "-C", a.Src, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	branchCmd := execdriver.MustRun(ctx, "git", "-C", a.Src, "rev-parse", "--abbrev-ref", "HEAD")
+	branchCmd.Stderr = os.Stderr
+	branchOut, err := branchCmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to detect current branch for %s: %w", a.Src, err)
 	}
@@ -71,7 +73,9 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 }
 
 func ensureRemoteURL(ctx context.Context, repoPath, remoteName, remoteURL string) error {
-	currentURLBytes, err := execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "get-url", remoteName).Output()
+	getURLCmd := execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "get-url", remoteName)
+	getURLCmd.Stderr = os.Stderr
+	currentURLBytes, err := getURLCmd.Output()
 	if err != nil {
 		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "add", remoteName, remoteURL)); err != nil {
 			return err
@@ -116,6 +120,7 @@ func ensureRepoCloned(ctx context.Context, repoPath, remoteURL string) error {
 }
 
 func runCommand(_ context.Context, cmd *exec.Cmd) error {
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }

@@ -39,6 +39,7 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 	parent := filepath.Dir(action.InputDir)
 	base := filepath.Base(action.InputDir)
 	cmd := execdriver.MustRun(ctx, "tar", "-cvf", action.Output, "-C", parent, base)
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
 }
