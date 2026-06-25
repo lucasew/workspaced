@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
 )
@@ -19,9 +20,10 @@ var (
 
 func init() {
 	registerActionProvider[GitRepoSyncAction]("git_repo_sync")
-
 }
 
+// GitRepoSyncAction backs up a local git working tree by committing changes and pushing to Dst.
+// Src is the local path; Dst is the remote URL (also used as the workspaced remote).
 type GitRepoSyncAction struct {
 	backupActionBase
 	Src string `json:"src"`
@@ -32,161 +34,208 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	if strings.TrimSpace(a.Src) == "" || strings.TrimSpace(a.Dst) == "" {
 		return ErrGitRepoSyncNeedsSrcAndDst
 	}
-	if err := ensureRepoCloned(ctx, a.Src, a.Dst); err != nil {
-		return err
-	}
-	if err := commitIfDirty(ctx, a.Src); err != nil {
-		return err
-	}
-	if err := ensureRemoteURL(ctx, a.Src, BackupGitRemoteName, a.Dst); err != nil {
-		return fmt.Errorf("failed to ensure remote %s for %s: %w", BackupGitRemoteName, a.Src, err)
-	}
-	branchCmd := execdriver.MustRun(ctx, "git", "-C", a.Src, "rev-parse", "--abbrev-ref", "HEAD")
-	branchCmd.Stderr = os.Stderr
-	branchOut, err := branchCmd.Output()
-	if err != nil {
-		return fmt.Errorf("failed to detect current branch for %s: %w", a.Src, err)
-	}
-	branch := strings.TrimSpace(string(branchOut))
-	if branch == "" {
-		return fmt.Errorf("empty current branch for %s", a.Src)
-	}
 
-	remoteBranchExists := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "ls-remote", "--exit-code", "--heads", BackupGitRemoteName, branch)) == nil
-	if remoteBranchExists {
-		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "pull", "--rebase", BackupGitRemoteName, branch)); err != nil {
-			_ = runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "rebase", "--abort"))
-			return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
+	// Initial sync: always clone. Replace empty init shells; never init+fetch in place.
+	if !a.hasGitDir() {
+		if err := a.prepareEmptyPathForClone(); err != nil {
+			return err
+		}
+		if err := a.clone(ctx); err != nil {
+			return err
+		}
+	} else if !a.hasHEAD(ctx) {
+		if !a.dirOnlyDotGit() {
+			return fmt.Errorf("repo path has .git but no commits and is not empty enough to re-clone: %s", a.Src)
+		}
+		if err := os.RemoveAll(a.Src); err != nil {
+			return fmt.Errorf("failed to remove empty init at %s before clone: %w", a.Src, err)
+		}
+		if err := a.clone(ctx); err != nil {
+			return err
 		}
 	}
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", a.Src, "push", "-u", BackupGitRemoteName, branch)); err != nil {
+
+	// Broken remote HEAD (e.g. master advertised, only main exists) leaves clone without checkout.
+	if !a.hasHEAD(ctx) {
+		if err := a.checkoutRemoteDefaultBranch(ctx); err != nil {
+			return fmt.Errorf("repo at %s has no HEAD and fallback checkout failed: %w", a.Src, err)
+		}
+	}
+
+	if err := a.commitIfDirty(ctx); err != nil {
+		return err
+	}
+	if err := a.ensureRemoteURL(ctx, BackupGitRemoteName, a.Dst); err != nil {
+		return fmt.Errorf("failed to ensure remote %s for %s: %w", BackupGitRemoteName, a.Src, err)
+	}
+
+	branch, err := a.currentBranch(ctx)
+	if err != nil {
+		return err
+	}
+	if a.remoteHasBranch(ctx, BackupGitRemoteName, branch) {
+		if err := a.pullRebase(ctx, BackupGitRemoteName, branch); err != nil {
+			return err
+		}
+	}
+	if err := a.push(ctx, BackupGitRemoteName, branch); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a GitRepoSyncAction) cmd(ctx context.Context, args ...string) *exec.Cmd {
+	argv := append([]string{"-C", a.Src}, args...)
+	return execdriver.MustRun(ctx, "git", argv...)
+}
+
+func (a GitRepoSyncAction) run(ctx context.Context, args ...string) error {
+	cmd := a.cmd(ctx, args...)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func (a GitRepoSyncAction) output(ctx context.Context, args ...string) ([]byte, error) {
+	cmd := a.cmd(ctx, args...)
+	cmd.Stderr = os.Stderr
+	return cmd.Output()
+}
+
+func (a GitRepoSyncAction) hasGitDir() bool {
+	_, err := os.Stat(filepath.Join(a.Src, ".git"))
+	return err == nil
+}
+
+func (a GitRepoSyncAction) hasHEAD(ctx context.Context) bool {
+	return a.run(ctx, "rev-parse", "--verify", "HEAD") == nil
+}
+
+// dirOnlyDotGit is true when Src has no local work beyond git metadata (safe to wipe for re-clone).
+func (a GitRepoSyncAction) dirOnlyDotGit() bool {
+	entries, err := os.ReadDir(a.Src)
+	if err != nil {
+		return false
+	}
+	if len(entries) == 0 {
+		return true
+	}
+	return len(entries) == 1 && entries[0].Name() == ".git"
+}
+
+func (a GitRepoSyncAction) prepareEmptyPathForClone() error {
+	if err := os.MkdirAll(filepath.Dir(a.Src), 0755); err != nil {
+		return fmt.Errorf("failed to create parent dir for %s: %w", a.Src, err)
+	}
+	info, err := os.Stat(a.Src)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to inspect repo path %s: %w", a.Src, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("repo path exists and is not a directory: %s", a.Src)
+	}
+	entries, err := os.ReadDir(a.Src)
+	if err != nil {
+		return fmt.Errorf("failed to inspect repo path %s: %w", a.Src, err)
+	}
+	if len(entries) > 0 {
+		return fmt.Errorf("repo path exists but is not a git repo and is not empty: %s", a.Src)
+	}
+	// Empty dir: remove so `git clone remote path` can create it.
+	if err := os.Remove(a.Src); err != nil {
+		return fmt.Errorf("failed to remove empty dir %s before clone: %w", a.Src, err)
+	}
+	return nil
+}
+
+func (a GitRepoSyncAction) clone(ctx context.Context) error {
+	cmd := execdriver.MustRun(ctx, "git", "clone", a.Dst, a.Src)
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git clone failed for %s from %s: %w", a.Src, a.Dst, err)
+	}
+	return nil
+}
+
+func (a GitRepoSyncAction) currentBranch(ctx context.Context) (string, error) {
+	out, err := a.output(ctx, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return "", fmt.Errorf("failed to detect current branch for %s: %w", a.Src, err)
+	}
+	branch := strings.TrimSpace(string(out))
+	if branch == "" {
+		return "", fmt.Errorf("empty current branch for %s", a.Src)
+	}
+	return branch, nil
+}
+
+func (a GitRepoSyncAction) commitIfDirty(ctx context.Context) error {
+	if err := a.run(ctx, "add", "-A"); err != nil {
+		return fmt.Errorf("git add failed for %s: %w", a.Src, err)
+	}
+	// Unborn HEAD: only commit when the index has staged paths.
+	if !a.hasHEAD(ctx) {
+		if a.run(ctx, "diff", "--cached", "--quiet") == nil {
+			return nil
+		}
+	} else if a.run(ctx, "diff-index", "HEAD", "--exit-code") == nil {
+		return nil
+	}
+	hostname, _ := os.Hostname()
+	commitMsg := fmt.Sprintf("backup checkpoint %s", hostname)
+	if err := a.run(ctx, "commit", "-sm", commitMsg); err != nil {
+		return fmt.Errorf("git commit failed for %s: %w", a.Src, err)
+	}
+	return nil
+}
+
+func (a GitRepoSyncAction) ensureRemoteURL(ctx context.Context, remoteName, remoteURL string) error {
+	currentURLBytes, err := a.output(ctx, "remote", "get-url", remoteName)
+	if err != nil {
+		return a.run(ctx, "remote", "add", remoteName, remoteURL)
+	}
+	if strings.TrimSpace(string(currentURLBytes)) == remoteURL {
+		return nil
+	}
+	return a.run(ctx, "remote", "set-url", remoteName, remoteURL)
+}
+
+func (a GitRepoSyncAction) remoteHasBranch(ctx context.Context, remoteName, branch string) bool {
+	return a.run(ctx, "ls-remote", "--exit-code", "--heads", remoteName, branch) == nil
+}
+
+func (a GitRepoSyncAction) pullRebase(ctx context.Context, remoteName, branch string) error {
+	if err := a.run(ctx, "pull", "--rebase", remoteName, branch); err != nil {
+		_ = a.run(ctx, "rebase", "--abort")
+		return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
+	}
+	return nil
+}
+
+func (a GitRepoSyncAction) push(ctx context.Context, remoteName, branch string) error {
+	if err := a.run(ctx, "push", "-u", remoteName, branch); err != nil {
 		return fmt.Errorf("git push failed for %s: %w", a.Src, err)
 	}
 	return nil
 }
 
-func commitIfDirty(ctx context.Context, repoPath string) error {
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "add", "-A")); err != nil {
-		return fmt.Errorf("git add failed for %s: %w", repoPath, err)
-	}
-	// Unborn HEAD (no commits yet): only commit when the index has staged paths.
-	if !repoHasHEAD(ctx, repoPath) {
-		statusCmd := execdriver.MustRun(ctx, "git", "-C", repoPath, "diff", "--cached", "--quiet")
-		statusCmd.Stderr = os.Stderr
-		if err := statusCmd.Run(); err == nil {
-			return nil // nothing staged
-		}
-	} else if runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "diff-index", "HEAD", "--exit-code")) == nil {
-		return nil // clean vs HEAD
-	}
-	hostname, _ := os.Hostname()
-	commitMsg := fmt.Sprintf("backup checkpoint %s", hostname)
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "commit", "-sm", commitMsg)); err != nil {
-		return fmt.Errorf("git commit failed for %s: %w", repoPath, err)
-	}
-	return nil
-}
-
-func ensureRemoteURL(ctx context.Context, repoPath, remoteName, remoteURL string) error {
-	getURLCmd := execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "get-url", remoteName)
-	getURLCmd.Stderr = os.Stderr
-	currentURLBytes, err := getURLCmd.Output()
-	if err != nil {
-		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "add", remoteName, remoteURL)); err != nil {
-			return err
-		}
-		return nil
-	}
-	currentURL := strings.TrimSpace(string(currentURLBytes))
-	if currentURL == remoteURL {
-		return nil
-	}
-	return runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "remote", "set-url", remoteName, remoteURL))
-}
-
-// ensureRepoCloned makes sure repoPath is a real clone of remoteURL (checkout with commits),
-// not an empty git init + remote add/fetch shell. Initial setup is always `git clone`.
-func ensureRepoCloned(ctx context.Context, repoPath, remoteURL string) error {
-	gitDir := filepath.Join(repoPath, ".git")
-	if _, err := os.Stat(gitDir); err == nil {
-		if repoHasHEAD(ctx, repoPath) {
-			return nil
-		}
-		// Unborn HEAD: only safe to replace with clone when there is no local work.
-		onlyGitMeta, err := dirOnlyDotGit(repoPath)
-		if err != nil {
-			return err
-		}
-		if !onlyGitMeta {
-			return fmt.Errorf("repo path has .git but no commits and is not empty enough to re-clone: %s", repoPath)
-		}
-		if err := os.RemoveAll(repoPath); err != nil {
-			return fmt.Errorf("failed to remove empty init at %s before clone: %w", repoPath, err)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to inspect %s: %w", gitDir, err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(repoPath), 0755); err != nil {
-		return fmt.Errorf("failed to create parent dir for %s: %w", repoPath, err)
-	}
-
-	if info, err := os.Stat(repoPath); err == nil {
-		if !info.IsDir() {
-			return fmt.Errorf("repo path exists and is not a directory: %s", repoPath)
-		}
-		entries, readErr := os.ReadDir(repoPath)
-		if readErr != nil {
-			return fmt.Errorf("failed to inspect repo path %s: %w", repoPath, readErr)
-		}
-		if len(entries) > 0 {
-			return fmt.Errorf("repo path exists but is not a git repo and is not empty: %s", repoPath)
-		}
-		// Empty dir: remove so `git clone remote path` can create it.
-		if err := os.Remove(repoPath); err != nil {
-			return fmt.Errorf("failed to remove empty dir %s before clone: %w", repoPath, err)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to inspect repo path %s: %w", repoPath, err)
-	}
-
-	if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "clone", remoteURL, repoPath)); err != nil {
-		return fmt.Errorf("git clone failed for %s from %s: %w", repoPath, remoteURL, err)
-	}
-	// Some remotes advertise a broken HEAD (e.g. still points at master while only main exists).
-	// git clone then leaves an unborn branch; pick a real remote branch to check out.
-	if !repoHasHEAD(ctx, repoPath) {
-		if err := checkoutRemoteDefaultBranch(ctx, repoPath); err != nil {
-			return fmt.Errorf("clone at %s has no HEAD and fallback checkout failed: %w", repoPath, err)
-		}
-	}
-	return nil
-}
-
-func repoHasHEAD(ctx context.Context, repoPath string) bool {
-	cmd := execdriver.MustRun(ctx, "git", "-C", repoPath, "rev-parse", "--verify", "HEAD")
-	cmd.Stderr = os.Stderr
-	return cmd.Run() == nil
-}
-
 // checkoutRemoteDefaultBranch checks out origin's default or first remote branch after a clone
 // that could not materialize HEAD (broken remote HEAD symref is common on bare rsync remotes).
-func checkoutRemoteDefaultBranch(ctx context.Context, repoPath string) error {
-	// Prefer origin/HEAD when it resolves to a concrete branch.
-	symCmd := execdriver.MustRun(ctx, "git", "-C", repoPath, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD")
-	symCmd.Stderr = os.Stderr
-	if out, err := symCmd.Output(); err == nil {
-		ref := strings.TrimSpace(string(out)) // e.g. refs/remotes/origin/main
+func (a GitRepoSyncAction) checkoutRemoteDefaultBranch(ctx context.Context) error {
+	if out, err := a.output(ctx, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"); err == nil {
+		ref := strings.TrimSpace(string(out))
 		if branch, ok := strings.CutPrefix(ref, "refs/remotes/origin/"); ok && branch != "" {
-			if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "checkout", "-B", branch, "origin/"+branch)); err == nil {
+			if err := a.run(ctx, "checkout", "-B", branch, "origin/"+branch); err == nil {
 				return nil
 			}
 		}
 	}
 
-	listCmd := execdriver.MustRun(ctx, "git", "-C", repoPath, "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")
-	listCmd.Stderr = os.Stderr
-	out, err := listCmd.Output()
+	out, err := a.output(ctx, "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")
 	if err != nil {
 		return fmt.Errorf("list remote branches: %w", err)
 	}
@@ -200,44 +249,21 @@ func checkoutRemoteDefaultBranch(ctx context.Context, repoPath string) error {
 		if !ok || branch == "" {
 			continue
 		}
-		// Prefer main/master if present.
 		if branch == "main" || branch == "master" {
 			candidates = append([]string{branch}, candidates...)
 		} else {
 			candidates = append(candidates, branch)
 		}
 	}
-	// Dedupe while preserving preference order (main/master first).
 	seen := map[string]bool{}
 	for _, branch := range candidates {
 		if seen[branch] {
 			continue
 		}
 		seen[branch] = true
-		if err := runCommand(ctx, execdriver.MustRun(ctx, "git", "-C", repoPath, "checkout", "-B", branch, "origin/"+branch)); err == nil {
+		if err := a.run(ctx, "checkout", "-B", branch, "origin/"+branch); err == nil {
 			return nil
 		}
 	}
 	return errors.New("no usable origin/* branch to check out")
-}
-
-// dirOnlyDotGit reports whether repoPath contains only a .git entry (safe to wipe for re-clone).
-func dirOnlyDotGit(repoPath string) (bool, error) {
-	entries, err := os.ReadDir(repoPath)
-	if err != nil {
-		return false, fmt.Errorf("failed to inspect repo path %s: %w", repoPath, err)
-	}
-	if len(entries) == 0 {
-		return true, nil
-	}
-	if len(entries) == 1 && entries[0].Name() == ".git" {
-		return true, nil
-	}
-	return false, nil
-}
-
-func runCommand(_ context.Context, cmd *exec.Cmd) error {
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
 }
