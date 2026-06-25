@@ -9,7 +9,7 @@ import (
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/logging"
 
-	"github.com/lucasew/fetchurl"
+	"github.com/fetchurl/fetchurl"
 )
 
 func init() {
