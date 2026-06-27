@@ -7,6 +7,7 @@
 //   - Per-task progress reporting via Status objects
 //   - Nestable groups (child groups share parent pools)
 //   - First-error-wins cancellation
+//   - Pruning of completed tasks (no waiter deps left) so Snapshot/TUI stay O(live work)
 package taskgroup
 
 import (
@@ -152,6 +153,15 @@ type taskEntry struct {
 	fn   func(context.Context, *Status) error
 	deps []string
 
+	// resolvedDeps are the concrete dep tasks pinned at Go() time (by id or
+	// latest matching description). Used to release waiter pins on finish.
+	resolvedDeps []*taskEntry
+
+	// waiters is the number of not-yet-finished tasks that listed this task
+	// as a dependency. Protected by Group.mu. Completed tasks with waiters==0
+	// are pruned from the group so Snapshot/TUI do not retain them forever.
+	waiters int
+
 	// done is closed when the task finishes (success or failure).
 	done chan struct{}
 	// status is the progress handle for this task.
@@ -250,9 +260,8 @@ func (p *pools) release(kind PoolKind) {
 
 // Group coordinates dependency-aware task execution with pool limits.
 type Group struct {
-	mu    sync.Mutex
-	tasks []*taskEntry
-	byID  map[string]*taskEntry
+	mu   sync.Mutex
+	Live TaskCollection // Live tasks; protected by mu (see task_collection.go)
 
 	pools  *pools
 	ctx    context.Context
@@ -283,7 +292,7 @@ type Group struct {
 func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	g := &Group{
-		byID:   make(map[string]*taskEntry),
+		Live:   NewTaskCollection(),
 		pools:  newPools(limits),
 		ctx:    ctx,
 		cancel: cancel,
@@ -311,13 +320,13 @@ func FromContext(ctx context.Context) *Group {
 func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
-	for _, t := range g.tasks {
+	g.Live.ForEach(func(t *taskEntry) {
 		if t.status != nil {
 			t.status.mu.Lock()
 			t.status.onLog = fn
 			t.status.mu.Unlock()
 		}
-	}
+	})
 	for _, ch := range g.children {
 		ch.propagateLogHandler(fn)
 	}
@@ -333,13 +342,13 @@ func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 func (g *Group) propagateLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
-	for _, t := range g.tasks {
+	g.Live.ForEach(func(t *taskEntry) {
 		if t.status != nil {
 			t.status.mu.Lock()
 			t.status.onLog = fn
 			t.status.mu.Unlock()
 		}
-	}
+	})
 	for _, ch := range g.children {
 		ch.propagateLogHandler(fn)
 	}
@@ -424,12 +433,25 @@ func (g *Group) Go(desc string, pool PoolKind, fn func(ctx context.Context, s *S
 		},
 		state: Pending,
 	}
-	g.tasks = append(g.tasks, t)
-	g.byID[id] = t
+
+	// Pin dependencies while we still hold the group lock so a fast-finishing
+	// dep is not pruned before this task can wait on it.
+	g.Live.PinDeps(t, deps)
+	g.Live.Add(t)
 
 	g.wg.Add(1)
 	go g.runTask(t)
 	return id
+}
+
+// finishTask closes the done channel, releases dependency waiter pins, and
+// prunes this task (and any deps that are now unreferenced) from the group.
+func (g *Group) finishTask(t *taskEntry) {
+	close(t.done)
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.Live.ReleaseAndPrune(t)
 }
 
 // logRecorder is a slog.Handler wrapper used for task execution.
@@ -486,36 +508,41 @@ func (r *logRecorder) WithGroup(name string) slog.Handler {
 
 func (g *Group) runTask(t *taskEntry) {
 	defer g.wg.Done()
-	defer close(t.done)
+	defer g.finishTask(t)
 
-	// Wait for dependencies.
-	for _, dep := range t.deps {
-		g.mu.Lock()
-		depTask, ok := g.byID[dep]
-		if !ok {
-			// Fall back to description match: most recently added task with this desc.
-			for i := len(g.tasks) - 1; i >= 0; i-- {
-				if g.tasks[i].desc == dep {
-					depTask = g.tasks[i]
-					ok = true
+	// Dependencies were pinned at Go() when possible. Unknown names leave
+	// resolvedDeps shorter than deps and fail here.
+	if len(t.deps) > 0 && len(t.resolvedDeps) < len(t.deps) {
+		missing := t.deps[len(t.resolvedDeps)]
+		for _, dep := range t.deps {
+			found := false
+			for _, d := range t.resolvedDeps {
+				if d.id == dep || d.desc == dep {
+					found = true
 					break
 				}
 			}
+			if !found {
+				missing = dep
+				break
+			}
 		}
-		g.mu.Unlock()
-		if !ok {
-			t.setError(fmt.Errorf("taskgroup: %w %q for task %q", ErrUnknownDependency, dep, t.desc))
-			g.recordError(t.err)
-			return
+		t.setError(fmt.Errorf("taskgroup: %w %q for task %q", ErrUnknownDependency, missing, t.desc))
+		g.recordError(t.err)
+		return
+	}
+	for i, depTask := range t.resolvedDeps {
+		depLabel := depTask.desc
+		if i < len(t.deps) {
+			depLabel = t.deps[i]
 		}
 		select {
 		case <-depTask.done:
-			// Check if dep failed.
 			depTask.mu.Lock()
 			depErr := depTask.err
 			depTask.mu.Unlock()
 			if depErr != nil {
-				t.setError(fmt.Errorf("taskgroup: %w: %q: %w", ErrDependencyFailed, dep, depErr))
+				t.setError(fmt.Errorf("taskgroup: %w: %q: %w", ErrDependencyFailed, depLabel, depErr))
 				g.recordError(t.err)
 				return
 			}
@@ -611,11 +638,12 @@ func (g *Group) Wait() error {
 	return g.err
 }
 
-// Snapshot returns a point-in-time view of all tasks for rendering.
+// Snapshot returns a point-in-time view of all live tasks for rendering.
+// Order is unspecified (map iteration); the bubbletea UI keeps its own
+// first-seen order for progress bars.
 func (g *Group) Snapshot() []TaskState {
 	g.mu.Lock()
-	tasks := make([]*taskEntry, len(g.tasks))
-	copy(tasks, g.tasks)
+	tasks := g.Live.Entries()
 	g.mu.Unlock()
 
 	states := make([]TaskState, len(tasks))
@@ -701,7 +729,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	g.mu.Unlock()
 
 	child := &Group{
-		byID:           make(map[string]*taskEntry),
+		Live:           NewTaskCollection(),
 		pools:          g.pools, // shared pools
 		ctx:            cctx,
 		cancel:         cancel,

@@ -14,6 +14,7 @@ import (
 	"workspaced/pkg/logging"
 )
 
+
 func withLogger(t *testing.T) context.Context {
 	h := logging.NewPlainHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
 	l := slog.New(h)
@@ -113,24 +114,39 @@ func TestPoolLimits(t *testing.T) {
 }
 
 func TestSnapshot(t *testing.T) {
+	// Snapshot while still running so we observe progress before prune.
+	started := make(chan struct{})
+	release := make(chan struct{})
 	g, _ := New(withLogger(t), DefaultLimits())
-
 	g.Go("x", CPU, func(ctx context.Context, s *Status) error {
 		s.Update("working")
 		s.Progress(50, 100)
 		logger := logging.GetLogger(ctx)
 		logger.Info("did a thing")
+		close(started)
+		<-release
 		return nil
 	})
+	<-started
+	snap := g.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("expected 1 task while running, got %d", len(snap))
+	}
+	if snap[0].State != Running {
+		t.Fatalf("expected Running, got %s", snap[0].State)
+	}
+	if snap[0].ID == "" {
+		t.Fatal("TaskState.ID is empty")
+	}
+	if snap[0].Name != "x" {
+		t.Errorf("Name = %q, want %q", snap[0].Name, "x")
+	}
+	close(release)
 	if err := g.Wait(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	snap := g.Snapshot()
-	if len(snap) != 1 {
-		t.Fatalf("expected 1 task, got %d", len(snap))
-	}
-	if snap[0].State != Done {
-		t.Fatalf("expected Done, got %s", snap[0].State)
+	if got := g.Snapshot(); len(got) != 0 {
+		t.Fatalf("expected completed tasks pruned, snapshot len=%d", len(got))
 	}
 }
 
@@ -154,9 +170,9 @@ func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
 	if len(got) != 1 || got[0] != want {
 		t.Fatalf("log line = %#v, want [%q]", got, want)
 	}
-	snap := g.Snapshot()
-	if len(snap) != 1 || len(snap[0].Logs) != 1 || snap[0].Logs[0] != want {
-		t.Fatalf("snapshot logs = %#v, want [%q]", snap, want)
+	// Task is pruned after completion; logs were delivered via SetLogHandler.
+	if got := g.Snapshot(); len(got) != 0 {
+		t.Fatalf("expected pruned snapshot, got %#v", got)
 	}
 }
 
@@ -309,17 +325,9 @@ func TestDuplicateDescriptionsAllowed(t *testing.T) {
 		t.Fatalf("expected 3 executions, got %d", ran)
 	}
 	// Both downloads must have run (no panic on duplicate desc).
-	snap := g.Snapshot()
-	if len(snap) != 3 {
-		t.Fatalf("expected 3 in snapshot, got %d", len(snap))
-	}
-	// Descriptions can repeat.
-	names := map[string]int{}
-	for _, ts := range snap {
-		names[ts.Name]++
-	}
-	if names["download"] != 2 {
-		t.Errorf("expected two tasks named 'download', got counts: %v", names)
+	// Completed tasks are pruned; only side effects prove all three ran.
+	if got := g.Snapshot(); len(got) != 0 {
+		t.Fatalf("expected pruned snapshot after Wait, got %d tasks", len(got))
 	}
 	if !seen["d1"] || !seen["d2"] || !seen["p"] {
 		t.Errorf("not all tasks observed: %v", seen)
@@ -393,23 +401,57 @@ func TestDependencyByReturnedID(t *testing.T) {
 	}
 }
 
-func TestSnapshotHasID(t *testing.T) {
+func TestPruneKeepsDepUntilDependentFinishes(t *testing.T) {
 	g, _ := New(withLogger(t), DefaultLimits())
 
-	g.Go("thing", CPU, func(ctx context.Context, s *Status) error {
+	aStarted := make(chan struct{})
+	aRelease := make(chan struct{})
+	bStarted := make(chan struct{})
+	bRelease := make(chan struct{})
+
+	g.Go("a", CPU, func(ctx context.Context, s *Status) error {
+		close(aStarted)
+		<-aRelease
 		return nil
 	})
+	g.Go("b", CPU, func(ctx context.Context, s *Status) error {
+		close(bStarted)
+		<-bRelease
+		return nil
+	}, "a")
+
+	<-aStarted
+	close(aRelease)
+	// Wait until b is running (so a has finished and would be pruned without waiters).
+	<-bStarted
+	snap := g.Snapshot()
+	// a must still be retained while b depends on it (or already pruned only after b done).
+	// With waiters, a stays until b finishes; b is Running so at least 1 task.
+	if len(snap) < 1 {
+		t.Fatalf("expected live tasks while b runs, got %d", len(snap))
+	}
+	close(bRelease)
 	if err := g.Wait(); err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	snap := g.Snapshot()
-	if len(snap) != 1 {
-		t.Fatalf("want 1, got %d", len(snap))
+	if got := g.Snapshot(); len(got) != 0 {
+		t.Fatalf("expected full prune after Wait, got %d", len(got))
 	}
-	if snap[0].ID == "" {
-		t.Fatal("TaskState.ID is empty")
+}
+
+func TestManyCompletedTasksDoNotStayInSnapshot(t *testing.T) {
+	g, _ := New(withLogger(t), DefaultLimits())
+	const n = 200
+	for i := 0; i < n; i++ {
+		i := i
+		g.Go(fmt.Sprintf("t:%d", i), CPU, func(ctx context.Context, s *Status) error {
+			return nil
+		})
 	}
-	if snap[0].Name != "thing" {
-		t.Errorf("Name = %q, want %q", snap[0].Name, "thing")
+	if err := g.Wait(); err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if got := g.Snapshot(); len(got) != 0 {
+		t.Fatalf("expected 0 tasks after %d completions, got %d", n, len(got))
 	}
 }
