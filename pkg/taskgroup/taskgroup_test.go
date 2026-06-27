@@ -14,7 +14,6 @@ import (
 	"workspaced/pkg/logging"
 )
 
-
 func withLogger(t *testing.T) context.Context {
 	h := logging.NewPlainHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
 	l := slog.New(h)
