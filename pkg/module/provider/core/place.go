@@ -44,6 +44,8 @@ func (placeModule) Prepare(ctx context.Context, cfg map[string]any, resolver mod
 //	items: {
 //	  ".grok/skills": "mySkills:."
 //	  ".config/agent/prompts": "mySkills:prompts"
+//	  // You can also reference the built-in self input directly:
+//	  ".local/bin": "self:bin"
 //	}
 type placeConfig struct {
 	Items map[string]string `json:"items"`

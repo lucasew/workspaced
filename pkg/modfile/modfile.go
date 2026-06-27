@@ -71,6 +71,13 @@ func ModFileFromConfig(cfg *configcue.Config) (*ModFile, error) {
 		src.Ref = strings.TrimSpace(input.Version)
 		out.Sources[name] = src
 	}
+
+	// Always ensure a "self" source exists. This makes the canonical self
+	// input directly referenceable in input refs (e.g. core:place items
+	// can use "self:subdir" or "self:." without extra declarations).
+	if _, ok := out.Sources["self"]; !ok {
+		out.Sources["self"] = SourceConfig{Provider: "self"}
+	}
 	return out, nil
 }
 

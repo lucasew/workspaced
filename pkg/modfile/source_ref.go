@@ -3,6 +3,7 @@ package modfile
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -38,6 +39,26 @@ func (m *ModFile) TryResolveSourceRefToPath(ctx context.Context, spec string, mo
 		}
 		return out, true, nil
 	}
+
+	// "self" (and local) have no SourceProvider registered, but are valid for
+	// input refs ("alias:rel"). "self" is always present as an input (see
+	// ModFileFromConfig), so you can directly write "self:subdir" (or
+	// "self:.") in core:place items etc. Mirror the base path logic.
+	if providerID == "self" || providerID == "local" {
+		base := filepath.Dir(modulesBaseDir)
+		customBase := strings.TrimSpace(src.Path)
+		if customBase != "" {
+			if filepath.IsAbs(customBase) {
+				base = customBase
+			} else {
+				base = filepath.Join(base, customBase)
+			}
+		} else if providerID == "local" {
+			base = modulesBaseDir
+		}
+		return filepath.Join(base, rel), true, nil
+	}
+
 	if _, exists := m.Sources[alias]; !exists {
 		return spec, false, nil
 	}
