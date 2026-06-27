@@ -36,7 +36,8 @@ Run subcommands to see different aspects:
   workspaced experiments demo plain    - schedules but does NOT call RunBubbleTea (plain transcript)
   workspaced experiments demo nested   - SubGroup + explicit RunBubbleTea
   workspaced experiments demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar
-  workspaced experiments demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)`,
+  workspaced experiments demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)
+  workspaced experiments demo cpu10k   - 10k CPU-bound Map items (prune / live-set stress)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare "experiments demo" runs the main tasks showcase for convenience.
 			return runTasksDemo(cmd)

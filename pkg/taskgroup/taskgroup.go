@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -751,28 +752,19 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	return child, childCtx
 }
 
-// Map executes the handler for every item in the slice, using the task Group
-// from ctx (via MustFromContext). Items run concurrently subject to the chosen
-// pool's concurrency limit. Results are returned in the same order as items.
+// Map runs a Control orchestrator task on the group from ctx that fans out
+// items via a SubGroup. The Control task's Status tracks aggregate progress
+// (completed/total children) as each child finishes. Children use pool for
+// concurrency limiting. Results are returned in input order.
 //
-// This is the core "parallel map" primitive over the taskgroup system.
-// The length of the input list is the natural progress total ("progressbar hint").
+//   - pool: resource pool for per-item tasks (CPU / IO / Internet / Control).
+//   - taskName: per-item task label for logs/TUI; "" uses "map:<i>".
+//   - handler: per-item work with its own *Status (seeded Progress(0,1)…(1,1)).
 //
-//   - pool: which resource pool to consume slots from (CPU / IO / Internet).
-//   - taskName: produces a stable name for the per-item task (shown in logs,
-//     Snapshot(), and the bubbletea renderer). Return "" for a default.
-//   - handler: receives its own per-item *Status. Use s.Update(...) for messages
-//     and s.Progress(cur, tot) for item-specific progress (the Map wrapper seeds
-//     Progress(0, 1) as a unit-of-work hint).
-//
-// Progress hint usage (typical pattern when Map is called from inside another task):
-//
-//	s.Progress(0, int64(len(items))) // outer bar knows the total
-//	outs, err := Map(ctx, IO, items, func(i int, it T) string { return "work:" + it.Name }, handler)
-//	// on return the outer status can be advanced to len(outs) if desired
-//
-// The per-item tasks will each have a small progress total so the TUI can draw
-// bars for the currently in-flight work items (bounded by the pool size).
+// Map blocks until the Control task (and thus all children) complete. Callers
+// do not need to maintain their own completion counter for the outer bar — the
+// Control task is the progress owner. Nested Map (Map called from inside a
+// task) still schedules the Control task on the same group as MustFromContext(ctx).
 func Map[T any, U any](
 	ctx context.Context,
 	pool PoolKind,
@@ -785,40 +777,75 @@ func Map[T any, U any](
 	}
 
 	parent := MustFromContext(ctx)
-	g, _ := parent.SubGroup(ctx)
+	total := int64(len(items))
 
-	results := make([]U, len(items))
+	var (
+		results []U
+		mapErr  error
+	)
+	done := make(chan struct{})
 
-	for i := range items {
-		i := i
-		item := items[i]
+	// Control task owns aggregate progress; children live on a SubGroup so
+	// they prune independently and do not bloat the parent's Live set forever.
+	parent.Go("map", Control, func(ctx context.Context, s *Status) error {
+		defer close(done)
 
-		name := ""
-		if taskName != nil {
-			name = taskName(i, item)
-		}
-		if name == "" {
-			name = fmt.Sprintf("map:%d", i)
-		}
+		s.Update(fmt.Sprintf("0/%d", total))
+		s.Progress(0, total)
 
-		g.Go(name, pool, func(ctx context.Context, s *Status) error {
-			// Seed a unit total so progress bars have something to show for this item.
-			// Individual handlers can call s.Progress with more specific (bytes, total)
-			// numbers if the work item itself is incremental.
-			s.Progress(0, 1)
+		childGroup, _ := parent.SubGroup(ctx)
+		results = make([]U, len(items))
+		var completed atomic.Int64
 
-			u, err := handler(ctx, s, item)
-			if err != nil {
-				return err
+		for i := range items {
+			i := i
+			item := items[i]
+
+			name := ""
+			if taskName != nil {
+				name = taskName(i, item)
 			}
-			results[i] = u
-			s.Progress(1, 1)
-			return nil
-		})
-	}
+			if name == "" {
+				name = fmt.Sprintf("map:%d", i)
+			}
 
-	if err := g.Wait(); err != nil {
-		return nil, err
+			childGroup.Go(name, pool, func(ctx context.Context, itemStatus *Status) error {
+				itemStatus.Progress(0, 1)
+
+				u, err := handler(ctx, itemStatus, item)
+				if err != nil {
+					return err
+				}
+				results[i] = u
+				itemStatus.Progress(1, 1)
+
+				cur := completed.Add(1)
+				s.Progress(cur, total)
+				s.Update(fmt.Sprintf("%d/%d", cur, total))
+				return nil
+			})
+		}
+
+		mapErr = childGroup.Wait()
+		if mapErr == nil {
+			s.Progress(total, total)
+			s.Update(fmt.Sprintf("%d/%d", total, total))
+		}
+		return mapErr
+	})
+
+	select {
+	case <-done:
+	case <-ctx.Done():
+		// Control task will observe cancellation via shared pools/context; still
+		// wait for it so we do not leak the done channel waiter ordering.
+		<-done
+		if mapErr == nil {
+			mapErr = ctx.Err()
+		}
+	}
+	if mapErr != nil {
+		return nil, mapErr
 	}
 	return results, nil
 }
