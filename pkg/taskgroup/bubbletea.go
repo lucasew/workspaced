@@ -108,57 +108,63 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		snap := m.group.snapshotRecursive()
 
-		// Remove any tasks whose final 100% "payload" (completion frame)
-		// was shown in the previous tick. This is what makes finished
-		// tasks disappear from the list.
+		// Drop anything we marked gone last tick (extra frame for 100% was optional;
+		// we now remove finished tasks immediately below — this clears stragglers).
 		for id := range m.finishedToRemove {
-			delete(m.statuses, id)
-			delete(m.percents, id)
+			m.dropBar(id)
 		}
 		m.finishedToRemove = make(map[string]struct{})
 
+		// Rebuild visible set from live Running tasks with a determinate total.
+		// Completed/failed tasks are not shown (they prune from TaskCollection
+		// quickly; keeping them in the model made bars linger 100ms+ and stack up).
+		seen := make(map[string]struct{}, len(snap))
 		for _, t := range snap {
 			id := t.ID
-			if t.Total > 0 {
-				if _, already := m.finalized[id]; already {
-					// This task's completion payload was already displayed
-					// for one frame. Skip re-populating so it stays removed.
-					continue
-				}
-				pct := float64(t.Current) / float64(t.Total)
-				m.percents[id] = pct
-				m.statuses[id] = t.Message
-
-				// Record pool, name, and first-seen order the first time we see
-				// this task with progress. This gives stable ordering in
-				// the progress bar view (tasks don't jump around).
-				if _, ok := m.pools[id]; !ok {
-					m.pools[id] = t.Pool
-					m.names[id] = t.Name
-					m.order = append(m.order, id)
-				}
-			} else {
-				m.percents[id] = 0
+			if t.State != Running || t.Total <= 0 {
+				continue
 			}
-
-			if t.State != Running {
-				if pct, ok := m.percents[id]; ok && pct >= 0.999 {
-					// Task just finished. We captured its final payload
-					// (Progress(total,total) + last message) so the 100%
-					// bar is visible *this* render. Mark for removal on
-					// the next tick.
-					m.finishedToRemove[id] = struct{}{}
-					m.finalized[id] = struct{}{}
-					// Leave in percents/statuses for the current View.
-				} else {
-					delete(m.statuses, id)
-					delete(m.percents, id)
-				}
+			seen[id] = struct{}{}
+			pct := float64(t.Current) / float64(t.Total)
+			m.percents[id] = pct
+			m.statuses[id] = t.Message
+			if _, ok := m.pools[id]; !ok {
+				m.pools[id] = t.Pool
+				m.names[id] = t.Name
+				m.order = append(m.order, id)
 			}
+		}
+		// Remove bars for tasks no longer running (finished, pruned, or no total).
+		for id := range m.percents {
+			if _, ok := seen[id]; !ok {
+				m.dropBar(id)
+			}
+		}
+		// Compact order so it does not grow without bound across 10k map items.
+		if len(m.order) > len(m.percents)+8 {
+			m.compactOrder()
 		}
 		return m, m.tick()
 	}
 	return m, nil
+}
+
+func (m *bubbleModel) dropBar(id string) {
+	delete(m.statuses, id)
+	delete(m.percents, id)
+	delete(m.pools, id)
+	delete(m.names, id)
+	delete(m.finalized, id)
+}
+
+func (m *bubbleModel) compactOrder() {
+	out := m.order[:0]
+	for _, id := range m.order {
+		if _, ok := m.percents[id]; ok {
+			out = append(out, id)
+		}
+	}
+	m.order = out
 }
 
 func (m bubbleModel) View() (view tea.View) {

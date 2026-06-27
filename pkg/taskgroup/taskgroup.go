@@ -810,14 +810,15 @@ func Map[T any, U any](
 			}
 
 			childGroup.Go(name, pool, func(ctx context.Context, itemStatus *Status) error {
-				itemStatus.Progress(0, 1)
-
+				// Do not seed Progress on children: the Control orchestrator owns
+				// the aggregate bar. Handlers may still call Progress for
+				// long-running items; otherwise TUI only shows the map bar +
+				// whatever workers opt into (avoids N in-flight unit bars).
 				u, err := handler(ctx, itemStatus, item)
 				if err != nil {
 					return err
 				}
 				results[i] = u
-				itemStatus.Progress(1, 1)
 
 				cur := completed.Add(1)
 				s.Progress(cur, total)
