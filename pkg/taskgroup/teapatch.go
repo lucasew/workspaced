@@ -92,6 +92,12 @@ func (w *teaWriter) File() (*os.File, error) {
 // close tears down the optional File() pipe, waits for the background copy,
 // and emits any trailing partial line. Safe to call when File() was never used.
 func (w *teaWriter) close() {
+	// Force a line boundary so any buffered partial line goes through Write's
+	// normal '\n' path (and thus print) before we tear the pipe down. Without
+	// this, a final write that never ticked a newline can leave the drain
+	// sitting on incomplete buffer state and stall cleanup.
+	_, _ = w.Write([]byte("\n"))
+
 	w.mu.Lock()
 	pw, pr, done := w.pipeW, w.pipeR, w.copyDone
 	w.pipeW, w.pipeR, w.copyDone = nil, nil, nil
