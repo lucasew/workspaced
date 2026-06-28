@@ -132,7 +132,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 	// If we have a task group in context, run the actions in parallel
 	// using the IO pool. Each action gets its own task + Status.
 	if taskgroup.FromContext(ctx) != nil {
-		_, err := taskgroup.Map(ctx, taskgroup.IO, work,
+		_, err := taskgroup.Map(ctx, func(Action) taskgroup.PoolKind { return taskgroup.IO }, work,
 			func(_ int, a Action) string {
 				p := PrettyPath(a.Target)
 				switch a.Type {

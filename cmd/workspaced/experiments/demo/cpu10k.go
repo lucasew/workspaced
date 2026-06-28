@@ -41,7 +41,7 @@ TERM=dumb → plain Wait.`,
 						"per_item", "100ms",
 					)
 
-					results, err := taskgroup.Map(ctx, taskgroup.CPU, items,
+					results, err := taskgroup.Map(ctx, func(int) taskgroup.PoolKind { return taskgroup.CPU }, items,
 						func(_ int, n int) string {
 							return fmt.Sprintf("cpu:%d", n)
 						},

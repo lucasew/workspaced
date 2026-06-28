@@ -210,7 +210,7 @@ func TestMap_BasicAndOrder(t *testing.T) {
 	input := []int{1, 2, 3, 4, 5}
 
 	// Use the root group directly (Map will SubGroup from it)
-	results, err := Map(ctx, CPU, input, func(i int, _ int) string { return fmt.Sprintf("map:%d", i) }, func(ctx context.Context, s *Status, v int) (int, error) {
+	results, err := Map(ctx, func(int) PoolKind { return CPU }, input, func(i int, _ int) string { return fmt.Sprintf("map:%d", i) }, func(ctx context.Context, s *Status, v int) (int, error) {
 		s.Update(fmt.Sprintf("processing %d", v))
 		// simulate work
 		time.Sleep(1 * time.Millisecond)
@@ -240,7 +240,7 @@ func TestMap_Empty(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
-	results, err := Map(ctx, IO, []string{}, nil, func(ctx context.Context, s *Status, v string) (string, error) {
+	results, err := Map(ctx, func(string) PoolKind { return IO }, []string{}, nil, func(ctx context.Context, s *Status, v string) (string, error) {
 		return v + "!", nil
 	})
 	if err != nil {
@@ -255,7 +255,7 @@ func TestMap_ErrorPropagates(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
-	_, err := Map(ctx, IO, []int{10, 20, 30}, nil, func(ctx context.Context, s *Status, v int) (int, error) {
+	_, err := Map(ctx, func(int) PoolKind { return IO }, []int{10, 20, 30}, nil, func(ctx context.Context, s *Status, v int) (int, error) {
 		if v == 20 {
 			return 0, errors.New("boom on 20")
 		}
@@ -272,7 +272,7 @@ func TestMap_UsesProvidedTaskNames(t *testing.T) {
 
 	items := []string{"a.txt", "b.txt"}
 
-	results, err := Map(ctx, IO, items, func(i int, name string) string {
+	results, err := Map(ctx, func(string) PoolKind { return IO }, items, func(i int, name string) string {
 		return "read:" + name
 	}, func(ctx context.Context, s *Status, name string) (string, error) {
 		return "content-of-" + name, nil

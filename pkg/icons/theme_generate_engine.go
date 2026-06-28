@@ -112,7 +112,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		s.Progress(0, totalPaths)
 		s.Update(fmt.Sprintf("theming %d icons", totalPaths))
 
-		_, err := taskgroup.Map(ctx, taskgroup.CPU, paths,
+		_, err := taskgroup.Map(ctx, func(string) taskgroup.PoolKind { return taskgroup.CPU }, paths,
 			func(_ int, iconPath string) string {
 				// Use the logical output-relative name (including context dir)
 				// so that icons with the same basename in different categories

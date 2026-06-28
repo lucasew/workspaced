@@ -767,7 +767,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 // task) still schedules the Control task on the same group as MustFromContext(ctx).
 func Map[T any, U any](
 	ctx context.Context,
-	pool PoolKind,
+	pool func(T) PoolKind,
 	items []T,
 	taskName func(int, T) string,
 	handler func(ctx context.Context, s *Status, item T) (U, error),
@@ -809,7 +809,7 @@ func Map[T any, U any](
 				name = fmt.Sprintf("map:%d", i)
 			}
 
-			childGroup.Go(name, pool, func(ctx context.Context, itemStatus *Status) error {
+			childGroup.Go(name, pool(item), func(ctx context.Context, itemStatus *Status) error {
 				// Do not seed Progress on children: the Control orchestrator owns
 				// the aggregate bar. Handlers may still call Progress for
 				// long-running items; otherwise TUI only shows the map bar +

@@ -86,28 +86,42 @@ func RunFullBackup(ctx context.Context) error {
 		}
 	}
 
-	// Task group must be provided via context from the top-level command.
-	parent := taskgroup.MustFromContext(ctx)
-	g, ctx := parent.SubGroup(ctx)
+	type actionItem struct {
+		Idx    int
+		Action BackupAction
+	}
+	items := make([]actionItem, len(actions))
+	for i, a := range actions {
+		items[i] = actionItem{Idx: i, Action: a}
+	}
 
-	for i, action := range actions {
-		idx := i
-		act := action
-		msg := act.GetName()
-		if strings.TrimSpace(msg) == "" {
-			msg = fmt.Sprintf("backup-action-%d", idx+1)
-		}
+	_, mapErr := taskgroup.Map(ctx, func(item actionItem) taskgroup.PoolKind {
+		return poolFor(item.Action.GetKind())
+	}, items,
+		func(i int, item actionItem) string {
+			msg := item.Action.GetName()
+			if strings.TrimSpace(msg) == "" {
+				msg = fmt.Sprintf("backup-action-%d", item.Idx+1)
+			}
+			return fmt.Sprintf("backup:%s", msg)
+		},
+		func(ctx context.Context, s *taskgroup.Status, item actionItem) (struct{}, error) {
+			idx := item.Idx
+			act := item.Action
+			msg := act.GetName()
+			if strings.TrimSpace(msg) == "" {
+				msg = fmt.Sprintf("backup-action-%d", idx+1)
+			}
 
-		g.Go(fmt.Sprintf("backup:%s", msg), poolFor(act.GetKind()), func(ctx context.Context, s *taskgroup.Status) error {
 			logger := logging.GetLogger(ctx)
 			s.Update(msg)
-			s.Progress(int64(idx), int64(len(actions)))
+			// No need to seed Progress manually here; Map tracks aggregate progress!
 			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
 
 			if cmdctx.IsDryRun(ctx) {
 				logger.Info("dry-run: skipping", "name", msg)
 				logger.Info("backup action completed (dry-run)", "name", msg, "kind", act.GetKind())
-				return nil
+				return struct{}{}, nil
 			}
 
 			n2 := &notification.Notification{
@@ -126,15 +140,16 @@ func RunFullBackup(ctx context.Context) error {
 				failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, act.GetKind(), err))
 				failuresMu.Unlock()
 				// Don't return error — let other actions continue.
-				return nil
+				return struct{}{}, nil
 			}
-			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
-			return nil
-		})
-	}
 
-	if err := g.Wait(); err != nil {
-		return err
+			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
+			return struct{}{}, nil
+		},
+	)
+
+	if mapErr != nil {
+		return mapErr
 	}
 
 	if len(failures) > 0 {
