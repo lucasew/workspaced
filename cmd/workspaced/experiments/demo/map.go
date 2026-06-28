@@ -61,7 +61,7 @@ This is the recommended way to turn "for each X do Y" into group-scheduled work.
 
 					var completed atomic.Int64
 
-					results, err := taskgroup.Map(ctx, taskgroup.IO, items,
+					results, err := taskgroup.Map(ctx, func(string) taskgroup.PoolKind { return taskgroup.IO }, items,
 						func(i int, path string) string {
 							// Use the item itself for a clear, stable task name.
 							// These names appear in logs and (when visible) in the UI.
