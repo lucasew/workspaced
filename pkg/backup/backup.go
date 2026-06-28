@@ -79,6 +79,8 @@ func RunFullBackup(ctx context.Context) error {
 		switch kind {
 		case "git_repo_sync":
 			return taskgroup.Internet
+		case "rsync":
+			return taskgroup.Control // rsync driver manages its own IO tasks
 		default:
 			return taskgroup.IO
 		}
