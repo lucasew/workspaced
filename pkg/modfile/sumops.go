@@ -59,7 +59,7 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 		return false
 	}
 	if s.toolLocks == nil {
-		s.toolLocks = map[string]LockedTool{}
+		s.toolLocks = rebuildToolLocksFromDependencies(s)
 	}
 	// update runtime alias map
 	prev, had := s.toolLocks[name]
@@ -133,7 +133,7 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 		return false
 	}
 	if s.sourceLocks == nil {
-		s.sourceLocks = map[string]LockedSource{}
+		s.sourceLocks = rebuildSourceLocksFromDependencies(s)
 	}
 	s.sourceLocks[name] = lock
 
