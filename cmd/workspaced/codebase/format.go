@@ -1,6 +1,7 @@
 package codebase
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"workspaced/pkg/checks/formatter"
 	_ "workspaced/pkg/checks/prelude"
 	"workspaced/pkg/git"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -36,7 +38,15 @@ func init() {
 					return fmt.Errorf("failed to find git root (format must run inside a git repo): %w", err)
 				}
 
-				return formatter.RunAll(cmd.Context(), root)
+				ctx := cmd.Context()
+				g := taskgroup.MustFromContext(ctx)
+				g.Go("codebase:format", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+					s.Update("running formatters")
+					s.Progress(0, 1)
+					defer s.Progress(1, 1)
+					return formatter.RunAll(ctx, root)
+				})
+				return nil
 			},
 		})
 	})

@@ -42,10 +42,12 @@ Useful from scripts or to locate exact executables.`,
 					return nil
 				})
 				out := cmd.OutOrStdout()
-				taskgroup.MustSessionFrom(cmd.Context()).AfterWait(func() {
+				taskgroup.MustSessionFrom(cmd.Context()).AfterWait(func() error {
 					if binPath != "" {
-						fmt.Fprintln(out, binPath)
+						_, err := fmt.Fprintln(out, binPath)
+						return err
 					}
+					return nil
 				})
 				return nil
 			},

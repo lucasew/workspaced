@@ -1,9 +1,13 @@
 package open
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
+
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool"
 	_ "workspaced/pkg/tool/prelude"
 
@@ -33,19 +37,34 @@ func lazyCommand() *cobra.Command {
 				resolver = tool.ResolveHomeLazyTool
 			}
 
-			binPath, err := resolver(cmd.Context(), toolName, binName)
-			if err != nil {
-				return err
-			}
-
-			command, err := execdriver.Run(cmd.Context(), binPath, toolArgs...)
-			if err != nil {
-				return fmt.Errorf("failed to create command: %w", err)
-			}
-			command.Stdin = os.Stdin
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
-			return command.Run()
+			ctx := cmd.Context()
+			g := taskgroup.MustFromContext(ctx)
+			var theCmd *exec.Cmd
+			g.Go("open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+				s.Update("resolving " + toolName)
+				binPath, err := resolver(ctx, toolName, binName)
+				if err != nil {
+					return err
+				}
+				// Detach so session teardown does not cancel the child.
+				execCtx := context.WithoutCancel(ctx)
+				c, err := execdriver.Run(execCtx, binPath, toolArgs...)
+				if err != nil {
+					return fmt.Errorf("failed to create command: %w", err)
+				}
+				theCmd = c
+				return nil
+			})
+			taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+				if theCmd == nil {
+					return nil
+				}
+				theCmd.Stdin = os.Stdin
+				theCmd.Stdout = os.Stdout
+				theCmd.Stderr = os.Stderr
+				return theCmd.Run()
+			})
+			return nil
 		},
 	}
 

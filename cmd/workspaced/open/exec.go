@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
 	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -79,15 +81,15 @@ Examples:
 				command.Env = env
 			}
 
-			// Connect stdio
-			command.Stdin = os.Stdin
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
-
-			if err := command.Run(); err != nil {
-				return err
-			}
-
+			// Defer run until session Close tears down UI/stderr patches so the
+			// child inherits real stdio (even when no tasks were scheduled).
+			var theCmd = command
+			taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+				theCmd.Stdin = os.Stdin
+				theCmd.Stdout = os.Stdout
+				theCmd.Stderr = os.Stderr
+				return theCmd.Run()
+			})
 			return nil
 		},
 	}

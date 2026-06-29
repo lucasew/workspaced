@@ -10,11 +10,11 @@ import (
 
 	"workspaced/pkg/checks/lint"
 	_ "workspaced/pkg/checks/prelude"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 	"github.com/spf13/cobra"
-
-	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -37,14 +37,25 @@ func init() {
 					return err
 				}
 
-				report, err := lint.RunAll(cmd.Context(), path)
-				if err != nil {
+				ctx := cmd.Context()
+				g := taskgroup.MustFromContext(ctx)
+				var report *sarif.Report
+				g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+					s.Update("running linters")
+					s.Progress(0, 1)
+					defer s.Progress(1, 1)
+					var err error
+					report, err = lint.RunAll(ctx, path)
 					return err
-				}
-
-				saveSarifToCI(cmd.Context(), report)
-
-				return printReport(report, format)
+				})
+				taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+					if report == nil {
+						return nil
+					}
+					saveSarifToCI(ctx, report)
+					return printReport(report, format)
+				})
+				return nil
 			},
 		}
 

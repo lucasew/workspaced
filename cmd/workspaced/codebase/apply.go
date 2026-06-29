@@ -51,7 +51,7 @@ func init() {
 
 // Schedule wires codebase plan/apply.
 // target is always the workspace root.
-func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() {
+func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() error {
 	taskName := "codebase:apply"
 	updateMsg := "applying to repo root"
 	if dryRun {
@@ -166,14 +166,14 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		return nil
 	})
 
-	return func() {
-		printCodebasePlanOutput(finalResult, showNoop, dryRun)
+	return func() error {
+		return printCodebasePlanOutput(finalResult, showNoop, dryRun)
 	}
 }
 
-func printCodebasePlanOutput(result *dotfiles.ApplyResult, showNoop bool, dryRun bool) {
+func printCodebasePlanOutput(result *dotfiles.ApplyResult, showNoop bool, dryRun bool) error {
 	if result == nil {
-		return
+		return nil
 	}
 	if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
 		orderedActions := deployer.SortActions(result.Actions)
@@ -187,16 +187,29 @@ func printCodebasePlanOutput(result *dotfiles.ApplyResult, showNoop bool, dryRun
 				sourceInfo = a.Desired.File.SourceInfo()
 			}
 			target := deployer.PrettyPath(a.Target)
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo)
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo); err != nil {
+				return err
+			}
 		}
-		_ = w.Flush()
+		if err := w.Flush(); err != nil {
+			return err
+		}
 
-		fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
-		if showNoop {
-			fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp)
+		if _, err := fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted); err != nil {
+			return err
 		}
-		fmt.Fprintln(os.Stderr)
+		if showNoop {
+			if _, err := fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp); err != nil {
+				return err
+			}
+		}
+		if _, err := fmt.Fprintln(os.Stderr); err != nil {
+			return err
+		}
 	} else if !dryRun {
-		fmt.Fprintln(os.Stderr, "No changes needed (repo root is up to date)")
+		if _, err := fmt.Fprintln(os.Stderr, "No changes needed (repo root is up to date)"); err != nil {
+			return err
+		}
 	}
+	return nil
 }

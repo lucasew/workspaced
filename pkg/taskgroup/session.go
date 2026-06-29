@@ -13,13 +13,12 @@ type sessionKey struct{}
 
 // Session owns the CLI task runtime for one command invocation: the root
 // Group, optional progress UI, and global output redirections. Enter in
-// PersistentPreRun; Close in PersistentPostRun (or explicitly before handing
-// off to a long-lived child, e.g. tool with).
+// PersistentPreRun; Close in PersistentPostRun (idempotent; also safe to call
+// early if a command must finish the session before RunE returns).
 //
 // Commands should only schedule work with Group.Go (via MustFromContext) and
-// optionally register AfterWait hooks for post-TUI output (plan tables).
-// They must not call Wait/Run themselves unless they need an early Close
-// (tool with).
+// register AfterWait for anything that needs real stdio or must run after all
+// tasks (plan tables, stdout paths, child process exec).
 type Session struct {
 	group *Group
 
@@ -30,7 +29,7 @@ type Session struct {
 	out *outputEnv
 
 	mu    sync.Mutex
-	after []func()
+	after []func() error
 
 	closeOnce sync.Once
 	err       error
@@ -75,7 +74,9 @@ func (s *Session) Group() *Group {
 // AfterWait registers fn to run after all tasks complete and the UI/output
 // environment have been torn down (real stderr is restored). Safe to call
 // from RunE while scheduling work. Hooks run in registration order.
-func (s *Session) AfterWait(fn func()) {
+// The first non-nil error from a hook becomes the Close result when the task
+// group itself succeeded (e.g. child exit status, report write failures).
+func (s *Session) AfterWait(fn func() error) {
 	if s == nil || fn == nil {
 		return
 	}
@@ -85,7 +86,8 @@ func (s *Session) AfterWait(fn func()) {
 }
 
 // Close waits for all tasks, stops the UI, restores global output, then runs
-// AfterWait hooks. Idempotent (sync.Once). Returns the first task error, if any.
+// AfterWait hooks. Idempotent (sync.Once). Returns the first task error, else
+// the first AfterWait error.
 func (s *Session) Close() error {
 	if s == nil {
 		return nil
@@ -102,12 +104,14 @@ func (s *Session) Close() error {
 		s.teardownUI()
 
 		s.mu.Lock()
-		hooks := make([]func(), len(s.after))
+		hooks := make([]func() error, len(s.after))
 		copy(hooks, s.after)
 		s.after = nil
 		s.mu.Unlock()
 		for _, fn := range hooks {
-			fn()
+			if err := fn(); err != nil && s.err == nil {
+				s.err = err
+			}
 		}
 	})
 	return s.err

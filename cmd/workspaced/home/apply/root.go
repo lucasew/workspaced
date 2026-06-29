@@ -55,7 +55,7 @@ func GetCommand() *cobra.Command {
 // Both "home apply" and "home plan" use this so the work always runs in-process
 // under the caller's session. Register the returned func with Session.AfterWait
 // so the plan/apply report prints after tasks finish and the UI/output env is gone.
-func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() {
+func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() error {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
@@ -207,14 +207,14 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		return nil
 	})
 
-	return func() {
-		printPlanOutput(finalResult, showNoop)
+	return func() error {
+		return printPlanOutput(finalResult, showNoop)
 	}
 }
 
-func printPlanOutput(result *dotfiles.ApplyResult, showNoop bool) {
+func printPlanOutput(result *dotfiles.ApplyResult, showNoop bool) error {
 	if result == nil {
-		return
+		return nil
 	}
 	if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
 		orderedActions := deployer.SortActions(result.Actions)
@@ -228,13 +228,24 @@ func printPlanOutput(result *dotfiles.ApplyResult, showNoop bool) {
 				sourceInfo = a.Desired.File.SourceInfo()
 			}
 			target := deployer.PrettyPath(a.Target)
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo)
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo); err != nil {
+				return err
+			}
 		}
-		_ = w.Flush()
-		fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted)
+		if err := w.Flush(); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted); err != nil {
+			return err
+		}
 		if showNoop {
-			fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp)
+			if _, err := fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp); err != nil {
+				return err
+			}
 		}
-		fmt.Fprintln(os.Stderr)
+		if _, err := fmt.Fprintln(os.Stderr); err != nil {
+			return err
+		}
 	}
+	return nil
 }

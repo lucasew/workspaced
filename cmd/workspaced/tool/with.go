@@ -133,20 +133,18 @@ Examples:
 						return nil
 					})
 
-					// Finish ensure work and tear down TUI/stderr patches before exec
-					// so the child inherits real stdio. PostRun Close is then a no-op.
-					if err := taskgroup.MustSessionFrom(cmd.Context()).Close(); err != nil {
-						return err
-					}
-
-					if theCmd == nil {
-						return nil // nothing to run (shouldn't happen)
-					}
-
-					theCmd.Stdin = os.Stdin
-					theCmd.Stdout = os.Stdout
-					theCmd.Stderr = os.Stderr
-					return theCmd.Run()
+					// Run child after session Close (Wait + UI/stderr restore) so it
+					// inherits real stdio. PostRun Close runs this via AfterWait.
+					taskgroup.MustSessionFrom(cmd.Context()).AfterWait(func() error {
+						if theCmd == nil {
+							return nil
+						}
+						theCmd.Stdin = os.Stdin
+						theCmd.Stdout = os.Stdout
+						theCmd.Stderr = os.Stderr
+						return theCmd.Run()
+					})
+					return nil
 				},
 			}
 		})
