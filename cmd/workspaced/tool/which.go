@@ -41,12 +41,12 @@ Useful from scripts or to locate exact executables.`,
 					binPath = bp
 					return nil
 				})
-				if err := taskgroup.Run(g); err != nil {
-					return err
-				}
-				if binPath != "" {
-					fmt.Fprintln(cmd.OutOrStdout(), binPath)
-				}
+				out := cmd.OutOrStdout()
+				taskgroup.MustSessionFrom(cmd.Context()).AfterWait(func() {
+					if binPath != "" {
+						fmt.Fprintln(out, binPath)
+					}
+				})
 				return nil
 			},
 		})

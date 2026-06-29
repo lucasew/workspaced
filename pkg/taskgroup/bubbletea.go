@@ -9,17 +9,21 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"workspaced/pkg/logging"
 )
 
-// Run starts a Bubble Tea renderer for the group. It is a convenience wrapper
-// around g.RunBubbleTea(). See RunBubbleTea for the opt-in behavior and
-// TERM=dumb handling.
+// Run waits for the group's session to finish (tasks + UI teardown), or for
+// the group alone when no Session is attached (tests / New without Enter).
+//
+// Prefer relying on Session.Close from PersistentPostRun; Run remains for
+// early teardown (tool with) and legacy callers.
 func Run(g *Group) error {
 	if g == nil {
 		return nil
 	}
-	return g.RunBubbleTea()
+	if s := sessionForGroup(g); s != nil {
+		return s.Close()
+	}
+	return g.Wait()
 }
 
 // isInteractiveTerminal returns false for TERM=dumb, NO_COLOR, CI, or when
@@ -237,109 +241,8 @@ func plainBar(pct float64, width int) string {
 	return "[" + strings.Repeat("=", filled) + strings.Repeat("-", width-filled) + "]"
 }
 
-// RunBubbleTea is the group method that kicks in the bubbletea progress+log
-// system for this Group.
-//
-// It is opt-in only: normal commands (self-update, backup, etc) never call it,
-// so bubbletea does not run for them.
-//
-// If the terminal is "dumb" (TERM=dumb, NO_COLOR, CI, or stderr is not a tty),
-// this becomes a no-op that simply waits for the group to finish (plain
-// transcript via normal slog from the context loggers inside tasks).
-//
-// When interactive, it starts a tea.Program (no AltScreen), wires task logs
-// (from the context logger inside Go funcs) through prog.Printf so they use
-// the same output file as tea and naturally scroll above the bars; after each
-// log it sends a refresh so the progress bars are re-rendered below the new
-// line ("bar moved down").
-//
-// Call it from showcase commands after you have done your g.Go(...) scheduling,
-// e.g. at the end of a demo RunE: return g.RunBubbleTea()
+// RunBubbleTea is a compatibility alias for Run (session Close when present).
+// Prefer scheduling only and letting PersistentPostRun Session.Close finish work.
 func (g *Group) RunBubbleTea() error {
-	if g == nil {
-		return nil
-	}
-	if !isInteractiveTerminal() {
-		// Dumb/non-tty: plain behavior, just wait. No TUI side effects.
-		return g.Wait()
-	}
-
-	model := newBubbleModel(g)
-	// WithInput(nil) + WithoutSignalHandler: we don't need interactive key
-	// input for this use. The program's lifetime is driven by a background
-	// waiter that calls Quit() once g.Wait() returns (i.e. when the group
-	// is done). This also avoids requiring /dev/tty when forcing the TUI
-	// path in test harnesses, pipes, or certain CI setups (the guard already
-	// prevents entry unless WORKSPACED_FORCE_TUI or a real tty).
-	prog := tea.NewProgram(model,
-		tea.WithOutput(os.Stderr),
-		tea.WithContext(g.ctx),
-	)
-
-	// Activate the renderer flag first so that any concurrent logs from
-	// already-running (or about-to-run) tasks will skip the normal slog
-	// delegate (preventing dups). Then attach the handler (SetLogHandler
-	// now also pushes the fn into any pre-existing task Status objects,
-	// because tasks capture the onLog at g.Go time and the append closure
-	// reads the per-Status value).
-	g.setUsingBubbleTea(true)
-	defer g.setUsingBubbleTea(false)
-
-	// Wire logs by writing them directly to the same writer we passed to
-	// tea.WithOutput (os.Stderr). This advances the terminal cursor past the
-	// log line (committing it to scrollback). We then Send(refresh) so the
-	// model re-renders the progress bar(s) at the *new* bottom position after
-	// the log. This produces the desired "logs over bar, bar moves down on
-	// each print" without the cursor compensation that prog.Printf performs
-	// (which was causing logs to fight the bar region).
-	//
-	// The bar rendering + Snapshot polling still goes through the tea program.
-	g.SetLogHandler(func(taskName, msg string) {
-		prog.Printf("%s", msg)
-		prog.Send(refreshMsg{})
-	})
-
-	// Install patches for os.Stderr, slog.Default(), and the stdlib log
-	// package. Any output they receive while the program is running is
-	// line-scanned and emitted via prog.Printf + refresh so it appears
-	// in the scrolling transcript above the progress bars. The returned
-	// cleanup restores the previous values (like a context manager exit).
-	cleanupPatches := installTeaPatches(prog)
-	defer cleanupPatches()
-
-	// Drive quit from the group directly, instead of the model polling until
-	// its percents (displayed progress bar list) becomes empty / allDone.
-	// A goroutine waits on the group (authoritative completion of all work
-	// and side-effects inside task fns) and then tells the program to quit.
-	// The model continues to tick/snapshot for live updates until then.
-	go func() {
-		g.Wait()
-		if logging.ContextHasLogger(g.ctx) {
-			logger := logging.GetLogger(g.ctx)
-			snap := g.snapshotRecursive()
-			logger.Debug("group finished, triggering prog.Quit()", "remaining_tasks", len(snap))
-		}
-		// Drain the teaWriter (stderr pipe + line buffer) before we quit. The
-		// deferred cleanup runs again after prog.Run() returns; that's harmless.
-		// Final result tables (e.g. home plan) are emitted after Run returns so
-		// they no longer depend on the patch drain.
-		cleanupPatches()
-		prog.Quit()
-	}()
-
-	_, progErr := prog.Run()
-
-	// Clear handler after exit.
-	g.SetLogHandler(nil)
-
-	// Surface the task error in preference to any ctx error from the tea
-	// program (which can happen if recordError canceled the ctx while prog
-	// was running). This ensures that the original error (e.g. a CUE
-	// validation error from config or modules) is what gets returned to the
-	// caller, instead of "context canceled".
-	taskErr := g.Wait()
-	if taskErr != nil {
-		return taskErr
-	}
-	return progErr
+	return Run(g)
 }

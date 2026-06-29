@@ -60,7 +60,7 @@ func init() {
 				// Showcase: opt into bubbletea renderer via the group method.
 				// Child subgroup bars are not on the parent snapshot (by design),
 				// but logs still flow and the parent "bundle" task will show a bar.
-				_ = g.RunBubbleTea()
+				// session Close in PostRun handles UI + Wait
 				return nil
 			},
 		})

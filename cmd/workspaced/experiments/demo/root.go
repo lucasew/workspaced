@@ -142,5 +142,5 @@ func runTasksDemo(cmd *cobra.Command) error {
 		return ErrSimulated503
 	}, "build")
 
-	return g.RunBubbleTea()
+	return nil
 }

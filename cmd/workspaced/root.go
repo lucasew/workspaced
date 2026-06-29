@@ -67,7 +67,7 @@ func main() {
 	var cpuProfilePath string
 	var memProfilePath string
 	var stopProfiling func() error
-	var rootGroup *taskgroup.Group
+	var rootSession *taskgroup.Session
 
 	cmd := &cobra.Command{
 		Use:           "workspaced",
@@ -98,14 +98,15 @@ func main() {
 			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
 			c.SetContext(cmdctx.WithDryRun(c.Context(), dryRun))
 
-			// Create root task group with limits from config (or defaults).
+			// One session per invocation: root group + optional TUI observer.
+			// Commands only schedule tasks; Close in PostRun waits and tears down.
 			limits := taskgroup.DefaultLimits()
 			if homeCfg, err := configcue.LoadHome(c.Context()); err == nil {
 				limits = homeCfg.ConcurrencyLimits()
 			}
-			var groupCtx context.Context
-			rootGroup, groupCtx = taskgroup.New(c.Context(), limits)
-			c.SetContext(groupCtx)
+			var sessCtx context.Context
+			rootSession, sessCtx = taskgroup.Enter(c.Context(), limits)
+			c.SetContext(sessCtx)
 
 			if verbose {
 				slog.SetLogLoggerLevel(slog.LevelDebug)
@@ -132,18 +133,18 @@ func main() {
 			return err
 		},
 		PersistentPostRunE: func(c *cobra.Command, args []string) error {
-			// Wait for any root-level tasks (the group is the source of truth
-			// for work; renderers like bubbletea are opt-in per-command via
-			// g.RunBubbleTea and are ignored on dumb terminals).
-			if rootGroup != nil {
-				if err := rootGroup.Wait(); err != nil {
+			// Authoritative finish: Wait tasks, stop UI, restore stderr, AfterWait hooks.
+			var sessErr error
+			if rootSession != nil {
+				sessErr = rootSession.Close()
+				if sessErr != nil {
 					logger := logging.GetLogger(c.Context())
-					logger.Error("task group error", "err", err)
+					logger.Error("task group error", "err", sessErr)
 				}
 			}
 
 			if stopProfiling == nil {
-				return nil
+				return sessErr
 			}
 			err := stopProfiling()
 			if err == nil && (cpuProfilePath != "" || memProfilePath != "" || os.Getenv("WORKSPACED_CPUPROFILE") != "" || os.Getenv("WORKSPACED_MEMPROFILE") != "") {
@@ -151,6 +152,9 @@ func main() {
 				logger.Info("profiling finished")
 			}
 			stopProfiling = nil
+			if sessErr != nil {
+				return sessErr
+			}
 			return err
 		},
 	}

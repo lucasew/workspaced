@@ -75,7 +75,7 @@ TERM=dumb → plain Wait.`,
 					return nil
 				})
 
-				return g.RunBubbleTea()
+				return nil
 			},
 		})
 	})

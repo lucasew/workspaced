@@ -26,4 +26,4 @@ type WriterRenderer interface {
 
 // Note: Auto() and NewBubbleTeaRenderer are thin wrappers. The real
 // implementation (including the opt-in Group method, dumb-term guard and
-// natural log scrolling) lives in pkg/taskgroup as RunBubbleTea.
+// natural log scrolling) lives in pkg/taskgroup as Session (Enter/Close).

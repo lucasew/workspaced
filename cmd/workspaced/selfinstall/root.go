@@ -44,7 +44,7 @@ A shim is created in:
 				defer s.Progress(1, 1)
 				return runSelfInstall(ctx, force)
 			})
-			return taskgroup.Run(g)
+			return nil
 		},
 	}
 

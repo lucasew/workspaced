@@ -23,7 +23,7 @@ func init() {
 					s.Progress(1, 1)
 					return err
 				})
-				return taskgroup.Run(g)
+				return nil
 			},
 		})
 	})

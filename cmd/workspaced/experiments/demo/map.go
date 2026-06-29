@@ -109,7 +109,7 @@ This is the recommended way to turn "for each X do Y" into group-scheduled work.
 				})
 
 				// Opt into the bubbletea renderer (same rules as all other demos).
-				return g.RunBubbleTea()
+				return nil
 			},
 		})
 	})

@@ -64,7 +64,7 @@ use: they schedule work via the primitives and never start bubbletea.`,
 					return nil
 				}, "process")
 
-				return g.RunBubbleTea()
+				return nil
 			},
 		})
 	})

@@ -39,11 +39,9 @@ For mise-managed tools (e.g. go, node) or direct github use 'mise:' or 'github:'
 				g := taskgroup.MustFromContext(cmd.Context())
 				g.Go("tool:install:"+spec, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("installing " + spec)
-					err := manager.Install(ctx, spec)
-					return err
+					return manager.Install(ctx, spec)
 				})
-
-				return taskgroup.Run(g)
+				return nil
 			},
 		})
 	})

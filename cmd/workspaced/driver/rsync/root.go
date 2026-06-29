@@ -2,7 +2,6 @@ package rsync
 
 import (
 	"workspaced/pkg/driver/rsync"
-	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -30,32 +29,12 @@ implementation from github.com/gokrazy/rsync is used automatically.`,
 				SkipPermissions: skipPermissions,
 				Output:          c.OutOrStdout(),
 			}
-
-			ctx := c.Context()
-			g := taskgroup.MustFromContext(ctx)
-
-			// Schedule the actual work via the rsync package (which will create
-			// the properly-named "rsync:..." task internally via RunWithTaskGroup).
-			// We launch it in a goroutine so we can start the group renderer
-			// (taskgroup.Run) concurrently to get live progress bars.
-			errCh := make(chan error, 1)
-			go func() {
-				errCh <- rsync.Sync(ctx, src, dst, opts)
-			}()
-
-			if runErr := taskgroup.Run(g); runErr != nil {
-				// Prefer the actual rsync error if present.
-				if err := <-errCh; err != nil {
-					return err
-				}
-				return runErr
-			}
-			return <-errCh
+			// Work is scheduled on the session group inside Sync; PostRun Close waits.
+			return rsync.Sync(c.Context(), src, dst, opts)
 		},
 	}
 
 	cmd.Flags().StringArrayVarP(&excludes, "exclude", "e", nil, "Exclude pattern (repeatable)")
 	cmd.Flags().BoolVar(&skipPermissions, "no-perms", false, "Do not preserve permissions (like rsync --no-perms)")
-
 	return cmd
 }

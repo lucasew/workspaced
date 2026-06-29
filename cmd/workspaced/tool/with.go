@@ -122,13 +122,8 @@ Examples:
 							return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
 						}
 
-						// Create the final *exec.Cmd using a context *detached* from the
-						// task group. taskgroup.Run(g) / Wait() will call cancel() on the
-						// group context (to signal renderers done), even on success.
-						// If the exec.Cmd was created with CommandContext on a ctx that
-						// then gets canceled, the child process gets killed immediately
-						// (or fails to start cleanly). The "with" use case needs the
-						// launched tool to outlive the "ensuring" + TUI teardown phase.
+						// Detach from the task group so Session.Close (Wait + UI teardown)
+						// does not cancel the child via CommandContext.
 						execCtx := context.WithoutCancel(ctx)
 						c, err := execdriver.Run(execCtx, binPath, commandArgs...)
 						if err != nil {
@@ -138,7 +133,9 @@ Examples:
 						return nil
 					})
 
-					if err := taskgroup.Run(g); err != nil {
+					// Finish ensure work and tear down TUI/stderr patches before exec
+					// so the child inherits real stdio. PostRun Close is then a no-op.
+					if err := taskgroup.MustSessionFrom(cmd.Context()).Close(); err != nil {
 						return err
 					}
 

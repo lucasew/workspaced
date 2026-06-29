@@ -79,7 +79,7 @@ in ~/.local/bin/workspaced is updated automatically.`,
 				return runSelfUpdate(ctx, force)
 			})
 
-			return taskgroup.Run(g)
+			return nil
 		},
 	}
 

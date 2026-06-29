@@ -40,9 +40,8 @@ func init() {
 
 				g := taskgroup.MustFromContext(ctx)
 				printReport := Schedule(g, cmd, dryRun, showNoop)
-				runErr := taskgroup.Run(g)
-				printReport()
-				return runErr
+				taskgroup.MustSessionFrom(ctx).AfterWait(printReport)
+				return nil
 			},
 		}
 		cmd.Flags().Bool("show-noop", false, "Also show files that would not change")

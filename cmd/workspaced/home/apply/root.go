@@ -43,9 +43,8 @@ func GetCommand() *cobra.Command {
 
 			g := taskgroup.MustFromContext(ctx)
 			printReport := Schedule(g, cmd, dryRun, showNoop)
-			runErr := taskgroup.Run(g)
-			printReport()
-			return runErr
+			taskgroup.MustSessionFrom(ctx).AfterWait(printReport)
+			return nil
 		},
 	}
 	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
@@ -54,10 +53,8 @@ func GetCommand() *cobra.Command {
 
 // Schedule wires the home apply/plan work into the given task Group.
 // Both "home apply" and "home plan" use this so the work always runs in-process
-// (under the caller's taskgroup and any active bubbletea renderer).
-// The caller is responsible for calling taskgroup.Run(g) afterwards and then
-// calling the returned function to emit the final plan/apply report (after any
-// bubbletea renderer has exited, so direct stderr writes are reliable).
+// under the caller's session. Register the returned func with Session.AfterWait
+// so the plan/apply report prints after tasks finish and the UI/output env is gone.
 func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"

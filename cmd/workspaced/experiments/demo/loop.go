@@ -39,7 +39,7 @@ func init() {
 
 				// Kick in bubbletea (group method). Ignored automatically on dumb term.
 				// This is what makes the demo show live bars + logs scrolling above them.
-				return g.RunBubbleTea()
+				return nil
 			},
 		})
 	})

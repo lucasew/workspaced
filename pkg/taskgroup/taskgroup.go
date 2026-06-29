@@ -275,7 +275,7 @@ type Group struct {
 
 	onLog func(taskName, msg string)
 
-	// usingBubbleTea is set while a bubbletea renderer (RunBubbleTea) is active
+	// usingBubbleTea is set while a session progress UI is active
 	// for this group. It tells per-task logRecorders to skip normal slog delegate
 	// (the renderer owns visible emission via prog.Printf) to avoid duplicate lines.
 	usingBubbleTea bool
@@ -311,13 +311,13 @@ func FromContext(ctx context.Context) *Group {
 // SetLogHandler sets a callback invoked whenever a log is recorded for a task
 // (via the context logger inside the task func, which feeds the recorder).
 // The callback is useful for real-time observers (e.g. TUI renderers like
-// RunBubbleTea) in addition to the per-task Logs slices in Snapshot().
+// session UI) in addition to the per-task Logs slices in Snapshot().
 //
 // It updates the group, direct tasks, *and* any SubGroups (recursively) plus
 // their tasks. This ensures the logger interceptor (logRecorder.append that
 // feeds onLog + the usingBubbleTea skip in Handle) is taken for work scheduled
 // via Map / SubGroup, even if those subgroups were created before or around
-// the time RunBubbleTea wires the handler (the common opt-in pattern).
+// the time the session UI wires the handler.
 func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
@@ -721,7 +721,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	cctx, cancel := context.WithCancel(ctx)
 
 	// Snapshot the current logger interceptor settings (onLog + usingBubbleTea)
-	// under the lock. This lets subgroups created after RunBubbleTea has
+	// under the lock. This lets subgroups created after the session UI has
 	// wired the handler still get the interceptor (the append callback for
 	// prog.Printf + the skip in logRecorder.Handle).
 	g.mu.Lock()

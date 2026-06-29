@@ -3,14 +3,8 @@ package taskgroup
 import (
 	"bytes"
 	"io"
-	"log"
-	"log/slog"
 	"os"
 	"sync"
-
-	"workspaced/pkg/logging"
-
-	tea "charm.land/bubbletea/v2"
 )
 
 // teaWriter is the single line-buffering front door for TUI transcript output
@@ -52,7 +46,7 @@ func (w *teaWriter) Write(p []byte) (int, error) {
 
 // File returns an *os.File whose writes are bridged into w via a background
 // io.Copy. The same File is returned on every successful call. Call close
-// (via the installTeaPatches cleanup) to tear the pipe down and flush.
+// (via outputEnv.restore) to tear the pipe down and flush.
 //
 // The background copy is started without holding mu so Write can lock.
 func (w *teaWriter) File() (*os.File, error) {
@@ -96,6 +90,10 @@ func (w *teaWriter) close() {
 	// normal '\n' path (and thus print) before we tear the pipe down. Without
 	// this, a final write that never ticked a newline can leave the drain
 	// sitting on incomplete buffer state and stall cleanup.
+	//
+	// Prefer calling restore (which closes the pipe) only after the UI is no
+	// longer required; session teardown restores globals before Quit so print
+	// during this flush is best-effort onto a stopping program.
 	_, _ = w.Write([]byte("\n"))
 
 	w.mu.Lock()
@@ -123,45 +121,4 @@ func (w *teaWriter) close() {
 		w.print(string(w.buf))
 	}
 	w.buf = nil
-}
-
-// installTeaPatches applies (and returns a cleanup that restores) global
-// output redirections so that code unaware of our context-logger or
-// taskgroup onLog path still has its output appear inside the active
-// bubbletea program.
-//
-// All patched sources converge on one teaWriter: slog/log write to it
-// directly; os.Stderr is reassigned to tw.File() (*os.File for exec).
-//
-// The style is deliberately "Python context manager": save originals,
-// install, return a func that puts everything back. Call the func with defer.
-//
-// Patching only happens for the interactive RunBubbleTea path; the
-// non-tty early return in RunBubbleTea never installs anything.
-func installTeaPatches(prog *tea.Program) (cleanup func()) {
-	oldStderr := os.Stderr
-	oldSlog := slog.Default()
-	oldLogWriter := log.Default().Writer()
-
-	// Printf only — no Send(refreshMsg{}). prog.Send after Quit can block the
-	// background io.Copy writer path and stall cleanup. Bars refresh via the
-	// 100ms tick; task onLog in RunBubbleTea still does Printf+Send.
-	tw := &teaWriter{print: func(s string) { prog.Printf("%s", s) }}
-
-	if f, err := tw.File(); err == nil {
-		os.Stderr = f
-	}
-
-	h := logging.NewPlainHandler(tw, &slog.HandlerOptions{
-		Level: slog.LevelDebug, // capture everything third parties emit
-	})
-	slog.SetDefault(slog.New(h))
-	log.SetOutput(tw)
-
-	return func() {
-		slog.SetDefault(oldSlog)
-		log.SetOutput(oldLogWriter)
-		os.Stderr = oldStderr
-		tw.close()
-	}
 }

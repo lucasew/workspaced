@@ -23,9 +23,8 @@ func GetCommand() *cobra.Command {
 
 			g := taskgroup.MustFromContext(ctx)
 			printReport := apply.Schedule(g, cmd, true, showNoop)
-			runErr := taskgroup.Run(g)
-			printReport()
-			return runErr
+			taskgroup.MustSessionFrom(ctx).AfterWait(printReport)
+			return nil
 		},
 	}
 
