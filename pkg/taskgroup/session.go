@@ -28,12 +28,12 @@ type Session struct {
 
 	// wantUI is set at Enter when the terminal is interactive; startUI runs
 	// at most once on the first scheduled task.
-	wantUI    bool
-	uiOnce    sync.Once
-	prog      *tea.Program
-	uiDone    chan struct{}
-	uiErr     error
-	out       *outputEnv
+	wantUI bool
+	uiOnce sync.Once
+	prog   *tea.Program
+	uiDone chan struct{}
+	uiErr  error
+	out    *outputEnv
 
 	mu    sync.Mutex
 	after []func() error
