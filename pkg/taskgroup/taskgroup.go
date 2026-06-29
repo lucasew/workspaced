@@ -286,6 +286,10 @@ type Group struct {
 	// (logRecorder + onLog callback for prog.Printf + usingBubbleTea skip)
 	// is taken for work created via Map / late SubGroups.
 	children []*Group
+
+	// onSchedule is invoked once per Go() (including on SubGroups). Used by
+	// Session to lazily start the progress UI on the first scheduled task.
+	onSchedule func()
 }
 
 // New creates a root Group with the given pool limits.
@@ -415,6 +419,9 @@ func (g *Group) Context() context.Context {
 // interpreted as a description and resolves to the most recently scheduled
 // task (in this group) with a matching description.
 func (g *Group) Go(desc string, pool PoolKind, fn func(ctx context.Context, s *Status) error, deps ...string) string {
+	if g.onSchedule != nil {
+		g.onSchedule()
+	}
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -736,6 +743,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 		cancel:         cancel,
 		onLog:          onLogCopy,
 		usingBubbleTea: usingCopy,
+		onSchedule:     g.onSchedule, // lazy session UI on first Go anywhere in the tree
 	}
 
 	// Register the child so SetLogHandler / setUsingBubbleTea on ancestors
@@ -748,7 +756,11 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	// Attach the child group to the context so MustFromContext works on
 	// contexts derived from the child's .ctx (in addition to the explicit
 	// WithValue returned here, and the forcing we do in runTask).
+	// Preserve Session from the parent ctx when present so MustSessionFrom works.
 	childCtx := context.WithValue(cctx, contextKey{}, child)
+	if sess := SessionFrom(ctx); sess != nil {
+		childCtx = context.WithValue(childCtx, sessionKey{}, sess)
+	}
 	return child, childCtx
 }
 

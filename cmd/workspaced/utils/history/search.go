@@ -3,11 +3,13 @@ package history
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 	"workspaced/pkg/cmdregistry"
 	"workspaced/pkg/db"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/spf13/cobra"
@@ -23,17 +25,22 @@ func init() {
 			Use:   "search [query]",
 			Short: "Search history using fuzzy finder",
 			RunE: func(c *cobra.Command, args []string) error {
-				database, ok := db.FromContext(c.Context())
+				// No Group.Go: session UI stays off (lazy). Fuzzyfinder owns the tty.
+				// Selection is printed in AfterWait so stdout is clean for Ctrl+R
+				// command substitution after session Close restores globals.
+				ctx := c.Context()
+
+				database, ok := db.FromContext(ctx)
 				if !ok {
 					var err error
-					database, err = db.Open(c.Context())
+					database, err = db.Open(ctx)
 					if err != nil {
 						return err
 					}
-					defer logging.Close(c.Context(), database)
+					defer logging.Close(ctx, database)
 				}
 
-				events, err := database.SearchHistory(c.Context(), "", 5000)
+				events, err := database.SearchHistory(ctx, "", 5000)
 				if err != nil {
 					return fmt.Errorf("failed to fetch history: %w", err)
 				}
@@ -78,7 +85,14 @@ func init() {
 					return fmt.Errorf("fuzzy finder failed: %w", err)
 				}
 
-				fmt.Print(strings.TrimSpace(events[idx].Command))
+				selected := strings.TrimSpace(events[idx].Command)
+				taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+					if selected == "" {
+						return nil
+					}
+					_, err := fmt.Fprint(os.Stdout, selected)
+					return err
+				})
 				return nil
 			},
 		})

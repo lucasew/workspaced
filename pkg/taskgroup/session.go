@@ -16,17 +16,24 @@ type sessionKey struct{}
 // PersistentPreRun; Close in PersistentPostRun (idempotent; also safe to call
 // early if a command must finish the session before RunE returns).
 //
+// Progress UI starts lazily on the first Group.Go (including via SubGroup/Map)
+// when the terminal is interactive — commands that only use AfterWait or print
+// stdout (e.g. history search for Ctrl+R) never take over the tty.
+//
 // Commands should only schedule work with Group.Go (via MustFromContext) and
 // register AfterWait for anything that needs real stdio or must run after all
 // tasks (plan tables, stdout paths, child process exec).
 type Session struct {
 	group *Group
 
-	prog   *tea.Program
-	uiDone chan struct{}
-	uiErr  error
-
-	out *outputEnv
+	// wantUI is set at Enter when the terminal is interactive; startUI runs
+	// at most once on the first scheduled task.
+	wantUI    bool
+	uiOnce    sync.Once
+	prog      *tea.Program
+	uiDone    chan struct{}
+	uiErr     error
+	out       *outputEnv
 
 	mu    sync.Mutex
 	after []func() error
@@ -35,16 +42,18 @@ type Session struct {
 	err       error
 }
 
-// Enter creates a root Group and optional interactive UI observer.
+// Enter creates a root Group. UI is not started yet (see ensureUI).
 // The returned context carries both the Group (MustFromContext) and Session.
 func Enter(ctx context.Context, limits Limits) (*Session, context.Context) {
 	g, ctx := New(ctx, limits)
-	s := &Session{group: g}
-	ctx = context.WithValue(ctx, sessionKey{}, s)
-
-	if isInteractiveTerminal() {
-		s.startUI()
+	s := &Session{
+		group:  g,
+		wantUI: isInteractiveTerminal(),
 	}
+	// Notify on any Go in this tree (root and SubGroups share the same session
+	// lookup via SessionFrom on the group context).
+	g.onSchedule = s.ensureUI
+	ctx = context.WithValue(ctx, sessionKey{}, s)
 	return s, ctx
 }
 
@@ -83,6 +92,16 @@ func (s *Session) AfterWait(fn func() error) {
 	s.mu.Lock()
 	s.after = append(s.after, fn)
 	s.mu.Unlock()
+}
+
+// ensureUI starts the progress UI on first scheduled task (lazy).
+func (s *Session) ensureUI() {
+	if s == nil || !s.wantUI {
+		return
+	}
+	s.uiOnce.Do(func() {
+		s.startUI()
+	})
 }
 
 // Close waits for all tasks, stops the UI, restores global output, then runs
@@ -142,7 +161,7 @@ func (s *Session) startUI() {
 }
 
 // teardownUI restores globals first (so drains never block on tea), then quits
-// the program and joins the UI goroutine.
+// the program and joins the UI goroutine. No-op if UI never started.
 func (s *Session) teardownUI() {
 	if s.prog == nil {
 		return
