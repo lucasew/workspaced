@@ -8,10 +8,47 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
 	"workspaced/pkg/taskgroup"
 )
+
+// RelToRoot returns path relative to root when path is under root.
+// Otherwise returns path unchanged. Empty root is a no-op.
+func RelToRoot(path, root string) string {
+	path = strings.TrimSpace(path)
+	root = strings.TrimSpace(root)
+	if path == "" || root == "" {
+		return path
+	}
+	root = filepath.Clean(root)
+	path = filepath.Clean(path)
+	rel, err := filepath.Rel(root, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return path
+	}
+	return rel
+}
+
+// AbsFromRoot resolves a state/display path against root.
+// Absolute paths and "~/..." (via ExpandPath) are accepted for migration
+// and display formats; other relative paths are joined to root.
+func AbsFromRoot(path, root string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return path
+	}
+	expanded := envdriver.ExpandPath(path)
+	if filepath.IsAbs(expanded) {
+		return filepath.Clean(expanded)
+	}
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return filepath.Clean(expanded)
+	}
+	return filepath.Clean(filepath.Join(root, expanded))
+}
 
 // PrettyPath converts an absolute path to a path relative to $HOME.
 func PrettyPath(path string) string {
@@ -19,12 +56,14 @@ func PrettyPath(path string) string {
 	if err != nil {
 		return path
 	}
-
-	if after, ok := strings.CutPrefix(path, home+"/"); ok {
-		return "~/" + after
+	rel := RelToRoot(path, home)
+	if rel == path {
+		return path
 	}
-
-	return path
+	if rel == "." {
+		return "~"
+	}
+	return "~/" + filepath.ToSlash(rel)
 }
 
 // Executor applies deployment actions.

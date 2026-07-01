@@ -137,11 +137,11 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			pipeline.AddPlugin(pl)
 		}
 
-		// State lives in the repo next to the lock
+		// State lives in the repo next to the lock.
 		// Repo-local state for codebase operations. Never use the global
-		// ~/.config/workspaced state.
+		// ~/.config/workspaced state. Paths on disk are relative to workspace root.
 		statePath := filepath.Join(workspaceRoot, ".workspaced", "state.json")
-		stateStore, err := deployer.NewFileStateStore(statePath)
+		stateStore, err := deployer.NewFileStateStore(statePath, workspaceRoot)
 		if err != nil {
 			return fmt.Errorf("failed to create state store: %w", err)
 		}

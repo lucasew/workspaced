@@ -44,8 +44,10 @@ type ManagedInfo struct {
 }
 
 // State represents the current state of the managed file system.
+// In memory, Files keys are absolute target paths. FileStateStore persists
+// them relative to the apply root (home or workspace/git root).
 type State struct {
-	Files map[string]ManagedInfo `json:"files"` // Key: Target (Absolute path)
+	Files map[string]ManagedInfo `json:"files"`
 }
 
 // Action represents a single deployment action to be executed.

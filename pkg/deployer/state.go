@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	envdriver "workspaced/pkg/driver/env"
 )
 
 // StateStore is the interface for state persistence.
@@ -20,28 +22,27 @@ type StateStore interface {
 }
 
 // FileStateStore implements StateStore using a JSON file.
+// On disk, file keys are stored relative to Root (home for home apply,
+// workspace/git root for codebase apply). In memory, Load returns absolute
+// paths so planner/executor can use them directly.
 type FileStateStore struct {
 	path string
+	root string
 }
 
 // NewFileStateStore creates a FileStateStore.
-func NewFileStateStore(path string) (*FileStateStore, error) {
-	// Expand env vars and ~
-	expanded := os.ExpandEnv(path)
-	if len(expanded) > 0 && expanded[0] == '~' {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-		expanded = filepath.Join(home, expanded[1:])
-	}
+// root is the apply target base (e.g. $HOME or the workspace root); paths in
+// the state file are stored relative to it. Empty root keeps absolute keys.
+func NewFileStateStore(path, root string) (*FileStateStore, error) {
+	expanded := envdriver.ExpandPath(path)
 
 	dir := filepath.Dir(expanded)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create state directory: %w", err)
 	}
 
-	return &FileStateStore{path: expanded}, nil
+	root = filepath.Clean(envdriver.ExpandPath(root))
+	return &FileStateStore{path: expanded, root: root}, nil
 }
 
 func (s *FileStateStore) Load() (*State, error) {
@@ -57,19 +58,40 @@ func (s *FileStateStore) Load() (*State, error) {
 		return nil, fmt.Errorf("failed to read state file: %w", err)
 	}
 
-	if err := json.Unmarshal(data, state); err != nil {
+	var disk State
+	if err := json.Unmarshal(data, &disk); err != nil {
 		return nil, fmt.Errorf("failed to parse state file: %w", err)
 	}
 
-	if state.Files == nil {
-		state.Files = make(map[string]ManagedInfo)
+	if disk.Files == nil {
+		return state, nil
+	}
+
+	// Expand on-disk keys (relative to root, ~/…, or legacy absolute) to abs.
+	for key, info := range disk.Files {
+		abs := AbsFromRoot(key, s.root)
+		state.Files[abs] = info
 	}
 
 	return state, nil
 }
 
 func (s *FileStateStore) Save(state *State) error {
-	data, err := json.MarshalIndent(state, "", "  ")
+	disk := &State{Files: make(map[string]ManagedInfo)}
+	if state != nil && state.Files != nil {
+		// Deterministic key order for stable JSON (map range is random).
+		keys := make([]string, 0, len(state.Files))
+		for k := range state.Files {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, abs := range keys {
+			rel := RelToRoot(abs, s.root)
+			disk.Files[rel] = state.Files[abs]
+		}
+	}
+
+	data, err := json.MarshalIndent(disk, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}

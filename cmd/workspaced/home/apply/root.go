@@ -120,8 +120,8 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			pipeline.AddPlugin(pl)
 		}
 
-		// StateStore
-		stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json")
+		// StateStore — paths on disk are relative to $HOME (~).
+		stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json", home)
 		if err != nil {
 			return fmt.Errorf("failed to create state store: %w", err)
 		}
