@@ -90,6 +90,24 @@ func TestLoadSumFileMissingIsEmpty(t *testing.T) {
 	}
 }
 
+func TestGenericSourceLockFallbackWithoutProvider(t *testing.T) {
+	t.Parallel()
+
+	locked := LockedSource{Ref: "v1", Hash: "abc"}
+	if !sourceLockReusable(locked) {
+		t.Fatal("generic reusable requires hash only")
+	}
+	if !sourceLockMatchesDesired(LockedSource{}, locked) {
+		t.Fatal("empty desired matches")
+	}
+	if !sourceLockMatchesDesired(LockedSource{Ref: "v1"}, locked) {
+		t.Fatal("same ref matches")
+	}
+	if sourceLockMatchesDesired(LockedSource{Ref: "v2"}, locked) {
+		t.Fatal("different ref must not match")
+	}
+}
+
 func TestLoadSumFileToolLockUsesCurrentValueOverVersion(t *testing.T) {
 	t.Parallel()
 

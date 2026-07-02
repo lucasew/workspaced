@@ -1,7 +1,6 @@
 package modfile
 
 import (
-	"net/url"
 	"sort"
 	"strings"
 )
@@ -131,24 +130,4 @@ func dependencyMergeKey(dep RenovateDependency) string {
 		return ds + ":" + dn
 	}
 	return ""
-}
-
-func RefFromTarballURL(rawURL string) string {
-	rawURL = strings.TrimSpace(rawURL)
-	if rawURL == "" {
-		return ""
-	}
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	if !strings.EqualFold(parsed.Hostname(), "codeload.github.com") {
-		return ""
-	}
-	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-	// codeload.github.com/<owner>/<repo>/tar.gz/<ref>
-	if len(parts) != 4 || parts[2] != "tar.gz" {
-		return ""
-	}
-	return strings.TrimSpace(parts[3])
 }

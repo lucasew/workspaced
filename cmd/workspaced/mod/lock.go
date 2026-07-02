@@ -26,6 +26,10 @@ func runModLock(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	cmd.Printf("wrote %s (%d sources)\n", ws.SumPath(), result.Sources)
+	if result.Changed {
+		cmd.Printf("wrote %s (%d sources)\n", ws.SumPath(), result.Sources)
+	} else {
+		cmd.Printf("%s up to date (%d sources)\n", ws.SumPath(), result.Sources)
+	}
 	return nil
 }

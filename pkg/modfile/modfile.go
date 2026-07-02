@@ -94,8 +94,8 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 	left := strings.TrimSpace(parts[0])
 	right := strings.TrimSpace(parts[1])
 
-	// Built-in providers (no alias entry required).
-	if left == "self" || left == "core" || left == "github" || left == "registry" || left == "http" || left == "https" {
+	// Direct provider specs (no alias entry required): builtins + registered providers.
+	if isDirectModuleSourcePrefix(left) {
 		ref, version := splitRefAndVersion(right)
 		resolved, err := applyVersionLock(moduleName, left, ref, version, sumFile)
 		if err != nil {
@@ -118,8 +118,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		provider = left
 	}
 
-	switch provider {
-	case "self", "local":
+	if provider == "self" || provider == "local" {
 		// Source inputs still say provider "local"; module provider ID is "self".
 		// Both mean "filesystem path relative to workspace (or absolute)".
 		base := filepath.Dir(modulesBaseDir)
@@ -140,25 +139,17 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 			return ResolvedModuleSource{}, err
 		}
 		return resolved, validateNonVersionedProvider(resolved)
-	case "github":
-		repo := normalizeGitHubRepo(src.Repo)
-		if repo == "" {
-			return ResolvedModuleSource{}, fmt.Errorf("source alias %q (github) requires repo", left)
-		}
-		ref, version := splitRefAndVersion(right)
-		if version == "" {
-			version = strings.TrimSpace(src.Ref)
-		}
-		path := strings.Trim(strings.TrimSpace(ref), "/")
-		fullRef := repo
-		if path != "" {
-			fullRef = repo + "/" + path
-		}
-		return applyVersionLock(moduleName, "github", fullRef, version, sumFile)
-	default:
-		ref, version := splitRefAndVersion(right)
-		return applyVersionLock(moduleName, provider, ref, version, sumFile)
 	}
+	if p, ok := getSourceProvider(provider); ok {
+		if fullRef, ver, err, handled := p.ResolveModuleRef(src, right); handled {
+			if err != nil {
+				return ResolvedModuleSource{}, fmt.Errorf("source alias %q (%s): %w", left, provider, err)
+			}
+			return applyVersionLock(moduleName, p.ID(), fullRef, ver, sumFile)
+		}
+	}
+	ref, version := splitRefAndVersion(right)
+	return applyVersionLock(moduleName, provider, ref, version, sumFile)
 }
 
 func splitRefAndVersion(input string) (string, string) {
@@ -232,13 +223,6 @@ func applySourceLockOverlay(alias string, src SourceConfig, sumFile *SumFile) So
 	return src
 }
 
-func normalizeGitHubRepo(in string) string {
-	repo := strings.Trim(strings.TrimSpace(in), "/")
-	repo = strings.TrimPrefix(repo, "github:")
-	repo = strings.Trim(repo, "/")
-	return repo
-}
-
 func ParseSourceSpec(spec string) (SourceConfig, error) {
 	trimmed := strings.TrimSpace(spec)
 	if !strings.Contains(trimmed, ":") {
@@ -257,12 +241,9 @@ func ParseSourceSpec(spec string) (SourceConfig, error) {
 	if !strings.Contains(trimmed, "@") {
 		cfg.Ref = ""
 	}
-	switch provider {
-	case "github":
-		cfg.Repo = target
-	case "local":
-		cfg.Path = target
-	default:
+	if p, ok := getSourceProvider(provider); ok {
+		p.ConfigureFromSpec(&cfg, target)
+	} else {
 		cfg.Path = target
 	}
 	return cfg, nil

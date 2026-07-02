@@ -76,7 +76,7 @@ func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src 
 	}
 
 	pinnedSHA := ""
-	if u := modfile.RefFromTarballURL(src.URL); shaRefRe.MatchString(u) {
+	if u := refFromCodeloadTarballURL(src.URL); shaRefRe.MatchString(u) {
 		pinnedSHA = u
 	} else if shaRefRe.MatchString(strings.TrimSpace(src.Ref)) {
 		pinnedSHA = strings.TrimSpace(src.Ref)

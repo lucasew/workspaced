@@ -55,17 +55,20 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 	name = strings.TrimSpace(name)
 	lock.Ref = strings.TrimSpace(lock.Ref)
 	lock.Version = strings.TrimSpace(lock.Version)
+	lock.DepName = strings.TrimSpace(lock.DepName)
+	lock.Datasource = strings.TrimSpace(lock.Datasource)
+	lock.PackageName = strings.TrimSpace(lock.PackageName)
+	lock.Versioning = strings.TrimSpace(lock.Versioning)
 	if lock.Ref == "" || lock.Version == "" {
 		return false
 	}
 	if s.toolLocks == nil {
 		s.toolLocks = rebuildToolLocksFromDependencies(s)
 	}
-	// update runtime alias map
-	prev, had := s.toolLocks[name]
-	s.toolLocks[name] = lock
-	if !had || prev.Version != lock.Version || prev.Ref != lock.Ref {
-		// will sync dep below
+	// Index by stable lock ref; keep alias mapping when callers pass one.
+	s.toolLocks[lock.Ref] = lock
+	if name != "" && name != lock.Ref {
+		s.toolLocks[name] = lock
 	}
 
 	// Existence and update in deps list keyed by kind + ref.
@@ -104,10 +107,10 @@ func (s *SumFile) UpsertTool(name string, lock LockedTool) bool {
 			Kind:         "tool",
 			Ref:          lock.Ref,
 			CurrentValue: lock.Version,
-			DepName:      strings.TrimSpace(lock.DepName),
-			Datasource:   strings.TrimSpace(lock.Datasource),
-			PackageName:  strings.TrimSpace(lock.PackageName),
-			Versioning:   strings.TrimSpace(lock.Versioning),
+			DepName:      lock.DepName,
+			Datasource:   lock.Datasource,
+			PackageName:  lock.PackageName,
+			Versioning:   lock.Versioning,
 		})
 		changed = true
 	}
@@ -135,7 +138,6 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 	if s.sourceLocks == nil {
 		s.sourceLocks = rebuildSourceLocksFromDependencies(s)
 	}
-	s.sourceLocks[name] = lock
 
 	dep := RenovateDependency{Kind: "source"}
 	if p, ok := getSourceProvider(lock.Provider); ok {
@@ -146,13 +148,22 @@ func (s *SumFile) UpsertSource(name string, lock LockedSource) bool {
 		dep.Ref = lock.Ref
 		dep.CurrentValue = lock.Ref
 	}
-	// Never persist incomplete github-style rows (commit SHA as identity with
-	// empty depName/datasource) — that is lock/enrich corruption.
-	if lock.Provider == "github" && (strings.TrimSpace(dep.DepName) == "" || strings.TrimSpace(dep.Datasource) == "") {
+	if p, ok := getSourceProvider(lock.Provider); ok && !p.CanPersistLock(dep, lock) {
 		return false
 	}
 	if strings.TrimSpace(dep.Ref) == "" {
 		return false
+	}
+
+	// Index by stable dep ref, cue alias, and provider-specific lookup keys.
+	s.sourceLocks[dep.Ref] = lock
+	if name != "" && name != dep.Ref {
+		s.sourceLocks[name] = lock
+	}
+	for _, alt := range sourceLockLookupKeys(lock) {
+		if alt != "" && alt != dep.Ref && alt != name {
+			s.sourceLocks[alt] = lock
+		}
 	}
 
 	// Keyed by kind + ref (the provider-filled stable ref) in the deps list.

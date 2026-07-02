@@ -372,42 +372,14 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		}
 	}
 
-	// We also directly enrich the actual *RenovateDependency inside the
-	// sum's Dependencies list (the structure referenced by ref). The Tool
-	// receives it by pointer via EnrichLockfile and can mutate attributes.
-	// On save, any logic migrations in the Tool are applied automatically.
+	// Enrich the live RenovateDependency row and mirror into EnsureTool.
+	// Only rewrite the lockfile when fields actually change.
 	if changed, err := ws.UpdateSumFile(ctx, func(sum *modfile.SumFile) (bool, error) {
-		// Find or create the dep entry using kind + ref as key.
-		var dep *modfile.RenovateDependency
-		for i := range sum.Dependencies {
-			d := &sum.Dependencies[i]
-			if d.Kind == "tool" && (d.Ref == "" || d.Ref == lockRef) {
-				dep = d
-				break
-			}
+		changed := applyLiveToolEnrichment(sum, lockRef, spec.Version, liveTool)
+		if sum.EnsureTool(toolName, lt) {
+			changed = true
 		}
-		if dep == nil {
-			sum.Dependencies = append(sum.Dependencies, modfile.RenovateDependency{
-				Kind: "tool",
-			})
-			dep = &sum.Dependencies[len(sum.Dependencies)-1]
-		}
-
-		// Set identity that the Tool should see (the ref is the reference key).
-		dep.Ref = lockRef
-		if dep.CurrentValue == "" {
-			dep.CurrentValue = spec.Version
-		}
-
-		// Pass the *actual* structure from the lockfile's Dependencies list
-		// (the item referenced by ref) by pointer to the Tool.
-		if liveTool != nil {
-			liveTool.EnrichLockfile(dep)
-		}
-
-		// Keep the lt path too.
-		_ = sum.EnsureTool(toolName, lt)
-		return true, nil
+		return changed, nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to update tool lock: %w", err)
 	} else if changed {
@@ -470,6 +442,69 @@ func lazyToolSpec(toolName string, toolCfg lazyToolConfig) (parsespec.Spec, stri
 		return parsespec.Spec{}, "", err
 	}
 	return spec, ref, nil
+}
+
+// applyLiveToolEnrichment finds the tool row keyed by lockRef (creating it
+// if missing), runs Tool.EnrichLockfile on that live struct, and reports
+// whether any persisted field changed.
+func applyLiveToolEnrichment(sum *modfile.SumFile, lockRef, version string, liveTool backend.Tool) bool {
+	if sum == nil {
+		return false
+	}
+	lockRef = strings.TrimSpace(lockRef)
+	version = strings.TrimSpace(version)
+	if lockRef == "" {
+		return false
+	}
+
+	var dep *modfile.RenovateDependency
+	for i := range sum.Dependencies {
+		d := &sum.Dependencies[i]
+		if d.Kind == "tool" && strings.TrimSpace(d.Ref) == lockRef {
+			dep = d
+			break
+		}
+	}
+	created := false
+	if dep == nil {
+		sum.Dependencies = append(sum.Dependencies, modfile.RenovateDependency{
+			Kind: "tool",
+			Ref:  lockRef,
+		})
+		dep = &sum.Dependencies[len(sum.Dependencies)-1]
+		created = true
+	}
+
+	before := *dep
+	dep.Kind = "tool"
+	dep.Ref = lockRef
+	if strings.TrimSpace(dep.CurrentValue) == "" && version != "" {
+		dep.CurrentValue = version
+	}
+	if liveTool != nil {
+		liveTool.EnrichLockfile(dep)
+	}
+	return created || !renovateDependencyEqual(before, *dep)
+}
+
+func renovateDependencyEqual(a, b modfile.RenovateDependency) bool {
+	if a.Kind != b.Kind || a.Ref != b.Ref || a.DepName != b.DepName ||
+		a.PackageName != b.PackageName || a.CurrentValue != b.CurrentValue ||
+		a.CurrentDigest != b.CurrentDigest || a.CurrentVersion != b.CurrentVersion ||
+		a.Datasource != b.Datasource || a.Versioning != b.Versioning ||
+		a.ExtractVersion != b.ExtractVersion || a.DepType != b.DepType ||
+		a.SourceUrl != b.SourceUrl || a.Manager != b.Manager || a.SkipReason != b.SkipReason {
+		return false
+	}
+	if len(a.RegistryUrls) != len(b.RegistryUrls) {
+		return false
+	}
+	for i := range a.RegistryUrls {
+		if a.RegistryUrls[i] != b.RegistryUrls[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // lockedToolWithRenovate builds the lock entry. It obtains the live Tool

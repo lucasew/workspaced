@@ -60,9 +60,8 @@ type RenovateDependency struct {
 	CurrentValue string `json:"currentValue"`
 
 	// CurrentDigest is the current digest/hash.
-	// For github sources (datasource=git-refs) this is the pinned commit SHA;
-	// CurrentValue holds the tracked git ref (HEAD/branch/tag). Also used for
-	// Docker/OCI image digests.
+	// Provider-specific pin (e.g. git commit SHA for git-refs sources).
+	// CurrentValue holds the tracked version/ref. Also used for Docker/OCI digests.
 	CurrentDigest string `json:"currentDigest,omitempty"`
 
 	// CurrentVersion is the resolved/pinned version (if different
@@ -164,29 +163,11 @@ func rebuildSourceLocksFromDependencies(sum *SumFile) map[string]LockedSource {
 		return out
 	}
 	for _, dep := range sum.Dependencies {
-		if dep.Kind != "source" {
+		lock, key, ok := rehydrateSourceLock(dep)
+		if !ok {
 			continue
 		}
-		key := strings.TrimSpace(dep.Ref)
-		if key == "" {
-			key = strings.TrimSpace(dep.DepName)
-		}
-		if key == "" {
-			continue
-		}
-		// Prefer commit pin in CurrentDigest (git-refs); fall back to CurrentValue
-		// for legacy lock entries that stored the SHA there.
-		pinned := strings.TrimSpace(dep.CurrentDigest)
-		if pinned == "" {
-			pinned = strings.TrimSpace(dep.CurrentValue)
-		}
-		if pinned == "" {
-			pinned = key
-		}
-		out[key] = LockedSource{
-			Ref:  pinned,
-			Hash: strings.TrimSpace(dep.CurrentDigest),
-		}
+		out[key] = lock
 	}
 	return out
 }
@@ -227,24 +208,12 @@ func rebuildToolLocksFromDependencies(sum *SumFile) map[string]LockedTool {
 }
 
 func (s *SumFile) SourceLocks() map[string]LockedSource {
-	if s != nil && len(s.sourceLocks) > 0 {
-		cp := make(map[string]LockedSource, len(s.sourceLocks))
-		for k, v := range s.sourceLocks {
-			cp[k] = v
-		}
-		return cp
-	}
+	// Always derive from dependencies so alias index keys in sourceLocks
+	// cannot duplicate renovate output.
 	return rebuildSourceLocksFromDependencies(s)
 }
 
 func (s *SumFile) ToolLocks() map[string]LockedTool {
-	if s != nil && len(s.toolLocks) > 0 {
-		cp := make(map[string]LockedTool, len(s.toolLocks))
-		for k, v := range s.toolLocks {
-			cp[k] = v
-		}
-		return cp
-	}
 	return rebuildToolLocksFromDependencies(s)
 }
 
@@ -253,24 +222,23 @@ func (s *SumFile) FindSource(name string) (LockedSource, bool) {
 	if name == "" {
 		return LockedSource{}, false
 	}
-	locks := s.SourceLocks()
-	if lock, ok := locks[name]; ok {
-		return lock, true
+	if s != nil && s.sourceLocks != nil {
+		if lock, ok := s.sourceLocks[name]; ok {
+			return lock, true
+		}
 	}
-	// Fallback: scan deps using kind + ref (or depName) as identity.
 	for _, dep := range s.Dependencies {
-		if dep.Kind != "source" {
+		lock, key, ok := rehydrateSourceLock(dep)
+		if !ok {
 			continue
 		}
-		if dep.Ref == name || dep.DepName == name {
-			pinned := strings.TrimSpace(dep.CurrentDigest)
-			if pinned == "" {
-				pinned = strings.TrimSpace(dep.CurrentValue)
+		if key == name || strings.TrimSpace(dep.DepName) == name {
+			return lock, true
+		}
+		for _, alt := range sourceLockLookupKeys(lock) {
+			if alt == name {
+				return lock, true
 			}
-			if pinned == "" {
-				pinned = dep.Ref
-			}
-			return LockedSource{Ref: pinned, Hash: dep.CurrentDigest}, true
 		}
 	}
 	return LockedSource{}, false
@@ -281,11 +249,15 @@ func (s *SumFile) FindTool(name string) (LockedTool, bool) {
 	if name == "" {
 		return LockedTool{}, false
 	}
+	if s != nil && s.toolLocks != nil {
+		if lock, ok := s.toolLocks[name]; ok {
+			return lock, true
+		}
+	}
 	locks := s.ToolLocks()
 	if lock, ok := locks[name]; ok {
 		return lock, true
 	}
-	// Fallback scan using kind + ref as key per updated model.
 	for _, dep := range s.Dependencies {
 		if dep.Kind != "tool" {
 			continue

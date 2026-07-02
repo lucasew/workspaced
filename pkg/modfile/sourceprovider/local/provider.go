@@ -43,6 +43,48 @@ func (p Provider) EnrichRenovateDependency(dep *modfile.RenovateDependency, src 
 	// local sources don't get renovate metadata
 }
 
+func (p Provider) ConfigureFromSpec(cfg *modfile.SourceConfig, target string) {
+	if cfg == nil {
+		return
+	}
+	cfg.Path = strings.TrimSpace(target)
+	cfg.Repo = ""
+}
+
+func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion string) (fullRef, version string, err error, handled bool) {
+	_ = src
+	_ = pathAndVersion
+	return "", "", nil, false
+}
+
+func (p Provider) RehydrateLockedSource(dep modfile.RenovateDependency) (modfile.LockedSource, bool) {
+	_ = dep
+	return modfile.LockedSource{}, false
+}
+
+func (p Provider) LockLookupKeys(lock modfile.LockedSource) []string {
+	_ = lock
+	return nil
+}
+
+func (p Provider) CanPersistLock(dep modfile.RenovateDependency, lock modfile.LockedSource) bool {
+	_ = dep
+	_ = lock
+	return true
+}
+
+func (p Provider) LockReusable(locked modfile.LockedSource) bool {
+	return strings.TrimSpace(locked.Hash) != ""
+}
+
+func (p Provider) LockMatchesDesired(desired, locked modfile.LockedSource) bool {
+	desiredRef := strings.TrimSpace(desired.Ref)
+	if desiredRef == "" || strings.EqualFold(desiredRef, "HEAD") {
+		return true
+	}
+	return desiredRef == strings.TrimSpace(locked.Ref) || desiredRef == strings.TrimSpace(locked.Hash)
+}
+
 func init() {
 	modfile.RegisterSourceProvider(Provider{})
 }

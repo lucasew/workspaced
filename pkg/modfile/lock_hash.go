@@ -3,7 +3,6 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"workspaced/pkg/logging"
@@ -52,8 +51,7 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 		if strings.TrimSpace(resolved.URL) != "" {
 			entry.URL = strings.TrimSpace(resolved.URL)
 		}
-		// Prefer the provider's resolved symbolic ref (branch/tag for renovate
-		// git-refs). Commit pins live in the tarball URL / currentDigest, not Ref.
+		// Prefer provider-resolved tracking ref when present.
 		if r := strings.TrimSpace(resolved.Ref); r != "" {
 			entry.Ref = r
 		}
@@ -63,24 +61,4 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 	}
 	logger.Info("source lock hashes computed", "sources", len(entries))
 	return nil
-}
-
-func refFromCodeloadTarballURL(rawURL string) string {
-	rawURL = strings.TrimSpace(rawURL)
-	if rawURL == "" {
-		return ""
-	}
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return ""
-	}
-	if !strings.EqualFold(parsed.Hostname(), "codeload.github.com") {
-		return ""
-	}
-	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-	// codeload.github.com/<owner>/<repo>/tar.gz/<ref>
-	if len(parts) != 4 || parts[2] != "tar.gz" {
-		return ""
-	}
-	return strings.TrimSpace(parts[3])
 }

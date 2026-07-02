@@ -2,6 +2,7 @@ package tool
 
 import (
 	"bytes"
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -79,6 +80,68 @@ workspaced: {
 	}
 	if !bytes.Equal(before, after) {
 		t.Fatalf("lockfile changed unexpectedly\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
+func TestApplyLiveToolEnrichmentIdempotent(t *testing.T) {
+	t.Parallel()
+
+	sum := &modfile.SumFile{
+		Dependencies: []modfile.RenovateDependency{{
+			Kind:         "tool",
+			Ref:          "github:cli/cli",
+			DepName:      "cli/cli",
+			CurrentValue: "v2.95.0",
+			Datasource:   "github-releases",
+		}},
+	}
+	live := staticEnrichTool{
+		depName:    "cli/cli",
+		datasource: "github-releases",
+	}
+	if applyLiveToolEnrichment(sum, "github:cli/cli", "v2.95.0", live) {
+		t.Fatal("expected no change when enrichment matches existing row")
+	}
+	if applyLiveToolEnrichment(sum, "github:cli/cli", "v2.95.0", staticEnrichTool{
+		depName:     "cli/cli",
+		datasource:  "github-releases",
+		versioning:  "semver",
+		extractVers: `^v(?<version>\d+)`,
+	}) != true {
+		t.Fatal("expected change when enrichment adds metadata")
+	}
+	if got := sum.Dependencies[0].Versioning; got != "semver" {
+		t.Fatalf("Versioning = %q", got)
+	}
+	if applyLiveToolEnrichment(sum, "github:other/other", "1.0.0", nil) != true {
+		t.Fatal("expected change when creating missing row")
+	}
+	if applyLiveToolEnrichment(sum, "github:other/other", "1.0.0", nil) {
+		t.Fatal("expected create to be idempotent on second call")
+	}
+}
+
+type staticEnrichTool struct {
+	depName     string
+	datasource  string
+	versioning  string
+	extractVers string
+}
+
+func (t staticEnrichTool) ListVersions(context.Context) ([]string, error) { return nil, nil }
+func (t staticEnrichTool) Install(context.Context, string, string) error  { return nil }
+func (t staticEnrichTool) EnrichLockfile(entry *modfile.RenovateDependency) {
+	if t.depName != "" {
+		entry.DepName = t.depName
+	}
+	if t.datasource != "" {
+		entry.Datasource = t.datasource
+	}
+	if t.versioning != "" {
+		entry.Versioning = t.versioning
+	}
+	if t.extractVers != "" {
+		entry.ExtractVersion = t.extractVers
 	}
 }
 
