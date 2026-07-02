@@ -2,7 +2,6 @@ package apps
 
 import (
 	"fmt"
-	"log/slog"
 	"runtime"
 	"strings"
 	"testing"
@@ -14,7 +13,7 @@ func TestNodejsListArtifactsAcceptsVersionWithoutVPrefix(t *testing.T) {
 	t.Parallel()
 
 	tool := &nodejsTool{}
-	artifacts, err := tool.ListArtifacts(logging.ContextWithLogger(t.Context(), slog.Default()), "22.16.0")
+	artifacts, err := tool.ListArtifacts(logging.NewRootContext(nil), "22.16.0")
 	if err != nil {
 		t.Fatal(err)
 	}

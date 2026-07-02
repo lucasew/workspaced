@@ -238,6 +238,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 type LockRefreshResult struct {
 	Sources int
 	Tools   int
+	Changed bool
 }
 
 // RefreshWorkspaceLocks orchestrates a full update of both source (dependency) locks
@@ -249,6 +250,7 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 	if cfg == nil {
 		return LockRefreshResult{}, ErrNilConfig
 	}
+	logger := logging.GetLogger(ctx)
 
 	lockResult, err := modfile.GenerateLockWithConfig(ctx, ws, cfg, false)
 	if err != nil {
@@ -259,10 +261,17 @@ func RefreshWorkspaceLocks(ctx context.Context, ws *modfile.Workspace, cfg *conf
 		return LockRefreshResult{}, err
 	}
 
-	return LockRefreshResult{
+	result := LockRefreshResult{
 		Sources: lockResult.Sources,
 		Tools:   toolLocks,
-	}, nil
+		Changed: lockResult.Changed || toolLocks > 0,
+	}
+	if result.Changed {
+		logger.Info("workspace lockfile updated", "path", ws.SumPath(), "sources", result.Sources, "tools", result.Tools)
+	} else {
+		logger.Info("workspace lockfile unchanged", "path", ws.SumPath(), "sources", result.Sources, "tools", result.Tools)
+	}
+	return result, nil
 }
 
 func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) (*modfile.Workspace, error) {

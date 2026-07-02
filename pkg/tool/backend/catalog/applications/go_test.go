@@ -1,7 +1,6 @@
 package apps
 
 import (
-	"log/slog"
 	"runtime"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ func TestGoListArtifactsAcceptsVersionWithoutGoPrefix(t *testing.T) {
 	t.Parallel()
 
 	tool := &goTool{}
-	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	ctx := logging.NewRootContext(nil)
 
 	versions, err := tool.ListVersions(ctx)
 	if err != nil {
@@ -53,7 +52,7 @@ func TestGoListArtifactsAcceptsGoPrefixedVersion(t *testing.T) {
 	t.Parallel()
 
 	tool := &goTool{}
-	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	ctx := logging.NewRootContext(nil)
 
 	versions, err := tool.ListVersions(ctx)
 	if err != nil {

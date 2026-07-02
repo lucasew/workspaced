@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"text/tabwriter"
 
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
@@ -59,6 +58,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		updateMsg = "planning changes to repo root"
 	}
 
+	logCtx := cmd.Context()
 	var finalResult *dotfiles.ApplyResult
 
 	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
@@ -66,8 +66,6 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		s.Progress(0, 1)
 
 		defer s.Progress(1, 1)
-
-		logger := logging.GetLogger(ctx)
 
 		// Discover the closest workspaced.cue from current CWD (or fall back
 		// to git root). The directory containing the cue is the workspace root
@@ -104,11 +102,9 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		}
 
 		ws := modfile.NewWorkspace(workspaceRoot)
-		lockResult, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg)
-		if err != nil {
+		if _, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg); err != nil {
 			return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
 		}
-		logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
 
 		pipeline := source.NewPipeline()
 
@@ -167,49 +163,44 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 	})
 
 	return func() error {
-		return printCodebasePlanOutput(finalResult, showNoop, dryRun)
+		logApplyResult(logCtx, finalResult, showNoop, dryRun)
+		return nil
 	}
 }
 
-func printCodebasePlanOutput(result *dotfiles.ApplyResult, showNoop bool, dryRun bool) error {
+func logApplyResult(ctx context.Context, result *dotfiles.ApplyResult, showNoop bool, dryRun bool) {
 	if result == nil {
-		return nil
+		return
 	}
-	if result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0) {
-		orderedActions := deployer.SortActions(result.Actions)
-		w := tabwriter.NewWriter(os.Stderr, 0, 0, 2, ' ', 0)
-		for _, a := range orderedActions {
-			if a.Type == deployer.ActionNoop && !showNoop {
-				continue
-			}
-			sourceInfo := ""
-			if a.Desired.File != nil {
-				sourceInfo = a.Desired.File.SourceInfo()
-			}
-			target := deployer.PrettyPath(a.Target)
-			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", a.Type, target, sourceInfo); err != nil {
-				return err
-			}
+	logger := logging.GetLogger(ctx)
+	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0)
+	if !hasChanges {
+		if !dryRun {
+			logger.Info("no changes needed", "target", "repo root")
 		}
-		if err := w.Flush(); err != nil {
-			return err
-		}
-
-		if _, err := fmt.Fprintf(os.Stderr, "\nSummary: %d created, %d updated, %d deleted", result.FilesCreated, result.FilesUpdated, result.FilesDeleted); err != nil {
-			return err
-		}
-		if showNoop {
-			if _, err := fmt.Fprintf(os.Stderr, ", %d no-op", result.FilesNoOp); err != nil {
-				return err
-			}
-		}
-		if _, err := fmt.Fprintln(os.Stderr); err != nil {
-			return err
-		}
-	} else if !dryRun {
-		if _, err := fmt.Fprintln(os.Stderr, "No changes needed (repo root is up to date)"); err != nil {
-			return err
-		}
+		return
 	}
-	return nil
+	for _, a := range deployer.SortActions(result.Actions) {
+		if a.Type == deployer.ActionNoop && !showNoop {
+			continue
+		}
+		sourceInfo := ""
+		if a.Desired.File != nil {
+			sourceInfo = a.Desired.File.SourceInfo()
+		}
+		logger.Info("apply action",
+			"type", a.Type,
+			"target", deployer.PrettyPath(a.Target),
+			"source", sourceInfo,
+		)
+	}
+	attrs := []any{
+		"created", result.FilesCreated,
+		"updated", result.FilesUpdated,
+		"deleted", result.FilesDeleted,
+	}
+	if showNoop {
+		attrs = append(attrs, "noop", result.FilesNoOp)
+	}
+	logger.Info("apply summary", attrs...)
 }

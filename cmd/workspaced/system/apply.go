@@ -27,11 +27,9 @@ func RunApply(ctx context.Context, action string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	lockResult, err := tool.RefreshWorkspaceLocks(ctx, modfile.NewWorkspace(dotfilesRoot), cfg)
-	if err != nil {
+	if _, err := tool.RefreshWorkspaceLocks(ctx, modfile.NewWorkspace(dotfilesRoot), cfg); err != nil {
 		return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
 	}
-	logger.Info("workspace lockfile refreshed", "sources", lockResult.Sources, "tools", lockResult.Tools)
 
 	if !envdriver.IsNixOS(ctx) {
 		logger.Info("not running on NixOS; skipping system apply")

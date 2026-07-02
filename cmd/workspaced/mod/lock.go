@@ -1,6 +1,7 @@
 package mod
 
 import (
+	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 
 	"github.com/spf13/cobra"
@@ -18,6 +19,7 @@ func init() {
 
 func runModLock(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+	logger := logging.GetLogger(ctx)
 	ws, err := modfile.DetectWorkspace(ctx, "")
 	if err != nil {
 		return err
@@ -27,9 +29,9 @@ func runModLock(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if result.Changed {
-		cmd.Printf("wrote %s (%d sources)\n", ws.SumPath(), result.Sources)
+		logger.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
 	} else {
-		cmd.Printf("%s up to date (%d sources)\n", ws.SumPath(), result.Sources)
+		logger.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
 	}
 	return nil
 }
