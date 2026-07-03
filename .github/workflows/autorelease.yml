@@ -50,7 +50,13 @@ jobs:
 
     - name: Build binaries
       run: mise ci
-    
+
+    # Tag pushes do not run `mise release`; gate installs here.
+    # workflow_dispatch releases run it via `mise release` / GoReleaser hooks.
+    - name: Registry install checks
+      if: startsWith(github.ref, 'refs/tags/')
+      run: mise run test:registry-install
+
     - name: Create Pull Request if there is new stuff from updaters
       if: github.event_name != 'pull_request'
       uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8

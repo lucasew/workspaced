@@ -16,7 +16,7 @@ CUE config (`workspaced.cue`) drives everything.
 
 - `pkg/driver/driver.go` + `pkg/driver/prelude` — the driver system
 - `pkg/tool/backend/backend.go` + `catalog/` — tool backends
-- `pkg/tool/checks` — optional `InstallChecker` validates install trees; `WORKSPACED_TEST_TOOL_INSTALL=1 go test ./pkg/tool/backend/catalog/ -run TestRegistryInstall` runs full install verification
+- `pkg/tool/checks` — optional `InstallChecker` validates install trees; `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) runs full install verification; dependency of `mise release`, and on CI for `refs/tags/*` (auto via `CI`+`GITHUB_REF` or the autorelease workflow step)
 - `pkg/configcue/`, `pkg/modfile/`, `pkg/source/` — config + state + rendering
 - `pkg/apply/`, `pkg/deployer/` — the apply flow
 - `cmd/workspaced/root.go` — only place that imports driver/tool preludes

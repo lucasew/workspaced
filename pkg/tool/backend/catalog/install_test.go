@@ -1,17 +1,44 @@
 package catalog_test
 
 import (
+	"context"
 	"os"
+	"strings"
 	"testing"
 
+	// Minimal driver set for tool install (not full prelude: that is reserved
+	// for cmd/workspaced/root.go). fetchurl + httpclient download; exec extracts.
+	_ "workspaced/pkg/driver/exec/native"
+	_ "workspaced/pkg/driver/fetchurl/fetchurl"
 	_ "workspaced/pkg/driver/httpclient/native"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	_ "workspaced/pkg/tool/backend/catalog/applications"
 	_ "workspaced/pkg/tool/backend/github"
 	"workspaced/pkg/tool/checks"
 )
+
+// isReleaseCI is true when running under CI on a git tag ref (release builds).
+func isReleaseCI() bool {
+	if os.Getenv("CI") == "" {
+		return false
+	}
+	ref := os.Getenv("GITHUB_REF")
+	return strings.HasPrefix(ref, "refs/tags/")
+}
+
+func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
+	t.Helper()
+	base := logging.NewRootContext(nil)
+	g, ctx := taskgroup.New(base, taskgroup.DefaultLimits())
+	return ctx, func() {
+		if err := g.Wait(); err != nil {
+			t.Errorf("taskgroup: %v", err)
+		}
+	}
+}
 
 func TestRegistryInstallChecksDeclared(t *testing.T) {
 	t.Parallel()
@@ -35,8 +62,10 @@ func TestRegistryInstallChecksDeclared(t *testing.T) {
 }
 
 func TestRegistryInstall(t *testing.T) {
-	if os.Getenv("WORKSPACED_TEST_TOOL_INSTALL") != "1" {
-		t.Skip("set WORKSPACED_TEST_TOOL_INSTALL=1 to run registry install checks")
+	// Opt-in locally via WORKSPACED_TEST_TOOL_INSTALL=1.
+	// On CI, also runs automatically for release tags (refs/tags/*).
+	if os.Getenv("WORKSPACED_TEST_TOOL_INSTALL") != "1" && !isReleaseCI() {
+		t.Skip("set WORKSPACED_TEST_TOOL_INSTALL=1 (or run on a release tag in CI) to run registry install checks")
 	}
 
 	for _, name := range catalog.ListTools() {
@@ -52,7 +81,9 @@ func TestRegistryInstall(t *testing.T) {
 				t.Skip("no install checks")
 			}
 
-			ctx := logging.NewRootContext(nil)
+			ctx, wait := testInstallContext(t)
+			defer wait()
+
 			versions, err := tool.ListVersions(ctx)
 			if err != nil {
 				t.Fatalf("ListVersions: %v", err)
