@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"os"
 	"path/filepath"
 	"workspaced/pkg/db/sqlc"
@@ -80,7 +81,7 @@ func runMigrations(db *sql.DB) error {
 		return err
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return err
 	}
 
@@ -103,7 +104,7 @@ func (db *DB) BatchRecordHistory(ctx context.Context, events []types.HistoryEven
 		return err
 	}
 	defer func() {
-		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 			logging.ReportError(ctx, err)
 		}
 	}()

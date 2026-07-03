@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,7 +34,6 @@ var (
 	ErrInvalidBase16Config = errors.New("invalid modules.base16 config")
 	ErrBase16MissingColors = errors.New("modules.base16 must include at least base00/base05/base0D")
 	ErrInvalidSize         = errors.New("invalid icon size")
-	ErrInvalidJobs         = errors.New("invalid jobs value")
 	ErrInvalidReplaceRule  = errors.New("invalid color replace rule")
 	ErrNoSVGFiles          = errors.New("no .svg or .svg.tmpl files found")
 )
@@ -309,25 +307,6 @@ func parseSizes(raw string) ([]int, error) {
 	}
 	sort.Ints(out)
 	return out, nil
-}
-
-func resolveJobs(raw string) (int, error) {
-	s := strings.TrimSpace(strings.ToLower(raw))
-	if s == "" || s == "auto" {
-		n := runtime.NumCPU() * 2
-		if n > 8 {
-			n = 8
-		}
-		if n < 1 {
-			n = 1
-		}
-		return n, nil
-	}
-	n, err := strconv.Atoi(s)
-	if err != nil || n < 1 {
-		return 0, fmt.Errorf("%w: %q (use integer >= 1 or 'auto')", ErrInvalidJobs, raw)
-	}
-	return n, nil
 }
 
 func loadBase16Colors(ctx context.Context) (map[string]string, error) {

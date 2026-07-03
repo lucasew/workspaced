@@ -89,7 +89,7 @@ func DownloadFile(ctx context.Context, url, dest string, opts DownloadOptions) e
 
 	if err := downloadDirect(ctx, url, dest, opts); err != nil {
 		if fetchErr != nil {
-			return fmt.Errorf("verified download failed: %v; direct download failed: %w", fetchErr, err)
+			return fmt.Errorf("verified download failed: %w; direct download failed: %w", fetchErr, err)
 		}
 		return err
 	}
@@ -145,7 +145,7 @@ func StripTopLevelDir(destPath string) error {
 	tempEntries, err := os.ReadDir(tempDir)
 	if err != nil {
 		if restoreErr := os.Rename(tempDir, singleDir); restoreErr != nil {
-			return fmt.Errorf("%w; restore failed: %v", err, restoreErr)
+			return fmt.Errorf("%w; restore failed: %w", err, restoreErr)
 		}
 		return err
 	}

@@ -90,7 +90,7 @@ var Command = &cobra.Command{
 			logger.Warn("failed to get initial binary mtime", "error", err)
 		}
 
-		if err := RunDaemon(c.Context()); err != nil && err != http.ErrServerClosed {
+		if err := RunDaemon(c.Context()); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger := logging.GetLogger(c.Context())
 			logger.Error("daemon failure", "error", err)
 			os.Exit(1)

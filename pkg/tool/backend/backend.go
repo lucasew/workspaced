@@ -89,17 +89,11 @@ type InstallFixer interface {
 // New code should prefer Backend.Tool(ref) + the Tool interface and its extensions.
 
 // PackageConfig is the old package reference shape. It is still used by some
-// transitional code paths and by the current low-level methods on concrete providers.
+// transitional code paths and by the current low-level methods on concrete backends.
 type PackageConfig struct {
-	Provider string
-	Spec     string
-	Repo     string
-}
-
-// BinaryProvider is the old extension interface. Code is being migrated to
-// check for BinaryTool on the value returned by Backend.Tool(ref) instead.
-type BinaryProvider interface {
-	EnsureBinary(ctx context.Context, pkg PackageConfig, version string, cmdName string, destPath string) (string, error)
+	Backend string
+	Spec    string
+	Repo    string
 }
 
 // Artifact describes a downloadable platform-specific artifact for a release.

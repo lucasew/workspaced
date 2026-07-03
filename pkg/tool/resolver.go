@@ -83,7 +83,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	}
 
 	// Folder missing or empty: perform the install.
-	logger.Info("installing tool", "spec", spec, "provider", spec.Provider, "version", actualVersion, "bin", cmdName)
+	logger.Info("installing tool", "spec", spec, "backend", spec.Provider, "version", actualVersion, "bin", cmdName)
 
 	if bt, ok := t.(backend.BinaryTool); ok {
 		var binPath string

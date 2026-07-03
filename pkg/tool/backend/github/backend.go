@@ -29,30 +29,30 @@ var (
 )
 
 func init() {
-	tool.Register("github", &Provider{})
+	tool.Register("github", &Backend{})
 }
 
-type Provider struct{}
+type Backend struct{}
 
-func (p *Provider) Name() string { return "GitHub Releases" }
+func (p *Backend) Name() string { return "GitHub Releases" }
 
 // Tool returns a first-class Tool for the given ref (owner/repo).
-func (p *Provider) Tool(ref string) (backend.Tool, error) {
+func (p *Backend) Tool(ref string) (backend.Tool, error) {
 	return NewTool(ref)
 }
 
 // ParsePackage is kept for transitional use by code that still talks to the
 // old detailed surface on the concrete backend.
-func (p *Provider) ParsePackage(spec string) (backend.PackageConfig, error) {
+func (p *Backend) ParsePackage(spec string) (backend.PackageConfig, error) {
 	parts := strings.Split(spec, "/")
 	if len(parts) != 2 {
 		return backend.PackageConfig{}, fmt.Errorf("invalid GitHub spec: %s: %w", spec, ErrInvalidGitHubRef)
 	}
 
 	return backend.PackageConfig{
-		Provider: "github",
-		Spec:     spec,
-		Repo:     spec,
+		Backend: "github",
+		Spec:    spec,
+		Repo:    spec,
 	}, nil
 }
 
@@ -70,7 +70,7 @@ type asset struct {
 	APIURL             string `json:"url"` // api.github.com url for the asset
 }
 
-func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) ([]string, error) {
+func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) ([]string, error) {
 	logger := logging.GetLogger(ctx)
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", pkg.Repo)
 	logger.Debug("fetching versions", "url", url)
@@ -120,7 +120,7 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 	return versions, nil
 }
 
-func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {
+func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {
 	logger := logging.GetLogger(ctx)
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkg.Repo, version)
 	if version == "latest" {
@@ -199,7 +199,7 @@ func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, 
 	return artifacts, nil
 }
 
-func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destPath string) error {
+func (p *Backend) Install(ctx context.Context, artifact backend.Artifact, destPath string) error {
 	// Always pass the browser_download_url as the Artifact.URL to downstream
 	// install logic. This ensures filepath.Base(artifact.URL) yields a filename
 	// with the proper extension (e.g. .tar.gz, .zip) so InstallArtifact can
@@ -284,7 +284,7 @@ func parseAssetName(name string) (osName, arch string, ok bool) {
 // can construct, wrap, or delegate to GitHub-based tools.
 type GitHubTool struct {
 	repo string
-	p    *Provider // delegate to existing backend logic during migration
+	p    *Backend // delegate to existing backend logic during migration
 }
 
 // NewTool constructs a GitHubTool for the given ref ("owner/repo").
@@ -300,7 +300,7 @@ func NewTool(ref string) (backend.Tool, error) {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidGitHubRef, ref)
 	}
-	return &GitHubTool{repo: ref, p: &Provider{}}, nil
+	return &GitHubTool{repo: ref, p: &Backend{}}, nil
 }
 
 func (t *GitHubTool) ListVersions(ctx context.Context) ([]string, error) {
@@ -342,19 +342,9 @@ func (t *GitHubTool) InstallArtifact(ctx context.Context, artifact backend.Artif
 	return t.p.Install(ctx, artifact, destDir)
 }
 
-// EnrichLockfile receives a pointer to the *actual* structure that will be
-// written into the lockfile's dependencies array. The Tool can read the
-// ref (the key the item is referenced by) and any existing values, then
-// mutate fields (Provider, DepName, Datasource, CurrentValue, etc.).
-//
-// This gives the Tool struct complete ownership of its metadata. On next
-// lock update the current version of this method runs and can migrate
-// attributes if the Tool's logic has changed.
+// EnrichLockfile sets Renovate metadata for a GitHub Releases tool entry.
+// CurrentValue is left to the caller (resolved version at lock time).
 func (t *GitHubTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 	entry.DepName = t.repo
 	entry.Datasource = "github-releases"
-
-	if strings.TrimSpace(entry.CurrentValue) == "" {
-		// Caller should have set CurrentValue from the resolved version.
-	}
 }

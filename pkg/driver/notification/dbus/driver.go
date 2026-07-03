@@ -23,12 +23,12 @@ func (f *Factory) Name() string { return "DBus" }
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	conn, err := dbus.SessionBus()
 	if err != nil {
-		return fmt.Errorf("%w: failed to connect to session bus: %v", driver.ErrIncompatible, err)
+		return fmt.Errorf("%w: connect to session bus: %w", driver.ErrIncompatible, err)
 	}
 	var names []string
 	err = conn.BusObject().Call("org.freedesktop.DBus.ListNames", 0).Store(&names)
 	if err != nil {
-		return fmt.Errorf("%w: failed to list dbus names: %v", driver.ErrIncompatible, err)
+		return fmt.Errorf("%w: list dbus names: %w", driver.ErrIncompatible, err)
 	}
 
 	found := slices.Contains(names, "org.freedesktop.Notifications")
@@ -37,7 +37,7 @@ func (f *Factory) CheckCompatibility(ctx context.Context) error {
 		// Try to see if it can be started
 		err = conn.BusObject().Call("org.freedesktop.DBus.StartServiceByName", 0, "org.freedesktop.Notifications", uint32(0)).Err
 		if err != nil {
-			return fmt.Errorf("%w: notifications service not found and could not be started: %v", driver.ErrIncompatible, err)
+			return fmt.Errorf("%w: notifications service not found and could not be started: %w", driver.ErrIncompatible, err)
 		}
 	}
 

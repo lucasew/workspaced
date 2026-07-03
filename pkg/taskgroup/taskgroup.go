@@ -706,22 +706,6 @@ func (g *Group) SnapshotSorted() []TaskState {
 	return snap
 }
 
-// snapshotRecursiveSorted is like snapshotRecursive but with stable
-// PoolKind-then-Name-then-ID ordering.
-func (g *Group) snapshotRecursiveSorted() []TaskState {
-	snap := g.snapshotRecursive()
-	sort.SliceStable(snap, func(i, j int) bool {
-		if snap[i].Pool != snap[j].Pool {
-			return snap[i].Pool < snap[j].Pool
-		}
-		if snap[i].Name != snap[j].Name {
-			return snap[i].Name < snap[j].Name
-		}
-		return snap[i].ID < snap[j].ID
-	})
-	return snap
-}
-
 // SubGroup creates a child Group that shares the parent's pool semaphores.
 // The child's context is derived from the parent's context.
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {

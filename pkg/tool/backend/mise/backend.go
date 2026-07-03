@@ -22,32 +22,32 @@ var (
 	ErrMissingMiseArtifactSpec = errors.New("missing mise artifact spec")
 )
 
-type Provider struct{}
+type Backend struct{}
 
 func init() {
-	tool.Register("mise", &Provider{})
+	tool.Register("mise", &Backend{})
 }
 
-func (p *Provider) Name() string { return "mise" }
+func (p *Backend) Name() string { return "mise" }
 
 // Tool returns a first-class Tool for the given mise ref (e.g. "node", "python").
-func (p *Provider) Tool(ref string) (backend.Tool, error) {
+func (p *Backend) Tool(ref string) (backend.Tool, error) {
 	return NewTool(ref)
 }
 
 // ParsePackage kept for transitional compatibility.
-func (p *Provider) ParsePackage(spec string) (backend.PackageConfig, error) {
+func (p *Backend) ParsePackage(spec string) (backend.PackageConfig, error) {
 	spec = strings.TrimSpace(spec)
 	if spec == "" {
 		return backend.PackageConfig{}, ErrEmptyMiseSpec
 	}
 	return backend.PackageConfig{
-		Provider: "mise",
-		Spec:     spec,
+		Backend: "mise",
+		Spec:    spec,
 	}, nil
 }
 
-func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) ([]string, error) {
+func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) ([]string, error) {
 	version, err := miseutil.Latest(ctx, pkg.Spec)
 	if err != nil {
 		return nil, err
@@ -58,14 +58,14 @@ func (p *Provider) ListVersions(ctx context.Context, pkg backend.PackageConfig) 
 	return []string{version}, nil
 }
 
-func (p *Provider) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {
+func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {
 	_ = ctx
 	return []backend.Artifact{{
 		URL: pkg.Spec + "@" + strings.TrimSpace(version),
 	}}, nil
 }
 
-func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destPath string) error {
+func (p *Backend) Install(ctx context.Context, artifact backend.Artifact, destPath string) error {
 	_ = destPath
 	spec := strings.TrimSpace(artifact.URL)
 	if spec == "" {
@@ -74,7 +74,7 @@ func (p *Provider) Install(ctx context.Context, artifact backend.Artifact, destP
 	return miseutil.Run(ctx, "install", spec)
 }
 
-func (p *Provider) EnsureBinary(ctx context.Context, pkg backend.PackageConfig, version string, cmdName string, destPath string) (string, error) {
+func (p *Backend) EnsureBinary(ctx context.Context, pkg backend.PackageConfig, version string, cmdName string, destPath string) (string, error) {
 	toolSpec := strings.TrimSpace(pkg.Spec) + "@" + strings.TrimSpace(version)
 
 	binPath, err := miseutil.ResolveBinPath(ctx, cmdName, toolSpec)
@@ -124,7 +124,7 @@ func ensureSymlink(destPath, binPath, cmdName string) (string, error) {
 // Exported (with NewTool) for use by a future central registry backend.
 type MiseTool struct {
 	spec string
-	p    *Provider
+	p    *Backend
 }
 
 // NewTool constructs a MiseTool for the given ref (e.g. "node", "deno", "python@3.12").
@@ -134,7 +134,7 @@ func NewTool(ref string) (backend.Tool, error) {
 	if ref == "" {
 		return nil, ErrEmptyMiseRef
 	}
-	return &MiseTool{spec: ref, p: &Provider{}}, nil
+	return &MiseTool{spec: ref, p: &Backend{}}, nil
 }
 
 func (t *MiseTool) ListVersions(ctx context.Context) ([]string, error) {

@@ -11,7 +11,8 @@ linters:
   # Disable legacy linter names that have been superseded in v2 (avoids deprecation warnings from default:all).
   disable:
     - gomodguard
-    - wsl
+    - wsl      # legacy name; superseded by wsl_v5 in golangci-lint v2
+    - wsl_v5   # whitespace rules fight gofmt/editors; keep disabled like former wsl
 
   settings:
     # depguard configuration: enforce correct import layering.

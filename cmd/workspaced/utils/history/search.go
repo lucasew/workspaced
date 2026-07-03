@@ -79,7 +79,7 @@ func init() {
 				)
 
 				if err != nil {
-					if err == fuzzyfinder.ErrAbort {
+					if errors.Is(err, fuzzyfinder.ErrAbort) {
 						return nil
 					}
 					return fmt.Errorf("fuzzy finder failed: %w", err)

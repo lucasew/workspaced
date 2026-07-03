@@ -3,6 +3,7 @@ package terminal
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -55,7 +56,7 @@ func (d *Driver) Choose(ctx context.Context, opts dialog.ChooseOptions) (*dialog
 		},
 	)
 	if err != nil {
-		if err == fuzzyfinder.ErrAbort {
+		if errors.Is(err, fuzzyfinder.ErrAbort) {
 			return nil, nil
 		}
 		return nil, err

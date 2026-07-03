@@ -22,12 +22,12 @@ func (f *Factory) Name() string { return "MPRIS (DBus)" }
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	conn, err := dbus.SessionBus()
 	if err != nil {
-		return fmt.Errorf("%w: failed to connect to session bus: %v", driver.ErrIncompatible, err)
+		return fmt.Errorf("%w: connect to session bus: %w", driver.ErrIncompatible, err)
 	}
 	var names []string
 	err = conn.BusObject().Call("org.freedesktop.DBus.ListNames", 0).Store(&names)
 	if err != nil {
-		return fmt.Errorf("%w: failed to list dbus names: %v", driver.ErrIncompatible, err)
+		return fmt.Errorf("%w: list dbus names: %w", driver.ErrIncompatible, err)
 	}
 
 	for _, name := range names {
