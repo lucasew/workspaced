@@ -25,12 +25,13 @@ func TestToolRegistryHarness(t *testing.T) {
 
 	testCases := []struct {
 		specStr         string
-		expectedBin     string
+		expectedBins    []string
 		expectedVersion string
 	}{
-		{specStr: "biome", expectedBin: "biome"},
-		{specStr: "nodejs", expectedBin: "node"},
-		{specStr: "golang", expectedBin: "go"},
+		{specStr: "biome", expectedBins: []string{"biome"}},
+		{specStr: "nodejs", expectedBins: []string{"node"}},
+		{specStr: "golang", expectedBins: []string{"go", "gofmt"}},
+		{specStr: "claude-code", expectedBins: []string{"claude"}},
 	}
 
 	for _, tc := range testCases {
@@ -79,11 +80,12 @@ func TestToolRegistryHarness(t *testing.T) {
 				t.Fatalf("failed to create install dir: %v", err)
 			}
 
-			if tc.expectedBin != "" {
+			if len(tc.expectedBins) > 0 {
 				if at, ok := toolImpl.(backend.ArtifactTool); ok {
 					artifacts, err := at.ListArtifacts(ctx, actualVersion)
 					if err == nil {
-						if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, tc.expectedBin); chosen != nil {
+						// we pick the first expected bin as the hint for artifact selection
+						if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, tc.expectedBins[0]); chosen != nil {
 							err := at.InstallArtifact(ctx, *chosen, installDir)
 							if err != nil {
 								t.Fatalf("installation failed: %v", err)
@@ -99,10 +101,10 @@ func TestToolRegistryHarness(t *testing.T) {
 			}
 
 		Verify:
-			if tc.expectedBin != "" {
-				binPath := tool.FindBinary(installDir, tc.expectedBin)
+			for _, bin := range tc.expectedBins {
+				binPath := tool.FindBinary(installDir, bin)
 				if binPath == "" {
-					t.Fatalf("expected binary %s not found in %s", tc.expectedBin, installDir)
+					t.Fatalf("expected binary %s not found in %s", bin, installDir)
 				}
 			}
 		})

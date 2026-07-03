@@ -17,5 +17,6 @@ jobs:
       with:
         go-version-file: 'go.mod'
         cache: true
+    - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4
     - name: Run test harness
-      run: WORKSPACED_RUN_TEST_HARNESS=1 go test -v ./pkg/tool/harness_test.go
+      run: mise run test:harness
