@@ -10,24 +10,24 @@ import (
 	"workspaced/pkg/driver/exec"
 )
 
-// Provider implements the formatter.Formatter interface for Go projects.
+// check implements the formatter.Formatter interface for Go projects.
 // It executes 'gofmt -w .' in the target directory.
-type Provider struct{}
+type check struct{}
 
-// New creates a new gofmt provider.
+// New creates a new gofmt check.
 func New() formatter.Formatter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	formatter.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "gofmt"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
 		return checks.ErrNotApplicable
@@ -35,7 +35,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *Provider) Format(ctx context.Context, dir string) error {
+func (c *check) Format(ctx context.Context, dir string) error {
 	cmd, err := exec.Run(ctx, "gofmt", "-w", ".")
 	if err != nil {
 		return err

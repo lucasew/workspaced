@@ -10,24 +10,24 @@ import (
 	"workspaced/pkg/tool"
 )
 
-// Provider implements the formatter.Formatter interface for Biome.
+// check implements the formatter.Formatter interface for Biome.
 // It executes 'biome format --write' in the target directory.
-type Provider struct{}
+type check struct{}
 
-// New creates a new Biome provider.
+// New creates a new Biome check.
 func New() formatter.Formatter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	formatter.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "biome"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if package.json exists
 	if _, err := os.Stat(filepath.Join(dir, "package.json")); os.IsNotExist(err) {
 		return checks.ErrNotApplicable
@@ -35,7 +35,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *Provider) Format(ctx context.Context, dir string) error {
+func (c *check) Format(ctx context.Context, dir string) error {
 	// Use tool.EnsureAndRun to execute biome.
 	// Falls back to registry:biome (catalog entry handles versions).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "biome", "biome", "registry:biome", "format", "--write", ".")

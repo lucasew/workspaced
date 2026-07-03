@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	registerActionProvider[RsyncAction]("rsync")
+	registerAction[RsyncAction]("rsync")
 }
 
 type RsyncAction struct {

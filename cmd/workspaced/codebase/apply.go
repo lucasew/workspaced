@@ -23,17 +23,11 @@ import (
 func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		cmd := &cobra.Command{
-			Use:   "apply [action]",
+			Use:   "apply",
 			Short: "Apply modules + templates to the repo root",
-			Args:  cobra.MaximumNArgs(1),
+			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				ctx := cmd.Context()
-				action := "switch"
-				if len(args) > 0 {
-					action = args[0]
-				}
-				_ = action // action is accepted for compatibility with home apply style
-
 				dryRun := cmdctx.IsDryRun(ctx)
 				showNoop, _ := cmd.Flags().GetBool("show-noop")
 

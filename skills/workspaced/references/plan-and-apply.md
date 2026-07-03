@@ -42,7 +42,7 @@ Under `home` you may also find:
 | Area | Role (orientation) |
 |------|---------------------|
 | **sync** | Synchronization workflows (not identical to apply) |
-| **backup** | Backup actions/providers |
+| **backup** | Backup actions |
 | **config** | Inspect/evaluate home config |
 
 Don’t substitute backup/sync for “I changed a template and want it rendered”

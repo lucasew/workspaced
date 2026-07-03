@@ -11,24 +11,24 @@ import (
 	"workspaced/pkg/driver/exec"
 )
 
-// Provider implements the formatter.Formatter interface for Prettier.
+// check implements the formatter.Formatter interface for Prettier.
 // It executes 'prettier --write .' in the target directory.
-type Provider struct{}
+type check struct{}
 
-// New creates a new Prettier provider.
+// New creates a new Prettier check.
 func New() formatter.Formatter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	formatter.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "prettier"
 }
 
-func (p *Provider) Detect(_ context.Context, dir string) error {
+func (c *check) Detect(_ context.Context, dir string) error {
 	// Applies if node_modules/.bin/prettier exists
 	path := filepath.Join(dir, "node_modules", ".bin", "prettier")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -38,7 +38,7 @@ func (p *Provider) Detect(_ context.Context, dir string) error {
 	return nil
 }
 
-func (p *Provider) Format(ctx context.Context, dir string) error {
+func (c *check) Format(ctx context.Context, dir string) error {
 	binPath := filepath.Join(dir, "node_modules", ".bin", "prettier")
 
 	if exec.IsBinaryAvailable(ctx, "node") {

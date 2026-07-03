@@ -176,11 +176,11 @@ func decodeBackupActions(rawActions []json.RawMessage) ([]BackupAction, error) {
 		if err := json.Unmarshal(raw, &base); err != nil {
 			return nil, fmt.Errorf("decode backup action envelope: %w", err)
 		}
-		provider, ok := actionProviders[base.Kind]
+		decode, ok := actionDecoders[base.Kind]
 		if !ok {
 			return nil, fmt.Errorf("%w: %s", ErrUnknownBackupActionKind, base.Kind)
 		}
-		action, err := provider(raw)
+		action, err := decode(raw)
 		if err != nil {
 			return nil, err
 		}

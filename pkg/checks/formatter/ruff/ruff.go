@@ -10,23 +10,23 @@ import (
 	"workspaced/pkg/tool"
 )
 
-// Provider implements the formatter.Formatter interface for Python projects using Ruff.
-type Provider struct{}
+// check implements the formatter.Formatter interface for Python projects using Ruff.
+type check struct{}
 
-// New creates a new Ruff provider.
+// New creates a new Ruff check.
 func New() formatter.Formatter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	formatter.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "ruff"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if uv.lock exists
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
 		return checks.ErrNotApplicable
@@ -34,7 +34,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *Provider) Format(ctx context.Context, dir string) error {
+func (c *check) Format(ctx context.Context, dir string) error {
 	// Falls back to registry:ruff for the cataloged tool (with version prefix fixes).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "ruff", "ruff", "registry:ruff", "format", ".")
 	if err != nil {

@@ -38,20 +38,20 @@ var ErrNotApplicable = ErrIncompatible
 // ErrToolNotAvailable indicates a required tool binary is not available.
 var ErrToolNotAvailable = errors.New("required tool not available")
 
-// providers holds the registry of implementations.
+// registry holds implementations keyed by interface type.
 // Since registration happens only during init(), we don't need mutexes for runtime access.
-var providers = map[reflect.Type][]any{}
+var registry = map[reflect.Type][]any{}
 
-// Register adds a provider implementation to the global registry for a specific interface T.
-func Register[T any](p T) {
+// Register adds an implementation to the global registry for a specific interface T.
+func Register[T any](impl T) {
 	t := reflect.TypeFor[T]()
-	providers[t] = append(providers[t], p)
+	registry[t] = append(registry[t], impl)
 }
 
-// List returns all registered providers for the interface T.
+// List returns all registered implementations for the interface T.
 func List[T any]() []T {
 	t := reflect.TypeFor[T]()
-	rawList := providers[t]
+	rawList := registry[t]
 
 	result := make([]T, len(rawList))
 	for i, raw := range rawList {

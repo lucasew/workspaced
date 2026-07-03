@@ -19,7 +19,7 @@ var (
 )
 
 func init() {
-	registerActionProvider[GitRepoSyncAction]("git_repo_sync")
+	registerAction[GitRepoSyncAction]("git_repo_sync")
 }
 
 // GitRepoSyncAction backs up a local git working tree by committing changes and pushing to Dst.

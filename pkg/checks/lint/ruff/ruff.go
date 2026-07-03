@@ -14,23 +14,23 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// Provider implements the lint.Linter interface for Python projects using Ruff.
-type Provider struct{}
+// check implements the lint.Linter interface for Python projects using Ruff.
+type check struct{}
 
-// New creates a new Ruff linter provider.
+// New creates a new Ruff linter check.
 func New() lint.Linter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	lint.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "ruff"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if uv.lock exists
 	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
 		return checks.ErrNotApplicable
@@ -38,7 +38,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
+func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute ruff.
 	// This automatically handles installation and version resolution.
 	// Falls back to registry:ruff for the cataloged tool (with version prefix fixes).

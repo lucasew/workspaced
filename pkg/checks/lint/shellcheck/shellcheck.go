@@ -16,27 +16,27 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// Provider implements the lint.Linter interface for shell scripts.
+// check implements the lint.Linter interface for shell scripts.
 // It executes shellcheck via the workspaced tool system (registry:shellcheck /
 // koalaman/shellcheck releases).
-type Provider struct{}
+type check struct{}
 
 const shellcheckInfoURI = "https://github.com/koalaman/shellcheck"
 
-// New creates a new ShellCheck provider.
+// New creates a new ShellCheck check.
 func New() lint.Linter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	lint.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "shellcheck"
 }
 
-func (p *Provider) Detect(_ context.Context, dir string) error {
+func (c *check) Detect(_ context.Context, dir string) error {
 	files, err := collectShellFiles(dir)
 	if err != nil || len(files) == 0 {
 		return checks.ErrNotApplicable
@@ -56,7 +56,7 @@ type Issue struct {
 	Message   string `json:"message"`
 }
 
-func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
+func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	files, err := collectShellFiles(dir)
 	if err != nil {
 		return nil, err

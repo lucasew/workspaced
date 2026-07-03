@@ -12,6 +12,7 @@ func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Show what would be applied (dry-run)",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			showNoop, _ := cmd.Flags().GetBool("show-noop")

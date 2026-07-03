@@ -19,7 +19,7 @@ var (
 )
 
 func init() {
-	registerActionProvider[ArchiveAction]("archive")
+	registerAction[ArchiveAction]("archive")
 }
 
 type ArchiveAction struct {

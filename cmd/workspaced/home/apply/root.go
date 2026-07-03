@@ -26,18 +26,11 @@ import (
 
 func GetCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "apply [action]",
+		Use:   "apply",
 		Short: "Declaratively apply system and user configurations",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-
-			action := "switch"
-			if len(args) > 0 {
-				action = args[0]
-			}
-			_ = action
-
 			dryRun := cmdctx.IsDryRun(ctx)
 			showNoop, _ := cmd.Flags().GetBool("show-noop")
 

@@ -20,23 +20,23 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// Provider implements the lint.Linter interface for ESLint.
-type Provider struct{}
+// check implements the lint.Linter interface for ESLint.
+type check struct{}
 
-// New creates a new ESLint provider.
+// New creates a new ESLint check.
 func New() lint.Linter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	lint.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "eslint"
 }
 
-func (p *Provider) Detect(_ context.Context, dir string) error {
+func (c *check) Detect(_ context.Context, dir string) error {
 	path := filepath.Join(dir, "node_modules", ".bin", "eslint")
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return checks.ErrNotApplicable
@@ -279,7 +279,7 @@ func isTruncationError(err error) bool {
 		strings.Contains(msg, "unexpected end of JSON input")
 }
 
-func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
+func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	binPath := filepath.Join(dir, "node_modules", ".bin", "eslint")
 
 	var cmd *os_exec.Cmd

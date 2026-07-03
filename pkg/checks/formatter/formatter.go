@@ -28,7 +28,7 @@ func Register(f Formatter) {
 func RunAll(ctx context.Context, dir string) error {
 	logger := logging.GetLogger(ctx)
 	formatters := checks.List[Formatter]()
-	logger.Info("Running formatters", "count", len(formatters), "dir", dir)
+	logger.Info("running formatters", "count", len(formatters), "dir", dir)
 
 	// Filter to applicable formatters first.
 	var applicable []Formatter
@@ -60,7 +60,7 @@ func RunAll(ctx context.Context, dir string) error {
 		g.Go(fmt.Sprintf("fmt:%s", fmtr.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 			l := logging.GetLogger(ctx)
 			s.Update(fmt.Sprintf("running %s", fmtr.Name()))
-			l.Info("Running formatter", "name", fmtr.Name())
+			l.Info("running formatter", "name", fmtr.Name())
 			if err := fmtr.Format(ctx, dir); err != nil {
 				logging.ReportError(ctx, err, "name", fmtr.Name(), "context", "formatter failed")
 				mu.Lock()
@@ -76,7 +76,7 @@ func RunAll(ctx context.Context, dir string) error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("formatting failed for %d tools: %v", len(errs), errs)
+		return fmt.Errorf("formatting failed for %d tools: %w", len(errs), errors.Join(errs...))
 	}
 	return nil
 }

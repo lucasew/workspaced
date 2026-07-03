@@ -14,24 +14,24 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// Provider implements the lint.Linter interface for Go projects.
+// check implements the lint.Linter interface for Go projects.
 // It executes 'golangci-lint' using the workspaced tool system.
-type Provider struct{}
+type check struct{}
 
-// New creates a new GolangCI-Lint provider.
+// New creates a new GolangCI-Lint check.
 func New() lint.Linter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	lint.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "golangci-lint"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if go.mod exists
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
 		return checks.ErrNotApplicable
@@ -39,7 +39,7 @@ func (p *Provider) Detect(ctx context.Context, dir string) error {
 	return nil
 }
 
-func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
+func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// AGENTS: The flags are right, don't touch it
 	// Falls back to registry:golangci-lint (the catalog entry normalizes v-prefixes on GitHub tags).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "golangci_lint", "golangci-lint", "registry:golangci-lint", "run", "--output.sarif.path=stdout", "--show-stats=false", "--issues-exit-code=0")

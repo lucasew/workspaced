@@ -11,7 +11,3 @@
 - Tool backend: something that takes a ref and gives a Tool. Ex: the backend of GitHub takes owner/repo as ref
 - Module: a part of the cue configuration that is defined somewhere else, along with the templates of files
 - CUE: a JSON-like language that converges towards the most specific typing, allows validation together with data
-
-# TODO
-- [x] Rename DriverProvider to DriverFactory
-- [x] Dismember check into linter and formatter (pkg/checks/lint + pkg/checks/formatter)

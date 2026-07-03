@@ -15,25 +15,25 @@ import (
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
-// Provider implements the lint.Linter interface for GitHub Actions workflows.
-type Provider struct{}
+// check implements the lint.Linter interface for GitHub Actions workflows.
+type check struct{}
 
 const actionlintInfoURI = "https://github.com/rhysd/actionlint"
 
-// New creates a new actionlint provider.
+// New creates a new actionlint check.
 func New() lint.Linter {
-	return &Provider{}
+	return &check{}
 }
 
 func init() {
 	lint.Register(New())
 }
 
-func (p *Provider) Name() string {
+func (c *check) Name() string {
 	return "actionlint"
 }
 
-func (p *Provider) Detect(ctx context.Context, dir string) error {
+func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if .github/workflows exists and is not empty
 	workflowsDir := filepath.Join(dir, ".github", "workflows")
 	entries, err := os.ReadDir(workflowsDir)
@@ -59,7 +59,7 @@ type Issue struct {
 	EndColumn int    `json:"end_column,omitempty"`
 }
 
-func (p *Provider) Run(ctx context.Context, dir string) (*sarif.Run, error) {
+func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Use tool.EnsureAndRun to execute actionlint.
 	// Falls back to the registry tool (cataloged with version prefix handling).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "actionlint", "actionlint", "registry:actionlint", "-format", "{{json .}}")
