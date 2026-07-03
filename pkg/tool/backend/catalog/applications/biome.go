@@ -14,6 +14,7 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	"workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/tool/checks"
 )
 
 // biomeReleasePrefix is the changesets/monorepo tag prefix for the CLI package.
@@ -288,4 +289,8 @@ func selectBiomeArtifact(arts []backend.Artifact, goos, goarch string) *backend.
 		}
 	}
 	return best
+}
+
+func (t *biomeTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("biome")}
 }

@@ -64,23 +64,26 @@ func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
 	normalizedVersion := normalizeVersion(actualVersion)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
-	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
-		// best-effort repair using the tool (e.g. ruby shebang fix) without forcing re-download
-		if p, perr := Get(spec.Provider); perr == nil {
-			if tt, terr := p.Tool(spec.Package); terr == nil {
-				if fixer, ok := tt.(backend.InstallFixer); ok {
-					if ferr := fixer.Fix(ctx, versionDir); ferr != nil {
-						logger := logging.GetLogger(ctx)
-						logger.Warn("post-install fix failed", "err", ferr, "dir", versionDir)
-					}
-				}
-			}
-		}
-		return nil
+	p, perr := Get(spec.Provider)
+	var tt backend.Tool
+	if perr == nil {
+		tt, _ = p.Tool(spec.Package)
 	}
 
-	// Missing or empty: let Install perform the work. If we resolved a concrete version
-	// for a "latest" input, pass it pinned so Install skips its own re-resolution.
+	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+		if tt != nil {
+			if err := fixAndCheck(ctx, tt, versionDir); err == nil {
+				return nil
+			}
+			// Broken tree removed by fixAndCheck; fall through to reinstall.
+		} else {
+			return nil
+		}
+	}
+
+	// Missing, empty, or failed checks: let Install perform the work. If we resolved
+	// a concrete version for a "latest" input, pass it pinned so Install skips its
+	// own re-resolution.
 	if actualVersion != spec.Version {
 		pinned := fmt.Sprintf("%s:%s@%s", spec.Provider, spec.Package, actualVersion)
 		return m.Install(ctx, pinned)
@@ -180,6 +183,10 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		if err := doInstall(ctx); err != nil {
 			return fmt.Errorf("installation failed: %w", err)
 		}
+	}
+
+	if err := fixAndCheck(ctx, t, destPath); err != nil {
+		return err
 	}
 
 	logger.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)

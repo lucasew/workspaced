@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 var ErrGrokBuildProbeFailure = errors.New("failed to probe grok-build latest from x.ai channels")
@@ -174,4 +175,8 @@ func (t *grokBuildTool) grokPlatform() string {
 		arch = "aarch64"
 	}
 	return osn + "-" + arch
+}
+
+func (t *grokBuildTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("grok")}
 }

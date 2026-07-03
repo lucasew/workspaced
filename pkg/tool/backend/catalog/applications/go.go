@@ -17,6 +17,7 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 func init() {
@@ -213,4 +214,8 @@ func goVersionForIndex(version string) string {
 		return v
 	}
 	return "go" + v
+}
+
+func (t *goTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("go")}
 }

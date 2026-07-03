@@ -8,6 +8,7 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	"workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/tool/checks"
 )
 
 func init() {
@@ -67,4 +68,8 @@ func isTirithProgramVersion(version string) bool {
 		}
 	}
 	return true
+}
+
+func (t tirithTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("tirith")}
 }

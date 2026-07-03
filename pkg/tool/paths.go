@@ -3,6 +3,8 @@ package tool
 import (
 	"os"
 	"path/filepath"
+
+	"workspaced/pkg/tool/checks"
 )
 
 func GetToolsDir() (string, error) {
@@ -22,26 +24,13 @@ func GetShimsDir() (string, error) {
 }
 
 // FindBinary searches for a binary named cmdName in the standard candidate
-// locations under baseDir: baseDir/bin/cmdName, baseDir/bin/cmdName.exe,
-// baseDir/cmdName, baseDir/cmdName.exe. Returns the first existing path
-// or empty string if none found.
+// locations under baseDir. See checks.FindBinary.
 func FindBinary(baseDir, cmdName string) string {
-	for _, path := range BinaryCandidates(baseDir, cmdName) {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	return ""
+	return checks.FindBinary(baseDir, cmdName)
 }
 
 // BinaryCandidates returns the list of candidate paths for a binary in
-// the standard layout under baseDir. This is the pure function version
-// useful when you need the list itself rather than the first match.
+// the standard layout under baseDir. See checks.BinaryCandidates.
 func BinaryCandidates(baseDir, cmdName string) []string {
-	return []string{
-		filepath.Join(baseDir, "bin", cmdName),
-		filepath.Join(baseDir, "bin", cmdName+".exe"),
-		filepath.Join(baseDir, cmdName),
-		filepath.Join(baseDir, cmdName+".exe"),
-	}
+	return checks.BinaryCandidates(baseDir, cmdName)
 }

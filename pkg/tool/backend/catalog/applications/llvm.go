@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/tool/backend/catalog"
 	"workspaced/pkg/tool/backend/github"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 func init() {
@@ -174,4 +175,8 @@ func toLLVMSpecTag(version string) string {
 		return v
 	}
 	return "llvmorg-" + n
+}
+
+func (t *llvmTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("clang")}
 }

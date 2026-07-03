@@ -21,6 +21,7 @@ import (
 	"workspaced/pkg/tool/backend/catalog"
 	"workspaced/pkg/tool/backend/github"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 func init() {
@@ -336,4 +337,8 @@ func (t *cmakeTool) fetchSHA256(ctx context.Context, dir, ver, filename string) 
 		}
 	}
 	return "", nil
+}
+
+func (t *cmakeTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("cmake")}
 }

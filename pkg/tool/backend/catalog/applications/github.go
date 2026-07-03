@@ -1,32 +1,30 @@
 package apps
 
 import (
-	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
-	"workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/tool/checks"
 )
 
-var githubTools = map[string]string{
-	"uv":             "astral-sh/uv",
-	"fzf":            "junegunn/fzf",
-	"ripgrep":        "burntsushi/ripgrep",
-	"rg":             "burntsushi/ripgrep",
-	"fd":             "sharkdp/fd",
-	"sops":           "getsops/sops",
-	"docker-compose": "docker/compose",
-	"terraform":      "hashicorp/terraform",
-	"tflint":         "terraform-linters/tflint",
-	"opencode":       "anomalyco/opencode",
-	"rclone":         "rclone/rclone",
-	"rtk":            "rtk-ai/rtk",
-	"resvg":          "linebender/resvg",
-}
-
 func init() {
-	for name, repo := range githubTools {
-		repo := repo
-		catalog.RegisterTool(name, func() (backend.Tool, error) {
-			return github.NewTool(repo)
-		})
+	// name == on-disk binary
+	for name, repo := range map[string]string{
+		"uv":        "astral-sh/uv",
+		"fzf":       "junegunn/fzf",
+		"fd":        "sharkdp/fd",
+		"sops":      "getsops/sops",
+		"terraform": "hashicorp/terraform",
+		"tflint":    "terraform-linters/tflint",
+		"opencode":  "anomalyco/opencode",
+		"rclone":    "rclone/rclone",
+		"rtk":       "rtk-ai/rtk",
+		"resvg":     "linebender/resvg",
+	} {
+		catalog.RegisterGitHub(name, repo)
 	}
+
+	// Aliases / binary name differs from catalog name.
+	rgChecks := []checks.Check{checks.Binary("rg")}
+	catalog.RegisterGitHub("ripgrep", "burntsushi/ripgrep", rgChecks...)
+	catalog.RegisterGitHub("rg", "burntsushi/ripgrep", rgChecks...)
+	catalog.RegisterGitHub("docker-compose", "docker/compose", checks.Binary("docker-compose"))
 }

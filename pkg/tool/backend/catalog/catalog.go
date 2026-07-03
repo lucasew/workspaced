@@ -11,10 +11,12 @@ import (
 	"workspaced/pkg/tool"
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/github"
+	"workspaced/pkg/tool/checks"
 )
 
 var (
-	ErrEmptyToolName = errors.New("curated tool name cannot be empty")
+	ErrEmptyToolName  = errors.New("curated tool name cannot be empty")
+	errNoArtifactTool = errors.New("inner tool does not implement ArtifactTool")
 )
 
 func init() {
@@ -38,15 +40,16 @@ func RegisterTool(name string, f func() (backend.Tool, error)) {
 // leading "v") and install attempts (tries v-prefixed tag first) which is
 // the common convention for curated short names.
 type curatedGitHub struct {
-	inner backend.Tool
+	inner  backend.Tool
+	checks []checks.Check
 }
 
-func newCuratedGitHub(repo string) (backend.Tool, error) {
+func newCuratedGitHub(repo string, toolChecks ...checks.Check) (backend.Tool, error) {
 	inner, err := github.NewTool(repo)
 	if err != nil {
 		return nil, err
 	}
-	return &curatedGitHub{inner: inner}, nil
+	return &curatedGitHub{inner: inner, checks: append([]checks.Check(nil), toolChecks...)}, nil
 }
 
 func (t *curatedGitHub) ListVersions(ctx context.Context) ([]string, error) {
@@ -78,11 +81,44 @@ func (t *curatedGitHub) EnrichLockfile(entry *modfile.RenovateDependency) {
 	t.inner.EnrichLockfile(entry)
 }
 
+func (t *curatedGitHub) InstallChecks() []checks.Check {
+	return append([]checks.Check(nil), t.checks...)
+}
+
+func (t *curatedGitHub) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
+	at, ok := t.inner.(backend.ArtifactTool)
+	if !ok {
+		return nil, errNoArtifactTool
+	}
+	return at.ListArtifacts(ctx, version)
+}
+
+func (t *curatedGitHub) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
+	at, ok := t.inner.(backend.ArtifactTool)
+	if !ok {
+		return errNoArtifactTool
+	}
+	return at.InstallArtifact(ctx, artifact, destDir)
+}
+
+func (t *curatedGitHub) Fix(ctx context.Context, destDir string) error {
+	fixer, ok := t.inner.(backend.InstallFixer)
+	if !ok {
+		return nil
+	}
+	return fixer.Fix(ctx, destDir)
+}
+
 // RegisterGitHub registers a simple github-backed curated tool. It uses the
 // standard v-prefix handling used across the catalog for such entries.
-func RegisterGitHub(name, repo string) {
+// When toolChecks is empty, defaults to checks.Binary(name).
+func RegisterGitHub(name, repo string, toolChecks ...checks.Check) {
+	if len(toolChecks) == 0 {
+		toolChecks = []checks.Check{checks.Binary(name)}
+	}
+	checksCopy := append([]checks.Check(nil), toolChecks...)
 	RegisterTool(name, func() (backend.Tool, error) {
-		return newCuratedGitHub(repo)
+		return newCuratedGitHub(repo, checksCopy...)
 	})
 }
 

@@ -17,6 +17,7 @@ import (
 	"workspaced/pkg/tool/backend/catalog"
 	"workspaced/pkg/tool/backend/github"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 func init() {
@@ -214,4 +215,8 @@ func (t *rubyTool) fixRubyShebangs(destDir string) error {
 		}
 		return os.WriteFile(path, []byte(newContent), mode)
 	})
+}
+
+func (t *rubyTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("ruby")}
 }

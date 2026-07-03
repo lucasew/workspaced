@@ -17,6 +17,7 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 const claudeCodeReleasesBaseURL = "https://downloads.claude.ai/claude-code-releases"
@@ -207,4 +208,8 @@ func (t *claudeCodeTool) isMusl() bool {
 		}
 	}
 	return false
+}
+
+func (t *claudeCodeTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("claude")}
 }

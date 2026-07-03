@@ -16,6 +16,7 @@ CUE config (`workspaced.cue`) drives everything.
 
 - `pkg/driver/driver.go` + `pkg/driver/prelude` — the driver system
 - `pkg/tool/backend/backend.go` + `catalog/` — tool backends
+- `pkg/tool/checks` — optional `InstallChecker` validates install trees; `WORKSPACED_TEST_TOOL_INSTALL=1 go test ./pkg/tool/backend/catalog/ -run TestRegistryInstall` runs full install verification
 - `pkg/configcue/`, `pkg/modfile/`, `pkg/source/` — config + state + rendering
 - `pkg/apply/`, `pkg/deployer/` — the apply flow
 - `cmd/workspaced/root.go` — only place that imports driver/tool preludes

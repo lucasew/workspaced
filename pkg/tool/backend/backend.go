@@ -8,7 +8,8 @@
 //   - Install(version, destDir)
 //   - EnrichLockfile (mutates the RenovateDependency entry in the lockfile)
 //
-// Optional richer interfaces: ArtifactTool and BinaryTool.
+// Optional richer interfaces: ArtifactTool, BinaryTool, InstallFixer.
+// Install-directory validation lives in pkg/tool/checks (InstallChecker).
 //
 // Concrete backends live in sibling directories: github, mise, catalog.
 package backend

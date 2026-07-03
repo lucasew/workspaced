@@ -19,6 +19,7 @@ import (
 	"workspaced/pkg/tool/backend"
 	"workspaced/pkg/tool/backend/catalog"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 var (
@@ -223,4 +224,8 @@ func normalizeNodejsVersion(version string) string {
 		return v
 	}
 	return "v" + v
+}
+
+func (t *nodejsTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("node")}
 }

@@ -13,6 +13,7 @@ import (
 	"workspaced/pkg/tool/backend/catalog"
 	"workspaced/pkg/tool/backend/github"
 	providerinstall "workspaced/pkg/tool/backend/install"
+	"workspaced/pkg/tool/checks"
 )
 
 func init() {
@@ -147,4 +148,8 @@ func (t *heliumBrowserTool) ListArtifacts(ctx context.Context, version string) (
 
 func (t *heliumBrowserTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+}
+
+func (t *heliumBrowserTool) InstallChecks() []checks.Check {
+	return []checks.Check{checks.Binary("helium")}
 }
