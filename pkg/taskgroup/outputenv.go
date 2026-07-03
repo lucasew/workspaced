@@ -5,8 +5,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"sync"
 	"strings"
+	"sync"
 
 	tea "charm.land/bubbletea/v2"
 	"workspaced/pkg/logging"
