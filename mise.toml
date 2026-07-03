@@ -45,8 +45,4 @@ goreleaser release --clean
 [tasks."test:harness"]
 description = "Run the tool registry test harness"
 env = { WORKSPACED_RUN_TEST_HARNESS = "1" }
-run = """
-go run ./cmd/workspaced tool test-harness biome biome
-go run ./cmd/workspaced tool test-harness nodejs node
-go run ./cmd/workspaced tool test-harness golang go
-"""
+run = "go test -v ./pkg/tool/harness_test.go"
