@@ -18,15 +18,15 @@ import (
 
 type Factory struct{}
 
-func (p *Factory) ID() string {
+func (f *Factory) ID() string {
 	return "exec_termux"
 }
 
-func (p *Factory) Name() string {
+func (f *Factory) Name() string {
 	return "Termux"
 }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// TERMUX_VERSION is not guaranteed to be exported in every shell/session.
 	// Accept additional Termux markers to avoid false negatives.
 	if os.Getenv("TERMUX_VERSION") != "" {
@@ -41,7 +41,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 }
 
-func (p *Factory) New(ctx context.Context) (execdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (execdriver.Driver, error) {
 	return &Driver{}, nil
 }
 

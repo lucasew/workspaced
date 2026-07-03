@@ -14,17 +14,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "notification_notify_send" }
-func (p *Factory) Name() string { return "notify-send" }
+func (f *Factory) ID() string   { return "notification_notify_send" }
+func (f *Factory) Name() string { return "notify-send" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "notify-send") {
 		return fmt.Errorf("%w: notify-send not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (notification.Driver, error) {
+func (f *Factory) New(ctx context.Context) (notification.Driver, error) {
 	return &Driver{}, nil
 }
 

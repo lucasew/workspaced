@@ -16,17 +16,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "terminal_termux" }
-func (p *Factory) Name() string { return "Termux" }
+func (f *Factory) ID() string   { return "terminal_termux" }
+func (f *Factory) Name() string { return "Termux" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" {
 		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (terminal.Driver, error) {
+func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
 	return &Driver{}, nil
 }
 

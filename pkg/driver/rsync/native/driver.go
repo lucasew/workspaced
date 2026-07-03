@@ -21,17 +21,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "rsync_native" }
-func (p *Factory) Name() string { return "Native rsync" }
+func (f *Factory) ID() string   { return "rsync_native" }
+func (f *Factory) Name() string { return "Native rsync" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "rsync") {
 		return fmt.Errorf("%w: rsync", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 	return &Driver{}, nil
 }
 

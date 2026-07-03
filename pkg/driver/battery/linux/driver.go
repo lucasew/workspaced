@@ -16,11 +16,11 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "battery_linux" }
-func (p *Factory) Name() string { return "linux" }
+func (f *Factory) ID() string   { return "battery_linux" }
+func (f *Factory) Name() string { return "linux" }
 
 // CheckCompatibility implements [driver.DriverFactory].
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	matches, _ := filepath.Glob("/sys/class/power_supply/BAT*/status")
 	if len(matches) == 0 {
 		return fmt.Errorf("%w: /sys/class/power_supply/BAT*/status", driver.ErrIncompatible)
@@ -29,7 +29,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 }
 
 // New implements [driver.DriverFactory].
-func (p *Factory) New(ctx context.Context) (battery.Driver, error) {
+func (f *Factory) New(ctx context.Context) (battery.Driver, error) {
 	return &Driver{}, nil
 }
 

@@ -17,9 +17,9 @@ func init() {
 
 type baseFactory struct{}
 
-func (p *baseFactory) ID() string { return "zenity" }
+func (f *baseFactory) ID() string { return "zenity" }
 
-func (p *baseFactory) CheckCompatibility(ctx context.Context) error {
+func (f *baseFactory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: neither DISPLAY nor WAYLAND_DISPLAY set", driver.ErrIncompatible)
 	}
@@ -31,13 +31,13 @@ func (p *baseFactory) CheckCompatibility(ctx context.Context) error {
 
 type PrompterFactory struct{ baseFactory }
 
-func (p *PrompterFactory) Name() string                                     { return "Zenity (Prompt)" }
-func (p *PrompterFactory) New(ctx context.Context) (dialog.Prompter, error) { return &Driver{}, nil }
+func (f *PrompterFactory) Name() string                                     { return "Zenity (Prompt)" }
+func (f *PrompterFactory) New(ctx context.Context) (dialog.Prompter, error) { return &Driver{}, nil }
 
 type ConfirmerFactory struct{ baseFactory }
 
-func (p *ConfirmerFactory) Name() string                                      { return "Zenity (Confirm)" }
-func (p *ConfirmerFactory) New(ctx context.Context) (dialog.Confirmer, error) { return &Driver{}, nil }
+func (f *ConfirmerFactory) Name() string                                      { return "Zenity (Confirm)" }
+func (f *ConfirmerFactory) New(ctx context.Context) (dialog.Confirmer, error) { return &Driver{}, nil }
 
 type Driver struct{}
 

@@ -15,10 +15,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "x11_feh" }
-func (p *Factory) Name() string { return "X11 (feh)" }
+func (f *Factory) ID() string   { return "x11_feh" }
+func (f *Factory) Name() string { return "X11 (feh)" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("DISPLAY") == "" {
 		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -31,7 +31,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (wallpaper.Driver, error) {
+func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {
 	return &Driver{}, nil
 }
 

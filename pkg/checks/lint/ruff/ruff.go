@@ -44,7 +44,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Falls back to registry:ruff for the cataloged tool (with version prefix fixes).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "ruff", "ruff", "registry:ruff", "check", "--output-format=sarif", "--exit-zero", ".")
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup ruff: %w", err)
+		return nil, fmt.Errorf("setup ruff: %w", err)
 	}
 
 	cmd.Dir = dir
@@ -59,7 +59,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse sarif output: %w (stdout: %s)", err, stdout.String())
+		return nil, fmt.Errorf("parse sarif output: %w (stdout: %s)", err, stdout.String())
 	}
 
 	if len(report.Runs) > 0 {

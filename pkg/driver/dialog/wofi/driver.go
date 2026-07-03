@@ -17,17 +17,17 @@ func init() {
 
 type ChooserFactory struct{}
 
-func (p *ChooserFactory) ID() string                                      { return "wofi" }
-func (p *ChooserFactory) Name() string                                    { return "Wofi" }
-func (p *ChooserFactory) CheckCompatibility(ctx context.Context) error    { return checkWofi(ctx) }
-func (p *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
+func (f *ChooserFactory) ID() string                                      { return "wofi" }
+func (f *ChooserFactory) Name() string                                    { return "Wofi" }
+func (f *ChooserFactory) CheckCompatibility(ctx context.Context) error    { return checkWofi(ctx) }
+func (f *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
 
 type FullDriverFactory struct{}
 
-func (p *FullDriverFactory) ID() string                                     { return "wofi" }
-func (p *FullDriverFactory) Name() string                                   { return "Wofi" }
-func (p *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { return checkWofi(ctx) }
-func (p *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
+func (f *FullDriverFactory) ID() string                                     { return "wofi" }
+func (f *FullDriverFactory) Name() string                                   { return "Wofi" }
+func (f *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { return checkWofi(ctx) }
+func (f *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
 
 func checkWofi(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {

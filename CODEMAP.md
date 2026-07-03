@@ -40,7 +40,7 @@ See AGENTS.md for rules. See full previous version of this file if you need the 
 
 ## Terminology
 
-See README.md (one sentence per term). We are actively removing "provider" overload.
+See README.md (one sentence per term). Prefer **factory** (drivers), **backend** (tools), **check** (linters/formatters). Remaining "provider" wording is mostly module sources (`SourceProvider`) and transitional tool backend types.
 
 ## Documentation Style This Project Likes
 

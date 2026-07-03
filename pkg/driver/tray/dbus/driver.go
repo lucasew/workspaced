@@ -19,17 +19,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "tray_dbus" }
-func (p *Factory) Name() string { return "DBus" }
+func (f *Factory) ID() string   { return "tray_dbus" }
+func (f *Factory) Name() string { return "DBus" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		return fmt.Errorf("%w: DBUS_SESSION_BUS_ADDRESS not set", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (tray.Driver, error) {
+func (f *Factory) New(ctx context.Context) (tray.Driver, error) {
 	return NewDriver(), nil
 }
 

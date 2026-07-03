@@ -22,15 +22,15 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "httpclient_native" }
-func (p *Factory) Name() string { return "Native HTTP Client" }
+func (f *Factory) ID() string   { return "httpclient_native" }
+func (f *Factory) Name() string { return "Native HTTP Client" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (httpclientdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (httpclientdriver.Driver, error) {
 	return &Driver{
 		rootCAs: loadSystemCerts(ctx),
 	}, nil

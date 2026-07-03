@@ -188,7 +188,7 @@ func escapeInvalidStringControlChars(raw []byte) []byte {
 func parseAndConvert(output []byte) (*sarif.Run, error) {
 	results, err := parseResults(sanitizeESLintOutput(output))
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal eslint output: %w", err)
+		return nil, fmt.Errorf("unmarshal eslint output: %w", err)
 	}
 
 	run := sarif.NewRun(*sarif.NewTool(sarif.NewDriver("eslint")))
@@ -293,7 +293,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		return nil, checks.ErrToolNotAvailable
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare eslint command: %w", err)
+		return nil, fmt.Errorf("prepare eslint command: %w", err)
 	}
 
 	cmd.Dir = dir
@@ -315,7 +315,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		if len(rawStdout) > 2048 {
 			rawStdout = rawStdout[:2048] + "...(truncated)"
 		}
-		logging.ReportError(ctx, err, "stderr", stderr.String(), "stdout", rawStdout, "context", "eslint failed to produce valid JSON")
+		logging.ReportError(ctx, err, "stderr", stderr.String(), "stdout", rawStdout, "context", "eslint invalid JSON output")
 		return nil, fmt.Errorf("eslint failed: %w: %s", err, stderr.String())
 	}
 

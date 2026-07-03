@@ -17,10 +17,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "wm_hyprland" }
-func (p *Factory) Name() string { return "Hyprland" }
+func (f *Factory) ID() string   { return "wm_hyprland" }
+func (f *Factory) Name() string { return "Hyprland" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "HYPRLAND_INSTANCE_SIGNATURE") == "" {
 		return fmt.Errorf("%w: HYPRLAND_INSTANCE_SIGNATURE not set", driver.ErrIncompatible)
 	}
@@ -30,7 +30,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (api.Driver, error) {
+func (f *Factory) New(ctx context.Context) (api.Driver, error) {
 	return &Driver{}, nil
 }
 

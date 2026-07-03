@@ -20,10 +20,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "clipboard_xclip" }
-func (p *Factory) Name() string { return "X11 (xclip)" }
+func (f *Factory) ID() string   { return "clipboard_xclip" }
+func (f *Factory) Name() string { return "X11 (xclip)" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "xclip") {
 		return fmt.Errorf("%w: xclip", driver.ErrIncompatible)
 	}
@@ -31,7 +31,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (clipboard.Driver, error) {
+func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {
 	return &Driver{}, nil
 }
 

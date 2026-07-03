@@ -18,15 +18,15 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "fetchurl" }
-func (p *Factory) Name() string { return "fetchurl" }
+func (f *Factory) ID() string   { return "fetchurl" }
+func (f *Factory) Name() string { return "fetchurl" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// fetchurl is a pure Go library, always compatible
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (fetchurldriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (fetchurldriver.Driver, error) {
 	httpDriver, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
 		return nil, fmt.Errorf("httpclient driver required: %w", err)
@@ -51,7 +51,7 @@ func (d *Driver) Fetch(ctx context.Context, opts fetchurldriver.FetchOptions) er
 
 	// All HTTP work performed by the underlying library goes through the
 	// *http.Client we built in New(). That client has its Transport wrapped
-	// (via httpclient.WithProgress in the platform providers) so that every
+	// (via httpclient.WithProgress in the platform implementations) so that every
 	// request is automatically treated as an Internet task with progress
 	// derived from the real response headers (ContentLength) + bytes read
 	// from the body.

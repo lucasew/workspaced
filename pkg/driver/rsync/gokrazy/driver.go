@@ -21,15 +21,15 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "rsync_gokrazy" }
-func (p *Factory) Name() string { return "gokrazy/rsync (pure Go)" }
+func (f *Factory) ID() string   { return "rsync_gokrazy" }
+func (f *Factory) Name() string { return "gokrazy/rsync (pure Go)" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// Pure Go implementation, always available.
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 	return &Driver{}, nil
 }
 

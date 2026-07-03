@@ -95,15 +95,15 @@ func SetWeights(w map[string]map[string]int) error {
 			}
 		}
 	}
-	for ifaceType, providers := range Drivers {
+	for ifaceType, factories := range Drivers {
 		ifaceName := getInterfaceName(ifaceType)
 		configured, ok := w[ifaceName]
 		if !ok {
 			return fmt.Errorf("missing driver weights for interface %q", ifaceName)
 		}
-		for id := range providers {
+		for id := range factories {
 			if _, ok := configured[id]; !ok {
-				return fmt.Errorf("missing driver weight for provider %q in interface %q", id, ifaceName)
+				return fmt.Errorf("missing driver weight for %q in interface %q", id, ifaceName)
 			}
 		}
 	}
@@ -153,7 +153,7 @@ func effectiveWeight(weights map[string]int, driverID, ifaceName string) int {
 	return getConfiguredWeight(weights, driverID)
 }
 
-func Register[T any](provider DriverFactory[T]) {
+func Register[T any](factory DriverFactory[T]) {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -161,7 +161,7 @@ func Register[T any](provider DriverFactory[T]) {
 	if t.Kind() != reflect.Interface {
 		panic(fmt.Errorf("driver %s is not an interface", t.String()))
 	}
-	id := provider.ID()
+	id := factory.ID()
 	if id == "" {
 		panic(fmt.Errorf("driver for %s registered with empty ID", t.String()))
 	}
@@ -172,15 +172,15 @@ func Register[T any](provider DriverFactory[T]) {
 	if _, ok := Drivers[t][id]; ok {
 		panic(fmt.Errorf("driver ID %q already registered for interface %s", id, t.String()))
 	}
-	Drivers[t][id] = provider
+	Drivers[t][id] = factory
 
 	doctorList = append(doctorList, doctorEntry{
 		InterfaceType: t,
 		InterfaceName: getInterfaceName(t),
-		FactoryType:   reflect.TypeOf(provider),
+		FactoryType:   reflect.TypeOf(factory),
 		DriverID:      id,
-		DriverName:    provider.Name(),
-		Check:         provider.CheckCompatibility,
+		DriverName:    factory.Name(),
+		Check:         factory.CheckCompatibility,
 	})
 }
 
@@ -196,10 +196,10 @@ func RegisteredWeightShape() map[string][]string {
 	defer mu.RUnlock()
 
 	shape := make(map[string][]string, len(Drivers))
-	for ifaceType, providers := range Drivers {
+	for ifaceType, factories := range Drivers {
 		ifaceName := getInterfaceName(ifaceType)
-		ids := make([]string, 0, len(providers))
-		for id := range providers {
+		ids := make([]string, 0, len(factories))
+		for id := range factories {
 			ids = append(ids, id)
 		}
 		sort.Strings(ids)
@@ -226,10 +226,10 @@ func Get[T any](ctx context.Context) (T, error) {
 	logger := logging.GetLogger(ctx)
 	logger.Debug("loading driver weights", "interface", ifaceName, "weights", weights, "all_weights", driverWeights)
 
-	providers := make([]DriverFactory[T], 0)
-	if pMap, ok := Drivers[t]; ok {
-		for _, p := range pMap {
-			providers = append(providers, p.(DriverFactory[T]))
+	factories := make([]DriverFactory[T], 0)
+	if byID, ok := Drivers[t]; ok {
+		for _, entry := range byID {
+			factories = append(factories, entry.(DriverFactory[T]))
 		}
 	}
 
@@ -240,8 +240,8 @@ func Get[T any](ctx context.Context) (T, error) {
 	forced := forceDriverFromEnv(ifaceName)
 	if forced != "" {
 		hasMatching := false
-		for _, p := range providers {
-			if p.ID() == forced {
+		for _, f := range factories {
+			if f.ID() == forced {
 				hasMatching = true
 				break
 			}
@@ -255,48 +255,48 @@ func Get[T any](ctx context.Context) (T, error) {
 	mu.RUnlock()
 
 	var zero T
-	if len(providers) == 0 {
+	if len(factories) == 0 {
 		return zero, ErrNotFound
 	}
 
 	// Log all factories before sorting
-	logger.Debug("available driver factories", "interface", ifaceName, "count", len(providers))
-	for _, p := range providers {
-		w := effectiveWeight(weights, p.ID(), ifaceName)
-		logger.Debug("factory registered", "interface", ifaceName, "id", p.ID(), "name", p.Name(), "weight", w)
+	logger.Debug("available driver factories", "interface", ifaceName, "count", len(factories))
+	for _, f := range factories {
+		w := effectiveWeight(weights, f.ID(), ifaceName)
+		logger.Debug("factory registered", "interface", ifaceName, "id", f.ID(), "name", f.Name(), "weight", w)
 	}
 
-	// Sort providers by (effective) weight then ID.
+	// Sort factories by (effective) weight then ID.
 	// A forced driver via env gets weight 101 so it is tried first.
-	sort.Slice(providers, func(i, j int) bool {
-		wi := effectiveWeight(weights, providers[i].ID(), ifaceName)
-		wj := effectiveWeight(weights, providers[j].ID(), ifaceName)
+	sort.Slice(factories, func(i, j int) bool {
+		wi := effectiveWeight(weights, factories[i].ID(), ifaceName)
+		wj := effectiveWeight(weights, factories[j].ID(), ifaceName)
 
 		if wi != wj {
 			return wi > wj // Higher weight first
 		}
-		return providers[i].ID() < providers[j].ID() // Deterministic fallback
+		return factories[i].ID() < factories[j].ID() // Deterministic fallback
 	})
 
 	var report []string
 
-	for _, provider := range providers {
-		weight := effectiveWeight(weights, provider.ID(), ifaceName)
+	for _, factory := range factories {
+		weight := effectiveWeight(weights, factory.ID(), ifaceName)
 
-		if err := cachedCheck(provider.ID(), provider.CheckCompatibility, ctx); err != nil {
-			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", provider.ID(), provider.Name(), weight, err))
-			logger.Debug("driver skipped", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
+		if err := cachedCheck(factory.ID(), factory.CheckCompatibility, ctx); err != nil {
+			report = append(report, fmt.Sprintf("❌ [SKIP] %s (%s) weight=%d: %v", factory.ID(), factory.Name(), weight, err))
+			logger.Debug("driver skipped", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight, "error", err)
 			continue
 		}
 
-		instance, err := provider.New(ctx)
+		instance, err := factory.New(ctx)
 		if err != nil {
-			report = append(report, fmt.Sprintf("⚠️ [FAIL] %s (%s) weight=%d: initialization failed: %v", provider.ID(), provider.Name(), weight, err))
-			logger.Debug("driver init failed", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight, "error", err)
+			report = append(report, fmt.Sprintf("⚠️ [FAIL] %s (%s) weight=%d: initialization failed: %v", factory.ID(), factory.Name(), weight, err))
+			logger.Debug("driver init failed", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight, "error", err)
 			continue
 		}
 
-		logger.Debug("driver selected", "interface", ifaceName, "id", provider.ID(), "name", provider.Name(), "weight", weight)
+		logger.Debug("driver selected", "interface", ifaceName, "id", factory.ID(), "name", factory.Name(), "weight", weight)
 		return instance, nil
 	}
 

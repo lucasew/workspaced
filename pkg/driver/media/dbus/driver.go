@@ -16,10 +16,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "media_mpris" }
-func (p *Factory) Name() string { return "MPRIS (DBus)" }
+func (f *Factory) ID() string   { return "media_mpris" }
+func (f *Factory) Name() string { return "MPRIS (DBus)" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return fmt.Errorf("%w: failed to connect to session bus: %v", driver.ErrIncompatible, err)
@@ -39,7 +39,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return fmt.Errorf("%w: no MPRIS players found on DBus", driver.ErrIncompatible)
 }
 
-func (p *Factory) New(ctx context.Context) (media.Driver, error) {
+func (f *Factory) New(ctx context.Context) (media.Driver, error) {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return nil, err

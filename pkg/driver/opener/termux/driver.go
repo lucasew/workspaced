@@ -15,10 +15,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "opener_termux" }
-func (p *Factory) Name() string { return "termux-open" }
+func (f *Factory) ID() string   { return "opener_termux" }
+func (f *Factory) Name() string { return "termux-open" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if os.Getenv("TERMUX_VERSION") == "" {
 		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
 	}
@@ -28,7 +28,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (opener.Driver, error) {
+func (f *Factory) New(ctx context.Context) (opener.Driver, error) {
 	return &Driver{}, nil
 }
 

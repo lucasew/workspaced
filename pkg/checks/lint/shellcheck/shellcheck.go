@@ -69,7 +69,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Falls back to registry:shellcheck (catalog entry normalizes v-prefixed tags).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "shellcheck", "shellcheck", "registry:shellcheck", args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup shellcheck: %w", err)
+		return nil, fmt.Errorf("setup shellcheck: %w", err)
 	}
 
 	cmd.Dir = dir
@@ -88,7 +88,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	var issues []Issue
 	if err := json.Unmarshal(stdout.Bytes(), &issues); err != nil {
-		return nil, fmt.Errorf("failed to parse shellcheck output: %w (stdout: %s)", err, stdout.String())
+		return nil, fmt.Errorf("parse shellcheck output: %w (stdout: %s)", err, stdout.String())
 	}
 	if len(issues) == 0 {
 		return nil, nil

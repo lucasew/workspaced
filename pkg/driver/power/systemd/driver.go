@@ -14,10 +14,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "power_systemd" }
-func (p *Factory) Name() string { return "Systemd" }
+func (f *Factory) ID() string   { return "power_systemd" }
+func (f *Factory) Name() string { return "Systemd" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "loginctl") {
 		return fmt.Errorf("%w: loginctl not found", driver.ErrIncompatible)
 	}
@@ -27,7 +27,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (power.Driver, error) {
+func (f *Factory) New(ctx context.Context) (power.Driver, error) {
 	return &Driver{}, nil
 }
 

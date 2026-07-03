@@ -34,7 +34,7 @@ func TestParseAndConvert(t *testing.T) {
 
 	jsonBytes, err := json.Marshal(input)
 	if err != nil {
-		t.Fatalf("failed to marshal input: %v", err)
+		t.Fatalf("marshal input: %v", err)
 	}
 
 	run, err := parseAndConvert(jsonBytes)

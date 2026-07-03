@@ -44,7 +44,7 @@ func (c *check) Format(ctx context.Context, dir string) error {
 	if exec.IsBinaryAvailable(ctx, "node") {
 		cmd, err := exec.Run(ctx, binPath, "--write", ".")
 		if err != nil {
-			return fmt.Errorf("failed to prepare prettier command: %w", err)
+			return fmt.Errorf("prepare prettier command: %w", err)
 		}
 
 		cmd.Dir = dir
@@ -59,7 +59,7 @@ func (c *check) Format(ctx context.Context, dir string) error {
 		// "bun run --bun" forces bun runtime for the script
 		cmd, err := exec.Run(ctx, "bun", "run", "--bun", binPath, "--write", ".")
 		if err != nil {
-			return fmt.Errorf("failed to prepare prettier command with bun: %w", err)
+			return fmt.Errorf("prepare prettier command with bun: %w", err)
 		}
 
 		cmd.Dir = dir

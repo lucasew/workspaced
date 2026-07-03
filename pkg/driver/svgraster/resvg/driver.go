@@ -115,15 +115,15 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 
 type Factory struct{}
 
-func (p Factory) ID() string { return "resvg" }
-func (p Factory) Name() string {
+func (f Factory) ID() string { return "resvg" }
+func (f Factory) Name() string {
 	return "resvg"
 }
-func (p Factory) CheckCompatibility(ctx context.Context) error {
+func (f Factory) CheckCompatibility(ctx context.Context) error {
 	// resvg is installed on demand via the tool registry (catalog).
 	return nil
 }
-func (p Factory) New(ctx context.Context) (svgraster.Driver, error) {
+func (f Factory) New(ctx context.Context) (svgraster.Driver, error) {
 	return &Driver{}, nil
 }
 

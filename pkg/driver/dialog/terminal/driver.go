@@ -22,27 +22,27 @@ func init() {
 
 type baseFactory struct{}
 
-func (p *baseFactory) ID() string { return "terminal" }
+func (f *baseFactory) ID() string { return "terminal" }
 
-func (p *baseFactory) CheckCompatibility(ctx context.Context) error {
+func (f *baseFactory) CheckCompatibility(ctx context.Context) error {
 	// Always compatible, but with weight 0 so it acts as fallback
 	return nil
 }
 
 type ChooserFactory struct{ baseFactory }
 
-func (p *ChooserFactory) Name() string                                    { return "Terminal (Fuzzy)" }
-func (p *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
+func (f *ChooserFactory) Name() string                                    { return "Terminal (Fuzzy)" }
+func (f *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
 
 type PrompterFactory struct{ baseFactory }
 
-func (p *PrompterFactory) Name() string                                     { return "Terminal (Stdin)" }
-func (p *PrompterFactory) New(ctx context.Context) (dialog.Prompter, error) { return &Driver{}, nil }
+func (f *PrompterFactory) Name() string                                     { return "Terminal (Stdin)" }
+func (f *PrompterFactory) New(ctx context.Context) (dialog.Prompter, error) { return &Driver{}, nil }
 
 type ConfirmerFactory struct{ baseFactory }
 
-func (p *ConfirmerFactory) Name() string                                      { return "Terminal (y/n)" }
-func (p *ConfirmerFactory) New(ctx context.Context) (dialog.Confirmer, error) { return &Driver{}, nil }
+func (f *ConfirmerFactory) Name() string                                      { return "Terminal (y/n)" }
+func (f *ConfirmerFactory) New(ctx context.Context) (dialog.Confirmer, error) { return &Driver{}, nil }
 
 // Driver implements Chooser, Prompter and Confirmer
 type Driver struct{}

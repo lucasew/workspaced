@@ -12,20 +12,20 @@ import (
 
 type Factory struct{}
 
-func (p *Factory) ID() string {
+func (f *Factory) ID() string {
 	return "env_native"
 }
 
-func (p *Factory) Name() string {
+func (f *Factory) Name() string {
 	return "Native Environment"
 }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	// Always compatible
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (envdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) {
 	return &Driver{}, nil
 }
 

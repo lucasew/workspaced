@@ -18,10 +18,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "screen_x11" }
-func (p *Factory) Name() string { return "X11" }
+func (f *Factory) ID() string   { return "screen_x11" }
+func (f *Factory) Name() string { return "X11" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	display := executil.GetEnv(ctx, "DISPLAY")
 
 	if display == "" {
@@ -36,7 +36,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (screen.Driver, error) {
+func (f *Factory) New(ctx context.Context) (screen.Driver, error) {
 	return &Driver{}, nil
 }
 

@@ -64,7 +64,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Falls back to the registry tool (cataloged with version prefix handling).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "actionlint", "actionlint", "registry:actionlint", "-format", "{{json .}}")
 	if err != nil {
-		return nil, fmt.Errorf("failed to setup actionlint: %w", err)
+		return nil, fmt.Errorf("setup actionlint: %w", err)
 	}
 
 	cmd.Dir = dir
@@ -81,7 +81,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	var issues []Issue
 	if stdout.Len() > 0 {
 		if err := json.Unmarshal(stdout.Bytes(), &issues); err != nil {
-			return nil, fmt.Errorf("failed to parse actionlint output: %w (stdout: %s)", err, stdout.String())
+			return nil, fmt.Errorf("parse actionlint output: %w (stdout: %s)", err, stdout.String())
 		}
 	}
 

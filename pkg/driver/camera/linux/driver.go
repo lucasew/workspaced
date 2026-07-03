@@ -24,10 +24,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "v4l-ffmpeg" }
-func (p *Factory) Name() string { return "V4L2 + ffmpeg" }
+func (f *Factory) ID() string   { return "v4l-ffmpeg" }
+func (f *Factory) Name() string { return "V4L2 + ffmpeg" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("%w: linux is required", driver.ErrIncompatible)
 	}
@@ -37,7 +37,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (cameraapi.Driver, error) {
+func (f *Factory) New(ctx context.Context) (cameraapi.Driver, error) {
 	return &Driver{}, nil
 }
 

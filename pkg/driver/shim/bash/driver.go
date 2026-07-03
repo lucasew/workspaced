@@ -13,15 +13,15 @@ import (
 
 type Factory struct{}
 
-func (p *Factory) ID() string {
+func (f *Factory) ID() string {
 	return "shim_bash"
 }
 
-func (p *Factory) Name() string {
+func (f *Factory) Name() string {
 	return "Bash Shim"
 }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	_, err := execdriver.Which(ctx, "bash")
 	return err
 }
@@ -38,7 +38,7 @@ func GetShell(ctx context.Context) string {
 	return bashPath
 }
 
-func (p *Factory) New(ctx context.Context) (shimdriver.Driver, error) {
+func (f *Factory) New(ctx context.Context) (shimdriver.Driver, error) {
 	bashPath := GetShell(ctx)
 	return &Driver{bashPath: bashPath}, nil
 }

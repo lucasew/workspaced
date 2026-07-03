@@ -20,17 +20,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "audio_pulse" }
-func (p *Factory) Name() string { return "PulseAudio (pactl)" }
+func (f *Factory) ID() string   { return "audio_pulse" }
+func (f *Factory) Name() string { return "PulseAudio (pactl)" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "pactl") {
 		return fmt.Errorf("%w: pactl not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (audio.Driver, error) {
+func (f *Factory) New(ctx context.Context) (audio.Driver, error) {
 	return &Driver{}, nil
 }
 

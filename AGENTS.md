@@ -1,4 +1,4 @@
-g Workspaced Development
+# Workspaced Development
 
 **Essential reading order for agents**:
 1. [README.md](README.md) — one-sentence terms + minimal architecture.

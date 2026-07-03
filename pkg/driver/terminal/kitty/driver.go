@@ -14,17 +14,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "terminal_kitty" }
-func (p *Factory) Name() string { return "Kitty" }
+func (f *Factory) ID() string   { return "terminal_kitty" }
+func (f *Factory) Name() string { return "Kitty" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "kitty") {
 		return fmt.Errorf("%w: kitty not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (terminal.Driver, error) {
+func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
 	return &Driver{}, nil
 }
 

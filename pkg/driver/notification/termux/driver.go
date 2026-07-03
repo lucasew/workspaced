@@ -14,17 +14,17 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "notification_termux" }
-func (p *Factory) Name() string { return "Termux" }
+func (f *Factory) ID() string   { return "notification_termux" }
+func (f *Factory) Name() string { return "Termux" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if !execdriver.IsBinaryAvailable(ctx, "termux-notification") {
 		return fmt.Errorf("%w: termux-notification not found", driver.ErrIncompatible)
 	}
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (notification.Driver, error) {
+func (f *Factory) New(ctx context.Context) (notification.Driver, error) {
 	return &Driver{}, nil
 }
 

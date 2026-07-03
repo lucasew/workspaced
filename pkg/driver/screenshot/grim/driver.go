@@ -21,10 +21,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "screenshot_grim" }
-func (p *Factory) Name() string { return "Grim (Wayland)" }
+func (f *Factory) ID() string   { return "screenshot_grim" }
+func (f *Factory) Name() string { return "Grim (Wayland)" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
 	}
@@ -34,7 +34,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (screenshot.Driver, error) {
+func (f *Factory) New(ctx context.Context) (screenshot.Driver, error) {
 	return &Driver{}, nil
 }
 

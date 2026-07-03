@@ -17,17 +17,17 @@ func init() {
 
 type ChooserFactory struct{}
 
-func (p *ChooserFactory) ID() string                                      { return "rofi" }
-func (p *ChooserFactory) Name() string                                    { return "Rofi" }
-func (p *ChooserFactory) CheckCompatibility(ctx context.Context) error    { return checkRofi(ctx) }
-func (p *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
+func (f *ChooserFactory) ID() string                                      { return "rofi" }
+func (f *ChooserFactory) Name() string                                    { return "Rofi" }
+func (f *ChooserFactory) CheckCompatibility(ctx context.Context) error    { return checkRofi(ctx) }
+func (f *ChooserFactory) New(ctx context.Context) (dialog.Chooser, error) { return &Driver{}, nil }
 
 type FullDriverFactory struct{}
 
-func (p *FullDriverFactory) ID() string                                     { return "rofi" }
-func (p *FullDriverFactory) Name() string                                   { return "Rofi" }
-func (p *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { return checkRofi(ctx) }
-func (p *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
+func (f *FullDriverFactory) ID() string                                     { return "rofi" }
+func (f *FullDriverFactory) Name() string                                   { return "Rofi" }
+func (f *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { return checkRofi(ctx) }
+func (f *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
 
 func checkRofi(ctx context.Context) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {

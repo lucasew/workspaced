@@ -44,7 +44,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	// Falls back to registry:biome (catalog entry handles versions).
 	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "biome", "biome", "registry:biome", "lint", "--reporter=sarif", ".")
 	if err != nil {
-		logging.ReportError(ctx, err, "context", "failed to setup biome")
+		logging.ReportError(ctx, err, "context", "setup biome")
 		return nil, err
 	}
 
@@ -64,7 +64,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	report, err := sarif.FromBytes(stdout.Bytes())
 	if err != nil {
-		logging.ReportError(ctx, err, "stdout", stdout.String(), "context", "failed to parse sarif output from biome")
+		logging.ReportError(ctx, err, "stdout", stdout.String(), "context", "parse sarif output from biome")
 		// If command failed and we couldn't parse SARIF, return the command error
 		if runErr != nil {
 			return nil, runErr

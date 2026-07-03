@@ -15,10 +15,10 @@ func init() {
 
 type Factory struct{}
 
-func (p *Factory) ID() string   { return "terminal_foot" }
-func (p *Factory) Name() string { return "Foot" }
+func (f *Factory) ID() string   { return "terminal_foot" }
+func (f *Factory) Name() string { return "Foot" }
 
-func (p *Factory) CheckCompatibility(ctx context.Context) error {
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: foot requires WAYLAND_DISPLAY", driver.ErrIncompatible)
 	}
@@ -28,7 +28,7 @@ func (p *Factory) CheckCompatibility(ctx context.Context) error {
 	return nil
 }
 
-func (p *Factory) New(ctx context.Context) (terminal.Driver, error) {
+func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
 	return &Driver{}, nil
 }
 

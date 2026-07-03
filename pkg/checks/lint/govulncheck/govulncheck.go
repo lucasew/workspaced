@@ -50,7 +50,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	cmd, err := exec.Run(ctx, "go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4", "--format", "sarif", "./...")
 	if err != nil {
-		logging.ReportError(ctx, err, "context", "failed to setup govulncheck")
+		logging.ReportError(ctx, err, "context", "setup govulncheck")
 		return nil, err
 	}
 
