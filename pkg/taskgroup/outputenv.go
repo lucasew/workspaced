@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"workspaced/pkg/logging"
@@ -32,7 +33,11 @@ func newOutputEnv(prog *tea.Program) *outputEnv {
 		oldLogOut: log.Default().Writer(),
 	}
 
-	tw := &teaWriter{print: func(s string) { prog.Printf("%s", s) }}
+	tw := &teaWriter{print: func(s string) {
+		s = strings.ReplaceAll(s, "\r", "")
+		s = strings.ReplaceAll(s, "\n", "")
+		prog.Printf("%s", s)
+	}}
 	e.tw = tw
 
 	if f, err := tw.File(); err == nil {
