@@ -151,5 +151,5 @@ func (t *heliumBrowserTool) InstallArtifact(ctx context.Context, artifact backen
 }
 
 func (t *heliumBrowserTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("helium")}
+	return checks.Checks(checks.Binary("helium"))
 }

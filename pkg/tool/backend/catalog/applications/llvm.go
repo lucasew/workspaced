@@ -178,5 +178,5 @@ func toLLVMSpecTag(version string) string {
 }
 
 func (t *llvmTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("clang")}
+	return checks.Checks(checks.Binary("clang"))
 }

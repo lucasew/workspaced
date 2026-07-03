@@ -340,5 +340,5 @@ func (t *cmakeTool) fetchSHA256(ctx context.Context, dir, ver, filename string) 
 }
 
 func (t *cmakeTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("cmake")}
+	return checks.Checks(checks.Binary("cmake"))
 }

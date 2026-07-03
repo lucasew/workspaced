@@ -71,5 +71,5 @@ func isTirithProgramVersion(version string) bool {
 }
 
 func (t tirithTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("tirith")}
+	return checks.Checks(checks.Binary("tirith"))
 }

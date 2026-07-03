@@ -157,10 +157,10 @@ func TestRunNoopOnNonChecker(t *testing.T) {
 func TestRunJoinsFailures(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	err := Run(t.Context(), dir, stubTool{checks: []Check{
+	err := Run(t.Context(), dir, stubTool{checks: Checks(
 		FileExists("a"),
 		FileExists("b"),
-	}})
+	)})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -181,7 +181,7 @@ func TestRunRespectsContextCancel(t *testing.T) {
 	if err := os.WriteFile(path, []byte("x"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	err := Run(ctx, dir, stubTool{checks: []Check{Binary("x")}})
+	err := Run(ctx, dir, stubTool{checks: Checks(Binary("x"))})
 	if err == nil {
 		t.Fatal("expected context error")
 	}

@@ -178,5 +178,5 @@ func (t *grokBuildTool) grokPlatform() string {
 }
 
 func (t *grokBuildTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("grok")}
+	return checks.Checks(checks.Binary("grok"))
 }

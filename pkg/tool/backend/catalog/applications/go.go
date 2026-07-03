@@ -217,5 +217,5 @@ func goVersionForIndex(version string) string {
 }
 
 func (t *goTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("go")}
+	return checks.Checks(checks.Binary("go"))
 }

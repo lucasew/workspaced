@@ -23,7 +23,7 @@ func init() {
 	}
 
 	// Aliases / binary name differs from catalog name.
-	rgChecks := []checks.Check{checks.Binary("rg")}
+	rgChecks := checks.Checks(checks.Binary("rg"))
 	catalog.RegisterGitHub("ripgrep", "burntsushi/ripgrep", rgChecks...)
 	catalog.RegisterGitHub("rg", "burntsushi/ripgrep", rgChecks...)
 	catalog.RegisterGitHub("docker-compose", "docker/compose", checks.Binary("docker-compose"))

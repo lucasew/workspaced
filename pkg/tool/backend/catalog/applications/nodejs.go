@@ -227,5 +227,5 @@ func normalizeNodejsVersion(version string) string {
 }
 
 func (t *nodejsTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("node")}
+	return checks.Checks(checks.Binary("node"))
 }

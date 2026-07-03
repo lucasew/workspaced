@@ -245,5 +245,5 @@ func normalizeFlutterVersion(version string) string {
 }
 
 func (t *flutterTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("flutter")}
+	return checks.Checks(checks.Binary("flutter"))
 }

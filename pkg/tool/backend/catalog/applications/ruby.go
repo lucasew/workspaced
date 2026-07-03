@@ -218,5 +218,5 @@ func (t *rubyTool) fixRubyShebangs(destDir string) error {
 }
 
 func (t *rubyTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("ruby")}
+	return checks.Checks(checks.Binary("ruby"))
 }

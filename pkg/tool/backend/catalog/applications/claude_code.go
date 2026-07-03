@@ -211,5 +211,5 @@ func (t *claudeCodeTool) isMusl() bool {
 }
 
 func (t *claudeCodeTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("claude")}
+	return checks.Checks(checks.Binary("claude"))
 }

@@ -292,5 +292,5 @@ func selectBiomeArtifact(arts []backend.Artifact, goos, goarch string) *backend.
 }
 
 func (t *biomeTool) InstallChecks() []checks.Check {
-	return []checks.Check{checks.Binary("biome")}
+	return checks.Checks(checks.Binary("biome"))
 }

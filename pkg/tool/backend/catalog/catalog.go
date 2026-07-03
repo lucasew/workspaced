@@ -49,7 +49,7 @@ func newCuratedGitHub(repo string, toolChecks ...checks.Check) (backend.Tool, er
 	if err != nil {
 		return nil, err
 	}
-	return &curatedGitHub{inner: inner, checks: append([]checks.Check(nil), toolChecks...)}, nil
+	return &curatedGitHub{inner: inner, checks: checks.Checks(toolChecks...)}, nil
 }
 
 func (t *curatedGitHub) ListVersions(ctx context.Context) ([]string, error) {
@@ -82,7 +82,7 @@ func (t *curatedGitHub) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *curatedGitHub) InstallChecks() []checks.Check {
-	return append([]checks.Check(nil), t.checks...)
+	return checks.Checks(t.checks...)
 }
 
 func (t *curatedGitHub) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
@@ -114,9 +114,9 @@ func (t *curatedGitHub) Fix(ctx context.Context, destDir string) error {
 // When toolChecks is empty, defaults to checks.Binary(name).
 func RegisterGitHub(name, repo string, toolChecks ...checks.Check) {
 	if len(toolChecks) == 0 {
-		toolChecks = []checks.Check{checks.Binary(name)}
+		toolChecks = checks.Checks(checks.Binary(name))
 	}
-	checksCopy := append([]checks.Check(nil), toolChecks...)
+	checksCopy := checks.Checks(toolChecks...)
 	RegisterTool(name, func() (backend.Tool, error) {
 		return newCuratedGitHub(repo, checksCopy...)
 	})
