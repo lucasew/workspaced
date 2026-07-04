@@ -1,28 +1,24 @@
-# Installation Guide
+# Install
 
-Workspaced can be installed via a simple curl/bash script that downloads the correct pre-built binary for your platform directly from GitHub Releases.
-
-## Quick Install
-
-To install the latest version, run the following command:
+Curl the setup script; it pulls the right GitHub Release binary for your platform:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lucasew/workspaced/main/setup | bash
 ```
 
-## Environment Variables
+## Env vars the script reads
 
-The installation script supports several environment variables to customize the installation process:
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `REPO` | `lucasew/workspaced` | `owner/repo` for releases |
+| `APPNAME` | `workspaced` | binary name inside the archive |
+| `VERSION` | `latest` | tag, or `latest` |
+| `OS` | auto | `linux`, `darwin`, `windows` |
+| `ARCH` | auto | `amd64`, `arm64`, `386` |
+| `DOWNLOAD_DIR` | temp dir | where archives land |
+| `GITHUB_TOKEN` | unset | raises API rate limits; uses `gh` auth if present |
 
-- `REPO` (default: `lucasew/workspaced`): The GitHub repository in `owner/repo` format to download releases from.
-- `APPNAME` (default: `workspaced`): The expected binary name to extract or download.
-- `VERSION` (default: `latest`): The release tag to download (e.g., `v1.2.3`), or `latest` for the most recent release.
-- `OS` (default: auto-detected): Override the target operating system (e.g., `linux`, `darwin`, `windows`).
-- `ARCH` (default: auto-detected): Override the target architecture (e.g., `amd64`, `arm64`, `386`).
-- `DOWNLOAD_DIR` (default: temporary directory): Directory to store downloaded archives.
-- `GITHUB_TOKEN` (optional): Provide a GitHub token to avoid API rate limits when fetching release information. If the `gh` CLI is installed and authenticated, it will try to use its token automatically.
-
-### Example with overrides
+Pin version/arch:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lucasew/workspaced/main/setup | VERSION=v0.1.0 ARCH=arm64 bash

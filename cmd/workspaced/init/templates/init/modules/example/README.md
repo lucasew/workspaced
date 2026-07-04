@@ -1,12 +1,6 @@
-# Example Module
+# example module
 
-This is an example workspaced module demonstrating how to:
-- Use conditionals in templates
-- Access system information (hostname, IPs)
-- Detect environment (phone vs desktop)
-- Loop over config data
-
-## Usage
+Starter module: conditionals, hostname/IPs, phone vs desktop, looping config.
 
 Enable in `workspaced.cue`:
 
@@ -23,46 +17,32 @@ workspaced: modules: example: {
 }
 ```
 
-## Generated Files
+Writes `~/.config/example/welcome.txt`.
 
-- `~/.config/example/welcome.txt` - Example file with system info
+## Template bits
 
-## Template Features
-
-The template demonstrates:
-
-### Variables
 ```go
-{{ .module.greeting }}        // Module config
-{{ .runtime.hostname }}       // System hostname
-{{ .root.hosts }}             // Map of configured hosts
-```
+{{ .module.greeting }}
+{{ .runtime.hostname }}
+{{ .root.hosts }}
 
-### Conditionals
-```go
 {{- if .runtime.is_phone }}
-  // Termux-specific config
+  // Termux
 {{- else }}
-  // Desktop config
+  // desktop
 {{- end }}
-```
 
-### Loops
-```go
 {{- range $name, $host := .root.hosts }}
   Host {{ $name }}: {{ index $host.ips 0 }}
 {{- end }}
+
+{{ .List | toJSON }}
+{{ index .Array 0 }}
 ```
 
-### Functions
-```go
-{{ .List | toJSON }}          // Convert to JSON
-{{ index .Array 0 }}          // Access array element
-```
+## Your own module
 
-## Creating Your Own Module
-
-1. Copy this module as a template
-2. Edit `module.cue` with your metadata and config schema
-3. Create templates in `home/`, `etc/`, or another preset directory
-4. Enable in `workspaced.cue`
+1. Copy this directory.
+2. Edit `module.cue` (meta + config schema).
+3. Put templates under `home/`, `etc/`, or another preset root.
+4. Point `workspaced.cue` at it.
