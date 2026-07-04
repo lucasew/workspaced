@@ -75,21 +75,13 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logging.ReportError(ctx, err)
-		}
-	}()
+	defer logging.Close(ctx, resp.Body)
 
 	out, err := os.Create(path)
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := out.Close(); err != nil {
-			logging.ReportError(ctx, err)
-		}
-	}()
+	defer logging.Close(ctx, out)
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		return "", err

@@ -51,7 +51,6 @@ func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
 func TestRegistryInstallChecksDeclared(t *testing.T) {
 	t.Parallel()
 	for _, name := range catalog.ListTools() {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tool, err := catalog.NewTool(name)
@@ -77,7 +76,6 @@ func TestRegistryInstall(t *testing.T) {
 	}
 
 	for _, name := range catalog.ListTools() {
-		name := name
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tool, err := catalog.NewTool(name)

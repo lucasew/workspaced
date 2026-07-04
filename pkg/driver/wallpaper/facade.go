@@ -83,11 +83,7 @@ func SetAPOD(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			logging.ReportError(ctx, err)
-		}
-	}()
+	defer logging.Close(ctx, resp.Body)
 
 	var apod APODResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apod); err != nil {
@@ -113,21 +109,13 @@ func SetAPOD(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := out.Close(); err != nil {
-			logging.ReportError(ctx, err)
-		}
-	}()
+	defer logging.Close(ctx, out)
 
 	imgResp, err := httpDriver.Client().Get(url)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := imgResp.Body.Close(); err != nil {
-			logging.ReportError(ctx, err)
-		}
-	}()
+	defer logging.Close(ctx, imgResp.Body)
 
 	if _, err := io.Copy(out, imgResp.Body); err != nil {
 		return err

@@ -47,6 +47,8 @@ import (
 var (
 	ErrUnknownDependency = errors.New("unknown dependency")
 	ErrDependencyFailed  = errors.New("dependency failed")
+	// ErrNilFn is returned by Map.Run / Each.Run when Fn is unset.
+	ErrNilFn = errors.New("Fn is nil")
 )
 
 // PoolKind identifies which resource pool a task consumes a slot from.

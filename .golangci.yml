@@ -13,6 +13,11 @@ linters:
     - gomodguard
     - wsl      # legacy name; superseded by wsl_v5 in golangci-lint v2
     - wsl_v5   # whitespace rules fight gofmt/editors; keep disabled like former wsl
+    # bodyclose only recognizes resp.Body.Close() in the same function as Do/Get.
+    # This repo closes via logging.Close (reports failures through ReportError); the
+    # checker cannot follow that helper across packages, so it only emits false
+    # positives. progressTransport also transfers Body ownership via a channel.
+    - bodyclose
 
   settings:
     # depguard configuration: enforce correct import layering.
@@ -29,11 +34,10 @@ linters:
             - pkg: "workspaced/cmd"
               desc: "pkg/... must not import cmd/... (inverts layering; cmd/ contains main entrypoints and command wiring that should not be library dependencies). See AGENTS.md"
           files:
-            # Apply this deny rule only to files that are NOT inside the top-level cmd/ tree.
-            # We know the exact layout (standard Go module with cmd/ at the root containing
-            # all entrypoints and command packages), so we can be precise instead of the
-            # more generic "**/cmd/**" wildcard.
-            - "!cmd/**"
+            # Scope to library code only. A negation-only pattern like "!cmd/**" is treated
+            # as a positive match in depguard v2 and falsely flags every cmd→cmd import.
+            # Positive pkg/** globs express the real invariant.
+            - "pkg/**/*.go"
 
     dupl:
       # Report duplicated code fragments if they have at least this many tokens.
@@ -79,8 +83,11 @@ linters:
 
       # exclude-godebug: true
 
-# Optional: make the linter stricter on output (uncomment if desired)
-# issues:
-#   max-issues-per-linter: 0
-#   max-same-issues: 0
-#   exclude-use-default: false
+# Default caps (max-same-issues=3) hide most findings for chatty rules like
+# wrapcheck/depguard, so janitor passes only see the first few hits.
+# Fully uncapped (0) inflates SARIF to thousands of results and trips
+# `workspaced codebase lint` aggregation. 50 is enough to see real clusters
+# without turning the report into noise.
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 50

@@ -23,7 +23,9 @@ func Close(ctx context.Context, closer io.Closer, attrs ...any) {
 	if closer == nil {
 		return
 	}
-	RunCleanup(ctx, "close", closer.Close, attrs...)
+	if err := closer.Close(); err != nil {
+		reportWithOp(ctx, "close", err, attrs...)
+	}
 }
 
 type flusher interface {
@@ -36,7 +38,9 @@ func Flush(ctx context.Context, f flusher, attrs ...any) {
 	if f == nil {
 		return
 	}
-	RunCleanup(ctx, "flush", f.Flush, attrs...)
+	if err := f.Flush(); err != nil {
+		reportWithOp(ctx, "flush", err, attrs...)
+	}
 }
 
 func reportWithOp(ctx context.Context, op string, err error, attrs ...any) {

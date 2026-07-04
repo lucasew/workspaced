@@ -53,7 +53,7 @@ func (m Map[T, U]) childName(i int, item T, name string) string {
 // parent task). An empty Items list returns a non-nil empty slice.
 func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 	if m.Fn == nil {
-		return nil, fmt.Errorf("taskgroup: Map.Fn is nil")
+		return nil, ErrNilFn
 	}
 	if len(m.Items) == 0 {
 		return []U{}, nil
@@ -86,7 +86,6 @@ func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 		var completed atomic.Int64
 
 		for i := range m.Items {
-			i := i
 			item := m.Items[i]
 			childName := m.childName(i, item, name)
 			pool := m.poolFor(item)
@@ -153,7 +152,7 @@ type Each[T any] struct {
 // An empty Items list is a no-op success.
 func (e Each[T]) Run(ctx context.Context) error {
 	if e.Fn == nil {
-		return fmt.Errorf("taskgroup: Each.Fn is nil")
+		return ErrNilFn
 	}
 	_, err := Map[T, struct{}]{
 		Name:     e.Name,

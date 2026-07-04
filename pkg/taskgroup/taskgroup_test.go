@@ -89,7 +89,7 @@ func TestPoolLimits(t *testing.T) {
 	var concurrent atomic.Int32
 	var maxConcurrent atomic.Int32
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		name := "t" + string(rune('0'+i))
 		g.Go(name, IO, func(ctx context.Context, s *Status) error {
 			cur := concurrent.Add(1)
@@ -253,8 +253,8 @@ func TestMap_Empty(t *testing.T) {
 func TestMap_NilFn(t *testing.T) {
 	_, ctx := New(withLogger(t), DefaultLimits())
 	_, err := Map[int, int]{Items: []int{1}}.Run(ctx)
-	if err == nil {
-		t.Fatal("expected error for nil Fn")
+	if !errors.Is(err, ErrNilFn) {
+		t.Fatalf("got %v, want ErrNilFn", err)
 	}
 }
 
@@ -282,8 +282,8 @@ func TestEach_RunsWithoutResults(t *testing.T) {
 
 func TestEach_NilFn(t *testing.T) {
 	_, ctx := New(withLogger(t), DefaultLimits())
-	if err := (Each[int]{Items: []int{1}}).Run(ctx); err == nil {
-		t.Fatal("expected error for nil Fn")
+	if err := (Each[int]{Items: []int{1}}).Run(ctx); !errors.Is(err, ErrNilFn) {
+		t.Fatalf("got %v, want ErrNilFn", err)
 	}
 }
 
@@ -481,8 +481,7 @@ func TestPruneKeepsDepUntilDependentFinishes(t *testing.T) {
 func TestManyCompletedTasksDoNotStayInSnapshot(t *testing.T) {
 	g, _ := New(withLogger(t), DefaultLimits())
 	const n = 200
-	for i := 0; i < n; i++ {
-		i := i
+	for i := range n {
 		g.Go(fmt.Sprintf("t:%d", i), CPU, func(ctx context.Context, s *Status) error {
 			return nil
 		})
