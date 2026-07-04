@@ -200,41 +200,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 	})
 
 	return func() error {
-		logApplyResult(logCtx, finalResult, showNoop)
+		dotfiles.LogApplyResult(logCtx, finalResult, dotfiles.LogApplyOptions{ShowNoop: showNoop})
 		return nil
 	}
-}
-
-func logApplyResult(ctx context.Context, result *dotfiles.ApplyResult, showNoop bool) {
-	if result == nil {
-		return
-	}
-	logger := logging.GetLogger(ctx)
-	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0)
-	if !hasChanges {
-		return
-	}
-	for _, a := range deployer.SortActions(result.Actions) {
-		if a.Type == deployer.ActionNoop && !showNoop {
-			continue
-		}
-		sourceInfo := ""
-		if a.Desired.File != nil {
-			sourceInfo = a.Desired.File.SourceInfo()
-		}
-		logger.Info("apply action",
-			"type", a.Type,
-			"target", deployer.PrettyPath(a.Target),
-			"source", sourceInfo,
-		)
-	}
-	attrs := []any{
-		"created", result.FilesCreated,
-		"updated", result.FilesUpdated,
-		"deleted", result.FilesDeleted,
-	}
-	if showNoop {
-		attrs = append(attrs, "noop", result.FilesNoOp)
-	}
-	logger.Info("apply summary", attrs...)
 }

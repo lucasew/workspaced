@@ -10,7 +10,6 @@ import (
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/deployer"
 	"workspaced/pkg/dotfiles"
-	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	_ "workspaced/pkg/modfile/sourceprovider/prelude"
 	"workspaced/pkg/source"
@@ -157,44 +156,11 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 	})
 
 	return func() error {
-		logApplyResult(logCtx, finalResult, showNoop, dryRun)
+		dotfiles.LogApplyResult(logCtx, finalResult, dotfiles.LogApplyOptions{
+			ShowNoop:        showNoop,
+			DryRun:          dryRun,
+			NoChangesTarget: "repo root",
+		})
 		return nil
 	}
-}
-
-func logApplyResult(ctx context.Context, result *dotfiles.ApplyResult, showNoop bool, dryRun bool) {
-	if result == nil {
-		return
-	}
-	logger := logging.GetLogger(ctx)
-	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (showNoop && result.FilesNoOp > 0)
-	if !hasChanges {
-		if !dryRun {
-			logger.Info("no changes needed", "target", "repo root")
-		}
-		return
-	}
-	for _, a := range deployer.SortActions(result.Actions) {
-		if a.Type == deployer.ActionNoop && !showNoop {
-			continue
-		}
-		sourceInfo := ""
-		if a.Desired.File != nil {
-			sourceInfo = a.Desired.File.SourceInfo()
-		}
-		logger.Info("apply action",
-			"type", a.Type,
-			"target", deployer.PrettyPath(a.Target),
-			"source", sourceInfo,
-		)
-	}
-	attrs := []any{
-		"created", result.FilesCreated,
-		"updated", result.FilesUpdated,
-		"deleted", result.FilesDeleted,
-	}
-	if showNoop {
-		attrs = append(attrs, "noop", result.FilesNoOp)
-	}
-	logger.Info("apply summary", attrs...)
 }
