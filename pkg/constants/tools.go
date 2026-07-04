@@ -5,7 +5,12 @@ package constants
 // Note: Version patterns like "-v1.0.0" or "-1.0.0" are handled separately
 // by BinaryVersionPattern.
 var BinaryNameSuffixes = []string{
-	// OS-Arch combinations (most specific first) — dash, dot, and underscore separators
+	// Rust target triples (most specific first)
+	"-x86_64-unknown-linux-musl", "-aarch64-unknown-linux-musl",
+	"-x86_64-unknown-linux-gnu", "-aarch64-unknown-linux-gnu",
+	"-x86_64-apple-darwin", "-aarch64-apple-darwin",
+	"-x86_64-pc-windows-msvc", "-aarch64-pc-windows-msvc",
+	// OS-Arch combinations — dash, dot, and underscore separators
 	"-linux-amd64", "-linux-x86_64", "-linux-x64",
 	"-linux-arm64", "-linux-aarch64",
 	"-linux-386", "-linux-x86",

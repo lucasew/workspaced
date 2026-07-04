@@ -192,8 +192,23 @@ func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 	if strings.Contains(base, "debug") {
 		score -= 20
 	}
-	if ContainsAnyOf(base, "desktop", "appimage", ".dmg", "sbom", "provenance", "sigstore", "checksum", "sha256", "sha512", ".rpm", ".deb") {
+	if ContainsAnyOf(base,
+		"desktop", "appimage", ".dmg", "sbom", "provenance", "sigstore",
+		"checksum", "sha256", "sha512", ".rpm", ".deb",
+		"npm", "package", "app-server", "-zsh", "proxy", "symbols",
+		"bundle", "sandbox", "command-runner", "responses-api", ".whl",
+	) {
 		score -= 50
+	}
+	// Prefer the primary CLI binary archive (hint-<arch>-...) over side tools
+	// that only share the hint as a prefix (hint-app-server-...).
+	if hint != "" {
+		for _, archToken := range []string{"x86_64", "amd64", "aarch64", "arm64", "x64", "i686", "i386"} {
+			if strings.Contains(base, hint+"-"+archToken) || strings.Contains(base, hint+"_"+archToken) {
+				score += 40
+				break
+			}
+		}
 	}
 
 	// Never let penalties turn an otherwise-eligible artifact into 0.

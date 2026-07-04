@@ -1,6 +1,9 @@
 package backend
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestContainsAnyOf(t *testing.T) {
 	tests := []struct {
@@ -22,6 +25,32 @@ func TestContainsAnyOf(t *testing.T) {
 				t.Errorf("ContainsAnyOf(%q, %v) = %v, want %v", tt.haystack, tt.needles, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSelectCodexCLIAsset(t *testing.T) {
+	names := []string{
+		"codex-x86_64-unknown-linux-musl.tar.gz",
+		"codex-x86_64-unknown-linux-musl.zst",
+		"codex-app-server-x86_64-unknown-linux-musl.tar.gz",
+		"codex-package-x86_64-unknown-linux-musl.tar.gz",
+		"codex-npm-linux-x64-0.142.5.tgz",
+		"codex-zsh-x86_64-unknown-linux-musl.tar.gz",
+		"codex-responses-api-proxy-x86_64-unknown-linux-musl.tar.gz",
+	}
+	arts := make([]Artifact, 0, len(names))
+	for _, n := range names {
+		arts = append(arts, Artifact{
+			OS: "linux", Arch: "amd64",
+			URL: "https://github.com/openai/codex/releases/download/rust-v0.142.5/" + n,
+		})
+	}
+	got := SelectArtifact(arts, "linux", "amd64", "codex")
+	if got == nil {
+		t.Fatal("no artifact selected")
+	}
+	if base := filepath.Base(got.URL); base != "codex-x86_64-unknown-linux-musl.tar.gz" {
+		t.Fatalf("SelectArtifact() = %s, want codex-x86_64-unknown-linux-musl.tar.gz", base)
 	}
 }
 
@@ -98,6 +127,18 @@ func TestScoreArtifact(t *testing.T) {
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/pkg.deb"},
 			hint: "",
 			want: 0,
+		},
+		{
+			name: "codex primary archive beats npm tarball",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/codex-x86_64-unknown-linux-musl.tar.gz"},
+			hint: "codex",
+			want: 230, // token 120 + substring 60 + archive 10 + arch-token 40
+		},
+		{
+			name: "codex npm package is penalized",
+			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/codex-npm-linux-x64-0.1.0.tgz"},
+			hint: "codex",
+			want: 140, // token 120 + substring 60 + archive 10 - npm 50
 		},
 	}
 

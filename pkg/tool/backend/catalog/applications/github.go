@@ -17,6 +17,7 @@ func init() {
 		"rclone":   "rclone/rclone",
 		"rtk":      "rtk-ai/rtk",
 		"resvg":    "linebender/resvg",
+		"codex":    "openai/codex",
 	} {
 		catalog.RegisterGitHub(name, repo)
 	}

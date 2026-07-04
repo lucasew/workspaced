@@ -104,6 +104,23 @@ func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 	}
 }
 
+func TestNormalizeInstalledBinaries(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "codex-x86_64-unknown-linux-musl")
+	if err := os.WriteFile(src, []byte("x"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := NormalizeInstalledBinaries(dir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "codex")); err != nil {
+		t.Fatalf("expected renamed codex binary: %v", err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Fatal("expected old triple-named binary to be gone")
+	}
+}
+
 func TestNormalizeBinaryName(t *testing.T) {
 	tests := []struct {
 		in, want string
@@ -112,6 +129,8 @@ func TestNormalizeBinaryName(t *testing.T) {
 		{"sops-v3.13.2.darwin.arm64", "sops"},
 		{"docker-compose-linux-x86_64", "docker-compose"},
 		{"shfmt_linux_amd64", "shfmt"},
+		{"codex-x86_64-unknown-linux-musl", "codex"},
+		{"codex-aarch64-apple-darwin", "codex"},
 		{"resvg", "resvg"},
 		{"tool-v1.2.3", "tool"},
 	}

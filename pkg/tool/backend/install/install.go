@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"workspaced/pkg/constants"
@@ -65,7 +66,10 @@ func InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir str
 	if err := StripTopLevelDir(extractDir); err != nil {
 		return err
 	}
-	return MoveContents(extractDir, destDir)
+	if err := MoveContents(extractDir, destDir); err != nil {
+		return err
+	}
+	return NormalizeInstalledBinaries(destDir)
 }
 
 func DownloadFile(ctx context.Context, url, dest string, opts DownloadOptions) error {
@@ -363,6 +367,47 @@ func NormalizeBinaryName(name string) string {
 		}
 	}
 	return versionPattern.ReplaceAllString(result, "")
+}
+
+// NormalizeInstalledBinaries renames top-level and bin/ executables whose
+// basenames still embed platform triples (e.g. codex-x86_64-unknown-linux-musl
+// -> codex) using NormalizeBinaryName.
+func NormalizeInstalledBinaries(destDir string) error {
+	for _, dir := range []string{destDir, filepath.Join(destDir, "bin")} {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			oldName := entry.Name()
+			newName := NormalizeBinaryName(oldName)
+			if newName == "" || newName == oldName {
+				continue
+			}
+			oldPath := filepath.Join(dir, oldName)
+			info, err := os.Stat(oldPath)
+			if err != nil {
+				return err
+			}
+			if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
+				continue
+			}
+			newPath := filepath.Join(dir, newName)
+			if _, err := os.Stat(newPath); err == nil {
+				continue
+			}
+			if err := os.Rename(oldPath, newPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func unzip(ctx context.Context, src, dest string) error {
