@@ -56,9 +56,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update(updateMsg)
-		s.Progress(0, 1)
-
-		defer s.Progress(1, 1)
+		// Nested plan/apply Maps own aggregate bars; no Unit shell here.
 
 		// Discover the closest workspaced.cue from current CWD (or fall back
 		// to git root). The directory containing the cue is the workspace root

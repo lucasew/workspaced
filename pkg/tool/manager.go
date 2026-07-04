@@ -163,26 +163,12 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		return t.Install(ctx, version, destPath)
 	}
 
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		child, _ := parent.SubGroup(ctx)
-		var installErr error
-		child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update("installing " + normalizedVersion)
-			s.Progress(0, 1)
-			installErr = doInstall(ctx)
-			s.Progress(1, 1)
-			return installErr
-		})
-		if werr := child.Wait(); werr != nil && installErr == nil {
-			installErr = werr
-		}
-		if installErr != nil {
-			return fmt.Errorf("installation failed: %w", installErr)
-		}
-	} else {
-		if err := doInstall(ctx); err != nil {
-			return fmt.Errorf("installation failed: %w", err)
-		}
+	if err := taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("installing " + normalizedVersion)
+		// No Unit(): httpclient promotes the asset download to a fetch bar.
+		return doInstall(ctx)
+	}); err != nil {
+		return fmt.Errorf("installation failed: %w", err)
 	}
 
 	if err := fixAndCheck(ctx, t, destPath); err != nil {

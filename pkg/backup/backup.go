@@ -91,7 +91,7 @@ func RunFullBackup(ctx context.Context) error {
 		items[i] = actionItem{Idx: i, Action: a}
 	}
 
-	_, mapErr := taskgroup.Map(ctx, func(item actionItem) taskgroup.PoolKind {
+	_, mapErr := taskgroup.Map(ctx, "backup", func(item actionItem) taskgroup.PoolKind {
 		return poolFor(item.Action.GetKind())
 	}, items,
 		func(i int, item actionItem) string {

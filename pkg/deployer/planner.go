@@ -99,34 +99,22 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 
 // Plan compares desired state with current state and returns necessary actions.
 func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState *State) ([]Action, error) {
-	actions := make([]Action, len(desired))
 	desiredMap := make(map[string]DesiredState, len(desired))
 	for _, d := range desired {
 		desiredMap[d.Target()] = d
 	}
 
-	// A task group must be present in the context (provided by the top-level
-	// command). We use a SubGroup so that this planning work participates in
-	// the parent's pool limits and cancellation.
-	parent := taskgroup.MustFromContext(ctx)
-	g, _ := parent.SubGroup(ctx)
-
-	for i, d := range desired {
-		idx := i
-		ds := d
-		g.Go(fmt.Sprintf("plan:%s", ds.Target()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	actions, err := taskgroup.Map(ctx, "plan",
+		func(DesiredState) taskgroup.PoolKind { return taskgroup.CPU },
+		desired,
+		func(_ int, ds DesiredState) string { return "plan:" + ds.Target() },
+		func(ctx context.Context, s *taskgroup.Status, ds DesiredState) (Action, error) {
 			target := ds.Target()
+			s.Update(target)
 			current, managed := currentState.Files[target]
-			a, err := planOne(target, ds, current, managed)
-			if err != nil {
-				return err
-			}
-			actions[idx] = a
-			return nil
+			return planOne(target, ds, current, managed)
 		})
-	}
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return nil, err
 	}
 

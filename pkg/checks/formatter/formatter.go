@@ -48,18 +48,15 @@ func RunAll(ctx context.Context, dir string) error {
 		return nil
 	}
 
-	// Task group comes from the context set up by the top-level command.
-	parent := taskgroup.MustFromContext(ctx)
-	g, _ := parent.SubGroup(ctx)
-
 	var mu sync.Mutex
 	var errs []error
-
-	for _, f := range applicable {
-		fmtr := f
-		g.Go(fmt.Sprintf("fmt:%s", fmtr.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	_, err := taskgroup.Map(ctx, "format",
+		func(Formatter) taskgroup.PoolKind { return taskgroup.CPU },
+		applicable,
+		func(_ int, f Formatter) string { return "fmt:" + f.Name() },
+		func(ctx context.Context, s *taskgroup.Status, fmtr Formatter) (struct{}, error) {
 			l := logging.GetLogger(ctx)
-			s.Update(fmt.Sprintf("running %s", fmtr.Name()))
+			s.Update("running " + fmtr.Name())
 			l.Info("running formatter", "name", fmtr.Name())
 			if err := fmtr.Format(ctx, dir); err != nil {
 				logging.ReportError(ctx, err, "name", fmtr.Name(), "context", "formatter failed")
@@ -67,14 +64,11 @@ func RunAll(ctx context.Context, dir string) error {
 				errs = append(errs, fmt.Errorf("%s: %w", fmtr.Name(), err))
 				mu.Unlock()
 			}
-			return nil
+			return struct{}{}, nil
 		})
-	}
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return err
 	}
-
 	if len(errs) > 0 {
 		return fmt.Errorf("formatting failed for %d tools: %w", len(errs), errors.Join(errs...))
 	}

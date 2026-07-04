@@ -82,21 +82,12 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if bt, ok := t.(backend.BinaryTool); ok {
 		var binPath string
 		var installErr error
-		if parent := taskgroup.FromContext(ctx); parent != nil {
-			child, _ := parent.SubGroup(ctx)
-			child.Go("install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-				s.Update("installing " + normalizedVersion)
-				s.Progress(0, 1)
-				binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
-				s.Progress(1, 1)
-				return installErr
-			})
-			if werr := child.Wait(); werr != nil && installErr == nil {
-				installErr = werr
-			}
-		} else {
-			binPath, installErr = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
-		}
+		installErr = taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+			s.Update("installing " + normalizedVersion)
+			var err error
+			binPath, err = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
+			return err
+		})
 		if installErr != nil {
 			return "", fmt.Errorf("failed to install tool: %w", installErr)
 		}

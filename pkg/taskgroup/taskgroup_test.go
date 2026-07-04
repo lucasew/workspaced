@@ -210,7 +210,7 @@ func TestMap_BasicAndOrder(t *testing.T) {
 	input := []int{1, 2, 3, 4, 5}
 
 	// Use the root group directly (Map will SubGroup from it)
-	results, err := Map(ctx, func(int) PoolKind { return CPU }, input, func(i int, _ int) string { return fmt.Sprintf("map:%d", i) }, func(ctx context.Context, s *Status, v int) (int, error) {
+	results, err := Map(ctx, "", func(int) PoolKind { return CPU }, input, func(i int, _ int) string { return fmt.Sprintf("map:%d", i) }, func(ctx context.Context, s *Status, v int) (int, error) {
 		s.Update(fmt.Sprintf("processing %d", v))
 		// simulate work
 		time.Sleep(1 * time.Millisecond)
@@ -233,14 +233,14 @@ func TestMap_BasicAndOrder(t *testing.T) {
 	// the individual "map-*" tasks live on the child group and won't appear in
 	// the root g.Snapshot(). This is by design (see nested demo and comments in
 	// taskgroup). The important contract is order-preserving results + progress
-	// seeding inside each handler's Status.
+	// ownership on the orchestrator Status (children should not call Unit).
 }
 
 func TestMap_Empty(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
-	results, err := Map(ctx, func(string) PoolKind { return IO }, []string{}, nil, func(ctx context.Context, s *Status, v string) (string, error) {
+	results, err := Map(ctx, "", func(string) PoolKind { return IO }, []string{}, nil, func(ctx context.Context, s *Status, v string) (string, error) {
 		return v + "!", nil
 	})
 	if err != nil {
@@ -255,7 +255,7 @@ func TestMap_ErrorPropagates(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
-	_, err := Map(ctx, func(int) PoolKind { return IO }, []int{10, 20, 30}, nil, func(ctx context.Context, s *Status, v int) (int, error) {
+	_, err := Map(ctx, "", func(int) PoolKind { return IO }, []int{10, 20, 30}, nil, func(ctx context.Context, s *Status, v int) (int, error) {
 		if v == 20 {
 			return 0, errors.New("boom on 20")
 		}
@@ -272,7 +272,7 @@ func TestMap_UsesProvidedTaskNames(t *testing.T) {
 
 	items := []string{"a.txt", "b.txt"}
 
-	results, err := Map(ctx, func(string) PoolKind { return IO }, items, func(i int, name string) string {
+	results, err := Map(ctx, "", func(string) PoolKind { return IO }, items, func(i int, name string) string {
 		return "read:" + name
 	}, func(ctx context.Context, s *Status, name string) (string, error) {
 		return "content-of-" + name, nil
@@ -452,5 +452,99 @@ func TestManyCompletedTasksDoNotStayInSnapshot(t *testing.T) {
 	}
 	if got := g.Snapshot(); len(got) != 0 {
 		t.Fatalf("expected 0 tasks after %d completions, got %d", n, len(got))
+	}
+}
+
+func TestStatusUnit(t *testing.T) {
+	var s Status
+	done := s.Unit()
+	_, cur, total, _ := s.snapshot()
+	if cur != 0 || total != 1 {
+		t.Fatalf("Unit start: cur=%d total=%d", cur, total)
+	}
+	done()
+	_, cur, total, _ = s.snapshot()
+	if cur != 1 || total != 1 {
+		t.Fatalf("Unit done: cur=%d total=%d", cur, total)
+	}
+}
+
+func TestIsolateDoesNotCancelParentSiblings(t *testing.T) {
+	g, ctx := New(withLogger(t), DefaultLimits())
+	release := make(chan struct{})
+	var siblingRan atomic.Bool
+
+	g.Go("sibling", CPU, func(ctx context.Context, s *Status) error {
+		<-release
+		siblingRan.Store(true)
+		return nil
+	})
+
+	err := Isolate(ctx, func(ctx context.Context) error {
+		child := MustFromContext(ctx)
+		child.Go("boom", CPU, func(ctx context.Context, s *Status) error {
+			return errors.New("isolated failure")
+		})
+		return child.Wait()
+	})
+	if err == nil {
+		t.Fatal("expected isolated failure")
+	}
+	close(release)
+	if werr := g.Wait(); werr != nil {
+		t.Fatalf("parent group should succeed: %v", werr)
+	}
+	if !siblingRan.Load() {
+		t.Fatal("parent sibling should have run")
+	}
+}
+
+func TestGoIsolatedWithoutGroupRunsSync(t *testing.T) {
+	var ran bool
+	err := GoIsolated(context.Background(), "x", CPU, func(ctx context.Context, s *Status) error {
+		ran = true
+		if s == nil {
+			t.Fatal("status is nil")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ran {
+		t.Fatal("fn did not run")
+	}
+}
+
+func TestMapNamedOrchestrator(t *testing.T) {
+	g, ctx := New(withLogger(t), DefaultLimits())
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	go func() {
+		_, err := Map(ctx, "plan", func(int) PoolKind { return CPU }, []int{1}, nil,
+			func(ctx context.Context, s *Status, v int) (int, error) {
+				close(started)
+				<-release
+				return v, nil
+			})
+		if err != nil {
+			t.Errorf("Map: %v", err)
+		}
+	}()
+	<-started
+	found := false
+	for _, ts := range g.snapshotRecursive() {
+		if ts.Name == "plan" && ts.State == Running && ts.Total == 1 {
+			found = true
+			break
+		}
+	}
+	close(release)
+	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	if !found {
+		t.Fatal("expected running orchestrator named plan with total=1")
 	}
 }

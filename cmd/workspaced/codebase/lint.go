@@ -42,8 +42,7 @@ func init() {
 				var report *sarif.Report
 				g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("running linters")
-					s.Progress(0, 1)
-					defer s.Progress(1, 1)
+					// lint.RunAll uses Map for the aggregate bar.
 					var err error
 					report, err = lint.RunAll(ctx, path)
 					return err

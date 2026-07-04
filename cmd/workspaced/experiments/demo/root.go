@@ -34,7 +34,7 @@ Run subcommands to see different aspects:
   workspaced experiments demo          - default tasks showcase (calls RunBubbleTea)
   workspaced experiments demo tasks    - same as above
   workspaced experiments demo plain    - schedules but does NOT call RunBubbleTea (plain transcript)
-  workspaced experiments demo nested   - SubGroup + explicit RunBubbleTea
+  workspaced experiments demo nested   - Isolate error boundary + child tasks
   workspaced experiments demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar
   workspaced experiments demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)
   workspaced experiments demo cpu10k   - 10k CPU-bound Map items (prune / live-set stress)`,
@@ -112,9 +112,9 @@ func runTasksDemo(cmd *cobra.Command) error {
 		s.Update("installing to $HOME/.local/bin")
 		time.Sleep(60 * time.Millisecond)
 		logger.Info("cp", "src", "./bin/app", "dst", "~/.local/bin/app")
-		s.Progress(0, 1)
+		done := s.Unit()
 		time.Sleep(180 * time.Millisecond)
-		s.Progress(1, 1)
+		done()
 		logger.Info("binary installed")
 		return nil
 	}, "build")

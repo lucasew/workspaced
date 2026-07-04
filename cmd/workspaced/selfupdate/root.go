@@ -65,8 +65,7 @@ in ~/.local/bin/workspaced is updated automatically.`,
 
 			g.Go("self-update", pool, func(ctx context.Context, s *taskgroup.Status) error {
 				s.Update(msg)
-				s.Progress(0, 1)
-				defer s.Progress(1, 1)
+				defer s.Unit()()
 				return runSelfUpdate(ctx, force)
 			})
 

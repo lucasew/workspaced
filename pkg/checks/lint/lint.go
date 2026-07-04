@@ -3,7 +3,6 @@ package lint
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"workspaced/pkg/checks"
@@ -58,39 +57,32 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 		return report, nil
 	}
 
-	// Run applicable linters in parallel using taskgroup.
-	// The group must be present in the context (initialized only at the top
-	// command and passed down).
-	parent := taskgroup.MustFromContext(ctx)
-	g, _ := parent.SubGroup(ctx)
-
 	var mu sync.Mutex
-	for _, l := range applicable {
-		linter := l
-		g.Go(fmt.Sprintf("lint:%s", linter.Name()), taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
+	_, err = taskgroup.Map(ctx, "lint",
+		func(Linter) taskgroup.PoolKind { return taskgroup.CPU },
+		applicable,
+		func(_ int, l Linter) string { return "lint:" + l.Name() },
+		func(ctx context.Context, s *taskgroup.Status, linter Linter) (struct{}, error) {
 			l := logging.GetLogger(ctx)
-			s.Update(fmt.Sprintf("running %s", linter.Name()))
+			s.Update("running " + linter.Name())
 			run, err := linter.Run(ctx, dir)
 			if err != nil {
 				logging.ReportError(ctx, err, "linter", linter.Name(), "context", "linter failed")
-				return nil // Don't fail other linters.
+				return struct{}{}, nil // Don't fail other linters.
 			}
 			resultCount := 0
 			if run != nil {
 				resultCount = len(run.Results)
 			}
 			l.Info("linter ok", "linter", linter.Name(), "sarif_results", resultCount)
-
 			if run != nil {
 				mu.Lock()
 				report.AddRun(run)
 				mu.Unlock()
 			}
-			return nil
+			return struct{}{}, nil
 		})
-	}
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return report, err
 	}
 	return report, nil

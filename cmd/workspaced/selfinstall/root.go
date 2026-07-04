@@ -40,8 +40,7 @@ A shim is created in:
 
 			g.Go("self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 				s.Update("self-installing workspaced")
-				s.Progress(0, 1)
-				defer s.Progress(1, 1)
+				defer s.Unit()()
 				return runSelfInstall(ctx, force)
 			})
 			return nil

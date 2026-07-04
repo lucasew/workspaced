@@ -199,32 +199,19 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		return err
 	}
 
-	// Progress for HTTP (size from response headers + bytes as the body is
-	// read) is now handled by wrapping the Transport in the official
-	// httpclient providers. See pkg/driver/httpclient/progress.go.
-	// This is the single place that turns requests into Internet tasks.
-	//
-	// We always run the fetchurl attempt under a SubGroup (MustFromContext per
-	// taskgroup contract). This isolates any "fetch:..." tasks + errors that the
-	// progressTransport creates for the library's requests. DownloadFile's
-	// fallback to downloadDirect can then proceed cleanly against the parent
-	// group.
-
+	// HTTP progress is owned by httpclient.WithProgress (one fetch bar).
+	// Isolate so a failing verified fetchurl attempt does not cancel the parent
+	// group before DownloadFile falls back to downloadDirect.
 	algo, hash := parseHash(opts.Hash)
-	g := taskgroup.MustFromContext(ctx)
-	child, childCtx := g.SubGroup(ctx)
-	fetchErr := fetcher.Fetch(childCtx, fetchurl.FetchOptions{
-		URLs: []string{url},
-		Algo: algo,
-		Hash: hash,
-		Out:  outFile,
-		Size: opts.Size,
+	fetchErr := taskgroup.Isolate(ctx, func(ctx context.Context) error {
+		return fetcher.Fetch(ctx, fetchurl.FetchOptions{
+			URLs: []string{url},
+			Algo: algo,
+			Hash: hash,
+			Out:  outFile,
+			Size: opts.Size,
+		})
 	})
-	if werr := child.Wait(); werr != nil {
-		if fetchErr == nil {
-			fetchErr = werr
-		}
-	}
 
 	if closeErr := outFile.Close(); closeErr != nil {
 		_ = os.Remove(tmp)
@@ -247,9 +234,9 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	// either the fetchurl path or this direct path) without an extra wrapper
 	// layer around it.
 	//
-	// The SubGroup we create only around fetchurl attempts (in downloadWithFetchurl)
-	// keeps any tasks from a failing verified attempt from recording errors on
-	// the parent group, so the fallback here can still succeed cleanly.
+	// Isolate around fetchurl attempts (in downloadWithFetchurl) keeps tasks
+	// from a failing verified attempt from recording errors on the parent group,
+	// so the fallback here can still succeed cleanly.
 
 	tmp := dest + ".tmp"
 	outFile, err := os.Create(tmp)

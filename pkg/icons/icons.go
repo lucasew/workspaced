@@ -100,23 +100,9 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		return nil
 	}
 
-	if parent := taskgroup.FromContext(ctx); parent != nil {
-		child, cctx := parent.SubGroup(ctx)
-		var fetchErr error
-		child.Go("favicon:"+domain, taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
-			s.Update("downloading " + domain)
-			s.Progress(0, 1)
-			fetchErr = perform(cctx)
-			s.Progress(1, 1)
-			return fetchErr
-		})
-		if werr := child.Wait(); werr != nil && fetchErr == nil {
-			fetchErr = werr
-		}
-		if fetchErr != nil {
-			return "", fetchErr
-		}
-	} else if err := perform(ctx); err != nil {
+	// Isolate only: httpclient promotes the download to a fetch bar. A wrapper
+	// Go+Unit task would sit at 0/1 beside that fetch bar for the same work.
+	if err := taskgroup.Isolate(ctx, perform); err != nil {
 		return "", err
 	}
 

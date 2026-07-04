@@ -18,10 +18,8 @@ func init() {
 				g := taskgroup.MustFromContext(c.Context())
 				g.Go("backup:run", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("running backup")
-					s.Progress(0, 1)
-					err := backup.RunFullBackup(ctx)
-					s.Progress(1, 1)
-					return err
+					// No Unit(): RunFullBackup uses Map with its own aggregate bar.
+					return backup.RunFullBackup(ctx)
 				})
 				return nil
 			},

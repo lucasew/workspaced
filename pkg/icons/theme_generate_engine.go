@@ -83,8 +83,6 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		maxSize = sizes[len(sizes)-1]
 	}
 
-	totalPaths := int64(len(paths))
-
 	dirsUsed := map[string]bool{}
 	var dirsUsedMu sync.Mutex
 	var written int64
@@ -99,121 +97,103 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		}
 	}
 
-	parent := taskgroup.MustFromContext(ctx)
+	// Map owns the single aggregate bar (named icon-theme:…). No extra
+	// SubGroup/Control wrapper — that duplicated progress hierarchy.
+	_, err = taskgroup.Map(ctx, "icon-theme:"+opts.ThemeName,
+		func(string) taskgroup.PoolKind { return taskgroup.CPU }, paths,
+		func(_ int, iconPath string) string {
+			// Use the logical output-relative name (including context dir)
+			// so that icons with the same basename in different categories
+			// (e.g. apps/brightnesssettings.svg vs devices/brightnesssettings.svg)
+			// get unique task names. This matches the deduplication key logic.
+			rel, _ := filepath.Rel(inputDir, iconPath)
+			relOut := strings.TrimSuffix(rel, ".tmpl")
+			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
+			relOut = stripLeadingSizeDir(relOut)
+			return "icon:" + filepath.ToSlash(relOut)
+		},
+		func(ctx context.Context, itemS *taskgroup.Status, iconPath string) (struct{}, error) {
+			localDirs := map[string]bool{}
 
-	// Wrap the Map in a Control task. This gives us a top-level aggregate
-	// progress bar over the whole list of icons (the "wrapper control task"),
-	// while Map creates the individual per-icon leaf tasks underneath it.
-	iconWork, _ := parent.SubGroup(ctx)
+			rel, err := filepath.Rel(inputDir, iconPath)
+			if err != nil {
+				return struct{}{}, err
+			}
+			relOut := strings.TrimSuffix(rel, ".tmpl")
+			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
+			relOut = stripLeadingSizeDir(relOut)
 
-	iconWork.Go("icon-theme:"+opts.ThemeName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-		s.Progress(0, totalPaths)
-		s.Update(fmt.Sprintf("theming %d icons", totalPaths))
+			ctxDir := filepath.Dir(relOut)
+			if ctxDir == "." {
+				ctxDir = opts.DefaultContext
+				relOut = filepath.Join(ctxDir, filepath.Base(relOut))
+			}
 
-		_, err := taskgroup.Map(ctx, func(string) taskgroup.PoolKind { return taskgroup.CPU }, paths,
-			func(_ int, iconPath string) string {
-				// Use the logical output-relative name (including context dir)
-				// so that icons with the same basename in different categories
-				// (e.g. apps/brightnesssettings.svg vs devices/brightnesssettings.svg)
-				// get unique task names. This matches the deduplication key logic.
-				rel, _ := filepath.Rel(inputDir, iconPath)
-				relOut := strings.TrimSuffix(rel, ".tmpl")
-				relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
-				relOut = stripLeadingSizeDir(relOut)
-				return "icon:" + filepath.ToSlash(relOut)
-			},
-			func(ctx context.Context, itemS *taskgroup.Status, iconPath string) (struct{}, error) {
-				localDirs := map[string]bool{}
+			iconName := strings.TrimSuffix(filepath.Base(relOut), ".svg")
+			itemS.Update(iconName)
 
-				rel, err := filepath.Rel(inputDir, iconPath)
+			svgContent, err := renderSVG(iconPath, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
+			if err != nil {
+				return struct{}{}, err
+			}
+
+			targetSVG := filepath.Join(outputDir, "scalable", relOut)
+			if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
+				return struct{}{}, err
+			}
+			if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
+				return struct{}{}, err
+			}
+			localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
+
+			if !opts.NoRaster {
+				ratio := extractSVGAspectRatio(svgContent)
+				maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
+				renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
 				if err != nil {
 					return struct{}{}, err
 				}
-				relOut := strings.TrimSuffix(rel, ".tmpl")
-				relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
-				relOut = stripLeadingSizeDir(relOut)
 
-				ctxDir := filepath.Dir(relOut)
-				if ctxDir == "." {
-					ctxDir = opts.DefaultContext
-					relOut = filepath.Join(ctxDir, filepath.Base(relOut))
-				}
+				for _, sz := range sizes {
+					w, h := fitSizePreservingAspect(ratio, sz)
+					var rendered image.Image
+					if sz == maxSize {
+						rendered = renderedMax
+					} else {
+						rendered = resizeBilinear(renderedMax, w, h)
+					}
 
-				iconName := strings.TrimSuffix(filepath.Base(relOut), ".svg")
-				itemS.Update(iconName)
-
-				svgContent, err := renderSVG(iconPath, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
-				if err != nil {
-					return struct{}{}, err
-				}
-
-				targetSVG := filepath.Join(outputDir, "scalable", relOut)
-				if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
-					return struct{}{}, err
-				}
-				if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
-					return struct{}{}, err
-				}
-				localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
-
-				if !opts.NoRaster {
-					ratio := extractSVGAspectRatio(svgContent)
-					maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
-					renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
+					final := centerInSquare(rendered, sz)
+					sizeDir := filepath.Join(fmt.Sprintf("%dx%d", sz, sz), ctxDir)
+					targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
+					if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
+						return struct{}{}, err
+					}
+					f, err := os.Create(targetPNG)
 					if err != nil {
 						return struct{}{}, err
 					}
-
-					for _, sz := range sizes {
-						w, h := fitSizePreservingAspect(ratio, sz)
-						var rendered image.Image
-						if sz == maxSize {
-							rendered = renderedMax
-						} else {
-							rendered = resizeBilinear(renderedMax, w, h)
-						}
-
-						final := centerInSquare(rendered, sz)
-						sizeDir := filepath.Join(fmt.Sprintf("%dx%d", sz, sz), ctxDir)
-						targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
-						if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
-							return struct{}{}, err
-						}
-						f, err := os.Create(targetPNG)
-						if err != nil {
-							return struct{}{}, err
-						}
-						if err := fastPNGEncoder.Encode(f, final); err != nil {
-							logging.Close(ctx, f)
-							return struct{}{}, err
-						}
-						if err := f.Close(); err != nil {
-							return struct{}{}, err
-						}
-						localDirs[filepath.ToSlash(sizeDir)] = true
+					if err := fastPNGEncoder.Encode(f, final); err != nil {
+						logging.Close(ctx, f)
+						return struct{}{}, err
 					}
+					if err := f.Close(); err != nil {
+						return struct{}{}, err
+					}
+					localDirs[filepath.ToSlash(sizeDir)] = true
 				}
+			}
 
-				dirsUsedMu.Lock()
-				for d := range localDirs {
-					dirsUsed[d] = true
-				}
-				dirsUsedMu.Unlock()
+			dirsUsedMu.Lock()
+			for d := range localDirs {
+				dirsUsed[d] = true
+			}
+			dirsUsedMu.Unlock()
 
-				cur := atomic.AddInt64(&written, 1)
-				itemS.Progress(cur, totalPaths)
-				// Also drive the wrapper control task's aggregate progress.
-				s.Progress(cur, totalPaths)
-				return struct{}{}, nil
-			})
-
-		if err == nil {
-			s.Progress(totalPaths, totalPaths)
-		}
-		return err
-	})
-
-	if err := iconWork.Wait(); err != nil {
+			atomic.AddInt64(&written, 1)
+			return struct{}{}, nil
+		})
+	if err != nil {
 		return err
 	}
 

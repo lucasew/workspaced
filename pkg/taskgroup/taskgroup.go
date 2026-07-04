@@ -8,6 +8,25 @@
 //   - Nestable groups (child groups share parent pools)
 //   - First-error-wins cancellation
 //   - Pruning of completed tasks (no waiter deps left) so Snapshot/TUI stay O(live work)
+//
+// # Progress hierarchy
+//
+// One Session owns one root Group and the optional TUI. Prefer a single owner
+// for each unit of visible progress:
+//
+//   - Session root: command lifetime (Enter / Close); do not add bars here.
+//   - Command Control task: optional anchor with Status.Unit when the command
+//     is one logical step and nested work has no aggregate bar of its own.
+//   - Map: fan-out with one aggregate Control bar; children should not also
+//     call Unit (avoids N stuck 0/1 bars beside the aggregate).
+//   - Isolate / GoIsolated: error boundary SubGroup so a failure does not
+//     cancel parent siblings. Isolate alone adds no bar; GoIsolated adds one
+//     named task. Do not GoIsolated around HTTP-only work when
+//     httpclient.WithProgress already promotes the request to a fetch task.
+//   - Raw SubGroup: escape hatch; prefer Isolate, GoIsolated, or Map.
+//
+// Stacking Control+Unit around Map, or SubGroup+Go+Unit around a fetch task,
+// duplicates bars without adding information.
 package taskgroup
 
 import (
@@ -131,11 +150,23 @@ func (s *Status) Update(message string) {
 }
 
 // Progress sets the current/total counters. Use total=-1 for indeterminate.
+// The TUI only renders bars for running tasks with total > 0.
 func (s *Status) Progress(current, total int64) {
 	s.mu.Lock()
 	s.current = current
 	s.total = total
 	s.mu.Unlock()
+}
+
+// Unit marks this task as a single-step item (0/1) so the TUI shows a bar.
+// Returns a done func that sets 1/1; call via defer s.Unit()().
+//
+// Skip Unit when a nested task already owns real progress (Map aggregate,
+// httpclient byte progress, rsync stats). Stacking Unit on those parents
+// creates duplicate hierarchy bars that sit at 0% beside the real work.
+func (s *Status) Unit() (done func()) {
+	s.Progress(0, 1)
+	return func() { s.Progress(1, 1) }
 }
 
 func (s *Status) snapshot() (string, int64, int64, []string) {
@@ -706,8 +737,62 @@ func (g *Group) SnapshotSorted() []TaskState {
 	return snap
 }
 
+// Isolate runs fn on a SubGroup derived from ctx's Group. Failures cancel only
+// that subgroup; parent siblings keep running. Tasks fn schedules via
+// MustFromContext are waited on before return. When no Group is on ctx, fn
+// runs on ctx unchanged.
+//
+// Isolate adds an error boundary without an extra progress bar. Prefer Map for
+// fan-out with aggregate progress, or GoIsolated for one named task.
+func Isolate(ctx context.Context, fn func(context.Context) error) error {
+	if fn == nil {
+		return nil
+	}
+	parent := FromContext(ctx)
+	if parent == nil {
+		return fn(ctx)
+	}
+	child, childCtx := parent.SubGroup(ctx)
+	fnErr := fn(childCtx)
+	if werr := child.Wait(); werr != nil && fnErr == nil {
+		fnErr = werr
+	}
+	return fnErr
+}
+
+// GoIsolated schedules one named task on an isolated SubGroup, waits for it,
+// and returns its error without cancelling sibling work on the parent group.
+// When no Group is on ctx, fn runs synchronously with a throwaway Status.
+//
+// Do not wrap HTTP-only work this way when httpclient.WithProgress already
+// promotes the request to an Internet task — that yields two bars (unit shell
+// + fetch). Use Isolate(ctx, perform) so only the fetch task appears.
+func GoIsolated(ctx context.Context, name string, pool PoolKind, fn func(context.Context, *Status) error) error {
+	if fn == nil {
+		return nil
+	}
+	if FromContext(ctx) == nil {
+		return fn(ctx, &Status{name: name, total: -1})
+	}
+	return Isolate(ctx, func(ctx context.Context) error {
+		g := MustFromContext(ctx)
+		var taskErr error
+		g.Go(name, pool, func(ctx context.Context, s *Status) error {
+			taskErr = fn(ctx, s)
+			return taskErr
+		})
+		if werr := g.Wait(); werr != nil && taskErr == nil {
+			return werr
+		}
+		return taskErr
+	})
+}
+
 // SubGroup creates a child Group that shares the parent's pool semaphores.
 // The child's context is derived from the parent's context.
+//
+// Prefer Isolate, GoIsolated, or Map unless you need the raw child Group handle
+// (e.g. dependency edges across manually scheduled tasks).
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	cctx, cancel := context.WithCancel(ctx)
 
@@ -753,16 +838,21 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 // (completed/total children) as each child finishes. Children use pool for
 // concurrency limiting. Results are returned in input order.
 //
+//   - name: orchestrator task label (and sole aggregate bar); "" defaults to "map".
 //   - pool: resource pool for per-item tasks (CPU / IO / Internet / Control).
 //   - taskName: per-item task label for logs/TUI; "" uses "map:<i>".
-//   - handler: per-item work with its own *Status (seeded Progress(0,1)…(1,1)).
+//   - handler: per-item work with its own *Status. Do not call Unit on children
+//     unless the item has multi-step progress of its own; the orchestrator owns
+//     the aggregate bar.
 //
 // Map blocks until the Control task (and thus all children) complete. Callers
-// do not need to maintain their own completion counter for the outer bar — the
-// Control task is the progress owner. Nested Map (Map called from inside a
-// task) still schedules the Control task on the same group as MustFromContext(ctx).
+// do not need a second Control wrapper or manual completion counter — nesting
+// another Unit/Progress parent around Map duplicates the hierarchy. Nested Map
+// (Map called from inside a task) schedules the Control task on the same group
+// as MustFromContext(ctx).
 func Map[T any, U any](
 	ctx context.Context,
+	name string,
 	pool func(T) PoolKind,
 	items []T,
 	taskName func(int, T) string,
@@ -770,6 +860,9 @@ func Map[T any, U any](
 ) ([]U, error) {
 	if len(items) == 0 {
 		return []U{}, nil
+	}
+	if name == "" {
+		name = "map"
 	}
 
 	parent := MustFromContext(ctx)
@@ -783,7 +876,7 @@ func Map[T any, U any](
 
 	// Control task owns aggregate progress; children live on a SubGroup so
 	// they prune independently and do not bloat the parent's Live set forever.
-	parent.Go("map", Control, func(ctx context.Context, s *Status) error {
+	parent.Go(name, Control, func(ctx context.Context, s *Status) error {
 		defer close(done)
 
 		s.Update(fmt.Sprintf("0/%d", total))
@@ -797,16 +890,16 @@ func Map[T any, U any](
 			i := i
 			item := items[i]
 
-			name := ""
+			childName := ""
 			if taskName != nil {
-				name = taskName(i, item)
+				childName = taskName(i, item)
 			}
-			if name == "" {
-				name = fmt.Sprintf("map:%d", i)
+			if childName == "" {
+				childName = fmt.Sprintf("%s:%d", name, i)
 			}
 
-			childGroup.Go(name, pool(item), func(ctx context.Context, itemStatus *Status) error {
-				// Do not seed Progress on children: the Control orchestrator owns
+			childGroup.Go(childName, pool(item), func(ctx context.Context, itemStatus *Status) error {
+				// Do not seed Unit on children: the Control orchestrator owns
 				// the aggregate bar. Handlers may still call Progress for
 				// long-running items; otherwise TUI only shows the map bar +
 				// whatever workers opt into (avoids N in-flight unit bars).
