@@ -1,20 +1,16 @@
 package backup
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
 	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/driver/rsync"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
@@ -187,58 +183,4 @@ func decodeBackupActions(rawActions []json.RawMessage) ([]BackupAction, error) {
 		actions = append(actions, action)
 	}
 	return actions, nil
-}
-
-func Rsync(ctx context.Context, src, dst string, n *notification.Notification, extraArgs ...string) (string, error) {
-	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" {
-		return "", ErrRsyncNeedsSrcAndDst
-	}
-	logger := logging.GetLogger(ctx)
-	logger.Info("rsync sync", "from", src, "to", dst)
-
-	// Map legacy extraArgs into Options best-effort (excludes only; other flags
-	// are passed through by appending to the driver's argv construction is not
-	// exposed, so we ignore unknown extra flags for the driver path and let the
-	// underlying rsync (native or gokrazy) see what it can).
-	opts := rsync.Options{}
-	for _, a := range extraArgs {
-		if strings.HasPrefix(a, "--exclude=") {
-			opts.Excludes = append(opts.Excludes, strings.TrimPrefix(a, "--exclude="))
-		} else if a == "--no-perms" {
-			opts.SkipPermissions = true
-		}
-		// Other legacy extra args are dropped for the structured path; the
-		// caller can migrate to the driver directly for full control.
-	}
-
-	// Live notif via Output tee (same pattern as the action).
-	pr, pw := io.Pipe()
-	opts.Output = pw
-
-	lastLine := ""
-	scanDone := make(chan struct{})
-	go func() {
-		defer close(scanDone)
-		scanner := bufio.NewScanner(pr)
-		lastUpdate := time.Now()
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line != "" {
-				lastLine = line
-			}
-			if time.Since(lastUpdate) > time.Second {
-				if n != nil {
-					n.Message = line
-					logging.ReportError(ctx, notification.Notify(ctx, n))
-				}
-				lastUpdate = time.Now()
-			}
-		}
-	}()
-
-	err := rsync.Sync(ctx, src, dst, opts)
-	pw.Close()
-	<-scanDone
-
-	return lastLine, err
 }

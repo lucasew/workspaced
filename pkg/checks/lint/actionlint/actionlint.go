@@ -91,7 +91,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 	// Build SARIF run from parsed issues, mirroring the official template structure.
 	driver := sarif.NewDriver("actionlint")
-	driver.InformationURI = strPtr(actionlintInfoURI)
+	driver.InformationURI = checks.StringPtr(actionlintInfoURI)
 	run := sarif.NewRun(*sarif.NewTool(driver))
 
 	for _, issue := range issues {
@@ -117,8 +117,4 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 	}
 
 	return run, nil
-}
-
-func strPtr(s string) *string {
-	return &s
 }

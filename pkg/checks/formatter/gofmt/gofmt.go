@@ -3,7 +3,6 @@ package gofmt
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/formatter"
@@ -28,11 +27,7 @@ func (c *check) Name() string {
 }
 
 func (c *check) Detect(ctx context.Context, dir string) error {
-	// Applies if go.mod exists
-	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
-		return checks.ErrNotApplicable
-	}
-	return nil
+	return checks.RequireFile(dir, "go.mod")
 }
 
 func (c *check) Format(ctx context.Context, dir string) error {

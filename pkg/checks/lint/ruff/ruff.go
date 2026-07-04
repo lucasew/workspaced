@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
@@ -31,11 +29,7 @@ func (c *check) Name() string {
 }
 
 func (c *check) Detect(ctx context.Context, dir string) error {
-	// Applies if uv.lock exists
-	if _, err := os.Stat(filepath.Join(dir, "uv.lock")); os.IsNotExist(err) {
-		return checks.ErrNotApplicable
-	}
-	return nil
+	return checks.RequireFile(dir, "uv.lock")
 }
 
 func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
@@ -57,14 +51,9 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		return nil, fmt.Errorf("ruff execution failed: %w (stderr: %s)", err, stderr.String())
 	}
 
-	report, err := sarif.FromBytes(stdout.Bytes())
+	run, err := checks.FirstSARIFRun(stdout.Bytes())
 	if err != nil {
-		return nil, fmt.Errorf("parse sarif output: %w (stdout: %s)", err, stdout.String())
+		return nil, fmt.Errorf("%w (stdout: %s)", err, stdout.String())
 	}
-
-	if len(report.Runs) > 0 {
-		return report.Runs[0], nil
-	}
-
-	return nil, nil
+	return run, nil
 }

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
@@ -33,9 +32,8 @@ func (c *check) Name() string {
 }
 
 func (c *check) Detect(ctx context.Context, dir string) error {
-	// Applies if go.mod exists
-	if _, err := os.Stat(filepath.Join(dir, "go.mod")); os.IsNotExist(err) {
-		return checks.ErrNotApplicable
+	if err := checks.RequireFile(dir, "go.mod"); err != nil {
+		return err
 	}
 	if exec.IsBinaryAvailable(ctx, "go") {
 		return nil
@@ -65,14 +63,5 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		return nil, err
 	}
 
-	report, err := sarif.FromBytes(stdout.Bytes())
-	if err != nil {
-		return nil, err
-	}
-
-	if len(report.Runs) > 0 {
-		return report.Runs[0], nil
-	}
-
-	return nil, nil
+	return checks.FirstSARIFRun(stdout.Bytes())
 }

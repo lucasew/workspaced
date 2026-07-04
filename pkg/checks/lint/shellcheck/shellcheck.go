@@ -99,7 +99,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 
 func convertToSarif(issues []Issue) *sarif.Run {
 	driver := sarif.NewDriver("shellcheck")
-	driver.InformationURI = strPtr(shellcheckInfoURI)
+	driver.InformationURI = checks.StringPtr(shellcheckInfoURI)
 	run := sarif.NewRun(*sarif.NewTool(driver))
 
 	for _, issue := range issues {
@@ -163,8 +163,4 @@ func collectShellFiles(dir string) ([]string, error) {
 		return nil
 	})
 	return files, err
-}
-
-func strPtr(s string) *string {
-	return &s
 }

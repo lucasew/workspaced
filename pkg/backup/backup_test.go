@@ -48,3 +48,13 @@ func TestArchiveAction_RunValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestRsyncAction_RunValidation(t *testing.T) {
+	t.Parallel()
+
+	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	err := backup.RsyncAction{}.Run(ctx, nil)
+	if !errors.Is(err, backup.ErrRsyncNeedsSrcAndDst) {
+		t.Fatalf("got %v, want %v", err, backup.ErrRsyncNeedsSrcAndDst)
+	}
+}

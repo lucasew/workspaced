@@ -3,7 +3,6 @@ package biome
 import (
 	"context"
 	"os"
-	"path/filepath"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/formatter"
@@ -28,11 +27,7 @@ func (c *check) Name() string {
 }
 
 func (c *check) Detect(ctx context.Context, dir string) error {
-	// Applies if package.json exists
-	if _, err := os.Stat(filepath.Join(dir, "package.json")); os.IsNotExist(err) {
-		return checks.ErrNotApplicable
-	}
-	return nil
+	return checks.RequireFile(dir, "package.json")
 }
 
 func (c *check) Format(ctx context.Context, dir string) error {

@@ -3,8 +3,6 @@ package biome
 import (
 	"bytes"
 	"context"
-	"os"
-	"path/filepath"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
@@ -32,11 +30,7 @@ func (c *check) Name() string {
 }
 
 func (c *check) Detect(ctx context.Context, dir string) error {
-	// Applies if package.json exists
-	if _, err := os.Stat(filepath.Join(dir, "package.json")); os.IsNotExist(err) {
-		return checks.ErrNotApplicable
-	}
-	return nil
+	return checks.RequireFile(dir, "package.json")
 }
 
 func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
@@ -62,7 +56,7 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		logger.Debug("biome execution returned error (likely lint issues)", "err", runErr, "stderr", stderr.String())
 	}
 
-	report, err := sarif.FromBytes(stdout.Bytes())
+	run, err := checks.FirstSARIFRun(stdout.Bytes())
 	if err != nil {
 		logging.ReportError(ctx, err, "stdout", stdout.String(), "context", "parse sarif output from biome")
 		// If command failed and we couldn't parse SARIF, return the command error
@@ -71,10 +65,5 @@ func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
 		}
 		return nil, err
 	}
-
-	if len(report.Runs) > 0 {
-		return report.Runs[0], nil
-	}
-
-	return nil, nil
+	return run, nil
 }
