@@ -424,4 +424,3 @@ func getGoVersion() string {
 	}
 	return version
 }
-
