@@ -97,8 +97,8 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		}
 	}
 
-	// Map.Run owns the single aggregate bar (named icon-theme:…).
-	_, err = taskgroup.Map[string, struct{}]{
+	// Each.Run owns the single aggregate bar (named icon-theme:…).
+	err = taskgroup.Each[string]{
 		Name:     "icon-theme:" + opts.ThemeName,
 		Items:    paths,
 		PoolKind: taskgroup.CPU,
@@ -113,12 +113,12 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 			relOut = stripLeadingSizeDir(relOut)
 			return "icon:" + filepath.ToSlash(relOut)
 		},
-		Fn: func(ctx context.Context, itemS *taskgroup.Status, iconPath string) (struct{}, error) {
+		Fn: func(ctx context.Context, itemS *taskgroup.Status, iconPath string) error {
 			localDirs := map[string]bool{}
 
 			rel, err := filepath.Rel(inputDir, iconPath)
 			if err != nil {
-				return struct{}{}, err
+				return err
 			}
 			relOut := strings.TrimSuffix(rel, ".tmpl")
 			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
@@ -135,15 +135,15 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 
 			svgContent, err := renderSVG(iconPath, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
 			if err != nil {
-				return struct{}{}, err
+				return err
 			}
 
 			targetSVG := filepath.Join(outputDir, "scalable", relOut)
 			if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
-				return struct{}{}, err
+				return err
 			}
 			if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
-				return struct{}{}, err
+				return err
 			}
 			localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
 
@@ -152,7 +152,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 				maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
 				renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
 				if err != nil {
-					return struct{}{}, err
+					return err
 				}
 
 				for _, sz := range sizes {
@@ -168,18 +168,18 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 					sizeDir := filepath.Join(fmt.Sprintf("%dx%d", sz, sz), ctxDir)
 					targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
 					if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
-						return struct{}{}, err
+						return err
 					}
 					f, err := os.Create(targetPNG)
 					if err != nil {
-						return struct{}{}, err
+						return err
 					}
 					if err := fastPNGEncoder.Encode(f, final); err != nil {
 						logging.Close(ctx, f)
-						return struct{}{}, err
+						return err
 					}
 					if err := f.Close(); err != nil {
-						return struct{}{}, err
+						return err
 					}
 					localDirs[filepath.ToSlash(sizeDir)] = true
 				}
@@ -192,7 +192,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 			dirsUsedMu.Unlock()
 
 			atomic.AddInt64(&written, 1)
-			return struct{}{}, nil
+			return nil
 		},
 	}.Run(ctx)
 	if err != nil {

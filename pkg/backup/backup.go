@@ -91,7 +91,7 @@ func RunFullBackup(ctx context.Context) error {
 		items[i] = actionItem{Idx: i, Action: a}
 	}
 
-	_, mapErr := taskgroup.Map[actionItem, struct{}]{
+	mapErr := taskgroup.Each[actionItem]{
 		Name:  "backup",
 		Items: items,
 		Pool: func(item actionItem) taskgroup.PoolKind {
@@ -104,7 +104,7 @@ func RunFullBackup(ctx context.Context) error {
 			}
 			return fmt.Sprintf("backup:%s", msg)
 		},
-		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) (struct{}, error) {
+		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) error {
 			idx := item.Idx
 			act := item.Action
 			msg := act.GetName()
@@ -114,13 +114,13 @@ func RunFullBackup(ctx context.Context) error {
 
 			logger := logging.GetLogger(ctx)
 			s.Update(msg)
-			// Map.Run owns aggregate progress.
+			// Each.Run owns aggregate progress.
 			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
 
 			if cmdctx.IsDryRun(ctx) {
 				logger.Info("dry-run: skipping", "name", msg)
 				logger.Info("backup action completed (dry-run)", "name", msg, "kind", act.GetKind())
-				return struct{}{}, nil
+				return nil
 			}
 
 			n2 := &notification.Notification{
@@ -139,11 +139,11 @@ func RunFullBackup(ctx context.Context) error {
 				failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, act.GetKind(), err))
 				failuresMu.Unlock()
 				// Don't return error — let other actions continue.
-				return struct{}{}, nil
+				return nil
 			}
 
 			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
-			return struct{}{}, nil
+			return nil
 		},
 	}.Run(ctx)
 

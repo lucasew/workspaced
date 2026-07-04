@@ -58,18 +58,18 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	}
 
 	var mu sync.Mutex
-	_, err = taskgroup.Map[Linter, struct{}]{
+	err = taskgroup.Each[Linter]{
 		Name:     "lint",
 		Items:    applicable,
 		PoolKind: taskgroup.CPU,
 		TaskName: func(_ int, l Linter) string { return "lint:" + l.Name() },
-		Fn: func(ctx context.Context, s *taskgroup.Status, linter Linter) (struct{}, error) {
+		Fn: func(ctx context.Context, s *taskgroup.Status, linter Linter) error {
 			l := logging.GetLogger(ctx)
 			s.Update("running " + linter.Name())
 			run, err := linter.Run(ctx, dir)
 			if err != nil {
 				logging.ReportError(ctx, err, "linter", linter.Name(), "context", "linter failed")
-				return struct{}{}, nil // Don't fail other linters.
+				return nil // Don't fail other linters.
 			}
 			resultCount := 0
 			if run != nil {
@@ -81,7 +81,7 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 				report.AddRun(run)
 				mu.Unlock()
 			}
-			return struct{}{}, nil
+			return nil
 		},
 	}.Run(ctx)
 	if err != nil {

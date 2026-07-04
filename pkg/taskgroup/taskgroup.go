@@ -17,16 +17,17 @@
 //   - Session root: command lifetime (Enter / Close); do not add bars here.
 //   - Command Control task: optional anchor with Status.Unit when the command
 //     is one logical step and nested work has no aggregate bar of its own.
-//   - Map[T,U].Run: fan-out with one aggregate Control bar; children should
-//     not also call Unit (avoids N stuck 0/1 bars beside the aggregate).
+//   - Map[T,U].Run: fan-out that collects results under one aggregate bar.
+//   - Each[T].Run: same fan-out when only errors matter (no struct{} results).
+//     Children should not also call Unit (avoids N stuck 0/1 bars).
 //   - Isolate / GoIsolated: error boundary SubGroup so a failure does not
 //     cancel parent siblings. Isolate alone adds no bar; GoIsolated adds one
 //     named task. Do not GoIsolated around HTTP-only work when
 //     httpclient.WithProgress already promotes the request to a fetch task.
-//   - Raw SubGroup: escape hatch; prefer Isolate, GoIsolated, or Map.Run.
+//   - Raw SubGroup: escape hatch; prefer Isolate, GoIsolated, Map, or Each.
 //
-// Stacking Control+Unit around Map.Run, or SubGroup+Go+Unit around a fetch
-// task, duplicates bars without adding information.
+// Stacking Control+Unit around Map/Each.Run, or SubGroup+Go+Unit around a
+// fetch task, duplicates bars without adding information.
 package taskgroup
 
 import (
@@ -741,8 +742,8 @@ func (g *Group) SnapshotSorted() []TaskState {
 // MustFromContext are waited on before return. When no Group is on ctx, fn
 // runs on ctx unchanged.
 //
-// Isolate adds an error boundary without an extra progress bar. Prefer Map.Run
-// for fan-out with aggregate progress, or GoIsolated for one named task.
+// Isolate adds an error boundary without an extra progress bar. Prefer Map or
+// Each for fan-out with aggregate progress, or GoIsolated for one named task.
 func Isolate(ctx context.Context, fn func(context.Context) error) error {
 	if fn == nil {
 		return nil
@@ -790,7 +791,7 @@ func GoIsolated(ctx context.Context, name string, pool PoolKind, fn func(context
 // SubGroup creates a child Group that shares the parent's pool semaphores.
 // The child's context is derived from the parent's context.
 //
-// Prefer Isolate, GoIsolated, or Map.Run unless you need the raw child Group
+// Prefer Isolate, GoIsolated, Map, or Each unless you need the raw child Group
 // handle (e.g. dependency edges across manually scheduled tasks).
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	cctx, cancel := context.WithCancel(ctx)

@@ -258,6 +258,35 @@ func TestMap_NilFn(t *testing.T) {
 	}
 }
 
+func TestEach_RunsWithoutResults(t *testing.T) {
+	g, ctx := New(withLogger(t), DefaultLimits())
+	_ = g
+
+	var saw atomic.Int64
+	err := Each[int]{
+		Name:     "each",
+		Items:    []int{1, 2, 3},
+		PoolKind: CPU,
+		Fn: func(ctx context.Context, s *Status, v int) error {
+			saw.Add(int64(v))
+			return nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saw.Load() != 6 {
+		t.Fatalf("saw sum %d, want 6", saw.Load())
+	}
+}
+
+func TestEach_NilFn(t *testing.T) {
+	_, ctx := New(withLogger(t), DefaultLimits())
+	if err := (Each[int]{Items: []int{1}}).Run(ctx); err == nil {
+		t.Fatal("expected error for nil Fn")
+	}
+}
+
 func TestMap_ErrorPropagates(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g

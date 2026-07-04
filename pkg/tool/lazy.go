@@ -148,16 +148,16 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		// Run resolution for tools that need updates under the group.
 		// Resolution of "latest" (which does ListVersions) is treated as Control
 		// (orchestration) work rather than consuming the Internet pool.
-		_, mapErr := taskgroup.Map[string, struct{}]{
+		mapErr := taskgroup.Each[string]{
 			Name:     "lazy-tools",
 			Items:    needsWork,
 			PoolKind: taskgroup.Control,
 			TaskName: func(_ int, name string) string { return "tool:" + name },
-			Fn: func(ctx context.Context, s *taskgroup.Status, name string) (struct{}, error) {
+			Fn: func(ctx context.Context, s *taskgroup.Status, name string) error {
 				toolCfg := lazyTools[name]
 				spec, lockRef, err := lazyToolSpec(name, toolCfg)
 				if err != nil {
-					return struct{}{}, err
+					return err
 				}
 
 				version := spec.Version
@@ -168,7 +168,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 					v, err := mgr.ResolveLatestVersion(ctx, spec)
 					if err != nil {
 						l.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-						return struct{}{}, err
+						return err
 					}
 					version = v
 				} else {
@@ -182,7 +182,7 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 				updatesMu.Unlock()
 
 				s.Update(name + "@" + version)
-				return struct{}{}, nil
+				return nil
 			},
 		}.Run(ctx)
 		if mapErr != nil {

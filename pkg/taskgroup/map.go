@@ -6,7 +6,9 @@ import (
 	"sync/atomic"
 )
 
-// Map fans out Items under one aggregate Control progress bar.
+// Map fans out Items under one aggregate Control progress bar and collects
+// results. Prefer Each when callers only need success/failure per item — that
+// avoids Map[T, struct{}] and return struct{}{} noise.
 //
 // Fill the struct and call Run. Run schedules a Control orchestrator on the
 // Group in ctx (MustFromContext), waits for every child, and returns results
@@ -125,4 +127,43 @@ func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 		return nil, mapErr
 	}
 	return results, nil
+}
+
+// Each fans out Items under one aggregate Control progress bar without
+// collecting results. Same scheduling and progress rules as Map; Fn returns
+// only an error.
+type Each[T any] struct {
+	// Name is the orchestrator task label (and sole aggregate bar).
+	// Empty defaults to "map".
+	Name string
+	// Items to process.
+	Items []T
+	// Pool selects the resource pool per item. When nil, PoolKind is used for
+	// every item (zero value is Control).
+	Pool func(T) PoolKind
+	// PoolKind is used when Pool is nil.
+	PoolKind PoolKind
+	// TaskName labels each child task for logs/TUI. Nil uses "name:<i>".
+	TaskName func(int, T) string
+	// Fn runs for each item with its own *Status.
+	Fn func(ctx context.Context, s *Status, item T) error
+}
+
+// Run schedules the work on MustFromContext(ctx) and blocks until complete.
+// An empty Items list is a no-op success.
+func (e Each[T]) Run(ctx context.Context) error {
+	if e.Fn == nil {
+		return fmt.Errorf("taskgroup: Each.Fn is nil")
+	}
+	_, err := Map[T, struct{}]{
+		Name:     e.Name,
+		Items:    e.Items,
+		Pool:     e.Pool,
+		PoolKind: e.PoolKind,
+		TaskName: e.TaskName,
+		Fn: func(ctx context.Context, s *Status, item T) (struct{}, error) {
+			return struct{}{}, e.Fn(ctx, s, item)
+		},
+	}.Run(ctx)
+	return err
 }
