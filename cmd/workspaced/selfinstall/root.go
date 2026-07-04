@@ -105,7 +105,6 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	if err := createWorkspacedShim(ctx, installPath); err != nil {
 		return fmt.Errorf("failed to create shim: %w", err)
 	}
-
 	if err := createMiseShim(ctx); err != nil {
 		logger.Warn("failed to create mise shim", "error", err)
 	}
@@ -120,49 +119,26 @@ func runSelfInstall(ctx context.Context, force bool) error {
 }
 
 func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
-	home, err := os.UserHomeDir()
+	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{workspacedPath})
 	if err != nil {
 		return err
 	}
-
-	localBin := filepath.Join(home, ".local", "bin")
-	if err := os.MkdirAll(localBin, 0755); err != nil {
-		return err
-	}
-
-	shimPath := filepath.Join(localBin, "workspaced")
-
-	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
-		return err
-	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("created shim", "path", shimPath, "target", workspacedPath)
+	logging.GetLogger(ctx).Info("created shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
 
 func createMiseShim(ctx context.Context) error {
+	// Always create shim, even if mise not installed yet.
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
-
-	// Always create shim, even if mise not installed yet
 	misePath := filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
-
-	localBin := filepath.Join(home, ".local", "bin")
-	if err := os.MkdirAll(localBin, 0755); err != nil {
+	shimPath, err := shim.GenerateInLocalBin(ctx, "mise", []string{misePath})
+	if err != nil {
 		return err
 	}
-
-	shimPath := filepath.Join(localBin, "mise")
-
-	if err := shim.Generate(ctx, shimPath, []string{misePath}); err != nil {
-		return err
-	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("created mise shim", "path", shimPath, "target", misePath)
+	logging.GetLogger(ctx).Info("created mise shim", "path", shimPath, "target", misePath)
 	return nil
 }
 

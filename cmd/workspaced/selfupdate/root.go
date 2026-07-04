@@ -164,7 +164,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	}
 
 	logger.Info("build completed", "path", installPath)
-	return createWorkspacedShim(ctx, installPath)
+	return updateWorkspacedShim(ctx, installPath)
 }
 
 // ============================================================================
@@ -276,7 +276,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	}
 
 	logger.Info("download completed", "path", installPath)
-	return createWorkspacedShim(ctx, installPath)
+	return updateWorkspacedShim(ctx, installPath)
 }
 
 func findBinary(dir string) (string, error) {
@@ -354,36 +354,14 @@ func findBinary(dir string) (string, error) {
 	return "", fmt.Errorf("%w: %s", ErrNoBinaryFound, dir)
 }
 
-// ============================================================================
-// Shim management
-// ============================================================================
-
-func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
-	home, err := os.UserHomeDir()
+func updateWorkspacedShim(ctx context.Context, workspacedPath string) error {
+	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{workspacedPath})
 	if err != nil {
 		return err
 	}
-
-	localBin := filepath.Join(home, ".local", "bin")
-	if err := os.MkdirAll(localBin, 0755); err != nil {
-		return err
-	}
-
-	shimPath := filepath.Join(localBin, "workspaced")
-
-	// Use shimdriver
-	if err := shim.Generate(ctx, shimPath, []string{workspacedPath}); err != nil {
-		return err
-	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("updated shim", "path", shimPath, "target", workspacedPath)
+	logging.GetLogger(ctx).Info("updated shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
-
-// ============================================================================
-// Helper functions
-// ============================================================================
 
 func findSourcePath(ctx context.Context) (string, error) {
 	var candidates []string

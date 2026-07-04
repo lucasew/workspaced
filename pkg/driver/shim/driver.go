@@ -3,11 +3,16 @@ package shim
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"workspaced/pkg/driver"
 )
 
 var (
 	ErrEmptyCommand = errors.New("command cannot be empty")
+	ErrEmptyName    = errors.New("shim name cannot be empty")
 )
 
 // Driver provides shim script generation capabilities
@@ -42,4 +47,42 @@ func Generate(ctx context.Context, path string, command []string) error {
 		return err
 	}
 	return d.Generate(ctx, path, command)
+}
+
+// LocalBinDir returns ~/.local/bin for the current user.
+func LocalBinDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".local", "bin"), nil
+}
+
+// GenerateInLocalBin ensures ~/.local/bin exists and writes an executable shim
+// named name that runs command. Returns the absolute shim path. Callers own
+// success logging so install vs update wording stays at the call site.
+func GenerateInLocalBin(ctx context.Context, name string, command []string) (string, error) {
+	if name == "" {
+		return "", ErrEmptyName
+	}
+	if len(command) == 0 {
+		return "", ErrEmptyCommand
+	}
+	if filepath.Base(name) != name || name == "." || name == ".." {
+		return "", fmt.Errorf("shim name %q must be a plain base name", name)
+	}
+
+	localBin, err := LocalBinDir()
+	if err != nil {
+		return "", err
+	}
+	if err := os.MkdirAll(localBin, 0o755); err != nil {
+		return "", err
+	}
+
+	shimPath := filepath.Join(localBin, name)
+	if err := Generate(ctx, shimPath, command); err != nil {
+		return "", err
+	}
+	return shimPath, nil
 }
