@@ -25,17 +25,17 @@ func init() {
 
 All <tool-spec> arguments before "--" are ensured (installed if missing).
 The <command> is resolved from the first (rightmost) listed tool that provides a binary
-of that name, so the provider of the command does not have to be the last entry.
+of that name, so the backend that owns the command does not have to be the last entry.
 
 If a tool is not installed, it will be installed automatically.
 
 Tool spec format:
-  provider:package@version  (full spec)
-  provider:package          (uses latest version)
-  package@version           (uses registry provider for curated short names)
-  package                   (uses registry provider + latest; for curated short names e.g. ripgrep, uv)
+  backend:package@version  (full spec)
+  backend:package          (uses latest version)
+  package@version          (uses registry backend for curated short names)
+  package                  (uses registry backend + latest; for curated short names e.g. ripgrep, uv)
 
-Bare names (no provider:) default to the registry provider (curated github tools).
+Bare names (no backend:) default to the registry backend (curated github tools).
 For mise-managed tools (e.g. go, node) or direct github use 'mise:' or 'github:'.
 
 Examples:

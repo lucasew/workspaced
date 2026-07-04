@@ -57,17 +57,24 @@ func colorEnabled() bool {
 
 // levelLetter returns a single-character representation of the level.
 func levelLetter(l slog.Level) string {
-	switch {
-	case l == slog.LevelDebug:
+	switch l {
+	case slog.LevelDebug:
 		return "D"
-	case l == slog.LevelInfo:
+	case slog.LevelInfo:
 		return "I"
-	case l == slog.LevelWarn:
+	case slog.LevelWarn:
 		return "W"
-	case l >= slog.LevelError:
+	case slog.LevelError:
 		return "E"
 	default:
-		return l.String()[:1]
+		if l >= slog.LevelError {
+			return "E"
+		}
+		s := l.String()
+		if s == "" {
+			return "?"
+		}
+		return s[:1]
 	}
 }
 
@@ -76,18 +83,18 @@ func levelLetter(l slog.Level) string {
 // default / current fg color, possibly bolded for visibility), per the
 // request for "filled" badges.
 func coloredLevel(l slog.Level) string {
-	switch {
-	case l == slog.LevelDebug:
+	switch l {
+	case slog.LevelDebug:
 		// gray / bright black background (subtle)
 		return "\x1b[100mD\x1b[0m"
-	case l == slog.LevelInfo:
+	case slog.LevelInfo:
 		// bright cyan background
 		return "\x1b[46;1mI\x1b[0m"
-	case l == slog.LevelWarn:
+	case slog.LevelWarn:
 		// bright yellow background
 		return "\x1b[43;1mW\x1b[0m"
 	default:
-		// bright red background
+		// bright red background (Error and above)
 		return "\x1b[41;1mE\x1b[0m"
 	}
 }

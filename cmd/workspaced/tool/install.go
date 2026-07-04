@@ -14,15 +14,15 @@ func init() {
 		c.AddCommand(&cobra.Command{
 			Use:   "install <tool-spec>",
 			Short: "Install a tool",
-			Long: `Install a tool from a provider.
+			Long: `Install a tool from a backend.
 
 Tool spec format:
-  provider:package@version  (full spec)
-  provider:package          (uses latest version)
-  package@version           (uses registry provider for curated short names)
-  package                   (uses registry provider + latest; for curated short names e.g. ripgrep, uv)
+  backend:package@version  (full spec)
+  backend:package          (uses latest version)
+  package@version          (uses registry backend for curated short names)
+  package                  (uses registry backend + latest; for curated short names e.g. ripgrep, uv)
 
-Bare names (no provider:) default to the registry provider (curated github tools).
+Bare names (no backend:) default to the registry backend (curated github tools).
 For mise-managed tools (e.g. go, node) or direct github use 'mise:' or 'github:'.`,
 			Example: `  workspaced tool install github:denoland/deno@1.40.0
   workspaced tool install ripgrep@14.0.0

@@ -50,7 +50,7 @@ func RunAll(ctx context.Context, dir string) error {
 
 	// Task group comes from the context set up by the top-level command.
 	parent := taskgroup.MustFromContext(ctx)
-	g, ctx := parent.SubGroup(ctx)
+	g, _ := parent.SubGroup(ctx)
 
 	var mu sync.Mutex
 	var errs []error

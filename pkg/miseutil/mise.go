@@ -13,9 +13,12 @@ import (
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/driver/shim/bash"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/tool"
 )
+
+const installerURL = "https://mise.run"
 
 var (
 	// ErrMiseInstallPathUnknown is returned when the mise install path cannot be determined.
@@ -24,7 +27,7 @@ var (
 	ErrBinaryNotFound = errors.New("binary not found")
 	// ErrMiseInstallFailed is returned when mise installation fails.
 	ErrMiseInstallFailed = errors.New("mise installation failed")
-	// ErrHTTPDownloadFailed is errors.New("HTTP download failed")
+	// ErrHTTPDownloadFailed is returned when downloading the official installer fails.
 	ErrHTTPDownloadFailed = errors.New("HTTP download failed")
 )
 
@@ -51,7 +54,9 @@ func Ensure(ctx context.Context) (string, error) {
 		return misePath, nil
 	}
 
-	if err := install(ctx, misePath); err != nil {
+	logger := logging.GetLogger(ctx)
+	logger.Info("mise not found, installing", "path", misePath)
+	if err := Install(ctx, misePath); err != nil {
 		return "", err
 	}
 
@@ -114,21 +119,29 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 	return "", fmt.Errorf("%w: %q under %s", ErrBinaryNotFound, binName, root)
 }
 
-func install(ctx context.Context, misePath string) error {
+// Install downloads the official mise installer and runs it so the binary lands at misePath.
+func Install(ctx context.Context, misePath string) error {
 	if err := os.MkdirAll(filepath.Dir(misePath), 0755); err != nil {
-		return fmt.Errorf("failed to create mise directory: %w", err)
+		return fmt.Errorf("create mise directory: %w", err)
 	}
+
+	logger := logging.GetLogger(ctx)
+	logger.Info("installing mise", "path", misePath, "url", installerURL)
 
 	httpDriver, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get http client: %w", err)
+		return fmt.Errorf("get http client: %w", err)
 	}
 
-	resp, err := httpDriver.Client().Get("https://mise.run")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, installerURL, nil)
 	if err != nil {
-		return fmt.Errorf("failed to download installer: %w", err)
+		return fmt.Errorf("create installer request: %w", err)
 	}
-	defer logging.Close(ctx, resp.Body)
+	resp, err := httpDriver.Client().Do(req)
+	if err != nil {
+		return fmt.Errorf("download installer: %w", err)
+	}
+	defer logging.Close(ctx, resp.Body, "url", installerURL)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%w: HTTP %d", ErrHTTPDownloadFailed, resp.StatusCode)
@@ -136,12 +149,12 @@ func install(ctx context.Context, misePath string) error {
 
 	scriptBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read installer script: %w", err)
+		return fmt.Errorf("read installer script: %w", err)
 	}
 
-	installCmd, err := execdriver.Run(ctx, "bash", "-s")
+	installCmd, err := execdriver.Run(ctx, bash.GetShell(ctx), "-s")
 	if err != nil {
-		return fmt.Errorf("failed to create install command: %w", err)
+		return fmt.Errorf("create install command: %w", err)
 	}
 
 	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
@@ -150,12 +163,13 @@ func install(ctx context.Context, misePath string) error {
 	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", misePath))
 
 	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install mise: %w", err)
+		return fmt.Errorf("run mise installer: %w", err)
 	}
 
 	if _, err := os.Stat(misePath); err != nil {
 		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, misePath)
 	}
 
+	logger.Info("mise installed successfully", "path", misePath)
 	return nil
 }

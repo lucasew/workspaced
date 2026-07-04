@@ -16,12 +16,6 @@ func BuildRenovateDependencies(sum *SumFile) []RenovateDependency {
 func enrichToolDependency(dep RenovateDependency) RenovateDependency {
 	dep.Kind = "tool"
 	dep.Ref = strings.TrimSpace(dep.Ref)
-	if dep.Ref == "" {
-		return dep
-	}
-	if dep.CurrentValue == "" {
-		// version info should be in CurrentValue by caller
-	}
 	return dep
 }
 

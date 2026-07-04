@@ -1,24 +1,20 @@
 package selfupdate
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strings"
 
-	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/miseutil"
 	"workspaced/pkg/taskgroup"
 	"workspaced/pkg/tool/backend"
 	githubprov "workspaced/pkg/tool/backend/github"
@@ -33,8 +29,6 @@ var (
 	ErrArtifactToolRequired = errors.New("github tool does not support ArtifactTool (needed for selfupdate)")
 	ErrNoArtifactFound      = errors.New("no artifact found for current platform")
 	ErrNoBinaryFound        = errors.New("no binary found")
-	ErrHTTPDownloadFailed   = errors.New("HTTP download failed")
-	ErrMiseInstallFailed    = errors.New("mise installation failed")
 )
 
 func GetCommand() *cobra.Command {
@@ -47,7 +41,7 @@ func GetCommand() *cobra.Command {
 
 Strategy:
   1. If source code exists → rebuild from source (always)
-  2. Otherwise → download from GitHub using tool provider
+  2. Otherwise → download from GitHub using the tool backend
 
 The update is installed in ~/.local/share/workspaced/tools/ and the shim
 in ~/.local/bin/workspaced is updated automatically.`,
@@ -58,8 +52,8 @@ in ~/.local/bin/workspaced is updated automatically.`,
 			// Choose the right pool for the self-update task itself so it
 			// participates in concurrency limits and gets the correct
 			// emoji/type in the progress UI.
-			pool := taskgroup.Control
-			msg := "self-updating workspaced"
+			pool := taskgroup.Internet
+			msg := "downloading from GitHub"
 			srcPath, err := findSourcePath(ctx)
 			if err != nil {
 				return err
@@ -67,9 +61,6 @@ in ~/.local/bin/workspaced is updated automatically.`,
 			if srcPath != "" {
 				pool = taskgroup.CPU // compiling is CPU-bound
 				msg = "compiling from source"
-			} else {
-				pool = taskgroup.Internet // downloading artifact is network-bound
-				msg = "downloading from GitHub"
 			}
 
 			g.Go("self-update", pool, func(ctx context.Context, s *taskgroup.Status) error {
@@ -126,9 +117,9 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 		return ErrGoVersionUnknown
 	}
 
-	misePath, err := ensureMise(ctx)
+	misePath, err := miseutil.Ensure(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to ensure mise: %w", err)
+		return fmt.Errorf("ensure mise: %w", err)
 	}
 
 	if err := os.MkdirAll(installDir, 0755); err != nil {
@@ -183,7 +174,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 func updateFromGitHub(ctx context.Context, force bool) error {
 	// Use the exposed constructor directly. This works even without the old
 	// detailed methods on the thin Provider interface, and demonstrates how
-	// a future registry provider (or other code) can obtain a github Tool.
+	// a future registry backend (or other code) can obtain a github Tool.
 	t, err := githubprov.NewTool("lucasew/workspaced")
 	if err != nil {
 		return err
@@ -434,83 +425,3 @@ func getGoVersion() string {
 	return version
 }
 
-// ensureMise checks if mise exists and installs it if needed
-func ensureMise(ctx context.Context) (string, error) {
-	misePath := getMisePath()
-
-	if _, err := os.Stat(misePath); err == nil {
-		return misePath, nil
-	}
-
-	// Mise not found, install it
-	logger := logging.GetLogger(ctx)
-	logger.Info("mise not found, installing", "path", misePath)
-	if err := installMise(ctx, misePath); err != nil {
-		return "", err
-	}
-
-	return misePath, nil
-}
-
-func getMisePath() string {
-	if path := os.Getenv("MISE_INSTALL_PATH"); path != "" {
-		return path
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-
-	return filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
-}
-
-func installMise(ctx context.Context, misePath string) error {
-	if err := os.MkdirAll(filepath.Dir(misePath), 0755); err != nil {
-		return fmt.Errorf("failed to create mise directory: %w", err)
-	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("downloading mise installer from https://mise.run")
-
-	httpClient, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get http client: %w", err)
-	}
-
-	resp, err := httpClient.Client().Get("https://mise.run")
-	if err != nil {
-		return fmt.Errorf("failed to download installer: %w", err)
-	}
-	defer logging.Close(ctx, resp.Body, "url", "https://mise.run")
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%w: HTTP %d", ErrHTTPDownloadFailed, resp.StatusCode)
-	}
-
-	scriptBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read installer: %w", err)
-	}
-
-	installCmd, err := execdriver.Run(ctx, "bash", "-s")
-	if err != nil {
-		return fmt.Errorf("failed to create install command: %w", err)
-	}
-
-	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
-	installCmd.Stdout = os.Stderr
-	installCmd.Stderr = os.Stderr
-	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", misePath))
-
-	if err := installCmd.Run(); err != nil {
-		return fmt.Errorf("failed to install mise: %w", err)
-	}
-
-	if _, err := os.Stat(misePath); err != nil {
-		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, misePath)
-	}
-
-	logger.Info("mise installed successfully", "path", misePath)
-	return nil
-}

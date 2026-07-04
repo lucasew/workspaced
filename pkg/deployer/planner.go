@@ -109,7 +109,7 @@ func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState
 	// command). We use a SubGroup so that this planning work participates in
 	// the parent's pool limits and cancellation.
 	parent := taskgroup.MustFromContext(ctx)
-	g, ctx := parent.SubGroup(ctx)
+	g, _ := parent.SubGroup(ctx)
 
 	for i, d := range desired {
 		idx := i

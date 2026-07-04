@@ -308,7 +308,7 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 			// bare style (top-level modules, inputs etc. without the wrapper)
 			// wrap by filling the bare value under workspaced
 			template := ctx.CompileString(`workspaced: {}`)
-			wrapped := template.Fill(layerValue, "workspaced")
+			wrapped := template.FillPath(cue.ParsePath("workspaced"), layerValue)
 			v = v.Unify(wrapped)
 		}
 		if err := v.Err(); err != nil {

@@ -144,7 +144,7 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	return "", fmt.Errorf("%w: %q in %s", ErrBinaryNotFound, cmdName, versionDir)
 }
 
-// ResolveLatestVersion delegates to the underlying tool provider to query the remote
+// ResolveLatestVersion delegates to the underlying tool backend to query the remote
 // registry for the most recent valid version. It assumes the first returned version
 // is the latest, matching standard provider behaviors.
 func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec) (string, error) {

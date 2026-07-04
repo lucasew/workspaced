@@ -79,9 +79,10 @@ func Wake(ctx context.Context, host string) error {
 		copy(packet[i*6:(i+1)*6], hwAddr)
 	}
 
-	conn, err := net.Dial("udp", "255.255.255.255:9")
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, "udp", "255.255.255.255:9")
 	if err != nil {
-		return fmt.Errorf("failed to dial UDP broadcast: %w", err)
+		return fmt.Errorf("dial UDP broadcast: %w", err)
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
@@ -91,7 +92,7 @@ func Wake(ctx context.Context, host string) error {
 
 	_, err = conn.Write(packet)
 	if err != nil {
-		return fmt.Errorf("failed to send magic packet: %w", err)
+		return fmt.Errorf("send magic packet: %w", err)
 	}
 
 	logger := logging.GetLogger(ctx)

@@ -62,7 +62,7 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	// The group must be present in the context (initialized only at the top
 	// command and passed down).
 	parent := taskgroup.MustFromContext(ctx)
-	g, ctx := parent.SubGroup(ctx)
+	g, _ := parent.SubGroup(ctx)
 
 	var mu sync.Mutex
 	for _, l := range applicable {

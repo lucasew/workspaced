@@ -124,7 +124,7 @@ func (t *rubyTool) ListArtifacts(ctx context.Context, version string) ([]backend
 
 func (t *rubyTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	logger := logging.GetLogger(ctx)
-	logger.Warn("ruby (registry provider) is experimental; backed by ruby/ruby-builder prebuilts")
+	logger.Warn("ruby (registry backend) is experimental; backed by ruby/ruby-builder prebuilts")
 
 	if err := providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{}); err != nil {
 		return err

@@ -97,7 +97,7 @@ func (t *llvmTool) ListVersions(ctx context.Context) ([]string, error) {
 
 func (t *llvmTool) Install(ctx context.Context, version string, destDir string) error {
 	logger := logging.GetLogger(ctx)
-	logger.Warn("llvm (registry provider) is experimental; backed by official clang+llvm prebuilts from llvm/llvm-project")
+	logger.Warn("llvm (registry backend) is experimental; backed by official clang+llvm prebuilts from llvm/llvm-project")
 
 	v := strings.TrimSpace(version)
 	if v == "" || v == "latest" {
@@ -123,7 +123,7 @@ func (t *llvmTool) ListArtifacts(ctx context.Context, version string) ([]backend
 
 func (t *llvmTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	logger := logging.GetLogger(ctx)
-	logger.Warn("llvm (registry provider) is experimental; backed by official clang+llvm prebuilts from llvm/llvm-project")
+	logger.Warn("llvm (registry backend) is experimental; backed by official clang+llvm prebuilts from llvm/llvm-project")
 
 	// Delegate to inner when possible so GitHub auth/asset download logic is used.
 	if at, ok := t.inner.(interface {
