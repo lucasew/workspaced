@@ -209,15 +209,18 @@ func TestMap_BasicAndOrder(t *testing.T) {
 
 	input := []int{1, 2, 3, 4, 5}
 
-	// Use the root group directly (Map will SubGroup from it)
-	results, err := Map(ctx, "", func(int) PoolKind { return CPU }, input, func(i int, _ int) string { return fmt.Sprintf("map:%d", i) }, func(ctx context.Context, s *Status, v int) (int, error) {
-		s.Update(fmt.Sprintf("processing %d", v))
-		// simulate work
-		time.Sleep(1 * time.Millisecond)
-		return v * 10, nil
-	})
+	results, err := Map[int, int]{
+		Items:    input,
+		PoolKind: CPU,
+		TaskName: func(i int, _ int) string { return fmt.Sprintf("map:%d", i) },
+		Fn: func(ctx context.Context, s *Status, v int) (int, error) {
+			s.Update(fmt.Sprintf("processing %d", v))
+			time.Sleep(1 * time.Millisecond)
+			return v * 10, nil
+		},
+	}.Run(ctx)
 	if err != nil {
-		t.Fatalf("Map returned error: %v", err)
+		t.Fatalf("Map.Run returned error: %v", err)
 	}
 	if len(results) != len(input) {
 		t.Fatalf("got %d results, want %d", len(results), len(input))
@@ -228,26 +231,30 @@ func TestMap_BasicAndOrder(t *testing.T) {
 			t.Errorf("results[%d] = %d, want %d (order not preserved?)", i, r, want)
 		}
 	}
-
-	// Note: because Map uses SubGroup internally (like planner, lint, backup etc.),
-	// the individual "map-*" tasks live on the child group and won't appear in
-	// the root g.Snapshot(). This is by design (see nested demo and comments in
-	// taskgroup). The important contract is order-preserving results + progress
-	// ownership on the orchestrator Status (children should not call Unit).
 }
 
 func TestMap_Empty(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
-	results, err := Map(ctx, "", func(string) PoolKind { return IO }, []string{}, nil, func(ctx context.Context, s *Status, v string) (string, error) {
-		return v + "!", nil
-	})
+	results, err := Map[string, string]{
+		Items:    nil,
+		PoolKind: IO,
+		Fn:       func(ctx context.Context, s *Status, v string) (string, error) { return v + "!", nil },
+	}.Run(ctx)
 	if err != nil {
-		t.Fatalf("empty Map error: %v", err)
+		t.Fatalf("empty Map.Run error: %v", err)
 	}
 	if len(results) != 0 {
 		t.Fatalf("expected empty result slice, got len=%d", len(results))
+	}
+}
+
+func TestMap_NilFn(t *testing.T) {
+	_, ctx := New(withLogger(t), DefaultLimits())
+	_, err := Map[int, int]{Items: []int{1}}.Run(ctx)
+	if err == nil {
+		t.Fatal("expected error for nil Fn")
 	}
 }
 
@@ -255,14 +262,18 @@ func TestMap_ErrorPropagates(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g
 
-	_, err := Map(ctx, "", func(int) PoolKind { return IO }, []int{10, 20, 30}, nil, func(ctx context.Context, s *Status, v int) (int, error) {
-		if v == 20 {
-			return 0, errors.New("boom on 20")
-		}
-		return v, nil
-	})
+	_, err := Map[int, int]{
+		Items:    []int{10, 20, 30},
+		PoolKind: IO,
+		Fn: func(ctx context.Context, s *Status, v int) (int, error) {
+			if v == 20 {
+				return 0, errors.New("boom on 20")
+			}
+			return v, nil
+		},
+	}.Run(ctx)
 	if err == nil {
-		t.Fatal("expected error from Map, got nil")
+		t.Fatal("expected error from Map.Run, got nil")
 	}
 }
 
@@ -272,20 +283,20 @@ func TestMap_UsesProvidedTaskNames(t *testing.T) {
 
 	items := []string{"a.txt", "b.txt"}
 
-	results, err := Map(ctx, "", func(string) PoolKind { return IO }, items, func(i int, name string) string {
-		return "read:" + name
-	}, func(ctx context.Context, s *Status, name string) (string, error) {
-		return "content-of-" + name, nil
-	})
+	results, err := Map[string, string]{
+		Items:    items,
+		PoolKind: IO,
+		TaskName: func(_ int, name string) string { return "read:" + name },
+		Fn: func(ctx context.Context, s *Status, name string) (string, error) {
+			return "content-of-" + name, nil
+		},
+	}.Run(ctx)
 	if err != nil {
-		t.Fatalf("named Map failed: %v", err)
+		t.Fatalf("named Map.Run failed: %v", err)
 	}
 	if len(results) != len(items) {
 		t.Fatalf("expected %d results, got %d", len(items), len(results))
 	}
-	// Custom task names are used for the child subgroup tasks (logs, internal
-	// bookkeeping, and if someone renders the child group). They are not
-	// present on the root snapshot (see SubGroup design).
 }
 
 func TestDuplicateDescriptionsAllowed(t *testing.T) {
@@ -522,14 +533,18 @@ func TestMapNamedOrchestrator(t *testing.T) {
 	release := make(chan struct{})
 
 	go func() {
-		_, err := Map(ctx, "plan", func(int) PoolKind { return CPU }, []int{1}, nil,
-			func(ctx context.Context, s *Status, v int) (int, error) {
+		_, err := Map[int, int]{
+			Name:     "plan",
+			Items:    []int{1},
+			PoolKind: CPU,
+			Fn: func(ctx context.Context, s *Status, v int) (int, error) {
 				close(started)
 				<-release
 				return v, nil
-			})
+			},
+		}.Run(ctx)
 		if err != nil {
-			t.Errorf("Map: %v", err)
+			t.Errorf("Map.Run: %v", err)
 		}
 	}()
 	<-started

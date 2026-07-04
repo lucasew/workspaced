@@ -104,16 +104,18 @@ func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState
 		desiredMap[d.Target()] = d
 	}
 
-	actions, err := taskgroup.Map(ctx, "plan",
-		func(DesiredState) taskgroup.PoolKind { return taskgroup.CPU },
-		desired,
-		func(_ int, ds DesiredState) string { return "plan:" + ds.Target() },
-		func(ctx context.Context, s *taskgroup.Status, ds DesiredState) (Action, error) {
+	actions, err := taskgroup.Map[DesiredState, Action]{
+		Name:     "plan",
+		Items:    desired,
+		PoolKind: taskgroup.CPU,
+		TaskName: func(_ int, ds DesiredState) string { return "plan:" + ds.Target() },
+		Fn: func(ctx context.Context, s *taskgroup.Status, ds DesiredState) (Action, error) {
 			target := ds.Target()
 			s.Update(target)
 			current, managed := currentState.Files[target]
 			return planOne(target, ds, current, managed)
-		})
+		},
+	}.Run(ctx)
 	if err != nil {
 		return nil, err
 	}

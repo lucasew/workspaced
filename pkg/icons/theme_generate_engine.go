@@ -97,11 +97,12 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		}
 	}
 
-	// Map owns the single aggregate bar (named icon-theme:…). No extra
-	// SubGroup/Control wrapper — that duplicated progress hierarchy.
-	_, err = taskgroup.Map(ctx, "icon-theme:"+opts.ThemeName,
-		func(string) taskgroup.PoolKind { return taskgroup.CPU }, paths,
-		func(_ int, iconPath string) string {
+	// Map.Run owns the single aggregate bar (named icon-theme:…).
+	_, err = taskgroup.Map[string, struct{}]{
+		Name:     "icon-theme:" + opts.ThemeName,
+		Items:    paths,
+		PoolKind: taskgroup.CPU,
+		TaskName: func(_ int, iconPath string) string {
 			// Use the logical output-relative name (including context dir)
 			// so that icons with the same basename in different categories
 			// (e.g. apps/brightnesssettings.svg vs devices/brightnesssettings.svg)
@@ -112,7 +113,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 			relOut = stripLeadingSizeDir(relOut)
 			return "icon:" + filepath.ToSlash(relOut)
 		},
-		func(ctx context.Context, itemS *taskgroup.Status, iconPath string) (struct{}, error) {
+		Fn: func(ctx context.Context, itemS *taskgroup.Status, iconPath string) (struct{}, error) {
 			localDirs := map[string]bool{}
 
 			rel, err := filepath.Rel(inputDir, iconPath)
@@ -192,7 +193,8 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 
 			atomic.AddInt64(&written, 1)
 			return struct{}{}, nil
-		})
+		},
+	}.Run(ctx)
 	if err != nil {
 		return err
 	}

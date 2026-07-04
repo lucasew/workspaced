@@ -17,8 +17,8 @@ func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		parent.AddCommand(&cobra.Command{
 			Use:   "cpu10k",
-			Short: "Map dispatches 10k × ~100ms CPU items; Control bar tracks children",
-			Long: `taskgroup.Map schedules one Control orchestrator (aggregate N/10000 progress)
+			Short: "Map.Run dispatches 10k × ~100ms CPU items; Control bar tracks children",
+			Long: `taskgroup.Map.Run schedules one Control orchestrator (aggregate N/10000 progress)
 and CPU-pool children (~100ms busy-wait each). Map owns progress — no outer
 Control wrapper and no manual completion counter.
 
@@ -32,16 +32,17 @@ TERM=dumb → plain Wait.`,
 					items[i] = i
 				}
 
-				logger.Info("cpu10k: calling Map",
+				logger.Info("cpu10k: calling Map.Run",
 					"items", len(items),
 					"per_item", "100ms",
 				)
 
-				results, err := taskgroup.Map(ctx, "cpu10k",
-					func(int) taskgroup.PoolKind { return taskgroup.CPU },
-					items,
-					func(_ int, n int) string { return fmt.Sprintf("cpu:%d", n) },
-					func(ctx context.Context, st *taskgroup.Status, n int) (uint64, error) {
+				results, err := taskgroup.Map[int, uint64]{
+					Name:     "cpu10k",
+					Items:    items,
+					PoolKind: taskgroup.CPU,
+					TaskName: func(_ int, n int) string { return fmt.Sprintf("cpu:%d", n) },
+					Fn: func(ctx context.Context, st *taskgroup.Status, n int) (uint64, error) {
 						st.Update(fmt.Sprintf("item %d", n))
 						deadline := time.Now().Add(100 * time.Millisecond)
 						var h uint64 = uint64(n)*0x9e3779b97f4a7c15 + 1
@@ -58,7 +59,7 @@ TERM=dumb → plain Wait.`,
 						}
 						return h, nil
 					},
-				)
+				}.Run(ctx)
 				if err != nil {
 					return err
 				}

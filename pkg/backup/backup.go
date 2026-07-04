@@ -91,17 +91,20 @@ func RunFullBackup(ctx context.Context) error {
 		items[i] = actionItem{Idx: i, Action: a}
 	}
 
-	_, mapErr := taskgroup.Map(ctx, "backup", func(item actionItem) taskgroup.PoolKind {
-		return poolFor(item.Action.GetKind())
-	}, items,
-		func(i int, item actionItem) string {
+	_, mapErr := taskgroup.Map[actionItem, struct{}]{
+		Name:  "backup",
+		Items: items,
+		Pool: func(item actionItem) taskgroup.PoolKind {
+			return poolFor(item.Action.GetKind())
+		},
+		TaskName: func(_ int, item actionItem) string {
 			msg := item.Action.GetName()
 			if strings.TrimSpace(msg) == "" {
 				msg = fmt.Sprintf("backup-action-%d", item.Idx+1)
 			}
 			return fmt.Sprintf("backup:%s", msg)
 		},
-		func(ctx context.Context, s *taskgroup.Status, item actionItem) (struct{}, error) {
+		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) (struct{}, error) {
 			idx := item.Idx
 			act := item.Action
 			msg := act.GetName()
@@ -111,7 +114,7 @@ func RunFullBackup(ctx context.Context) error {
 
 			logger := logging.GetLogger(ctx)
 			s.Update(msg)
-			// No need to seed Progress manually here; Map tracks aggregate progress!
+			// Map.Run owns aggregate progress.
 			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
 
 			if cmdctx.IsDryRun(ctx) {
@@ -142,7 +145,7 @@ func RunFullBackup(ctx context.Context) error {
 			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
 			return struct{}{}, nil
 		},
-	)
+	}.Run(ctx)
 
 	if mapErr != nil {
 		return mapErr

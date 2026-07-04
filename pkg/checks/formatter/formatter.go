@@ -50,11 +50,12 @@ func RunAll(ctx context.Context, dir string) error {
 
 	var mu sync.Mutex
 	var errs []error
-	_, err := taskgroup.Map(ctx, "format",
-		func(Formatter) taskgroup.PoolKind { return taskgroup.CPU },
-		applicable,
-		func(_ int, f Formatter) string { return "fmt:" + f.Name() },
-		func(ctx context.Context, s *taskgroup.Status, fmtr Formatter) (struct{}, error) {
+	_, err := taskgroup.Map[Formatter, struct{}]{
+		Name:     "format",
+		Items:    applicable,
+		PoolKind: taskgroup.CPU,
+		TaskName: func(_ int, f Formatter) string { return "fmt:" + f.Name() },
+		Fn: func(ctx context.Context, s *taskgroup.Status, fmtr Formatter) (struct{}, error) {
 			l := logging.GetLogger(ctx)
 			s.Update("running " + fmtr.Name())
 			l.Info("running formatter", "name", fmtr.Name())
@@ -65,7 +66,8 @@ func RunAll(ctx context.Context, dir string) error {
 				mu.Unlock()
 			}
 			return struct{}{}, nil
-		})
+		},
+	}.Run(ctx)
 	if err != nil {
 		return err
 	}

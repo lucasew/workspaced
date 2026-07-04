@@ -17,16 +17,16 @@
 //   - Session root: command lifetime (Enter / Close); do not add bars here.
 //   - Command Control task: optional anchor with Status.Unit when the command
 //     is one logical step and nested work has no aggregate bar of its own.
-//   - Map: fan-out with one aggregate Control bar; children should not also
-//     call Unit (avoids N stuck 0/1 bars beside the aggregate).
+//   - Map[T,U].Run: fan-out with one aggregate Control bar; children should
+//     not also call Unit (avoids N stuck 0/1 bars beside the aggregate).
 //   - Isolate / GoIsolated: error boundary SubGroup so a failure does not
 //     cancel parent siblings. Isolate alone adds no bar; GoIsolated adds one
 //     named task. Do not GoIsolated around HTTP-only work when
 //     httpclient.WithProgress already promotes the request to a fetch task.
-//   - Raw SubGroup: escape hatch; prefer Isolate, GoIsolated, or Map.
+//   - Raw SubGroup: escape hatch; prefer Isolate, GoIsolated, or Map.Run.
 //
-// Stacking Control+Unit around Map, or SubGroup+Go+Unit around a fetch task,
-// duplicates bars without adding information.
+// Stacking Control+Unit around Map.Run, or SubGroup+Go+Unit around a fetch
+// task, duplicates bars without adding information.
 package taskgroup
 
 import (
@@ -37,7 +37,6 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	"github.com/google/uuid"
 
@@ -742,8 +741,8 @@ func (g *Group) SnapshotSorted() []TaskState {
 // MustFromContext are waited on before return. When no Group is on ctx, fn
 // runs on ctx unchanged.
 //
-// Isolate adds an error boundary without an extra progress bar. Prefer Map for
-// fan-out with aggregate progress, or GoIsolated for one named task.
+// Isolate adds an error boundary without an extra progress bar. Prefer Map.Run
+// for fan-out with aggregate progress, or GoIsolated for one named task.
 func Isolate(ctx context.Context, fn func(context.Context) error) error {
 	if fn == nil {
 		return nil
@@ -791,8 +790,8 @@ func GoIsolated(ctx context.Context, name string, pool PoolKind, fn func(context
 // SubGroup creates a child Group that shares the parent's pool semaphores.
 // The child's context is derived from the parent's context.
 //
-// Prefer Isolate, GoIsolated, or Map unless you need the raw child Group handle
-// (e.g. dependency edges across manually scheduled tasks).
+// Prefer Isolate, GoIsolated, or Map.Run unless you need the raw child Group
+// handle (e.g. dependency edges across manually scheduled tasks).
 func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	cctx, cancel := context.WithCancel(ctx)
 
@@ -833,109 +832,4 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 	return child, childCtx
 }
 
-// Map runs a Control orchestrator task on the group from ctx that fans out
-// items via a SubGroup. The Control task's Status tracks aggregate progress
-// (completed/total children) as each child finishes. Children use pool for
-// concurrency limiting. Results are returned in input order.
-//
-//   - name: orchestrator task label (and sole aggregate bar); "" defaults to "map".
-//   - pool: resource pool for per-item tasks (CPU / IO / Internet / Control).
-//   - taskName: per-item task label for logs/TUI; "" uses "map:<i>".
-//   - handler: per-item work with its own *Status. Do not call Unit on children
-//     unless the item has multi-step progress of its own; the orchestrator owns
-//     the aggregate bar.
-//
-// Map blocks until the Control task (and thus all children) complete. Callers
-// do not need a second Control wrapper or manual completion counter — nesting
-// another Unit/Progress parent around Map duplicates the hierarchy. Nested Map
-// (Map called from inside a task) schedules the Control task on the same group
-// as MustFromContext(ctx).
-func Map[T any, U any](
-	ctx context.Context,
-	name string,
-	pool func(T) PoolKind,
-	items []T,
-	taskName func(int, T) string,
-	handler func(ctx context.Context, s *Status, item T) (U, error),
-) ([]U, error) {
-	if len(items) == 0 {
-		return []U{}, nil
-	}
-	if name == "" {
-		name = "map"
-	}
 
-	parent := MustFromContext(ctx)
-	total := int64(len(items))
-
-	var (
-		results []U
-		mapErr  error
-	)
-	done := make(chan struct{})
-
-	// Control task owns aggregate progress; children live on a SubGroup so
-	// they prune independently and do not bloat the parent's Live set forever.
-	parent.Go(name, Control, func(ctx context.Context, s *Status) error {
-		defer close(done)
-
-		s.Update(fmt.Sprintf("0/%d", total))
-		s.Progress(0, total)
-
-		childGroup, _ := parent.SubGroup(ctx)
-		results = make([]U, len(items))
-		var completed atomic.Int64
-
-		for i := range items {
-			i := i
-			item := items[i]
-
-			childName := ""
-			if taskName != nil {
-				childName = taskName(i, item)
-			}
-			if childName == "" {
-				childName = fmt.Sprintf("%s:%d", name, i)
-			}
-
-			childGroup.Go(childName, pool(item), func(ctx context.Context, itemStatus *Status) error {
-				// Do not seed Unit on children: the Control orchestrator owns
-				// the aggregate bar. Handlers may still call Progress for
-				// long-running items; otherwise TUI only shows the map bar +
-				// whatever workers opt into (avoids N in-flight unit bars).
-				u, err := handler(ctx, itemStatus, item)
-				if err != nil {
-					return err
-				}
-				results[i] = u
-
-				cur := completed.Add(1)
-				s.Progress(cur, total)
-				s.Update(fmt.Sprintf("%d/%d", cur, total))
-				return nil
-			})
-		}
-
-		mapErr = childGroup.Wait()
-		if mapErr == nil {
-			s.Progress(total, total)
-			s.Update(fmt.Sprintf("%d/%d", total, total))
-		}
-		return mapErr
-	})
-
-	select {
-	case <-done:
-	case <-ctx.Done():
-		// Control task will observe cancellation via shared pools/context; still
-		// wait for it so we do not leak the done channel waiter ordering.
-		<-done
-		if mapErr == nil {
-			mapErr = ctx.Err()
-		}
-	}
-	if mapErr != nil {
-		return nil, mapErr
-	}
-	return results, nil
-}
