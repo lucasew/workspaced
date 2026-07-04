@@ -1,18 +1,13 @@
 package config
 
 import (
-	"workspaced/pkg/cmdregistry"
+	"workspaced/cmd/workspaced/configcmd"
 
 	"github.com/spf13/cobra"
 )
 
-var Registry cmdregistry.CommandRegistry
-
 func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage configuration",
-	}
-
-	return Registry.FillCommands(cmd)
+	return configcmd.New(configcmd.Options{
+		Scope: "codebase",
+	})
 }

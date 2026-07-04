@@ -96,7 +96,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 
 	// Direct provider specs (no alias entry required): builtins + registered providers.
 	if isDirectModuleSourcePrefix(left) {
-		ref, version := splitRefAndVersion(right)
+		ref, version := SplitRefAndVersion(right)
 		resolved, err := applyVersionLock(moduleName, left, ref, version, sumFile)
 		if err != nil {
 			return ResolvedModuleSource{}, err
@@ -133,7 +133,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 			// Bare local alias with no path: treat modulesBaseDir as the root.
 			base = modulesBaseDir
 		}
-		ref, version := splitRefAndVersion(right)
+		ref, version := SplitRefAndVersion(right)
 		resolved, err := applyVersionLock(moduleName, "self", filepath.Join(base, ref), version, sumFile)
 		if err != nil {
 			return ResolvedModuleSource{}, err
@@ -148,11 +148,13 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 			return applyVersionLock(moduleName, p.ID(), fullRef, ver, sumFile)
 		}
 	}
-	ref, version := splitRefAndVersion(right)
+	ref, version := SplitRefAndVersion(right)
 	return applyVersionLock(moduleName, provider, ref, version, sumFile)
 }
 
-func splitRefAndVersion(input string) (string, string) {
+// SplitRefAndVersion splits "ref@version" on the last '@'.
+// If there is no usable version suffix, version is empty and ref is the trimmed input.
+func SplitRefAndVersion(input string) (ref, version string) {
 	in := strings.TrimSpace(input)
 	idx := strings.LastIndex(in, "@")
 	if idx <= 0 || idx == len(in)-1 {

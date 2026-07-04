@@ -21,7 +21,7 @@ func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion stri
 	if repo == "" {
 		return "", "", fmt.Errorf("github source requires repo"), true
 	}
-	ref, ver := splitRefAndVersion(pathAndVersion)
+	ref, ver := modfile.SplitRefAndVersion(pathAndVersion)
 	if ver == "" {
 		ver = strings.TrimSpace(src.Ref)
 	}
@@ -125,15 +125,6 @@ func (p Provider) LockMatchesDesired(desired, locked modfile.LockedSource) bool 
 		}
 	}
 	return false
-}
-
-func splitRefAndVersion(input string) (string, string) {
-	in := strings.TrimSpace(input)
-	idx := strings.LastIndex(in, "@")
-	if idx <= 0 || idx == len(in)-1 {
-		return in, ""
-	}
-	return strings.TrimSpace(in[:idx]), strings.TrimSpace(in[idx+1:])
 }
 
 func repoFromGitHubPackageName(packageName string) string {
