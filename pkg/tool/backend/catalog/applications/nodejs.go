@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -47,25 +45,7 @@ func (t *nodejsTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *nodejsTool) Install(ctx context.Context, version string, destDir string) error {
-	v := normalizeNodejsVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.listVersions(ctx)
-		if err != nil {
-			return err
-		}
-		if len(vers) == 0 {
-			return ErrNoNodeVersions
-		}
-		v = vers[0]
-	}
-	arts, err := t.ListArtifacts(ctx, v)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-	return t.InstallArtifact(ctx, arts[0], destDir)
+	return installFirstArtifact(ctx, version, destDir, normalizeNodejsVersion, t.listVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *nodejsTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -110,25 +90,16 @@ func (t *nodejsTool) InstallArtifact(ctx context.Context, artifact backend.Artif
 }
 
 func (t *nodejsTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
+	p, err := checks.EnsureBinary(destDir, cmdName, "Node.js", func() error {
+		return t.Install(ctx, version, destDir)
+	})
+	if err == nil {
+		return p, nil
 	}
-
-	candidates := []string{
-		filepath.Join(destDir, "bin", cmdName),
-		filepath.Join(destDir, "bin", cmdName+".exe"),
-		filepath.Join(destDir, "bin", cmdName+".cmd"),
-		filepath.Join(destDir, cmdName),
-		filepath.Join(destDir, cmdName+".exe"),
-		filepath.Join(destDir, cmdName+".cmd"),
+	if fallback := checks.FindBinary(destDir, "node"); fallback != "" {
+		return fallback, nil
 	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	// fallback
-	return filepath.Join(destDir, "bin", "node"), nil
+	return "", err
 }
 
 // --- helpers ---

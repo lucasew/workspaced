@@ -19,8 +19,12 @@ func TestBinaryCandidates(t *testing.T) {
 	want := []string{
 		filepath.Join(base, "bin", "gh"),
 		filepath.Join(base, "bin", "gh.exe"),
+		filepath.Join(base, "bin", "gh.cmd"),
+		filepath.Join(base, "bin", "gh.bat"),
 		filepath.Join(base, "gh"),
 		filepath.Join(base, "gh.exe"),
+		filepath.Join(base, "gh.cmd"),
+		filepath.Join(base, "gh.bat"),
 	}
 	if len(got) != len(want) {
 		t.Fatalf("len = %d, want %d", len(got), len(want))
@@ -206,5 +210,33 @@ func TestFindBinary(t *testing.T) {
 	}
 	if FindBinary(dir, "missing") != "" {
 		t.Fatal("expected empty for missing binary")
+	}
+}
+
+func TestEnsureBinary(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bin", "tool")
+	installed := false
+	got, err := EnsureBinary(dir, "tool", "TestTool", func() error {
+		installed = true
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(path, []byte("x"), 0o755)
+	})
+	if err != nil {
+		t.Fatalf("EnsureBinary: %v", err)
+	}
+	if !installed {
+		t.Fatal("expected install callback to run")
+	}
+	if got != path {
+		t.Fatalf("EnsureBinary = %q, want %q", got, path)
+	}
+
+	_, err = EnsureBinary(t.TempDir(), "missing", "TestTool", func() error { return nil })
+	if err == nil {
+		t.Fatal("expected error when binary missing after install")
 	}
 }

@@ -147,27 +147,19 @@ func (t *biomeTool) InstallArtifact(ctx context.Context, artifact backend.Artifa
 }
 
 func (t *biomeTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
 	name := cmdName
 	if name == "" {
 		name = "biome"
 	}
-	candidates := []string{
-		filepath.Join(destDir, name),
-		filepath.Join(destDir, name+".exe"),
-		filepath.Join(destDir, "biome"),
-		filepath.Join(destDir, "biome.exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
+	p, err := checks.EnsureBinary(destDir, name, "biome", func() error {
+		return t.Install(ctx, version, destDir)
+	})
+	if err == nil {
+		return p, nil
 	}
 	// Last resort: anything starting with biome after installBinary normalization.
-	entries, err := os.ReadDir(destDir)
-	if err == nil {
+	entries, readErr := os.ReadDir(destDir)
+	if readErr == nil {
 		for _, e := range entries {
 			if e.IsDir() {
 				continue
@@ -178,7 +170,7 @@ func (t *biomeTool) EnsureBinary(ctx context.Context, version string, cmdName st
 			}
 		}
 	}
-	return "", fmt.Errorf("binary %q not found in biome installation at %s", name, destDir)
+	return "", err
 }
 
 func (t *biomeTool) resolveVersion(ctx context.Context, version string) (string, error) {

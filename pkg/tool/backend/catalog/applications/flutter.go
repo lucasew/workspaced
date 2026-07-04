@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -35,25 +34,7 @@ func (t *flutterTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *flutterTool) Install(ctx context.Context, version string, destDir string) error {
-	v := normalizeFlutterVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.listVersions(ctx)
-		if err != nil {
-			return err
-		}
-		if len(vers) == 0 {
-			return ErrNoVersions
-		}
-		v = vers[0]
-	}
-	arts, err := t.ListArtifacts(ctx, v)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-	return t.InstallArtifact(ctx, arts[0], destDir)
+	return installFirstArtifact(ctx, version, destDir, normalizeFlutterVersion, t.listVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *flutterTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -122,24 +103,9 @@ func (t *flutterTool) InstallArtifact(ctx context.Context, artifact backend.Arti
 }
 
 func (t *flutterTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
-
-	candidates := []string{
-		filepath.Join(destDir, "bin", cmdName),
-		filepath.Join(destDir, "bin", cmdName+".bat"),
-		filepath.Join(destDir, "bin", cmdName+".exe"),
-		filepath.Join(destDir, cmdName),
-		filepath.Join(destDir, cmdName+".bat"),
-		filepath.Join(destDir, cmdName+".exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("binary %q not found in Flutter installation at %s", cmdName, destDir)
+	return checks.EnsureBinary(destDir, cmdName, "Flutter", func() error {
+		return t.Install(ctx, version, destDir)
+	})
 }
 
 // --- helpers ---

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"workspaced/pkg/driver"
@@ -135,21 +133,9 @@ func (t *llvmTool) InstallArtifact(ctx context.Context, artifact backend.Artifac
 }
 
 func (t *llvmTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
-	candidates := []string{
-		filepath.Join(destDir, "bin", cmdName),
-		filepath.Join(destDir, "bin", cmdName+".exe"),
-		filepath.Join(destDir, cmdName),
-		filepath.Join(destDir, cmdName+".exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("binary %q not found in LLVM installation at %s", cmdName, destDir)
+	return checks.EnsureBinary(destDir, cmdName, "LLVM", func() error {
+		return t.Install(ctx, version, destDir)
+	})
 }
 
 // --- helpers ---

@@ -116,23 +116,16 @@ func (t *grokBuildTool) InstallArtifact(ctx context.Context, art backend.Artifac
 }
 
 func (t *grokBuildTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
-	name := cmdName
-	if runtime.GOOS == "windows" && !strings.HasSuffix(name, ".exe") {
-		name += ".exe"
-	}
-	p := filepath.Join(destDir, name)
-	if _, err := os.Stat(p); err == nil {
+	p, err := checks.EnsureBinary(destDir, cmdName, "grok", func() error {
+		return t.Install(ctx, version, destDir)
+	})
+	if err == nil {
 		return p, nil
 	}
-	// default to grok binary
-	g := "grok"
-	if runtime.GOOS == "windows" {
-		g = "grok.exe"
+	if fallback := checks.FindBinary(destDir, "grok"); fallback != "" {
+		return fallback, nil
 	}
-	return filepath.Join(destDir, g), nil
+	return "", err
 }
 
 // --- grok-specific bits (follows https://x.ai/cli/install.sh artifact layout) ---

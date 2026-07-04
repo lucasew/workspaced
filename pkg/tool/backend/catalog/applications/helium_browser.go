@@ -2,8 +2,6 @@ package apps
 
 import (
 	"context"
-	"fmt"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -81,32 +79,7 @@ func (t *heliumBrowserTool) ListVersions(ctx context.Context) ([]string, error) 
 }
 
 func (t *heliumBrowserTool) Install(ctx context.Context, version string, destDir string) error {
-	v := strings.TrimSpace(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return err
-		}
-		if len(vers) == 0 {
-			return ErrNoVersions
-		}
-		v = vers[0]
-	}
-
-	arts, err := t.ListArtifacts(ctx, v)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-
-	artifact := backend.SelectArtifact(arts, runtime.GOOS, runtime.GOARCH, "helium")
-	if artifact == nil {
-		return fmt.Errorf("no suitable artifact found for %s/%s for registry:helium-browser@%s", runtime.GOOS, runtime.GOARCH, v)
-	}
-
-	return t.InstallArtifact(ctx, *artifact, destDir)
+	return installSelectedArtifact(ctx, version, destDir, "helium", "registry:helium-browser", strings.TrimSpace, t.ListVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *heliumBrowserTool) EnrichLockfile(entry *modfile.RenovateDependency) {

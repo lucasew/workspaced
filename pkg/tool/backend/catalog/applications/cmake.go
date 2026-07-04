@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -193,21 +192,9 @@ func (t *cmakeTool) InstallArtifact(ctx context.Context, artifact backend.Artifa
 }
 
 func (t *cmakeTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
-	candidates := []string{
-		filepath.Join(destDir, "bin", cmdName),
-		filepath.Join(destDir, "bin", cmdName+".exe"),
-		filepath.Join(destDir, cmdName),
-		filepath.Join(destDir, cmdName+".exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("binary %q not found in CMake installation at %s", cmdName, destDir)
+	return checks.EnsureBinary(destDir, cmdName, "CMake", func() error {
+		return t.Install(ctx, version, destDir)
+	})
 }
 
 // --- helpers ---

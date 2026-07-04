@@ -187,33 +187,14 @@ func formatPlain(level slog.Level, msg string, attrs []slog.Attr) string {
 }
 
 func appendPlainLogAttr(b *strings.Builder, a slog.Attr) {
-	a.Value = a.Value.Resolve()
-	if a.Equal(slog.Attr{}) {
-		return
-	}
-	if a.Value.Kind() == slog.KindGroup {
-		subs := a.Value.Group()
-		if len(subs) == 0 {
-			// Bare group marker (e.g. from WithGroup with no children at emit time).
-			// Emit nothing for flat output; grouping will have affected how the
-			// frontend delivered subsequent attrs into the record.
-			return
-		}
-		for _, sub := range subs {
-			key := a.Key
-			if key != "" {
-				key = key + "." + sub.Key
-			} else {
-				key = sub.Key
-			}
-			appendPlainLogAttr(b, slog.Attr{Key: key, Value: sub.Value})
-		}
-		return
-	}
+	appendLogAttr(b, a, writePlainLogKV)
+}
+
+func writePlainLogKV(b *strings.Builder, key string, v slog.Value) {
 	b.WriteByte(' ')
-	b.WriteString(a.Key)
+	b.WriteString(key)
 	b.WriteByte('=')
-	b.WriteString(formatPlainLogValue(a.Value))
+	b.WriteString(formatPlainLogValue(v))
 }
 
 func formatPlainLogValue(v slog.Value) string {
@@ -267,6 +248,20 @@ func formatColored(level slog.Level, msg string, attrs []slog.Attr) string {
 }
 
 func appendColoredLogAttr(b *strings.Builder, a slog.Attr) {
+	appendLogAttr(b, a, writeColoredLogKV)
+}
+
+func writeColoredLogKV(b *strings.Builder, key string, v slog.Value) {
+	// Colored key=value: dim cyan key + dim = + normal value
+	b.WriteString(" \x1b[2;36m")
+	b.WriteString(key)
+	b.WriteString("\x1b[0m\x1b[2m=\x1b[0m")
+	b.WriteString(formatPlainLogValue(v))
+}
+
+// appendLogAttr walks slog attrs (including groups) and emits leaf key=value
+// pairs through writeKV. Bare/empty group markers are skipped.
+func appendLogAttr(b *strings.Builder, a slog.Attr, writeKV func(*strings.Builder, string, slog.Value)) {
 	a.Value = a.Value.Resolve()
 	if a.Equal(slog.Attr{}) {
 		return
@@ -274,6 +269,7 @@ func appendColoredLogAttr(b *strings.Builder, a slog.Attr) {
 	if a.Value.Kind() == slog.KindGroup {
 		subs := a.Value.Group()
 		if len(subs) == 0 {
+			// Bare group marker (e.g. from WithGroup with no children at emit time).
 			return
 		}
 		for _, sub := range subs {
@@ -283,16 +279,11 @@ func appendColoredLogAttr(b *strings.Builder, a slog.Attr) {
 			} else {
 				key = sub.Key
 			}
-			appendColoredLogAttr(b, slog.Attr{Key: key, Value: sub.Value})
+			appendLogAttr(b, slog.Attr{Key: key, Value: sub.Value}, writeKV)
 		}
 		return
 	}
-
-	// Colored key=value: dim cyan key + dim = + normal value
-	b.WriteString(" \x1b[2;36m")
-	b.WriteString(a.Key)
-	b.WriteString("\x1b[0m\x1b[2m=\x1b[0m")
-	b.WriteString(formatPlainLogValue(a.Value))
+	writeKV(b, a.Key, a.Value)
 }
 
 // PlainHandler is a slog.Handler that emits records using the project's

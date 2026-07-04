@@ -19,8 +19,12 @@ func TestBinaryCandidates(t *testing.T) {
 			want: []string{
 				filepath.Join("/tools/github-cli-cli/2.0.0", "bin", "gh"),
 				filepath.Join("/tools/github-cli-cli/2.0.0", "bin", "gh.exe"),
+				filepath.Join("/tools/github-cli-cli/2.0.0", "bin", "gh.cmd"),
+				filepath.Join("/tools/github-cli-cli/2.0.0", "bin", "gh.bat"),
 				filepath.Join("/tools/github-cli-cli/2.0.0", "gh"),
 				filepath.Join("/tools/github-cli-cli/2.0.0", "gh.exe"),
+				filepath.Join("/tools/github-cli-cli/2.0.0", "gh.cmd"),
+				filepath.Join("/tools/github-cli-cli/2.0.0", "gh.bat"),
 			},
 		},
 	}

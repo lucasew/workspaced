@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -35,25 +33,7 @@ func (t *goTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *goTool) Install(ctx context.Context, version string, destDir string) error {
-	v := normalizeGoVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.listVersions(ctx)
-		if err != nil {
-			return err
-		}
-		if len(vers) == 0 {
-			return ErrNoVersions
-		}
-		v = vers[0]
-	}
-	arts, err := t.ListArtifacts(ctx, v)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-	return t.InstallArtifact(ctx, arts[0], destDir)
+	return installFirstArtifact(ctx, version, destDir, normalizeGoVersion, t.listVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *goTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -123,21 +103,10 @@ func (t *goTool) InstallArtifact(ctx context.Context, artifact backend.Artifact,
 }
 
 func (t *goTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
-
 	// After StripTopLevelDir the Go tarball/zip layout gives us bin/go, bin/gofmt, etc.
-	candidates := []string{
-		filepath.Join(destDir, "bin", cmdName),
-		filepath.Join(destDir, "bin", cmdName+".exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("binary %q not found in Go installation at %s", cmdName, destDir)
+	return checks.EnsureBinary(destDir, cmdName, "Go", func() error {
+		return t.Install(ctx, version, destDir)
+	})
 }
 
 // --- helpers ---

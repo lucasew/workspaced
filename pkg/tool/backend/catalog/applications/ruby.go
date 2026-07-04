@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -72,29 +71,7 @@ func (t *rubyTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *rubyTool) Install(ctx context.Context, version string, destDir string) error {
-	v := t.normalizeVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return err
-		}
-		if len(vers) == 0 {
-			return ErrNoVersions
-		}
-		v = vers[0]
-	}
-	arts, err := t.ListArtifacts(ctx, v)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-	artifact := backend.SelectArtifact(arts, runtime.GOOS, runtime.GOARCH, "ruby")
-	if artifact == nil {
-		return fmt.Errorf("no suitable artifact found for %s/%s for registry:ruby@%s", runtime.GOOS, runtime.GOARCH, v)
-	}
-	return t.InstallArtifact(ctx, *artifact, destDir)
+	return installSelectedArtifact(ctx, version, destDir, "ruby", "registry:ruby", t.normalizeVersion, t.ListVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *rubyTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -133,21 +110,9 @@ func (t *rubyTool) InstallArtifact(ctx context.Context, artifact backend.Artifac
 }
 
 func (t *rubyTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	if err := t.Install(ctx, version, destDir); err != nil {
-		return "", err
-	}
-	candidates := []string{
-		filepath.Join(destDir, "bin", cmdName),
-		filepath.Join(destDir, "bin", cmdName+".exe"),
-		filepath.Join(destDir, cmdName),
-		filepath.Join(destDir, cmdName+".exe"),
-	}
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			return c, nil
-		}
-	}
-	return "", fmt.Errorf("binary %q not found in Ruby installation at %s", cmdName, destDir)
+	return checks.EnsureBinary(destDir, cmdName, "Ruby", func() error {
+		return t.Install(ctx, version, destDir)
+	})
 }
 
 func (t *rubyTool) Fix(_ context.Context, destDir string) error {
