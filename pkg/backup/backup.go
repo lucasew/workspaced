@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"workspaced/pkg/cmdctx"
 	"workspaced/pkg/configcue"
@@ -67,8 +66,6 @@ func RunFullBackup(ctx context.Context) error {
 		Icon:        "drive-harddisk",
 		HasProgress: true,
 	}
-	var failuresMu sync.Mutex
-	failures := []string{}
 
 	// Determine pool: rsync/archive → IO, git_repo_sync → Internet.
 	poolFor := func(kind string) taskgroup.PoolKind {
@@ -91,7 +88,8 @@ func RunFullBackup(ctx context.Context) error {
 		items[i] = actionItem{Idx: i, Action: a}
 	}
 
-	mapErr := taskgroup.Each[actionItem]{
+	// Map each action to an optional failure string; reduce joins non-empty ones.
+	outcomes, mapErr := taskgroup.Map[actionItem, string]{
 		Name:  "backup",
 		Items: items,
 		Pool: func(item actionItem) taskgroup.PoolKind {
@@ -104,7 +102,7 @@ func RunFullBackup(ctx context.Context) error {
 			}
 			return fmt.Sprintf("backup:%s", msg)
 		},
-		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) error {
+		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) (string, error) {
 			idx := item.Idx
 			act := item.Action
 			msg := act.GetName()
@@ -114,13 +112,12 @@ func RunFullBackup(ctx context.Context) error {
 
 			logger := logging.GetLogger(ctx)
 			s.Update(msg)
-			// Each.Run owns aggregate progress.
 			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
 
 			if cmdctx.IsDryRun(ctx) {
 				logger.Info("dry-run: skipping", "name", msg)
 				logger.Info("backup action completed (dry-run)", "name", msg, "kind", act.GetKind())
-				return nil
+				return "", nil
 			}
 
 			n2 := &notification.Notification{
@@ -135,22 +132,23 @@ func RunFullBackup(ctx context.Context) error {
 
 			if err := act.Run(ctx, n2); err != nil {
 				logger.Error("backup action failed", "name", msg, "kind", act.GetKind(), "error", err)
-				failuresMu.Lock()
-				failures = append(failures, fmt.Sprintf("%s (%s): %v", msg, act.GetKind(), err))
-				failuresMu.Unlock()
-				// Don't return error — let other actions continue.
-				return nil
+				return fmt.Sprintf("%s (%s): %v", msg, act.GetKind(), err), nil
 			}
 
 			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
-			return nil
+			return "", nil
 		},
 	}.Run(ctx)
-
 	if mapErr != nil {
 		return mapErr
 	}
 
+	var failures []string
+	for _, f := range outcomes {
+		if f != "" {
+			failures = append(failures, f)
+		}
+	}
 	if len(failures) > 0 {
 		logger.Error("backup finished with failures", "count", len(failures))
 		n.Title = "Backup finalizado com falhas"

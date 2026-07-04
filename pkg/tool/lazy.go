@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 
 	"workspaced/pkg/configcue"
 	envdriver "workspaced/pkg/driver/env"
@@ -140,80 +139,67 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		name string
 		lt   modfile.LockedTool
 	}
-	var updates []update
-	var updatesMu sync.Mutex
+	resolveOne := func(ctx context.Context, s *taskgroup.Status, name string) (update, error) {
+		toolCfg := lazyTools[name]
+		spec, lockRef, err := lazyToolSpec(name, toolCfg)
+		if err != nil {
+			return update{}, err
+		}
+		version := spec.Version
+		if version == "" || version == "latest" {
+			if s != nil {
+				s.Update("resolving latest for " + name)
+			}
+			l := logging.GetLogger(ctx)
+			l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+			v, err := mgr.ResolveLatestVersion(ctx, spec)
+			if err != nil {
+				l.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
+				return update{}, err
+			}
+			version = v
+		} else if s != nil {
+			s.Update("preparing lock entry for " + name)
+		}
+		if s != nil {
+			s.Update(name + "@" + version)
+		}
+		return update{name: name, lt: lockedToolWithRenovate(lockRef, version, spec)}, nil
+	}
 
-	parent := taskgroup.FromContext(ctx)
-	if parent != nil {
-		// Run resolution for tools that need updates under the group.
-		// Resolution of "latest" (which does ListVersions) is treated as Control
-		// (orchestration) work rather than consuming the Internet pool.
-		mapErr := taskgroup.Each[string]{
+	var updates []update
+	if taskgroup.FromContext(ctx) != nil {
+		// Map resolves versions in parallel; reduce writes the lockfile serially.
+		// Latest-resolve failures become a nil-ish skip via empty name filter below
+		// only on the sequential path; under taskgroup they fail the map (prior behavior).
+		mapped, mapErr := taskgroup.Map[string, update]{
 			Name:     "lazy-tools",
 			Items:    needsWork,
 			PoolKind: taskgroup.Control,
 			TaskName: func(_ int, name string) string { return "tool:" + name },
-			Fn: func(ctx context.Context, s *taskgroup.Status, name string) error {
-				toolCfg := lazyTools[name]
-				spec, lockRef, err := lazyToolSpec(name, toolCfg)
-				if err != nil {
-					return err
-				}
-
-				version := spec.Version
-				if version == "" || version == "latest" {
-					s.Update("resolving latest for " + name)
-					l := logging.GetLogger(ctx)
-					l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-					v, err := mgr.ResolveLatestVersion(ctx, spec)
-					if err != nil {
-						l.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-						return err
-					}
-					version = v
-				} else {
-					s.Update("preparing lock entry for " + name)
-				}
-
-				lt := lockedToolWithRenovate(lockRef, version, spec)
-
-				updatesMu.Lock()
-				updates = append(updates, update{name: name, lt: lt})
-				updatesMu.Unlock()
-
-				s.Update(name + "@" + version)
-				return nil
-			},
+			Fn:       resolveOne,
 		}.Run(ctx)
 		if mapErr != nil {
 			return 0, mapErr
 		}
+		updates = mapped
 	} else {
-		// No group in context: original sequential behavior (kept for tests and
-		// direct calls that don't go through the root command group setup).
+		// No group in context: sequential resolve (tests / direct callers).
+		// Spec errors abort; latest-resolve errors skip that tool.
 		for _, name := range needsWork {
 			toolCfg := lazyTools[name]
-			spec, lockRef, err := lazyToolSpec(name, toolCfg)
-			if err != nil {
+			if _, _, err := lazyToolSpec(name, toolCfg); err != nil {
 				return 0, fmt.Errorf("lazy tool %q: %w", name, err)
 			}
-
-			version := spec.Version
-			if version == "" || version == "latest" {
-				logger.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-				version, err = mgr.ResolveLatestVersion(ctx, spec)
-				if err != nil {
-					logger.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
-					continue
-				}
+			u, err := resolveOne(ctx, nil, name)
+			if err != nil {
+				continue
 			}
-
-			lt := lockedToolWithRenovate(lockRef, version, spec)
-			updates = append(updates, update{name: name, lt: lt})
+			updates = append(updates, u)
 		}
 	}
 
-	// Apply collected updates serially (lockfile mutation must be safe).
+	// Reduce: apply collected updates serially (lockfile mutation must be safe).
 	for _, u := range updates {
 		name := u.name
 		lt := u.lt

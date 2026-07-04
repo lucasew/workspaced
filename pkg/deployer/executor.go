@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+
 	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/source"
@@ -74,14 +74,31 @@ func NewExecutor() *Executor {
 	return &Executor{}
 }
 
+// statePatch is the pure state delta produced by applying one action's filesystem work.
+type statePatch struct {
+	delete bool
+	target string
+	info   ManagedInfo
+}
+
+func applyPatch(state *State, p statePatch) {
+	if state == nil {
+		return
+	}
+	if p.delete {
+		delete(state.Files, p.target)
+		return
+	}
+	state.Files[p.target] = p.info
+}
+
 // Execute applies a list of actions and updates state.
-// When a taskgroup.Group is present in ctx, actions are applied concurrently
-// (bounded by the IO pool) using Map. State mutations are protected by a mutex.
+// With a taskgroup in ctx, filesystem work is mapped in parallel; state patches
+// are reduced in input order afterward (no mutex on the live state map).
 func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) error {
 	logger := logging.GetLogger(ctx)
 	orderedActions := SortActions(actions)
 
-	// Collect non-noop work items.
 	work := make([]Action, 0, len(orderedActions))
 	for _, a := range orderedActions {
 		if a.Type != ActionNoop {
@@ -92,23 +109,16 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 		return nil
 	}
 
-	var stateMu sync.Mutex
-
-	// applyOne performs the filesystem work for a single action and updates
-	// the state map under the mutex (safe for concurrent use).
-	applyOne := func(ctx context.Context, action Action) error {
+	applyFS := func(ctx context.Context, action Action) (statePatch, error) {
 		switch action.Type {
 		case ActionDelete:
 			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
 			if _, err := os.Lstat(action.Target); err == nil {
 				if err := os.Remove(action.Target); err != nil {
-					return fmt.Errorf("failed to remove orphaned file %s: %w", action.Target, err)
+					return statePatch{}, fmt.Errorf("failed to remove orphaned file %s: %w", action.Target, err)
 				}
 			}
-			stateMu.Lock()
-			delete(state.Files, action.Target)
-			stateMu.Unlock()
-			return nil
+			return statePatch{delete: true, target: action.Target}, nil
 
 		case ActionCreate, ActionUpdate:
 			if action.Type == ActionCreate {
@@ -118,95 +128,89 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			}
 
 			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
-				return fmt.Errorf("failed to create parent directory for %s: %w", action.Target, err)
+				return statePatch{}, fmt.Errorf("failed to create parent directory for %s: %w", action.Target, err)
 			}
 
 			if _, err := os.Lstat(action.Target); err == nil {
 				if err := os.RemoveAll(action.Target); err != nil {
-					return fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
+					return statePatch{}, fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
 				}
 			}
 
+			info := ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
 			if action.Desired.File.Type() == source.TypeSymlink {
 				linkTarget, err := action.Desired.File.LinkTarget()
 				if err != nil {
-					return fmt.Errorf("failed to get link target for %s: %w", action.Desired.File.SourceInfo(), err)
+					return statePatch{}, fmt.Errorf("failed to get link target for %s: %w", action.Desired.File.SourceInfo(), err)
 				}
 				if err := os.Symlink(linkTarget, action.Target); err != nil {
-					return fmt.Errorf("failed to create symlink %s -> %s: %w", action.Target, linkTarget, err)
+					return statePatch{}, fmt.Errorf("failed to create symlink %s -> %s: %w", action.Target, linkTarget, err)
 				}
-				stateMu.Lock()
-				state.Files[action.Target] = ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
-				stateMu.Unlock()
-				return nil
+				return statePatch{target: action.Target, info: info}, nil
 			}
 
 			f, err := os.OpenFile(action.Target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, action.Desired.File.Mode())
 			if err != nil {
-				return fmt.Errorf("failed to open target file %s: %w", action.Target, err)
+				return statePatch{}, fmt.Errorf("failed to open target file %s: %w", action.Target, err)
 			}
 
 			reader, err := action.Desired.File.Reader()
 			if err != nil {
 				logging.Close(ctx, f)
-				return fmt.Errorf("failed to get reader for %s: %w", action.Desired.File.SourceInfo(), err)
+				return statePatch{}, fmt.Errorf("failed to get reader for %s: %w", action.Desired.File.SourceInfo(), err)
 			}
 
 			_, err = io.Copy(f, reader)
 			logging.Close(ctx, reader)
 			logging.Close(ctx, f)
-
 			if err != nil {
-				return fmt.Errorf("failed to write content to %s: %w", action.Target, err)
+				return statePatch{}, fmt.Errorf("failed to write content to %s: %w", action.Target, err)
 			}
+			return statePatch{target: action.Target, info: info}, nil
+		}
+		return statePatch{}, nil
+	}
 
-			stateMu.Lock()
-			state.Files[action.Target] = ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
-			stateMu.Unlock()
-			return nil
+	taskName := func(_ int, a Action) string {
+		p := PrettyPath(a.Target)
+		switch a.Type {
+		case ActionCreate:
+			return "create:" + p
+		case ActionUpdate:
+			return "update:" + p
+		case ActionDelete:
+			return "delete:" + p
+		default:
+			return "apply:" + p
+		}
+	}
+
+	if taskgroup.FromContext(ctx) != nil {
+		patches, err := taskgroup.Map[Action, statePatch]{
+			Name:     "apply",
+			Items:    work,
+			PoolKind: taskgroup.IO,
+			TaskName: taskName,
+			Fn: func(ctx context.Context, s *taskgroup.Status, a Action) (statePatch, error) {
+				s.Update(PrettyPath(a.Target))
+				return applyFS(ctx, a)
+			},
+		}.Run(ctx)
+		if err != nil {
+			return err
+		}
+		for _, p := range patches {
+			applyPatch(state, p)
 		}
 		return nil
 	}
 
-	// If we have a task group in context, run the actions in parallel
-	// using the IO pool. Each action gets its own task + Status.
-	if taskgroup.FromContext(ctx) != nil {
-		err := taskgroup.Each[Action]{
-			Name:     "apply",
-			Items:    work,
-			PoolKind: taskgroup.IO,
-			TaskName: func(_ int, a Action) string {
-				p := PrettyPath(a.Target)
-				switch a.Type {
-				case ActionCreate:
-					return "create:" + p
-				case ActionUpdate:
-					return "update:" + p
-				case ActionDelete:
-					return "delete:" + p
-				default:
-					return "apply:" + p
-				}
-			},
-			Fn: func(ctx context.Context, s *taskgroup.Status, a Action) error {
-				s.Update(PrettyPath(a.Target))
-				if err := applyOne(ctx, a); err != nil {
-					return err
-				}
-				return nil
-			},
-		}.Run(ctx)
-		return err
-	}
-
-	// Sequential fallback (no taskgroup in ctx).
 	for _, a := range work {
-		if err := applyOne(ctx, a); err != nil {
+		p, err := applyFS(ctx, a)
+		if err != nil {
 			return err
 		}
+		applyPatch(state, p)
 	}
 	return nil
 }
-
-// compile-time check that taskgroup is imported
-var _ = taskgroup.IO

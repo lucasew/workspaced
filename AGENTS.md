@@ -52,6 +52,8 @@ Register by importing the impl package from the central prelude.
 - Using raw `os/exec` or `http.DefaultClient` in feature code.
 - Treating tools as first-class backends instead of going through registries/backends.
 - Putting lists in module config.
+- `Each` + `mu.Lock` + `append` to build a result list (use `Map` + pure reduce instead).
+- Hand-rolled `WaitGroup`/`chan` fan-out when a Session/`taskgroup.Group` is already on `ctx`.
 
 See CODEMAP.md for the short "how to locate X" recipes.
 
@@ -62,3 +64,10 @@ See CODEMAP.md for the short "how to locate X" recipes.
 - Prefer to use channels  over shared mutable state with a lock if it makes stuff simpler, which is often.
 - All context.Background and alike situations must have a good reason. Just not having a context in scope is not a good reason.
 - Actual data that could be piped to another program should be written to stdout. The rest of command output must be written to stderr. stdout is normally only used to pipe data suitable to other command line software where it must not have to take more than one line into consideration for a specific operation (things where each thing is a line, or JSONL).
+
+### Taskgroup map/reduce
+Parallel work over a list goes through `pkg/taskgroup` (see package doc for progress hierarchy: one owner per bar; `Isolate` / `GoIsolated` / `Map` / `Each`).
+- **`Map[T,U].Run`**: fan-out that returns `[]U` in input order. Reduce with a pure merge (`errors.Join`, `BundleRuns`, ordered lockfile writes, state patches).
+- **`Each[T].Run`**: fan-out when only success/failure matters (no `struct{}` results).
+- **Rule of thumb**: `Each` + mutex + `append` ⇒ `Map` + pure reduce. Shared mutable state touched from parallel FS/network work ⇒ return a **patch** from the map step and apply patches serially in the reduce step.
+- Do not wrap `Map`/`Each` in an extra `Control`+`Unit` shell when they already own the aggregate bar.

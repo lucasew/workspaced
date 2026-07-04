@@ -19,6 +19,7 @@ CUE config (`workspaced.cue`) drives everything.
 - `pkg/tool/checks` — optional `InstallChecker` validates install trees; `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) runs full install verification; dependency of `mise release`, and on CI for `refs/tags/*` (auto via `CI`+`GITHUB_REF` or the autorelease workflow step)
 - `pkg/configcue/`, `pkg/modfile/`, `pkg/source/` — config + state + rendering
 - `pkg/apply/`, `pkg/deployer/` — the apply flow
+- `pkg/taskgroup/` — Session, progress UI, `Map`/`Each`/`Isolate` (see package doc + AGENTS.md map/reduce rule)
 - `cmd/workspaced/root.go` — only place that imports driver/tool preludes
 
 ## Registration (all init() based)

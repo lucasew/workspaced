@@ -15,8 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"text/template"
 
 	"workspaced/pkg/configcue"
@@ -83,10 +81,6 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		maxSize = sizes[len(sizes)-1]
 	}
 
-	dirsUsed := map[string]bool{}
-	var dirsUsedMu sync.Mutex
-	var written int64
-
 	// Ensure the rasterizer (resvg) is ready before we even schedule the
 	// icons processing control task. This ensures the tool resolution step
 	// (which may install/download) completes and its progress task finishes
@@ -97,8 +91,8 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		}
 	}
 
-	// Each.Run owns the single aggregate bar (named icon-theme:…).
-	err = taskgroup.Each[string]{
+	// Map each icon to the theme dirs it touched; reduce merges into index theme.
+	perIconDirs, err := taskgroup.Map[string, []string]{
 		Name:     "icon-theme:" + opts.ThemeName,
 		Items:    paths,
 		PoolKind: taskgroup.CPU,
@@ -113,12 +107,12 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 			relOut = stripLeadingSizeDir(relOut)
 			return "icon:" + filepath.ToSlash(relOut)
 		},
-		Fn: func(ctx context.Context, itemS *taskgroup.Status, iconPath string) error {
-			localDirs := map[string]bool{}
+		Fn: func(ctx context.Context, itemS *taskgroup.Status, iconPath string) ([]string, error) {
+			var localDirs []string
 
 			rel, err := filepath.Rel(inputDir, iconPath)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			relOut := strings.TrimSuffix(rel, ".tmpl")
 			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
@@ -135,24 +129,24 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 
 			svgContent, err := renderSVG(iconPath, colors, colorReplacements, opts.MapScheme, opts.ThemeName, iconName)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			targetSVG := filepath.Join(outputDir, "scalable", relOut)
 			if err := os.MkdirAll(filepath.Dir(targetSVG), 0755); err != nil {
-				return err
+				return nil, err
 			}
 			if err := os.WriteFile(targetSVG, []byte(svgContent), 0644); err != nil {
-				return err
+				return nil, err
 			}
-			localDirs[filepath.ToSlash(filepath.Join("scalable", ctxDir))] = true
+			localDirs = append(localDirs, filepath.ToSlash(filepath.Join("scalable", ctxDir)))
 
 			if !opts.NoRaster {
 				ratio := extractSVGAspectRatio(svgContent)
 				maxW, maxH := fitSizePreservingAspect(ratio, maxSize)
 				renderedMax, err := svgraster.RasterizeSVG(ctx, svgContent, maxW, maxH)
 				if err != nil {
-					return err
+					return nil, err
 				}
 
 				for _, sz := range sizes {
@@ -168,35 +162,35 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 					sizeDir := filepath.Join(fmt.Sprintf("%dx%d", sz, sz), ctxDir)
 					targetPNG := filepath.Join(outputDir, sizeDir, iconName+".png")
 					if err := os.MkdirAll(filepath.Dir(targetPNG), 0755); err != nil {
-						return err
+						return nil, err
 					}
 					f, err := os.Create(targetPNG)
 					if err != nil {
-						return err
+						return nil, err
 					}
 					if err := fastPNGEncoder.Encode(f, final); err != nil {
 						logging.Close(ctx, f)
-						return err
+						return nil, err
 					}
 					if err := f.Close(); err != nil {
-						return err
+						return nil, err
 					}
-					localDirs[filepath.ToSlash(sizeDir)] = true
+					localDirs = append(localDirs, filepath.ToSlash(sizeDir))
 				}
 			}
 
-			dirsUsedMu.Lock()
-			for d := range localDirs {
-				dirsUsed[d] = true
-			}
-			dirsUsedMu.Unlock()
-
-			atomic.AddInt64(&written, 1)
-			return nil
+			return localDirs, nil
 		},
 	}.Run(ctx)
 	if err != nil {
 		return err
+	}
+
+	dirsUsed := map[string]bool{}
+	for _, dirs := range perIconDirs {
+		for _, d := range dirs {
+			dirsUsed[d] = true
+		}
 	}
 
 	if err := writeIndexTheme(outputDir, opts.ThemeName, dirsUsed); err != nil {
@@ -210,7 +204,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		}
 	}
 
-	_, _ = fmt.Fprintf(opts.Stdout, "generated icon theme %q in %s (%d SVG files, deduped %d/%d)\n", opts.ThemeName, outputDir, int(atomic.LoadInt64(&written)), dedupedCount, originalCount)
+	_, _ = fmt.Fprintf(opts.Stdout, "generated icon theme %q in %s (%d SVG files, deduped %d/%d)\n", opts.ThemeName, outputDir, len(perIconDirs), dedupedCount, originalCount)
 	return nil
 }
 

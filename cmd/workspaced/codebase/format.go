@@ -42,7 +42,7 @@ func init() {
 				g := taskgroup.MustFromContext(ctx)
 				g.Go("codebase:format", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("running formatters")
-					// formatter.RunAll uses Map for the aggregate bar.
+					// formatter.RunAll maps each tool to an error, then joins failures.
 					return formatter.RunAll(ctx, root)
 				})
 				return nil
