@@ -2,11 +2,9 @@ package termux
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
-	"workspaced/pkg/api"
-	"workspaced/pkg/constants"
+
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 )
@@ -21,38 +19,35 @@ func (f *Factory) ID() string   { return "env_termux" }
 func (f *Factory) Name() string { return "Termux Environment" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if os.Getenv("TERMUX_VERSION") == "" {
-		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
-	}
-	return nil
+	return driver.RequireTermux()
 }
 
-func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) {
-	return &Driver{}, nil
-}
+func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) { return &Driver{}, nil }
 
 type Driver struct{}
 
-func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	// Use unified candidate list from constants
-	// Note: Termux uses its own home directory handling via GetHomeDir
-	for _, path := range constants.DotfilesCandidates {
-		// Expand ~ using Termux-aware home directory
-		expanded := envdriver.ExpandPath(path)
-		if info, err := os.Stat(expanded); err == nil && info.IsDir() {
-			return expanded, nil
+func (d *Driver) GetHomeDir(ctx context.Context) (string, error) {
+	home := os.Getenv("HOME")
+	if home == "" || home == "/home" {
+		prefix := os.Getenv("PREFIX")
+		if prefix == "" {
+			prefix = "/data/data/com.termux/files/usr"
 		}
+		home = filepath.Join(filepath.Dir(prefix), "home")
 	}
-
-	return "", api.ErrDotfilesRootNotFound
+	return home, nil
 }
 
-func (d *Driver) GetHostname(ctx context.Context) (string, error) {
-	hostname, err := os.Hostname()
+func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
+	home, err := d.GetHomeDir(ctx)
 	if err != nil {
 		return "", err
 	}
-	return hostname, nil
+	return envdriver.FindDotfilesRoot(home)
+}
+
+func (d *Driver) GetHostname(ctx context.Context) (string, error) {
+	return envdriver.Hostname(ctx)
 }
 
 func (d *Driver) GetUserDataDir(ctx context.Context) (string, error) {
@@ -60,11 +55,7 @@ func (d *Driver) GetUserDataDir(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	path := filepath.Join(home, ".local/share/workspaced")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return "", err
-	}
-	return path, nil
+	return envdriver.EnsureUnderHome(home, ".local/share/workspaced")
 }
 
 func (d *Driver) GetConfigDir(ctx context.Context) (string, error) {
@@ -72,55 +63,24 @@ func (d *Driver) GetConfigDir(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, ".config/workspaced")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", err
-	}
-	return dir, nil
+	return envdriver.EnsureUnderHome(home, ".config/workspaced")
 }
 
-func (d *Driver) GetHomeDir(ctx context.Context) (string, error) {
-	// In Termux, handle both chrooted and non-chrooted environments
-	home := os.Getenv("HOME")
+func (d *Driver) IsPhone(ctx context.Context) bool { return true }
 
-	// If HOME is /home (chrooted) or empty, use Termux default
-	if home == "" || home == "/home" {
-		prefix := os.Getenv("PREFIX")
-		if prefix == "" {
-			prefix = "/data/data/com.termux/files/usr"
-		}
-		// Home is one level up from PREFIX
-		home = filepath.Join(filepath.Dir(prefix), "home")
-	}
-
-	return home, nil
-}
-
-func (d *Driver) IsPhone(ctx context.Context) bool {
-	return true // Termux always runs on Android phones
-}
-
-func (d *Driver) IsNixOS(ctx context.Context) bool {
-	return false // Termux is not NixOS
-}
+func (d *Driver) IsNixOS(ctx context.Context) bool { return false }
 
 func (d *Driver) GetEssentialPaths(ctx context.Context) []string {
 	prefix := os.Getenv("PREFIX")
 	if prefix == "" {
 		prefix = "/data/data/com.termux/files/usr"
 	}
-
-	paths := []string{
-		filepath.Join(prefix, "bin"),
-	}
-
+	paths := []string{filepath.Join(prefix, "bin")}
 	if home, err := d.GetHomeDir(ctx); err == nil {
 		paths = append(paths, filepath.Join(home, ".local/bin"))
 	}
-
 	if dataDir, err := d.GetUserDataDir(ctx); err == nil {
 		paths = append(paths, filepath.Join(dataDir, "shim/global"))
 	}
-
 	return paths
 }

@@ -24,10 +24,7 @@ func (f *Factory) ID() string   { return "audio_pulse" }
 func (f *Factory) Name() string { return "PulseAudio (pactl)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "pactl") {
-		return fmt.Errorf("%w: pactl not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "pactl")
 }
 
 func (f *Factory) New(ctx context.Context) (audio.Driver, error) {

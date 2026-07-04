@@ -2,7 +2,6 @@ package kitty
 
 import (
 	"context"
-	"fmt"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/terminal"
@@ -18,10 +17,7 @@ func (f *Factory) ID() string   { return "terminal_kitty" }
 func (f *Factory) Name() string { return "Kitty" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "kitty") {
-		return fmt.Errorf("%w: kitty not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "kitty")
 }
 
 func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {

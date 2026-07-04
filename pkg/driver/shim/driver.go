@@ -33,20 +33,12 @@ func Get(ctx context.Context) (Driver, error) {
 
 // GenerateContent creates shim script content using the active driver
 func GenerateContent(ctx context.Context, command []string) (string, error) {
-	d, err := Get(ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.GenerateContent(command)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GenerateContent(command) })
 }
 
 // Generate creates a shim using the active driver
 func Generate(ctx context.Context, path string, command []string) error {
-	d, err := Get(ctx)
-	if err != nil {
-		return err
-	}
-	return d.Generate(ctx, path, command)
+	return driver.With(ctx, func(d Driver) error { return d.Generate(ctx, path, command) })
 }
 
 // LocalBinDir returns ~/.local/bin for the current user.

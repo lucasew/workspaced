@@ -20,10 +20,7 @@ func (f *Factory) ID() string   { return "brightness_ctl" }
 func (f *Factory) Name() string { return "brightnessctl" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "brightnessctl") {
-		return fmt.Errorf("%w: brightnessctl not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "brightnessctl")
 }
 
 func (f *Factory) New(ctx context.Context) (brightness.Driver, error) {

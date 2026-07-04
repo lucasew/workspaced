@@ -14,11 +14,7 @@ import (
 // Sync performs an rsync transfer using the selected driver.
 // See Driver.Sync for semantics and taskgroup integration.
 func Sync(ctx context.Context, src, dst string, opts Options) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.Sync(ctx, src, dst, opts)
+	return driver.With(ctx, func(d Driver) error { return d.Sync(ctx, src, dst, opts) })
 }
 
 // RunWithTaskGroup is the helper implementations call from their Sync method.

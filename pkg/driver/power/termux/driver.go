@@ -3,7 +3,6 @@ package termux
 import (
 	"context"
 	"fmt"
-	"os"
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
@@ -20,10 +19,7 @@ func (f *Factory) ID() string   { return "power_termux" }
 func (f *Factory) Name() string { return "Termux" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if os.Getenv("TERMUX_VERSION") == "" {
-		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
-	}
-	return nil
+	return driver.RequireTermux()
 }
 
 func (f *Factory) New(ctx context.Context) (power.Driver, error) {

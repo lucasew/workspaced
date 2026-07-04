@@ -2,6 +2,7 @@ package exec
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 
 	"workspaced/pkg/driver"
@@ -57,4 +58,22 @@ func MustRun(ctx context.Context, name string, args ...string) *exec.Cmd {
 		return exec.CommandContext(ctx, name, args...)
 	}
 	return cmd
+}
+
+// RequireBinary returns driver.ErrIncompatible when name is missing from PATH.
+func RequireBinary(ctx context.Context, name string) error {
+	if IsBinaryAvailable(ctx, name) {
+		return nil
+	}
+	return fmt.Errorf("%w: %s not found", driver.ErrIncompatible, name)
+}
+
+// RequireBinaries returns the first RequireBinary error for names.
+func RequireBinaries(ctx context.Context, names ...string) error {
+	for _, name := range names {
+		if err := RequireBinary(ctx, name); err != nil {
+			return err
+		}
+	}
+	return nil
 }

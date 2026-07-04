@@ -18,10 +18,7 @@ func (f *Factory) ID() string   { return "notification_notify_send" }
 func (f *Factory) Name() string { return "notify-send" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "notify-send") {
-		return fmt.Errorf("%w: notify-send not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "notify-send")
 }
 
 func (f *Factory) New(ctx context.Context) (notification.Driver, error) {

@@ -4,84 +4,53 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"workspaced/pkg/api"
-	"workspaced/pkg/constants"
+
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 )
 
 type Factory struct{}
 
-func (f *Factory) ID() string {
-	return "env_native"
-}
+func (f *Factory) ID() string   { return "env_native" }
+func (f *Factory) Name() string { return "Native Environment" }
 
-func (f *Factory) Name() string {
-	return "Native Environment"
-}
+func (f *Factory) CheckCompatibility(ctx context.Context) error { return nil }
 
-func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	// Always compatible
-	return nil
-}
-
-func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) {
-	return &Driver{}, nil
-}
+func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) { return &Driver{}, nil }
 
 type Driver struct{}
 
-func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	for _, path := range constants.DotfilesCandidates {
-		// Expand ~ and environment variables
-		expanded := envdriver.ExpandPath(path)
-		if info, err := os.Stat(expanded); err == nil && info.IsDir() {
-			return expanded, nil
-		}
-	}
+func (d *Driver) GetHomeDir(ctx context.Context) (string, error) { return os.UserHomeDir() }
 
-	return "", api.ErrDotfilesRootNotFound
+func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
+	home, err := d.GetHomeDir(ctx)
+	if err != nil {
+		return "", err
+	}
+	return envdriver.FindDotfilesRoot(home)
 }
 
 func (d *Driver) GetHostname(ctx context.Context) (string, error) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "", err
-	}
-	return hostname, nil
+	return envdriver.Hostname(ctx)
 }
 
 func (d *Driver) GetUserDataDir(ctx context.Context) (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := d.GetHomeDir(ctx)
 	if err != nil {
 		return "", err
 	}
-	path := filepath.Join(home, ".local/share/workspaced")
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return "", err
-	}
-	return path, nil
+	return envdriver.EnsureUnderHome(home, ".local/share/workspaced")
 }
 
 func (d *Driver) GetConfigDir(ctx context.Context) (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := d.GetHomeDir(ctx)
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, ".config/workspaced")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", err
-	}
-	return dir, nil
+	return envdriver.EnsureUnderHome(home, ".config/workspaced")
 }
 
-func (d *Driver) GetHomeDir(ctx context.Context) (string, error) {
-	return os.UserHomeDir()
-}
-
-func (d *Driver) IsPhone(ctx context.Context) bool {
-	return os.Getenv("TERMUX_VERSION") != ""
-}
+func (d *Driver) IsPhone(ctx context.Context) bool { return driver.IsTermux() }
 
 func (d *Driver) IsNixOS(ctx context.Context) bool {
 	_, err := os.Stat("/etc/NIXOS")
@@ -90,20 +59,15 @@ func (d *Driver) IsNixOS(ctx context.Context) bool {
 
 func (d *Driver) GetEssentialPaths(ctx context.Context) []string {
 	paths := []string{"/run/wrappers/bin", "/run/current-system/sw/bin"}
-
-	if home, err := os.UserHomeDir(); err == nil {
-		paths = append(paths, filepath.Join(home, ".nix-profile/bin"))
-		paths = append(paths, filepath.Join(home, ".local/bin"))
+	if home, err := d.GetHomeDir(ctx); err == nil {
+		paths = append(paths, filepath.Join(home, ".nix-profile/bin"), filepath.Join(home, ".local/bin"))
 	}
-
 	if root, err := d.GetDotfilesRoot(ctx); err == nil && root != "" {
 		paths = append(paths, filepath.Join(root, "bin/shim"))
 	}
-
 	if dataDir, err := d.GetUserDataDir(ctx); err == nil && dataDir != "" {
 		paths = append(paths, filepath.Join(dataDir, "shim/global"))
 	}
-
 	return paths
 }
 

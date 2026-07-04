@@ -21,11 +21,7 @@ type WebappConfig struct {
 
 // Open opens a generic target (file or URL) using the available opener driver.
 func Open(ctx context.Context, target string) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.Open(ctx, target)
+	return driver.With(ctx, func(d Driver) error { return d.Open(ctx, target) })
 }
 
 // OpenWebapp launches a URL as a webapp using the configured browser engine.

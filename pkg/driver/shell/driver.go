@@ -18,9 +18,5 @@ func Get(ctx context.Context) (Driver, error) {
 
 // Path returns the path to the active shell
 func Path(ctx context.Context) (string, error) {
-	d, err := Get(ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.Path(ctx)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.Path(ctx) })
 }

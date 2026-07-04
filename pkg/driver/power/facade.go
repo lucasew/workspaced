@@ -11,35 +11,19 @@ import (
 )
 
 func Lock(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.Lock(ctx)
+	return driver.With(ctx, func(d Driver) error { return d.Lock(ctx) })
 }
 
 func Reboot(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.Reboot(ctx)
+	return driver.With(ctx, func(d Driver) error { return d.Reboot(ctx) })
 }
 
 func Shutdown(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.Shutdown(ctx)
+	return driver.With(ctx, func(d Driver) error { return d.Shutdown(ctx) })
 }
 
 func Suspend(ctx context.Context) error {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return err
-	}
-	return d.Suspend(ctx)
+	return driver.With(ctx, func(d Driver) error { return d.Suspend(ctx) })
 }
 
 func Wake(ctx context.Context, host string) error {

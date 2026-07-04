@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -27,10 +26,7 @@ func (f *Factory) ID() string   { return "httpclient_termux" }
 func (f *Factory) Name() string { return "Termux HTTP Client" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if os.Getenv("TERMUX_VERSION") == "" {
-		return fmt.Errorf("%w: not running in Termux", driver.ErrIncompatible)
-	}
-	return nil
+	return driver.RequireTermux()
 }
 
 func (f *Factory) New(ctx context.Context) (httpclientdriver.Driver, error) {

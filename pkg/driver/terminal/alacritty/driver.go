@@ -2,7 +2,6 @@ package alacritty
 
 import (
 	"context"
-	"fmt"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/terminal"
@@ -18,10 +17,7 @@ func (f *Factory) ID() string   { return "terminal_alacritty" }
 func (f *Factory) Name() string { return "Alacritty" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "alacritty") {
-		return fmt.Errorf("%w: alacritty not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "alacritty")
 }
 
 func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {

@@ -25,10 +25,7 @@ func (f *Factory) ID() string   { return "rsync_native" }
 func (f *Factory) Name() string { return "Native rsync" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "rsync") {
-		return fmt.Errorf("%w: rsync", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "rsync")
 }
 
 func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {

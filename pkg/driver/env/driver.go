@@ -40,47 +40,27 @@ type Driver interface {
 
 // GetDotfilesRoot locates the root directory of the dotfiles repository.
 func GetDotfilesRoot(ctx context.Context) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.GetDotfilesRoot(ctx)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetDotfilesRoot(ctx) })
 }
 
 // GetHostname returns the current system hostname.
 func GetHostname(ctx context.Context) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.GetHostname(ctx)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetHostname(ctx) })
 }
 
 // GetUserDataDir returns the path to the user data directory for workspaced.
 func GetUserDataDir(ctx context.Context) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.GetUserDataDir(ctx)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetUserDataDir(ctx) })
 }
 
 // GetConfigDir returns the path to the user config directory for workspaced.
 func GetConfigDir(ctx context.Context) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.GetConfigDir(ctx)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetConfigDir(ctx) })
 }
 
 // GetHomeDir returns the actual user home directory.
 func GetHomeDir(ctx context.Context) (string, error) {
-	d, err := driver.Get[Driver](ctx)
-	if err != nil {
-		return "", err
-	}
-	return d.GetHomeDir(ctx)
+	return driver.WithResult(ctx, func(d Driver) (string, error) { return d.GetHomeDir(ctx) })
 }
 
 // IsPhone checks if the environment suggests we are running on a phone.
@@ -103,11 +83,13 @@ func IsNixOS(ctx context.Context) bool {
 
 // GetEssentialPaths returns platform-specific essential PATH directories.
 func GetEssentialPaths(ctx context.Context) []string {
-	d, err := driver.Get[Driver](ctx)
+	paths, err := driver.WithResult(ctx, func(d Driver) ([]string, error) {
+		return d.GetEssentialPaths(ctx), nil
+	})
 	if err != nil {
 		return nil
 	}
-	return d.GetEssentialPaths(ctx)
+	return paths
 }
 
 // IsInStore checks if the dotfiles root is located inside the Nix store.
@@ -119,23 +101,34 @@ func IsInStore(ctx context.Context) bool {
 	return len(root) >= 10 && root[:10] == "/nix/store"
 }
 
-// ExpandPath expands ~ to home directory and environment variables in a path.
-// Examples:
-//   - "~/.config" -> "/home/user/.config"
-//   - "$HOME/bin" -> "/home/user/bin"
-//   - "~/file with spaces" -> "/home/user/file with spaces"
+// ExpandPath expands ~ via os.UserHomeDir and $VAR via os.ExpandEnv.
+// Callers that know a driver-specific home should use ExpandPathIn instead.
 func ExpandPath(path string) string {
-	if len(path) > 0 && path[0] == '~' {
-		if home, err := os.UserHomeDir(); err == nil {
-			if len(path) == 1 {
-				return home
-			}
-			if path[1] == '/' {
-				return filepath.Join(home, path[2:])
-			}
+	home, _ := os.UserHomeDir()
+	return ExpandPathIn(path, home)
+}
+
+// ExpandPathIn expands ~ using home and $VAR via os.ExpandEnv.
+// Empty home leaves a leading ~ unexpanded.
+func ExpandPathIn(path, home string) string {
+	if home != "" && strings.HasPrefix(path, "~") {
+		if path == "~" {
+			return home
+		}
+		if path[1] == '/' || path[1] == filepath.Separator {
+			return filepath.Join(home, path[2:])
 		}
 	}
 	return os.ExpandEnv(path)
+}
+
+// ExpandPathContext expands path using the active env driver's home directory.
+func ExpandPathContext(ctx context.Context, path string) (string, error) {
+	home, err := GetHomeDir(ctx)
+	if err != nil {
+		return "", err
+	}
+	return ExpandPathIn(path, home), nil
 }
 
 // NormalizeURL normalizes a URL by adding a protocol if missing.
