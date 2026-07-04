@@ -1,53 +1,7 @@
 package sh
 
-import (
-	"context"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	shelldriver "workspaced/pkg/driver/shell"
-)
-
-type Factory struct{}
-
-func (f *Factory) ID() string {
-	return "shell_sh"
-}
-
-func (f *Factory) Name() string {
-	return "POSIX sh"
-}
-
-func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	_, err := execdriver.Which(ctx, "sh")
-	return err
-}
-
-func (f *Factory) New(ctx context.Context) (shelldriver.Driver, error) {
-	return &Driver{}, nil
-}
-
-type Driver struct{}
-
-func (d *Driver) ID() string {
-	return "shell_sh"
-}
-
-func (d *Driver) Name() string {
-	return "POSIX sh"
-}
-
-func (d *Driver) CheckCompatibility(ctx context.Context) error {
-	return nil
-}
-
-func (d *Driver) New(ctx context.Context) (shelldriver.Driver, error) {
-	return d, nil
-}
-
-func (d *Driver) Path(ctx context.Context) (string, error) {
-	return execdriver.Which(ctx, "sh")
-}
+import "workspaced/pkg/driver/shell"
 
 func init() {
-	driver.Register[shelldriver.Driver](&Factory{})
+	shell.RegisterWhich("shell_sh", "POSIX sh", "sh")
 }

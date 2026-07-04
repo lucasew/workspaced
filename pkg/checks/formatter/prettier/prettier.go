@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/formatter"
@@ -39,8 +38,5 @@ func (c *check) Format(ctx context.Context, dir string) error {
 		}
 		return fmt.Errorf("prepare prettier command: %w", err)
 	}
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return checks.RunAttached(cmd, dir)
 }

@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -71,7 +70,7 @@ var Command = &cobra.Command{
 		try, _ := c.Flags().GetBool("try")
 		ctx := c.Context()
 		if try {
-			socketPath := getSocketPath()
+			socketPath := types.DaemonSocketPath()
 			conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
 			if err == nil {
 				logging.Close(ctx, conn)
@@ -100,14 +99,6 @@ var Command = &cobra.Command{
 
 func init() {
 	Command.Flags().Bool("try", false, "Exit if daemon is already running")
-}
-
-func getSocketPath() string {
-	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
-	if runtimeDir == "" {
-		runtimeDir = fmt.Sprintf("/run/user/%d", os.Getuid())
-	}
-	return filepath.Join(runtimeDir, "workspaced.sock")
 }
 
 func RunDaemon(ctx context.Context) error {
@@ -205,7 +196,7 @@ func RunDaemon(ctx context.Context) error {
 	if err == nil && len(listeners) > 0 {
 		listener = listeners[0]
 	} else {
-		socketPath := getSocketPath()
+		socketPath := types.DaemonSocketPath()
 		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, "path", socketPath)
 		l, err := net.Listen("unix", socketPath)
 		if err != nil {

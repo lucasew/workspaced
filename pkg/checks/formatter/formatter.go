@@ -29,18 +29,7 @@ func RunAll(ctx context.Context, dir string) error {
 	formatters := checks.List[Formatter]()
 	logger.Info("running formatters", "count", len(formatters), "dir", dir)
 
-	var applicable []Formatter
-	for _, f := range formatters {
-		err := f.Detect(ctx, dir)
-		if errors.Is(err, checks.ErrNotApplicable) {
-			continue
-		}
-		if err != nil {
-			logger.Warn("formatter detection failed", "name", f.Name(), "error", err)
-			continue
-		}
-		applicable = append(applicable, f)
-	}
+	applicable := checks.Applicable(ctx, dir, formatters, checks.LogDetectFailures(ctx, "formatter"))
 	if len(applicable) == 0 {
 		return nil
 	}

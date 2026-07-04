@@ -105,16 +105,8 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	return events, nil
 }
 
-func getSocketPath() string {
-	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
-	if runtimeDir == "" {
-		runtimeDir = fmt.Sprintf("/run/user/%d", os.Getuid())
-	}
-	return filepath.Join(runtimeDir, "workspaced.sock")
-}
-
 func sendHistoryEvent(ctx context.Context, event types.HistoryEvent) error {
-	socketPath := getSocketPath()
+	socketPath := types.DaemonSocketPath()
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
 			return net.DialTimeout("unix", socketPath, 200*time.Millisecond)

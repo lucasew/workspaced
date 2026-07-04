@@ -2,7 +2,6 @@ package biome
 
 import (
 	"context"
-	"os"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/formatter"
@@ -38,8 +37,5 @@ func (c *check) Format(ctx context.Context, dir string) error {
 		return err
 	}
 
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	return checks.RunAttached(cmd, dir)
 }

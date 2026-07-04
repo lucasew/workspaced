@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 
 	"workspaced/pkg/cmdregistry"
@@ -38,16 +37,8 @@ func FindCommand(name string, args []string) (*cobra.Command, []string, error) {
 	return GetCommand().Find(append([]string{name}, args...))
 }
 
-func getSocketPath() string {
-	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
-	if runtimeDir == "" {
-		runtimeDir = fmt.Sprintf("/run/user/%d", os.Getuid())
-	}
-	return filepath.Join(runtimeDir, "workspaced.sock")
-}
-
 func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, bool, error) {
-	socketPath := getSocketPath()
+	socketPath := types.DaemonSocketPath()
 	logger := logging.GetLogger(ctx)
 	logger.Info("connecting to daemon", "socket", socketPath, "cmd", cmdName, "args", args)
 

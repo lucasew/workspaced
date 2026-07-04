@@ -2,7 +2,6 @@ package lint
 
 import (
 	"context"
-	"errors"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/logging"
@@ -31,24 +30,7 @@ func Register(l Linter) {
 // A single linter failure is logged and omitted from the bundle so other tools
 // still contribute; only taskgroup-level errors fail the call.
 func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
-	logger := logging.GetLogger(ctx)
-	linters := checks.List[Linter]()
-
-	// Filter to applicable linters first (detect is cheap, run is expensive).
-	var applicable []Linter
-	for _, l := range linters {
-		err := l.Detect(ctx, dir)
-		if errors.Is(err, checks.ErrNotApplicable) {
-			logger.Info("linter skipped", "linter", l.Name(), "reason", "not applicable")
-			continue
-		}
-		if err != nil {
-			logger.Warn("linter skipped", "linter", l.Name(), "reason", "detect failed", "error", err)
-			continue
-		}
-		applicable = append(applicable, l)
-	}
-
+	applicable := checks.Applicable(ctx, dir, checks.List[Linter](), checks.LogSkip(ctx, "linter"))
 	if len(applicable) == 0 {
 		return checks.BundleRuns()
 	}
