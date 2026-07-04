@@ -42,7 +42,7 @@ func init() {
 				var report *sarif.Report
 				g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("running linters")
-					// lint.RunAll uses Map for the aggregate bar.
+					// lint.RunAll maps each tool to a SARIF run, then bundles them.
 					var err error
 					report, err = lint.RunAll(ctx, path)
 					return err

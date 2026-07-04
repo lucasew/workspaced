@@ -19,6 +19,21 @@ func FirstSARIFRun(data []byte) (*sarif.Run, error) {
 	return report.Runs[0], nil
 }
 
+// BundleRuns builds a single SARIF 2.1.0 report from per-tool runs (nil entries
+// skipped). Order of runs matches the argument order.
+func BundleRuns(runs ...*sarif.Run) (*sarif.Report, error) {
+	report, err := sarif.New(sarif.Version210)
+	if err != nil {
+		return nil, err
+	}
+	for _, run := range runs {
+		if run != nil {
+			report.AddRun(run)
+		}
+	}
+	return report, nil
+}
+
 // StringPtr returns a pointer to s (for SARIF optional string fields).
 func StringPtr(s string) *string {
 	return &s

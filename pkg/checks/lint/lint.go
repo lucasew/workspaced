@@ -3,7 +3,6 @@ package lint
 import (
 	"context"
 	"errors"
-	"sync"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/logging"
@@ -28,14 +27,11 @@ func Register(l Linter) {
 }
 
 // RunAll executes all globally registered linters in parallel against a directory
-// and aggregates results.
+// and bundles each tool's SARIF run into one report (uber-SARIF).
+// A single linter failure is logged and omitted from the bundle so other tools
+// still contribute; only taskgroup-level errors fail the call.
 func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	logger := logging.GetLogger(ctx)
-	report, err := sarif.New(sarif.Version210)
-	if err != nil {
-		return nil, err
-	}
-
 	linters := checks.List[Linter]()
 
 	// Filter to applicable linters first (detect is cheap, run is expensive).
@@ -54,38 +50,32 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 	}
 
 	if len(applicable) == 0 {
-		return report, nil
+		return checks.BundleRuns()
 	}
 
-	var mu sync.Mutex
-	err = taskgroup.Each[Linter]{
+	runs, err := taskgroup.Map[Linter, *sarif.Run]{
 		Name:     "lint",
 		Items:    applicable,
 		PoolKind: taskgroup.CPU,
 		TaskName: func(_ int, l Linter) string { return "lint:" + l.Name() },
-		Fn: func(ctx context.Context, s *taskgroup.Status, linter Linter) error {
+		Fn: func(ctx context.Context, s *taskgroup.Status, linter Linter) (*sarif.Run, error) {
 			l := logging.GetLogger(ctx)
 			s.Update("running " + linter.Name())
 			run, err := linter.Run(ctx, dir)
 			if err != nil {
 				logging.ReportError(ctx, err, "linter", linter.Name(), "context", "linter failed")
-				return nil // Don't fail other linters.
+				return nil, nil // omit from bundle; keep siblings running
 			}
 			resultCount := 0
 			if run != nil {
 				resultCount = len(run.Results)
 			}
 			l.Info("linter ok", "linter", linter.Name(), "sarif_results", resultCount)
-			if run != nil {
-				mu.Lock()
-				report.AddRun(run)
-				mu.Unlock()
-			}
-			return nil
+			return run, nil
 		},
 	}.Run(ctx)
 	if err != nil {
-		return report, err
+		return nil, err
 	}
-	return report, nil
+	return checks.BundleRuns(runs...)
 }
