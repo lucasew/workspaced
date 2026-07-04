@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -40,16 +41,17 @@ func RegisterTool(name string, f func() (backend.Tool, error)) {
 // leading "v") and install attempts (tries v-prefixed tag first) which is
 // the common convention for curated short names.
 type curatedGitHub struct {
-	inner  backend.Tool
-	checks []checks.Check
+	inner      backend.Tool
+	binaryHint string
+	checks     []checks.Check
 }
 
-func newCuratedGitHub(repo string, toolChecks ...checks.Check) (backend.Tool, error) {
-	inner, err := github.NewTool(repo)
+func newCuratedGitHub(repo, binaryHint string, toolChecks ...checks.Check) (backend.Tool, error) {
+	inner, err := github.NewTool(repo, binaryHint)
 	if err != nil {
 		return nil, err
 	}
-	return &curatedGitHub{inner: inner, checks: checks.Checks(toolChecks...)}, nil
+	return &curatedGitHub{inner: inner, binaryHint: binaryHint, checks: checks.Checks(toolChecks...)}, nil
 }
 
 func (t *curatedGitHub) ListVersions(ctx context.Context) ([]string, error) {
@@ -66,15 +68,27 @@ func (t *curatedGitHub) ListVersions(ctx context.Context) ([]string, error) {
 
 func (t *curatedGitHub) Install(ctx context.Context, version string, destDir string) error {
 	v := strings.TrimSpace(version)
+	try := func(ver string) error {
+		if at, ok := t.inner.(backend.ArtifactTool); ok && t.binaryHint != "" {
+			arts, err := at.ListArtifacts(ctx, ver)
+			if err != nil {
+				return err
+			}
+			if chosen := backend.SelectArtifact(arts, runtime.GOOS, runtime.GOARCH, t.binaryHint); chosen != nil {
+				return at.InstallArtifact(ctx, *chosen, destDir)
+			}
+		}
+		return t.inner.Install(ctx, ver, destDir)
+	}
 	if v == "" || v == "latest" {
-		return t.inner.Install(ctx, v, destDir)
+		return try(v)
 	}
 	if !strings.HasPrefix(v, "v") {
-		if err := t.inner.Install(ctx, "v"+v, destDir); err == nil {
+		if err := try("v" + v); err == nil {
 			return nil
 		}
 	}
-	return t.inner.Install(ctx, v, destDir)
+	return try(v)
 }
 
 func (t *curatedGitHub) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -112,14 +126,28 @@ func (t *curatedGitHub) Fix(ctx context.Context, destDir string) error {
 // RegisterGitHub registers a simple github-backed curated tool. It uses the
 // standard v-prefix handling used across the catalog for such entries.
 // When toolChecks is empty, defaults to checks.Binary(name).
+// Artifact selection is biased toward the on-disk binary name derived from
+// the first checks.Binary(...) entry, falling back to name.
 func RegisterGitHub(name, repo string, toolChecks ...checks.Check) {
 	if len(toolChecks) == 0 {
 		toolChecks = checks.Checks(checks.Binary(name))
 	}
 	checksCopy := checks.Checks(toolChecks...)
+	hint := binaryHintFromChecks(name, checksCopy)
 	RegisterTool(name, func() (backend.Tool, error) {
-		return newCuratedGitHub(repo, checksCopy...)
+		return newCuratedGitHub(repo, hint, checksCopy...)
 	})
+}
+
+func binaryHintFromChecks(fallback string, list []checks.Check) string {
+	for _, c := range list {
+		if name := c.Name(); strings.HasPrefix(name, "binary:") {
+			if hint := strings.TrimPrefix(name, "binary:"); hint != "" {
+				return hint
+			}
+		}
+	}
+	return fallback
 }
 
 // catalog is the backend for short/curated tool names. It dispatches to

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"runtime"
 	"strings"
 
@@ -57,8 +58,10 @@ func (p *Backend) ParsePackage(spec string) (backend.PackageConfig, error) {
 }
 
 type release struct {
-	TagName string  `json:"tag_name"`
-	Assets  []asset `json:"assets"`
+	TagName    string  `json:"tag_name"`
+	Draft      bool    `json:"draft"`
+	Prerelease bool    `json:"prerelease"`
+	Assets     []asset `json:"assets"`
 }
 
 type asset struct {
@@ -114,7 +117,14 @@ func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) (
 
 	var versions []string
 	for _, r := range releases {
-		versions = append(versions, r.TagName)
+		if r.Draft || r.Prerelease {
+			continue
+		}
+		tag := strings.TrimSpace(r.TagName)
+		if tag == "" || strings.EqualFold(tag, "latest") {
+			continue
+		}
+		versions = append(versions, tag)
 	}
 	logger.Debug("found versions", "count", len(versions))
 	return versions, nil
@@ -283,14 +293,17 @@ func parseAssetName(name string) (osName, arch string, ok bool) {
 // It is exported (along with NewTool) so that a future central "registry" backend
 // can construct, wrap, or delegate to GitHub-based tools.
 type GitHubTool struct {
-	repo string
-	p    *Backend // delegate to existing backend logic during migration
+	repo       string
+	binaryHint string
+	p          *Backend // delegate to existing backend logic during migration
 }
 
 // NewTool constructs a GitHubTool for the given ref ("owner/repo").
 // This is the preferred way for external code (including a future registry backend)
 // to obtain a github-backed Tool without going through the handler registration.
-func NewTool(ref string) (backend.Tool, error) {
+// binaryHint, when non-empty, biases artifact selection toward assets whose
+// filename contains that token (defaults to the repo name).
+func NewTool(ref string, binaryHint ...string) (backend.Tool, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
 		return nil, ErrEmptyGitHubRef
@@ -300,7 +313,11 @@ func NewTool(ref string) (backend.Tool, error) {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return nil, fmt.Errorf("%w: %q", ErrInvalidGitHubRef, ref)
 	}
-	return &GitHubTool{repo: ref, p: &Backend{}}, nil
+	hint := path.Base(ref)
+	if len(binaryHint) > 0 && strings.TrimSpace(binaryHint[0]) != "" {
+		hint = strings.TrimSpace(binaryHint[0])
+	}
+	return &GitHubTool{repo: ref, binaryHint: hint, p: &Backend{}}, nil
 }
 
 func (t *GitHubTool) ListVersions(ctx context.Context) ([]string, error) {
@@ -321,7 +338,7 @@ func (t *GitHubTool) Install(ctx context.Context, version string, destDir string
 		return err
 	}
 
-	artifact := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, "")
+	artifact := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, t.binaryHint)
 	if artifact == nil {
 		return fmt.Errorf("no suitable artifact found for %s/%s for github:%s@%s: %w", runtime.GOOS, runtime.GOARCH, t.repo, version, ErrNoArtifact)
 	}

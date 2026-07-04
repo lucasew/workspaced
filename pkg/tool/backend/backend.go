@@ -184,13 +184,16 @@ func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 	}
 
 	// Mild preference for common CLI archive formats.
-	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") {
+	if strings.HasSuffix(base, ".tar.gz") || strings.HasSuffix(base, ".tgz") || strings.HasSuffix(base, ".zip") || strings.HasSuffix(base, ".tar.xz") {
 		score += 10
 	}
 
-	// Soft penalty for obvious debug/minimal builds.
+	// Soft penalty for obvious debug/minimal builds and non-CLI bundles.
 	if strings.Contains(base, "debug") {
 		score -= 20
+	}
+	if ContainsAnyOf(base, "desktop", "appimage", ".dmg", "sbom", "provenance", "sigstore", "checksum", "sha256", "sha512", ".rpm", ".deb") {
+		score -= 50
 	}
 
 	// Never let penalties turn an otherwise-eligible artifact into 0.

@@ -103,3 +103,21 @@ func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 		t.Fatalf("path traversal wrote outside destination: %v", err)
 	}
 }
+
+func TestNormalizeBinaryName(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"sops-v3.13.2.linux.amd64", "sops"},
+		{"sops-v3.13.2.darwin.arm64", "sops"},
+		{"docker-compose-linux-x86_64", "docker-compose"},
+		{"shfmt_linux_amd64", "shfmt"},
+		{"resvg", "resvg"},
+		{"tool-v1.2.3", "tool"},
+	}
+	for _, tt := range tests {
+		if got := NormalizeBinaryName(tt.in); got != tt.want {
+			t.Errorf("NormalizeBinaryName(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
