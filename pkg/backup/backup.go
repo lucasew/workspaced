@@ -25,6 +25,17 @@ type BackupAction interface {
 	Run(ctx context.Context, n *notification.Notification) error
 }
 
+// actionOutcome is the map-step result for one backup action.
+type actionOutcome struct {
+	Name string
+	Kind string
+	Err  error
+}
+
+func (o actionOutcome) String() string {
+	return fmt.Sprintf("%s (%s): %v", o.Name, o.Kind, o.Err)
+}
+
 type backupActionBase struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
@@ -83,41 +94,42 @@ func RunFullBackup(ctx context.Context) error {
 		Idx    int
 		Action BackupAction
 	}
+	actionLabel := func(idx int, act BackupAction) (name, kind string) {
+		name = act.GetName()
+		if strings.TrimSpace(name) == "" {
+			name = fmt.Sprintf("backup-action-%d", idx+1)
+		}
+		return name, act.GetKind()
+	}
+
 	items := make([]actionItem, len(actions))
 	for i, a := range actions {
 		items[i] = actionItem{Idx: i, Action: a}
 	}
 
-	// Map each action to an optional failure string; reduce joins non-empty ones.
-	outcomes, mapErr := taskgroup.Map[actionItem, string]{
+	// Map each action to an outcome; reduce collects Err != nil.
+	outcomes, mapErr := taskgroup.Map[actionItem, actionOutcome]{
 		Name:  "backup",
 		Items: items,
 		Pool: func(item actionItem) taskgroup.PoolKind {
 			return poolFor(item.Action.GetKind())
 		},
 		TaskName: func(_ int, item actionItem) string {
-			msg := item.Action.GetName()
-			if strings.TrimSpace(msg) == "" {
-				msg = fmt.Sprintf("backup-action-%d", item.Idx+1)
-			}
-			return fmt.Sprintf("backup:%s", msg)
+			name, _ := actionLabel(item.Idx, item.Action)
+			return "backup:" + name
 		},
-		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) (string, error) {
-			idx := item.Idx
-			act := item.Action
-			msg := act.GetName()
-			if strings.TrimSpace(msg) == "" {
-				msg = fmt.Sprintf("backup-action-%d", idx+1)
-			}
+		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) (actionOutcome, error) {
+			name, kind := actionLabel(item.Idx, item.Action)
+			out := actionOutcome{Name: name, Kind: kind}
 
 			logger := logging.GetLogger(ctx)
-			s.Update(msg)
-			logger.Info("backup action started", "index", idx+1, "total", len(actions), "name", msg, "kind", act.GetKind())
+			s.Update(name)
+			logger.Info("backup action started", "index", item.Idx+1, "total", len(actions), "name", name, "kind", kind)
 
 			if cmdctx.IsDryRun(ctx) {
-				logger.Info("dry-run: skipping", "name", msg)
-				logger.Info("backup action completed (dry-run)", "name", msg, "kind", act.GetKind())
-				return "", nil
+				logger.Info("dry-run: skipping", "name", name)
+				logger.Info("backup action completed (dry-run)", "name", name, "kind", kind)
+				return out, nil
 			}
 
 			n2 := &notification.Notification{
@@ -125,18 +137,19 @@ func RunFullBackup(ctx context.Context) error {
 				Title:       "Backup em curso",
 				Icon:        "drive-harddisk",
 				HasProgress: true,
-				Message:     msg,
-				Progress:    float64(idx+1) / float64(len(actions)),
+				Message:     name,
+				Progress:    float64(item.Idx+1) / float64(len(actions)),
 			}
 			logging.ReportError(ctx, notification.Notify(ctx, n2))
 
-			if err := act.Run(ctx, n2); err != nil {
-				logger.Error("backup action failed", "name", msg, "kind", act.GetKind(), "error", err)
-				return fmt.Sprintf("%s (%s): %v", msg, act.GetKind(), err), nil
+			if err := item.Action.Run(ctx, n2); err != nil {
+				logger.Error("backup action failed", "name", name, "kind", kind, "error", err)
+				out.Err = err
+				return out, nil
 			}
 
-			logger.Info("backup action completed", "name", msg, "kind", act.GetKind())
-			return "", nil
+			logger.Info("backup action completed", "name", name, "kind", kind)
+			return out, nil
 		},
 	}.Run(ctx)
 	if mapErr != nil {
@@ -144,9 +157,9 @@ func RunFullBackup(ctx context.Context) error {
 	}
 
 	var failures []string
-	for _, f := range outcomes {
-		if f != "" {
-			failures = append(failures, f)
+	for _, o := range outcomes {
+		if o.Err != nil {
+			failures = append(failures, o.String())
 		}
 	}
 	if len(failures) > 0 {
