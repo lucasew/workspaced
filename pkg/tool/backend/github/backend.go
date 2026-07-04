@@ -115,9 +115,22 @@ func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) (
 		return nil, err
 	}
 
+	versions := releaseTags(releases, false)
+	if len(versions) == 0 {
+		// Some repos (e.g. rtk) only publish prerelease tags.
+		versions = releaseTags(releases, true)
+	}
+	logger.Debug("found versions", "count", len(versions))
+	return versions, nil
+}
+
+func releaseTags(releases []release, includePrerelease bool) []string {
 	var versions []string
 	for _, r := range releases {
-		if r.Draft || r.Prerelease {
+		if r.Draft {
+			continue
+		}
+		if r.Prerelease && !includePrerelease {
 			continue
 		}
 		tag := strings.TrimSpace(r.TagName)
@@ -126,8 +139,7 @@ func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) (
 		}
 		versions = append(versions, tag)
 	}
-	logger.Debug("found versions", "count", len(versions))
-	return versions, nil
+	return versions
 }
 
 func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {

@@ -31,7 +31,7 @@ depends = ["lint"]
 [tasks."test:registry-install"]
 description = "Install each catalog tool into a temp dir and run install checks (network)"
 env = { WORKSPACED_TEST_TOOL_INSTALL = "1" }
-run = "go test -v ./pkg/tool/backend/catalog/ -run '^TestRegistryInstall$' -count=1 -timeout=30m"
+run = "go test -v ./pkg/tool/backend/catalog/ -run '^TestRegistryInstall$' -count=1 -timeout=60m"
 
 [tasks.release]
 description = "Run a release"

@@ -34,8 +34,16 @@ func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
 	base := logging.NewRootContext(nil)
 	g, ctx := taskgroup.New(base, taskgroup.DefaultLimits())
 	return ctx, func() {
-		if err := g.Wait(); err != nil {
-			t.Errorf("taskgroup: %v", err)
+		// Best-effort drain. Failed fetchurl attempts can leave canceled
+		// Internet tasks that would otherwise block Wait until the test timeout.
+		done := make(chan error, 1)
+		go func() { done <- g.Wait() }()
+		select {
+		case err := <-done:
+			if err != nil && !t.Failed() {
+				t.Errorf("taskgroup: %v", err)
+			}
+		case <-t.Context().Done():
 		}
 	}
 }
