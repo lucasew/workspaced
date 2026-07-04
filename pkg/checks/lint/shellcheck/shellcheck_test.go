@@ -1,7 +1,6 @@
 package shellcheck
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,7 +53,7 @@ func TestRunReportsIssues(t *testing.T) {
 	}
 
 	p := New()
-	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	ctx := logging.NewRootContext(nil)
 
 	if err := p.Detect(ctx, dir); err != nil {
 		t.Fatalf("Detect: %v", err)

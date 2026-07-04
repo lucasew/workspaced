@@ -1,7 +1,6 @@
 package ruff
 
 import (
-	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +29,7 @@ func TestRun(t *testing.T) {
 	}
 
 	p := New()
-	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	ctx := logging.NewRootContext(nil)
 
 	err := p.Detect(ctx, dir)
 	if err != nil {

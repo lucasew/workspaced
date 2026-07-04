@@ -7,14 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	os_exec "os/exec"
-	"path/filepath"
 	"strings"
 
 	"workspaced/pkg/checks"
 	"workspaced/pkg/checks/lint"
-	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
@@ -37,12 +33,7 @@ func (c *check) Name() string {
 }
 
 func (c *check) Detect(_ context.Context, dir string) error {
-	path := filepath.Join(dir, "node_modules", ".bin", "eslint")
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return checks.ErrNotApplicable
-	}
-
-	return nil
+	return checks.RequireNodeModuleBin(dir, "eslint")
 }
 
 type Message struct {
@@ -280,19 +271,11 @@ func isTruncationError(err error) bool {
 }
 
 func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
-	binPath := filepath.Join(dir, "node_modules", ".bin", "eslint")
-
-	var cmd *os_exec.Cmd
-	var err error
-
-	if exec.IsBinaryAvailable(ctx, "node") {
-		cmd, err = exec.Run(ctx, binPath, "-f", "json", ".")
-	} else if exec.IsBinaryAvailable(ctx, "bun") {
-		cmd, err = exec.Run(ctx, "bun", "run", "--bun", binPath, "-f", "json", ".")
-	} else {
-		return nil, checks.ErrToolNotAvailable
-	}
+	cmd, err := checks.PrepareNodeModuleBin(ctx, dir, "eslint", "-f", "json", ".")
 	if err != nil {
+		if errors.Is(err, checks.ErrToolNotAvailable) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("prepare eslint command: %w", err)
 	}
 
