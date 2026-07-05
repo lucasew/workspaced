@@ -37,8 +37,12 @@ func ContextWithLogger(ctx context.Context, l *slog.Logger) context.Context {
 
 // NewRootContext returns a fresh root context (derived from context.Background)
 // with the provided logger attached under LoggerKey. If l is nil, slog.Default()
-// is used. This is the supported way to create the initial ctx for a process,
-// command, test, or component when no parent ctx is available.
+// is used. This is the supported way to create the initial ctx for a process or
+// command when no parent ctx is available.
+//
+// For tests and benchmarks, use NewWriterContext instead of NewRootContext(nil):
+// nil here means slog.Default(), which prints default-format lines to stderr
+// and bypasses the test harness.
 func NewRootContext(l *slog.Logger) context.Context {
 	if l == nil {
 		l = slog.Default()
@@ -47,11 +51,14 @@ func NewRootContext(l *slog.Logger) context.Context {
 }
 
 // NewWriterContext returns a root context whose logger writes plain records to w.
-// Prefer this in tests and benchmarks over NewRootContext(nil), which uses
-// slog.Default() and can leak default-format lines onto stderr.
 //
-// Pass testing.TB.Output() to attach logs to the test stream (visible with -v),
-// or io.Discard to silence. A nil w is treated as io.Discard.
+// Test / bench guideline (also in AGENTS.md):
+//
+//	ctx := logging.NewWriterContext(t.Output()) // or b.Output(); visible with -v
+//	ctx := logging.NewWriterContext(io.Discard) // or nil — silence
+//
+// Do not use NewRootContext(nil) in tests: that attaches slog.Default() and
+// leaks default-format lines onto stderr outside the testing package output.
 func NewWriterContext(w io.Writer) context.Context {
 	if w == nil {
 		w = io.Discard

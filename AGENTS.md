@@ -66,6 +66,7 @@ Locate-X recipes live in CODEMAP.md.
 - An inner scope must not reuse an outer scope's `logger` or `ctx`.
 - Prefer channels over locked shared state when that keeps the code simpler (it often does).
 - `context.Background` and friends need a real reason. "No context in scope" is not one.
+- Test root ctx: `logging.NewWriterContext(t.Output())` (or `b.Output()` / `io.Discard`). Not `NewRootContext(nil)` — that is `slog.Default()` on stderr.
 - Pipeable data goes to stdout; everything else to stderr. Stdout is for one-line-per-record output (line-oriented text, JSONL) that another program can consume without multi-line parsing.
 
 ### Taskgroup map/reduce
