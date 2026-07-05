@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	execdriver "workspaced/pkg/driver/exec"
@@ -239,28 +240,28 @@ func (a GitRepoSyncAction) checkoutRemoteDefaultBranch(ctx context.Context) erro
 	if err != nil {
 		return fmt.Errorf("list remote branches: %w", err)
 	}
-	var candidates []string
+	var preferred, others []string
+	seen := map[string]bool{}
 	for _, line := range strings.Split(string(out), "\n") {
 		name := strings.TrimSpace(line)
 		if name == "" || name == "origin" || name == "origin/HEAD" {
 			continue
 		}
 		branch, ok := strings.CutPrefix(name, "origin/")
-		if !ok || branch == "" {
-			continue
-		}
-		if branch == "main" || branch == "master" {
-			candidates = append([]string{branch}, candidates...)
-		} else {
-			candidates = append(candidates, branch)
-		}
-	}
-	seen := map[string]bool{}
-	for _, branch := range candidates {
-		if seen[branch] {
+		if !ok || branch == "" || seen[branch] {
 			continue
 		}
 		seen[branch] = true
+		if branch == "main" || branch == "master" {
+			preferred = append(preferred, branch)
+		} else {
+			others = append(others, branch)
+		}
+	}
+	// Historical prepend tried defaults last-first (e.g. master before main).
+	slices.Reverse(preferred)
+	candidates := append(preferred, others...)
+	for _, branch := range candidates {
 		if err := a.run(ctx, "checkout", "-B", branch, "origin/"+branch); err == nil {
 			return nil
 		}

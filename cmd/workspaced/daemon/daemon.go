@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"slices"
 	"syscall"
 	"time"
 
@@ -416,8 +417,9 @@ func ExecuteViaCobra(ctx context.Context, req types.Request, stdout, stderr io.W
 
 	var parents []*cobra.Command
 	for curr := targetCmd; curr != nil; curr = curr.Parent() {
-		parents = append([]*cobra.Command{curr}, parents...)
+		parents = append(parents, curr)
 	}
+	slices.Reverse(parents)
 
 	for _, p := range parents {
 		if p.PersistentPreRunE != nil {

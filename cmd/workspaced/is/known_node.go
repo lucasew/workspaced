@@ -3,7 +3,6 @@ package is
 import (
 	"fmt"
 	"os"
-	"slices"
 	"workspaced/pkg/configcue"
 
 	"github.com/spf13/cobra"
@@ -40,11 +39,14 @@ func init() {
 				if err != nil {
 					return fmt.Errorf("failed to get local IPs: %w", err)
 				}
+				localIPSet := make(map[string]struct{}, len(localIPs))
+				for _, ip := range localIPs {
+					localIPSet[ip] = struct{}{}
+				}
 
 				for nodeName, hostCfg := range hosts {
 					for _, configIP := range hostCfg.IPs {
-						if slices.Contains(localIPs, configIP) {
-							// Found match by IP
+						if _, ok := localIPSet[configIP]; ok {
 							return nil
 						}
 					}

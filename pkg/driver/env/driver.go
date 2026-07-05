@@ -148,13 +148,31 @@ func NormalizeURL(url string) string {
 // setup with a ctx that already has a logger.
 func SetupEssentialPaths(ctx context.Context) {
 	essential := GetEssentialPaths(ctx)
-	newPath := strings.Split(os.Getenv("PATH"), ":")
-	for _, path := range essential {
-		if !slices.Contains(newPath, path) {
-			newPath = append([]string{path}, newPath...)
-		}
-	}
-	if err := os.Setenv("PATH", strings.Join(newPath, ":")); err != nil {
+	existing := strings.Split(os.Getenv("PATH"), ":")
+	if err := os.Setenv("PATH", strings.Join(MergeEssentialPaths(essential, existing), ":")); err != nil {
 		panic(err)
 	}
+}
+
+// MergeEssentialPaths prepends missing essential dirs onto existing PATH entries.
+// Entries already present are skipped. Multiple missing essentials keep the
+// historical per-item prepend order (last missing essential ends up first).
+func MergeEssentialPaths(essential, existing []string) []string {
+	seen := make(map[string]struct{}, len(existing)+len(essential))
+	for _, p := range existing {
+		seen[p] = struct{}{}
+	}
+	missing := make([]string, 0, len(essential))
+	for _, path := range essential {
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		missing = append(missing, path)
+	}
+	if len(missing) == 0 {
+		return slices.Clone(existing)
+	}
+	slices.Reverse(missing)
+	return append(missing, existing...)
 }
