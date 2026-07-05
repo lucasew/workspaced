@@ -7,8 +7,8 @@ Everything in CUE is a constraint; this page covers forms agents misuse most.
 | Syntax | Meaning |
 |--------|---------|
 | `a: T` | If `a` is present, its value must satisfy `T`. Presence often implied by the enclosing struct’s use. |
-| `a?: T` | **Optional:** field may be absent; if present, value must satisfy `T`. |
-| `a!: T` | **Required:** field must exist (and satisfy `T`) for the struct to be valid in contexts that demand it. |
+| `a?: T` | Optional: field may be absent; if present, value must satisfy `T`. |
+| `a!: T` | Required: field must exist (and satisfy `T`) for the struct to be valid in contexts that demand it. |
 
 Informal subsumption among field modes (spec details refine this):
 
@@ -33,8 +33,8 @@ More specific (left) satisfies more permissive (right) requirements.
 
 ## Closed vs open structs
 
-- **Open** (default for ordinary structs): extra fields allowed unless constrained away.
-- **Closed**: no fields beyond those declared (and pattern/ellipsis rules).
+- Open (default for ordinary structs): extra fields allowed unless constrained away.
+- Closed: no fields beyond those declared (and pattern/ellipsis rules).
 
 Definitions (`#Foo`) are **closed by default**. Ordinary `{…}` literals are
 typically open unless you `close()` or use ellipsis/`#` patterns that restrict.
@@ -144,8 +144,8 @@ Embedding is useful for mixin-style schemas:
 
 ## Hidden fields and definitions as encapsulation
 
-- `_internal: T` — implementation detail; not part of normal external shape.
-- `#Schema` — schema-only; reference explicitly when applying.
+- `_internal: T`: implementation detail; not part of normal external shape.
+- `#Schema`: schema-only; reference explicitly when applying.
 
 Use these to keep exported concrete configs clean while still validating.
 

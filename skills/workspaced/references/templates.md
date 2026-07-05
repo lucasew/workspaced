@@ -1,38 +1,38 @@
 # Templates
 
-**Canonical** template guide for this repo (no separate `TEMPLATES.md`).
+Canonical template guide for this repo (no separate `TEMPLATES.md`).
 
 | Depth | Sections | When |
 |-------|----------|------|
-| **Essential** | Model, decision tree, kinds table, context, gotchas (kind/layout + ops) | Choosing kind, debugging “file didn’t appear”, light edits |
-| **Deep** | Per-kind examples, function catalog, practical examples, internal flow, generator fast-path | Authoring/editing templates or generator modules |
+| Essential | Model, decision tree, kinds table, context, gotchas (kind/layout + ops) | Choosing kind, debugging "file didn't appear", light edits |
+| Deep | Per-kind examples, function catalog, practical examples, internal flow, generator fast-path | Authoring/editing templates or generator modules |
 
-Stop after **essential** unless you are writing or substantially changing templates.
+Stop after essential unless you are writing or substantially changing templates.
 
-## Model (essential)
+## Model
 
-Templates are how modules turn **source layout + config/context** into
-**target files** (usually under home for home modules, or into a codebase tree
-for codebase flows). Apply runs the pipeline; editing a template without
-plan/apply only changes source.
+Templates are how modules turn source layout + config/context into target files
+(usually under home for home modules, or into a codebase tree for codebase
+flows). Apply runs the pipeline; editing a template without plan/apply only
+changes source.
 
-Workspaced distinguishes **artifact kinds**. Choosing the wrong kind is the
-main template footgun — not missing a flag.
+Workspaced distinguishes artifact kinds. Choosing the wrong kind is the main
+template footgun — not missing a flag.
 
-**Config drives data; layout drives files:**
+Config drives data; layout drives files:
 
-- Changing **cue `config`** changes values inside already-declared templates.
-- Adding **new target paths** usually means new/changed files under the module’s
-  `config/` (or equivalent) layout, correct **kind** suffix/structure, then apply.
+- Changing cue `config` changes values inside already-declared templates.
+- Adding new target paths usually means new/changed files under the module's
+  `config/` (or equivalent) layout, correct kind suffix/structure, then apply.
 - `{{ skip }}` / conditionals can omit outputs without deleting the template
   source.
 
-Templates are inert until the source pipeline runs in **plan** (preview) or
-**apply** (write). If plan doesn’t list an expected target, the issue is usually
-module enablement, path/kind, `skip`/conditionals, or wrong workspace — not
-“template engine broken.” See `plan-and-apply.md` and `modules.md`.
+Templates are inert until the source pipeline runs in plan (preview) or apply
+(write). If plan doesn't list an expected target, the issue is usually module
+enablement, path/kind, `skip`/conditionals, or wrong workspace — not "template
+engine broken." See `plan-and-apply.md` and `modules.md`.
 
-## Decision tree (essential)
+## Decision tree
 
 ```mermaid
 %%{init: {"theme": "neutral"}}%%
@@ -56,18 +56,18 @@ flowchart TD
     Q3 -- "DIRECTORY (modular files)" --> Concat["CONCATENATION .d.tmpl/<br/>config/.bashrc.d.tmpl/<br/>→ ~/.bashrc (all concatenated)"]
 ```
 
-One-liner: dynamic? → not static. Many outputs from one generator? → multi-file
-vs index (subdir or not). Many sources into one output? → `.d.tmpl`.
+One-liner: dynamic? not static. Many outputs from one generator? multi-file vs
+index (subdir or not). Many sources into one output? `.d.tmpl`.
 
-## Artifact kinds (essential summary)
+## Artifact kinds
 
 | Kind | Source shape | Result | Use when |
 |------|--------------|--------|----------|
-| **Static** | e.g. `config/.gitconfig` | Symlink/place as-is | No dynamic content |
-| **Simple template** | `something.tmpl` | One rendered file at target | Needs `{{ … }}` once |
-| **Multi-file** | a `.tmpl` that uses `file` / `endfile` (often with `range`) | Many files under a target **subdir** | Loop-driven set of files in a folder |
-| **Index** | `_index.tmpl` with `file` / `endfile` | Many files at target **root** (no extra subfolder) | Same as multi-file but flat placement |
-| **Concat (`.d.tmpl/`)** | Directory of ordered fragments (some may be `.tmpl`) | **One** target file, pieces concatenated | bashrc-style composable single file |
+| Static | e.g. `config/.gitconfig` | Symlink/place as-is | No dynamic content |
+| Simple template | `something.tmpl` | One rendered file at target | Needs `{{ … }}` once |
+| Multi-file | a `.tmpl` that uses `file` / `endfile` (often with `range`) | Many files under a target subdir | Loop-driven set of files in a folder |
+| Index | `_index.tmpl` with `file` / `endfile` | Many files at target root (no extra subfolder) | Same as multi-file but flat placement |
+| Concat (`.d.tmpl/`) | Directory of ordered fragments (some may be `.tmpl`) | One target file, pieces concatenated | bashrc-style composable single file |
 
 ## Kind examples (deep)
 
@@ -77,7 +77,7 @@ vs index (subdir or not). Many sources into one output? → `.d.tmpl`.
 config/.gitconfig
 ```
 
-→ `~/.gitconfig` (symlink)
+Result: `~/.gitconfig` (symlink)
 
 ### 2. Simple template
 
@@ -86,7 +86,7 @@ config/.gitconfig
 source {{ dotfiles }}/bin/source_me
 ```
 
-→ `~/.bashrc` (rendered)
+Result: `~/.bashrc` (rendered)
 
 ### 3. Multi-file
 
@@ -100,7 +100,7 @@ Name={{ .name }}
 {{- end }}
 ```
 
-→ `~/apps/app1.desktop`, `~/apps/app2.desktop` (extra folder from template name)
+Result: `~/apps/app1.desktop`, `~/apps/app2.desktop` (extra folder from template name)
 
 ### 4. Index (no subfolder)
 
@@ -110,7 +110,7 @@ Name={{ .name }}
 {{- file "app2.desktop" }}...{{- endfile }}
 ```
 
-→ `~/app1.desktop`, `~/app2.desktop`
+Result: `~/app1.desktop`, `~/app2.desktop`
 
 ### 5. Concatenation (`.d.tmpl/`)
 
@@ -121,19 +121,19 @@ config/.bashrc.d.tmpl/
 └─ 30-functions.sh
 ```
 
-→ `~/.bashrc` (all together, alphabetical order)
+Result: `~/.bashrc` (all together, alphabetical order)
 
-## Context (essential)
+## Context
 
 Templates are not only module `config`. Example module docs show patterns like:
 
-- **Module config** — e.g. `.module.greeting` (from cue `modules.<id>.config`)
-- **Runtime** — hostname, phone/desktop, display server, etc.
-- **Root config** — broader workspaced config (e.g. `.root.hosts`,
+- Module config: e.g. `.module.greeting` (from cue `modules.<id>.config`)
+- Runtime: hostname, phone/desktop, display server, etc.
+- Root config: broader workspaced config (e.g. `.root.hosts`,
   `$.root.browser.webapp`)
 
-**Practical rule for agents:** when unsure what fields exist, open **existing
-templates and cue** in that module/user tree rather than inventing `.Foo`.
+When unsure what fields exist, open existing templates and cue in that
+module/user tree rather than inventing `.Foo`.
 
 Go `text/template` syntax applies underneath:
 https://pkg.go.dev/text/template
@@ -248,12 +248,10 @@ config/.bashrc.d.tmpl/
 Conceptual pipeline when scanning module `config/`:
 
 1. Provider scans `config/`
-2. **Directory `.d.tmpl/`** → concatenates, skips recursion into that dir as
-   normal tree
-3. **File `.tmpl`** → renders (may emit multi-file markers)
-4. **Marker `<<<WORKSPACED_FILE:..>>>`** (from `file`/`endfile`) → multi-file
-   outputs
-5. **Normal file** → symlink / static place
+2. Directory `.d.tmpl/`: concatenates; skips recursion into that dir as a normal tree
+3. File `.tmpl`: renders (may emit multi-file markers)
+4. Marker `<<<WORKSPACED_FILE:..>>>` (from `file`/`endfile`): multi-file outputs
+5. Normal file: symlink / static place
 6. Compares with managed state (e.g. under `~/.local/share/workspaced/state.json`)
 7. Applies: create / update / delete
 
@@ -263,8 +261,8 @@ layout when navigating code).
 
 ## Generator bundle fast-path (deep; generator authors)
 
-For generator modules (e.g. icons), the provider should include a **bundle
-fingerprint** in `SourceInfo` so the planner can skip heavy per-file content
+For generator modules (e.g. icons), the provider should include a bundle
+fingerprint in `SourceInfo` so the planner can skip heavy per-file content
 comparison when the bundle has not changed.
 
 Recommended format:
@@ -273,7 +271,7 @@ Recommended format:
 module:<name> bundle:<fingerprint> (<relative-file>)
 ```
 
-Planner can treat as cheap **noop** when:
+Planner can treat as cheap noop when:
 
 1. `managed == true`
 2. `current.SourceInfo == desired.SourceInfo`
@@ -289,46 +287,46 @@ Fingerprint best practices:
 3. Include palette/theme (e.g. base16)
 4. Include source snapshot (`count`, `size`, `max_mtime` or file hash)
 
-This section matters mainly when **authoring generator-style modules** (icons,
+This section matters mainly when authoring generator-style modules (icons,
 themes), not for ordinary static/tmpl files.
 
-## Trying changes (essential pointer)
+## Trying changes
 
-Prefer **`home`/`codebase` `plan`** then apply; flags/dry-run from
+Prefer `home`/`codebase` `plan` then apply; flags/dry-run from
 `workspaced home apply --help`. Loop: `plan-and-apply.md`. Do not maintain a
 second flag list here.
 
-## Gotchas (essential)
+## Gotchas
 
 ### Kind / layout mistakes
 
 | Wrong | Correct | Why |
 |-------|---------|-----|
 | `{{ file "x" }}` (noisy whitespace) | `{{- file "x" }}` | `-` trims whitespace in Go templates |
-| Multi-file in `foo.tmpl` when you wanted flat targets | `_index.tmpl` | Non-index name becomes an **extra folder** |
+| Multi-file in `foo.tmpl` when you wanted flat targets | `_index.tmpl` | Non-index name becomes an extra folder |
 | `.bashrc.d/` expecting concat | `.bashrc.d.tmpl/` | Plain `.d/` is not the concat convention; you get normal dir/symlink behavior |
 | `{{ file "script" }}` for executables | `{{ file "script" "0755" }}` | Scripts need execute mode |
-| `{{ skip }}` mid-file | `{{- if cond }}{{ skip }}{{- end }}` **at the beginning** | Skip mid-stream breaks the parser/flow |
+| `{{ skip }}` mid-file | `{{- if cond }}{{ skip }}{{- end }}` at the beginning | Skip mid-stream breaks the parser/flow |
 
 ### Ops / selection
 
-- **Static file but content has `{{`** — won’t render; use `.tmpl` (or accept
-  literal braces).
-- **Wanted one bashrc from many snippets, used multi-file** — many files, not
-  one target; use `.d.tmpl/`.
-- **Wanted many desktop files, used `.d.tmpl`** — one merged file; use multi-file
-  or index.
-- **Multi-file vs `_index.tmpl`** — subfolder vs flat; wrong choice looks like
-  files in the wrong place.
-- **Edited template, didn’t apply** — source updated, home/repo unchanged; run
+- Static file but content has `{{`: won't render; use `.tmpl` (or accept literal
+  braces).
+- Wanted one bashrc from many snippets, used multi-file: many files, not one
+  target; use `.d.tmpl/`.
+- Wanted many desktop files, used `.d.tmpl`: one merged file; use multi-file or
+  index.
+- Multi-file vs `_index.tmpl`: subfolder vs flat; wrong choice looks like files
+  in the wrong place.
+- Edited template, didn't apply: source updated, home/repo unchanged; run
   plan/apply in the right command family (`home` vs `codebase`).
-- **Invented context fields** — fails or empty at render; copy from sibling
-  templates or module README/cue.
-- **Module disabled / wrong input path** — perfect templates, never selected
+- Invented context fields: fails or empty at render; copy from sibling templates
+  or module README/cue.
+- Module disabled / wrong input path: perfect templates, never selected
   (`modules.md`).
-- **Conditionals / `skip` always true** — “missing” file is intentional; check
+- Conditionals / `skip` always true: "missing" file is intentional; check
   `isPhone`, enable flags, etc. in cue/runtime.
-- **Generator module slow every apply** — missing/unstable `bundle:` fingerprint
-  in `SourceInfo`; see deep generator section above.
-- **Confusing plan empty with engine bug** — usually enablement, kind, `skip`,
-  or wrong workspace (`config-and-roots.md`).
+- Generator module slow every apply: missing/unstable `bundle:` fingerprint in
+  `SourceInfo`; see deep generator section above.
+- Confusing plan empty with engine bug: usually enablement, kind, `skip`, or
+  wrong workspace (`config-and-roots.md`).

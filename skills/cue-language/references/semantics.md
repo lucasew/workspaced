@@ -25,11 +25,11 @@ _|_ ⊑ x ⊑ _     for any x
 
 Incomparable when neither subsumes the other (`int` vs `bool`).
 
-**Concrete value:** an atom, or a struct whose regular fields are recursively
+Concrete value: an atom, or a struct whose regular fields are recursively
 concrete. Incomplete values (open types, unresolved refs, incomplete lists)
 are valid as constraints but not fully “ground.”
 
-## Unification (`&`) — meet
+## Unification (`&`) (meet)
 
 `a & b` is the **most specific** value that is an instance of both `a` and `b`.
 
@@ -53,7 +53,7 @@ int & 5                // 5
 string & 5             // _|_
 ```
 
-## Disjunction (`|`) — join
+## Disjunction (`|`) (join)
 
 `a | b` is the **least upper bound**: alternatives / sum type.
 
@@ -125,8 +125,8 @@ unifies in the lattice like any other value.
 
 ## Attributes and interpolations
 
-- **Interpolations** (`"hello \(name)"`) produce strings/bytes from expressions.
-- **Attributes** (`@foo(...)`) are metadata for tooling; they do not change
+- Interpolations (`"hello \(name)"`) produce strings/bytes from expressions.
+- Attributes (`@foo(...)`) are metadata for tooling; they do not change
   lattice position of the annotated value in normal evaluation (tooling may
   interpret them separately).
 

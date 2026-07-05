@@ -7,8 +7,8 @@ subsume their concrete members.
 
 | Kind | Role |
 |------|------|
-| `_` | Top — any value |
-| `_|_` | Bottom — error / unsatisfiable |
+| `_` | Top: any value |
+| `_|_` | Bottom: error / unsatisfiable |
 | `null` | JSON null (keyword value) |
 | `bool` | `true` / `false` |
 | `int` | Integers (arbitrary precision in model) |
@@ -56,8 +56,8 @@ auto-insert rules); list elements still need separators when on one line.
 ## Identifiers and labels
 
 - Normal field: `name`, `foo_bar`, `$x`
-- **Definition**: starts with `#` — e.g. `#Server` — special scoping/closing
-- **Hidden**: starts with `_` or `_#` — not exported / not part of regular
+- Definition: starts with `#` (e.g. `#Server`); special scoping/closing
+- Hidden: starts with `_` or `_#`; not exported / not part of regular
   concrete output in the usual sense
 - Double-underscore `__…` reserved as keywords for implementations
 
@@ -78,9 +78,9 @@ Only composite builder for complex values. Map from labels to values.
 }
 ```
 
-**Unification merges fields** by name; same field unifies values.
+Unification merges fields by name; same field unifies values.
 
-**Subsumption (informal):** struct `A` is an instance of struct `B` if for every
+Subsumption (informal): struct `A` is an instance of struct `B` if for every
 regular field in `B`, `A` has a corresponding field whose value is an instance
 of `B`’s field value (plus rules for optional/required/closed — see
 `constraints.md`).
@@ -183,10 +183,10 @@ Precedence follows the spec; when unsure, parenthesize — especially around
 
 Exact set is implementation/version dependent. Frequently used in constraints:
 
-- `len(x)` — length of string/bytes/list/struct (regular fields)
-- `close(s)` — close a struct (no extra fields)
-- `and([a,b,…])` / `or([a,b,…])` — bulk unify / disjunct
-- Math, time, path, encoding builtins in standard CUE — verify with `cue help`
+- `len(x)`: length of string/bytes/list/struct (regular fields)
+- `close(s)`: close a struct (no extra fields)
+- `and([a,b,…])` / `or([a,b,…])`: bulk unify / disjunct
+- Math, time, path, encoding builtins in standard CUE: verify with `cue help`
   / docs for the version you target.
 
 Host programs (workspaced, custom loaders) may inject additional constraints
