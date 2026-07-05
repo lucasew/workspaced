@@ -1,1 +1,0 @@
-- 2026-06-22: The wsl linter requires consistent whitespace around blocks and declarations, such as adding blank lines above defer or removing trailing whitespace.
