@@ -48,7 +48,7 @@ func loadGoldenPalette(t testing.TB, name string) *api.Palette {
 func TestMaterialYouFromTestdataSolid(t *testing.T) {
 	t.Parallel()
 	img := loadPaletteImage(t, "solid_4285f4.png")
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 	d := &Driver{}
 
 	dark, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityDark, ColorCount: 16})
@@ -97,7 +97,7 @@ func TestGenerateColorschemeSourceHex(t *testing.T) {
 func TestMaterialYouFromTestdataBliss(t *testing.T) {
 	t.Parallel()
 	img := loadPaletteImage(t, "bliss.jpg")
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 	d := &Driver{}
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 
@@ -121,7 +121,7 @@ func TestMaterialYouFromTestdataBliss(t *testing.T) {
 }
 
 func BenchmarkMaterialYouExtract(b *testing.B) {
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(b.Output())
 	d := &Driver{}
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 

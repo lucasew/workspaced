@@ -19,7 +19,7 @@ func TestMaterialYouDriver(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	img.SetRGBA(0, 0, color.RGBA{66, 133, 244, 255}) // #4285F4
 
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	pal, err := d.Extract(ctx, img, api.Options{Polarity: api.PolarityDark, ColorCount: 16})
 	if err != nil {

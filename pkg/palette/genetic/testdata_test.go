@@ -88,7 +88,7 @@ func TestGeneticExtractFromTestdata(t *testing.T) {
 	}
 	// Prefer real wallpaper when available; MaxSamples matches CLI default.
 	img := loadPaletteImage(t, "bliss.jpg")
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 	d := &Driver{}
 	pal, err := d.Extract(ctx, img, api.Options{
 		Polarity:   api.PolarityDark,
@@ -110,7 +110,7 @@ func BenchmarkGeneticExtract(b *testing.B) {
 	if testing.Short() {
 		b.Skip("skipping full genetic extract benchmark in short mode")
 	}
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(b.Output())
 	d := &Driver{}
 
 	b.Run("blocks_64", func(b *testing.B) {

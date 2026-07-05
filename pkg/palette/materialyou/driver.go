@@ -60,7 +60,8 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	})
 
 	baseColor := ss[0].k
-	logger.Info("selected base color for Material You", "hex", "#"+baseColor)
+	// Debug: one-liner for CLI -d; avoid Info so default runs and tests stay quiet.
+	logger.Debug("selected base color for Material You", "hex", "#"+baseColor)
 
 	scheme := GenerateColorscheme("#"+baseColor, nil)
 

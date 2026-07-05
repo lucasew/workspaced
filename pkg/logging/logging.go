@@ -3,6 +3,7 @@ package logging
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 
 	"workspaced/pkg/types"
@@ -43,6 +44,20 @@ func NewRootContext(l *slog.Logger) context.Context {
 		l = slog.Default()
 	}
 	return ContextWithLogger(context.Background(), l)
+}
+
+// NewWriterContext returns a root context whose logger writes plain records to w.
+// Prefer this in tests and benchmarks over NewRootContext(nil), which uses
+// slog.Default() and can leak default-format lines onto stderr.
+//
+// Pass testing.TB.Output() to attach logs to the test stream (visible with -v),
+// or io.Discard to silence. A nil w is treated as io.Discard.
+func NewWriterContext(w io.Writer) context.Context {
+	if w == nil {
+		w = io.Discard
+	}
+	h := NewPlainHandler(w, &slog.HandlerOptions{Level: slog.LevelDebug})
+	return NewRootContext(slog.New(h))
 }
 
 // ContextHasLogger reports whether ctx carries a non-nil logger under LoggerKey.
