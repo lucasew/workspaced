@@ -22,12 +22,10 @@ func calculateFitness(ind Individual, imageColors []api.LAB, polarity api.Polari
 	primarySim := maxDeltaE(ind.colors[:8])
 	score -= primarySim / 10.0 // Penalize high maximum distance (want low spread)
 
-	// Accent differentiation (base08-0F should be VERY different from each other)
-	accentDiff := minDeltaE(ind.colors[8:16])
-	score += accentDiff * 2.0 // Double weight - want distinct colors
-
-	// CRITICAL: Penalize duplicate or near-duplicate accents very heavily
-	duplicatePenalty := calculateDuplicatePenalty(ind.colors[8:16])
+	// Accent pairwise stats in one pass: min distance + duplicate penalty.
+	// Previously minDeltaE and calculateDuplicatePenalty each scanned C(n,2).
+	accentDiff, duplicatePenalty := accentPairStats(ind.colors[8:16])
+	score += accentDiff * 2.0        // Double weight - want distinct colors
 	score -= duplicatePenalty * 50.0 // Massive penalty for duplicates
 
 	// Penalize accents that are too similar (under threshold)
@@ -56,6 +54,15 @@ func calculateFitness(ind Individual, imageColors []api.LAB, polarity api.Polari
 	return score
 }
 
+// deltaESq is squared CIE76 distance. Monotonic with DeltaE, so min/max
+// selection over pairs is identical; only the final chosen pair needs Sqrt.
+func deltaESq(c1, c2 api.LAB) float64 {
+	dl := c1.L - c2.L
+	da := c1.A - c2.A
+	db := c1.B - c2.B
+	return dl*dl + da*da + db*db
+}
+
 // maxDeltaE finds the maximum perceptual distance between any two colors.
 func maxDeltaE(colors []api.LAB) float64 {
 	if len(colors) < 2 {
@@ -76,20 +83,37 @@ func maxDeltaE(colors []api.LAB) float64 {
 
 // minDeltaE finds the minimum perceptual distance between any two colors.
 func minDeltaE(colors []api.LAB) float64 {
+	d, _ := accentPairStats(colors)
+	return d
+}
+
+// accentPairStats computes min pairwise DeltaE and the near-duplicate penalty
+// in a single O(n²) pass (same results as separate minDeltaE + penalty scans).
+func accentPairStats(colors []api.LAB) (minDist, duplicatePenalty float64) {
 	if len(colors) < 2 {
-		return 0
+		return 0, 0
 	}
 
-	minDist := math.MaxFloat64
+	minDist = math.MaxFloat64
 	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
-			dist := api.DeltaE(colors[i], colors[j])
-			if dist < minDist {
-				minDist = dist
+			// Full DeltaE keeps threshold buckets and minDist bit-identical to
+			// the historical two-pass path (fitness ties drive survivor order).
+			diff := api.DeltaE(colors[i], colors[j])
+			if diff < minDist {
+				minDist = diff
+			}
+			switch {
+			case diff < 5.0:
+				duplicatePenalty += 10.0 // Very high penalty per duplicate
+			case diff < 10.0:
+				duplicatePenalty += 5.0 // High penalty for very similar
+			case diff < 15.0:
+				duplicatePenalty += 2.0 // Moderate penalty for similar
 			}
 		}
 	}
-	return minDist
+	return minDist, duplicatePenalty
 }
 
 // calculateImageSimilarity measures how well the palette matches the image colors.
@@ -98,17 +122,18 @@ func calculateImageSimilarity(paletteColors []api.LAB, imageColors []api.LAB) fl
 		return 0
 	}
 
-	// For each palette color, find closest image color
+	// For each palette color, find closest image color.
+	// Compare on squared distance (monotonic); one Sqrt for the winner.
+	// Same min pair and same distance value as scanning with DeltaE.
 	totalDist := 0.0
 	for _, palColor := range paletteColors {
-		minDist := math.MaxFloat64
+		minSq := math.MaxFloat64
 		for _, imgColor := range imageColors {
-			dist := api.DeltaE(palColor, imgColor)
-			if dist < minDist {
-				minDist = dist
+			if sq := deltaESq(palColor, imgColor); sq < minSq {
+				minSq = sq
 			}
 		}
-		totalDist += minDist
+		totalDist += math.Sqrt(minSq)
 	}
 
 	// Average distance (lower is better, so negate for score)
@@ -186,22 +211,7 @@ func calculateContrastScore(colors []api.LAB) float64 {
 
 // calculateDuplicatePenalty heavily penalizes duplicate or near-duplicate colors.
 func calculateDuplicatePenalty(colors []api.LAB) float64 {
-	penalty := 0.0
-
-	for i := range colors {
-		for j := i + 1; j < len(colors); j++ {
-			diff := api.DeltaE(colors[i], colors[j])
-			switch {
-			case diff < 5.0:
-				penalty += 10.0 // Very high penalty per duplicate
-			case diff < 10.0:
-				penalty += 5.0 // High penalty for very similar
-			case diff < 15.0:
-				penalty += 2.0 // Moderate penalty for similar
-			}
-		}
-	}
-
+	_, penalty := accentPairStats(colors)
 	return penalty
 }
 
