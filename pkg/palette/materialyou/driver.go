@@ -9,18 +9,10 @@ import (
 	"workspaced/pkg/palette/api"
 )
 
-func init() {
-	api.Register(&Driver{})
-}
-
 type Driver struct{}
 
 func (d *Driver) Name() string {
 	return "materialyou"
-}
-
-func (d *Driver) Description() string {
-	return "Material You tonal scheme from the dominant image color (Misterio77-style)"
 }
 
 func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options) (*api.Palette, error) {

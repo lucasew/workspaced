@@ -60,13 +60,10 @@ type Palette struct {
 	Base17 string `json:"base17,omitempty"`
 }
 
-// Driver extracts color palettes from images.
+// Driver extracts color palettes from images
 type Driver interface {
-	// Name is the CLI slug used with --driver (e.g. "genetic", "materialyou").
-	Name() string
-	// Description is a short summary shown by `palette drivers`.
-	Description() string
 	Extract(ctx context.Context, img image.Image, opts Options) (*Palette, error)
+	Name() string
 }
 
 // Color utility functions
