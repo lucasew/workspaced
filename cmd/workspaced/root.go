@@ -19,6 +19,7 @@ import (
 	envdriver "workspaced/pkg/driver/env"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
+	_ "workspaced/pkg/palette/prelude"
 	"workspaced/pkg/shellgen"
 	"workspaced/pkg/taskgroup"
 	_ "workspaced/pkg/tool/prelude"

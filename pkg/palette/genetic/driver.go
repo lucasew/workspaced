@@ -9,10 +9,18 @@ import (
 	"workspaced/pkg/palette/api"
 )
 
+func init() {
+	api.Register(&Driver{})
+}
+
 type Driver struct{}
 
 func (d *Driver) Name() string {
 	return "genetic"
+}
+
+func (d *Driver) Description() string {
+	return "Stylix-style evolutionary search for harmonious base16/base24 colors"
 }
 
 func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options) (*api.Palette, error) {
