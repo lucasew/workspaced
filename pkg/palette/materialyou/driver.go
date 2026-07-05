@@ -44,8 +44,19 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 	for k, v := range freq {
 		ss = append(ss, kv{k, v})
 	}
+	// Frequency desc; hex asc on ties so map iteration order cannot flip the winner
+	// (SampleImage returns unique colors, so multi-color images often all have count 1).
 	slices.SortFunc(ss, func(a, b kv) int {
-		return b.v - a.v
+		if d := b.v - a.v; d != 0 {
+			return d
+		}
+		if a.k < b.k {
+			return -1
+		}
+		if a.k > b.k {
+			return 1
+		}
+		return 0
 	})
 
 	baseColor := ss[0].k
