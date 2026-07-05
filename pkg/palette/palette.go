@@ -8,23 +8,36 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"strings"
 
 	"workspaced/pkg/logging"
 	"workspaced/pkg/palette/api"
-	"workspaced/pkg/palette/genetic"
 )
 
-// GetDriver returns a palette extraction driver by name
+// GetDriver returns a palette extraction driver by name.
 func GetDriver(ctx context.Context, name string) (api.Driver, error) {
-	switch name {
-	case "genetic":
-		return &genetic.Driver{}, nil
-	default:
-		return nil, fmt.Errorf("%w: %s", api.ErrDriverNotFound, name)
+	d, err := api.Get(name)
+	if err != nil {
+		available := api.Names()
+		if len(available) == 0 {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%w (available: %s)", err, strings.Join(available, ", "))
 	}
+	return d, nil
 }
 
-// ExtractFromFile loads an image from a file and extracts a color palette
+// ListDrivers returns registered palette extraction drivers sorted by name.
+func ListDrivers() []api.Driver {
+	return api.List()
+}
+
+// DriverNames returns registered driver names in sorted order.
+func DriverNames() []string {
+	return api.Names()
+}
+
+// ExtractFromFile loads an image from a file and extracts a color palette.
 func ExtractFromFile(ctx context.Context, path string, driver string, opts api.Options) (*api.Palette, error) {
 	f, err := os.Open(path)
 	if err != nil {
