@@ -14,29 +14,22 @@ func clampInt(lo, hi, x int) int {
 	return x
 }
 
-func abs(x float64) float64 {
-	return math.Abs(x)
-}
-
 func round(x float64) float64 {
 	return math.Floor(x + 0.5)
-}
-
-func fmod(x, m float64) float64 {
-	return math.Mod(x, m)
 }
 
 func signum(x float64) float64 {
 	if x < 0.0 {
 		return -1.0
-	} else if x == 0.0 {
+	}
+	if x == 0.0 {
 		return 0.0
 	}
 	return 1.0
 }
 
 func sanitizeDegrees(d float64) float64 {
-	r := fmod(d, 360.0)
+	r := math.Mod(d, 360.0)
 	if r < 0.0 {
 		return r + 360.0
 	}
@@ -44,5 +37,5 @@ func sanitizeDegrees(d float64) float64 {
 }
 
 func sanitizeRadians(a float64) float64 {
-	return fmod(a+math.Pi*8.0, math.Pi*2.0)
+	return math.Mod(a+math.Pi*8.0, math.Pi*2.0)
 }

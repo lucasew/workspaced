@@ -1,11 +1,12 @@
 package materialyou
 
 import (
+	"math"
 	"strings"
 )
 
 func diffDeg(a, b float64) float64 {
-	return 180.0 - abs(abs(a-b)-180.0)
+	return 180.0 - math.Abs(math.Abs(a-b)-180.0)
 }
 
 func rotDir(a, b float64) float64 {

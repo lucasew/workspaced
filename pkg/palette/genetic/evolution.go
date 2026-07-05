@@ -12,16 +12,14 @@ const (
 	mutationRate = 0.75
 )
 
-// initPopulation creates the initial random population with random colors
-// Evolution will converge toward image colors through fitness function
-func initPopulation(rng *rand.Rand, colors []api.LAB, count int, size int) []Individual {
+// initPopulation creates the initial random population with random colors.
+// Evolution converges toward image colors through the fitness function.
+func initPopulation(rng *rand.Rand, count int, size int) []Individual {
 	population := make([]Individual, size)
-
 	for i := range size {
 		individual := Individual{
 			colors: make([]api.LAB, count),
 		}
-
 		for j := range count {
 			individual.colors[j] = api.LAB{
 				L: rng.Float64() * 100,     // Lightness: 0-100
@@ -29,72 +27,52 @@ func initPopulation(rng *rand.Rand, colors []api.LAB, count int, size int) []Ind
 				B: rng.Float64()*200 - 100, // Blue-Yellow: -100 to +100
 			}
 		}
-
 		population[i] = individual
 	}
-
 	return population
 }
 
-// crossover combines two parent individuals using alternating zip
-// Based on Stylix Ai/Evolutionary.hs alternatingZip
+// crossover combines two parents using alternating zip (Stylix Ai/Evolutionary.hs).
 func crossover(p1, p2 Individual) Individual {
 	size := min(len(p2.colors), len(p1.colors))
-
 	offspring := Individual{
 		colors: make([]api.LAB, size),
 	}
-
-	for i := 0; i < size; i++ {
+	for i := range size {
 		if i%2 == 0 {
 			offspring.colors[i] = p1.colors[i]
 		} else {
 			offspring.colors[i] = p2.colors[i]
 		}
 	}
-
 	return offspring
 }
 
-// mutate randomly replaces one color with probability 'rate'
-// Based on Stylix Ai/Evolutionary.hs mutate function
-func mutate(rng *rand.Rand, ind Individual, colors []api.LAB, rate float64) Individual {
-	if len(colors) == 0 || rng.Float64() > rate {
+// mutate replaces one color from imageColors with probability rate.
+func mutate(rng *rand.Rand, ind Individual, imageColors []api.LAB, rate float64) Individual {
+	if len(imageColors) == 0 || rng.Float64() > rate {
 		return ind
 	}
-
 	mutated := Individual{
 		colors: make([]api.LAB, len(ind.colors)),
 	}
 	copy(mutated.colors, ind.colors)
-
 	pos := rng.Intn(len(mutated.colors))
-	mutated.colors[pos] = colors[rng.Intn(len(colors))]
-
+	mutated.colors[pos] = imageColors[rng.Intn(len(imageColors))]
 	return mutated
 }
 
-// evolve creates next generation from survivors
-// Based on Stylix Ai/Evolutionary.hs evolvePopulation
+// evolve creates the next generation from survivors (Stylix Ai/Evolutionary.hs).
 func evolve(rng *rand.Rand, survivors []scoredIndividual, imageColors []api.LAB) []Individual {
 	newPopulation := make([]Individual, 0, numSurvivors+numNewborns)
-
 	if len(survivors) > 0 {
 		newPopulation = append(newPopulation, survivors[0].individual)
 	}
-
 	for i := 1; i < numSurvivors+numNewborns; i++ {
 		p1 := survivors[rng.Intn(len(survivors))].individual
 		p2 := survivors[rng.Intn(len(survivors))].individual
-
-		offspring := crossover(p1, p2)
-
-		if i > 0 {
-			offspring = mutate(rng, offspring, imageColors, mutationRate)
-		}
-
+		offspring := mutate(rng, crossover(p1, p2), imageColors, mutationRate)
 		newPopulation = append(newPopulation, offspring)
 	}
-
 	return newPopulation
 }

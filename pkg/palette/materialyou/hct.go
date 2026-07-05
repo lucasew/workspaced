@@ -200,7 +200,7 @@ func cam16(c RGB) CAM16 {
 	bD := vc.RgbD[2] * bC
 
 	adapt := func(comp float64) float64 {
-		af := math.Pow(vc.Fl*abs(comp)/100.0, 0.42)
+		af := math.Pow(vc.Fl*math.Abs(comp)/100.0, 0.42)
 		return signum(comp) * 400.0 * af / (af + 27.13)
 	}
 
@@ -284,7 +284,7 @@ func solveToRgb(hueDegrees, chroma, lstar float64) RGB {
 }
 
 func inverseChromaticAdaptation(adapted float64) float64 {
-	aAbs := abs(adapted)
+	aAbs := math.Abs(adapted)
 	base := max0(27.13 * aAbs / (400.0 - aAbs))
 	return signum(adapted) * math.Pow(base, 1.0/0.42)
 }
@@ -330,13 +330,13 @@ func findResultByJ(hueRadians, chroma, y float64) []float64 {
 		if fnj <= 0.0 {
 			return nil
 		}
-		if round == 4 || abs(fnj-y) < 0.002 {
+		if round == 4 || math.Abs(fnj-y) < 0.002 {
 			if l0 > 100.01 || l1 > 100.01 || l2 > 100.01 {
 				return nil
 			}
 			return linrgb
 		}
-		j = j - (fnj-y)*j/(2.0*fnj)
+		j -= (fnj - y) * j / (2.0 * fnj)
 	}
 	return nil
 }
@@ -437,7 +437,7 @@ func bisectToLimit(y, targetHue float64) []float64 {
 		}
 
 		for i := 0; i < 8; i++ {
-			if abs(float64(s.rPlane-s.lPlane)) <= 1.0 {
+			if math.Abs(float64(s.rPlane-s.lPlane)) <= 1.0 {
 				break
 			}
 			mPlane := int(math.Floor(float64(s.lPlane+s.rPlane) / 2.0))
@@ -464,7 +464,7 @@ func bisectToLimit(y, targetHue float64) []float64 {
 }
 
 func chromaticAdaptation(comp float64) float64 {
-	af := math.Pow(abs(comp), 0.42)
+	af := math.Pow(math.Abs(comp), 0.42)
 	return signum(comp) * 400.0 * af / (af + 27.13)
 }
 
@@ -508,11 +508,11 @@ func nthVertex(y float64, n int) []float64 {
 	kB := yFromLinrgb[2]
 
 	coordA := 0.0
-	if fmod(float64(n), 4.0) > 1.0 {
+	if math.Mod(float64(n), 4.0) > 1.0 {
 		coordA = 100.0
 	}
 	coordB := 0.0
-	if fmod(float64(n), 2.0) != 0.0 {
+	if math.Mod(float64(n), 2.0) != 0.0 {
 		coordB = 100.0
 	}
 	bad := []float64{-1.0, -1.0, -1.0}

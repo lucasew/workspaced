@@ -1,23 +1,9 @@
 package materialyou
 
-import ()
+import "math"
 
 func lerp(a, b, t float64) float64 {
 	return (1.0-t)*a + t*b
-}
-
-func maxf(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func minf(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func between(lo, hi, x float64) bool {
@@ -25,8 +11,8 @@ func between(lo, hi, x float64) bool {
 }
 
 func ratioOfYs(y1, y2 float64) float64 {
-	li := maxf(y1, y2)
-	dk := minf(y1, y2)
+	li := max(y1, y2)
+	dk := min(y1, y2)
 	return (li + 5.0) / (dk + 5.0)
 }
 
@@ -51,7 +37,7 @@ func lighter(tone, ratio float64) float64 {
 	darkY := yFromLstar(tone)
 	lightY := ratio*(darkY+5.0) - 5.0
 	rc := ratioOfYs(lightY, darkY)
-	d := abs(rc - ratio)
+	d := math.Abs(rc - ratio)
 	if rc < ratio && d > 0.04 {
 		return -1.0
 	}
@@ -69,7 +55,7 @@ func darker(tone, ratio float64) float64 {
 	lightY := yFromLstar(tone)
 	darkY := (lightY+5.0)/ratio - 5.0
 	rc := ratioOfYs(lightY, darkY)
-	d := abs(rc - ratio)
+	d := math.Abs(rc - ratio)
 	if rc < ratio && d > 0.04 {
 		return -1.0
 	}
@@ -107,7 +93,7 @@ func foregroundTone(bgTone, ratio float64) float64 {
 	dr := ratioOfTones(dt, bgTone)
 
 	if tonePrefersLight(bgTone) {
-		if lr >= ratio || lr >= dr || (abs(lr-dr) < 0.1 && lr < ratio && dr < ratio) {
+		if lr >= ratio || lr >= dr || (math.Abs(lr-dr) < 0.1 && lr < ratio && dr < ratio) {
 			return lt
 		}
 		return dt
@@ -675,19 +661,19 @@ func getTone(role *Role, s *Scheme) float64 {
 		if between(50.0, 60.0, expN) {
 			if dir > 0.0 {
 				adjN = 60.0
-				adjF = maxf(expF, delta*dir+60.0)
+				adjF = max(expF, delta*dir+60.0)
 			} else {
 				adjN = 49.0
-				adjF = minf(expF, delta*dir+49.0)
+				adjF = min(expF, delta*dir+49.0)
 			}
 		} else if between(50.0, 60.0, expF) {
 			if stayTogether {
 				if dir > 0.0 {
 					adjN = 60.0
-					adjF = maxf(expF, delta*dir+60.0)
+					adjF = max(expF, delta*dir+60.0)
 				} else {
 					adjN = 49.0
-					adjF = minf(expF, delta*dir+49.0)
+					adjF = min(expF, delta*dir+49.0)
 				}
 			} else {
 				adjN = expN
@@ -740,17 +726,17 @@ func getTone(role *Role, s *Scheme) float64 {
 
 	bgt1 := getTone(role.Background(s), s)
 	bgt2 := getTone(role.SecondBackground(s), s)
-	upper := maxf(bgt1, bgt2)
-	lower := minf(bgt1, bgt2)
+	upper := max(bgt1, bgt2)
+	lower := min(bgt1, bgt2)
 	lightOption := lighter(upper, desired)
 	darkOption := darker(lower, desired)
 	prefersLight := tonePrefersLight(bgt1) || tonePrefersLight(bgt2)
 
 	availables := []float64{}
-	if abs(lightOption-(-1.0)) > 1.0e-12 {
+	if math.Abs(lightOption-(-1.0)) > 1.0e-12 {
 		availables = append(availables, lightOption)
 	}
-	if abs(darkOption-(-1.0)) > 1.0e-12 {
+	if math.Abs(darkOption-(-1.0)) > 1.0e-12 {
 		availables = append(availables, darkOption)
 	}
 

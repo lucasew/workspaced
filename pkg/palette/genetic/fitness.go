@@ -1,18 +1,20 @@
 package genetic
 
 import (
+	"cmp"
 	"math"
+	"slices"
 
 	"workspaced/pkg/palette/api"
 )
 
-// Individual represents a candidate palette solution
+// Individual represents a candidate palette solution.
 type Individual struct {
 	colors []api.LAB
 }
 
-// calculateFitness evaluates how good a palette is
-// Based on Stylix Stylix/Palette.hs fitness function
+// calculateFitness evaluates how good a palette is.
+// Based on Stylix Stylix/Palette.hs fitness function.
 func calculateFitness(ind Individual, imageColors []api.LAB, polarity api.Polarity) float64 {
 	var score float64
 
@@ -54,7 +56,7 @@ func calculateFitness(ind Individual, imageColors []api.LAB, polarity api.Polari
 	return score
 }
 
-// maxDeltaE finds the maximum perceptual distance between any two colors
+// maxDeltaE finds the maximum perceptual distance between any two colors.
 func maxDeltaE(colors []api.LAB) float64 {
 	if len(colors) < 2 {
 		return 0
@@ -72,7 +74,7 @@ func maxDeltaE(colors []api.LAB) float64 {
 	return maxDist
 }
 
-// minDeltaE finds the minimum perceptual distance between any two colors
+// minDeltaE finds the minimum perceptual distance between any two colors.
 func minDeltaE(colors []api.LAB) float64 {
 	if len(colors) < 2 {
 		return 0
@@ -90,7 +92,7 @@ func minDeltaE(colors []api.LAB) float64 {
 	return minDist
 }
 
-// calculateImageSimilarity measures how well the palette matches the image colors
+// calculateImageSimilarity measures how well the palette matches the image colors.
 func calculateImageSimilarity(paletteColors []api.LAB, imageColors []api.LAB) float64 {
 	if len(imageColors) == 0 {
 		return 0
@@ -114,8 +116,8 @@ func calculateImageSimilarity(paletteColors []api.LAB, imageColors []api.LAB) fl
 	return -avgDist
 }
 
-// calculateLightnessError measures deviation from target lightness pattern
-// Based on Stylix Stylix/Palette.hs lines 82-94
+// calculateLightnessError measures deviation from target lightness pattern.
+// Based on Stylix Stylix/Palette.hs lines 82-94.
 func calculateLightnessError(colors []api.LAB, polarity api.Polarity) float64 {
 	var targetLightnesses []float64
 
@@ -126,9 +128,7 @@ func calculateLightnessError(colors []api.LAB, polarity api.Polarity) float64 {
 	case api.PolarityLight:
 		// Light theme: background light, foreground dark
 		targetLightnesses = []float64{90, 70, 55, 35, 25, 10, 5, 5}
-	}
-
-	if len(targetLightnesses) == 0 {
+	case api.PolarityAny:
 		return 0
 	}
 
@@ -142,7 +142,7 @@ func calculateLightnessError(colors []api.LAB, polarity api.Polarity) float64 {
 	return errorSum
 }
 
-// calculateContrastScore rewards palettes with good contrast for readability
+// calculateContrastScore rewards palettes with good contrast for readability.
 func calculateContrastScore(colors []api.LAB) float64 {
 	if len(colors) < 16 {
 		return 0
@@ -152,11 +152,12 @@ func calculateContrastScore(colors []api.LAB) float64 {
 
 	// Base00 (background) vs Base05 (foreground) - must have high contrast
 	bgFgContrast := math.Abs(colors[0].L - colors[5].L)
-	if bgFgContrast >= 50 {
+	switch {
+	case bgFgContrast >= 50:
 		score += 10.0 // Excellent contrast
-	} else if bgFgContrast >= 40 {
+	case bgFgContrast >= 40:
 		score += 5.0 // Good contrast
-	} else {
+	default:
 		score -= (50 - bgFgContrast) // Penalize poor contrast
 	}
 
@@ -183,20 +184,19 @@ func calculateContrastScore(colors []api.LAB) float64 {
 	return score
 }
 
-// calculateDuplicatePenalty heavily penalizes duplicate or near-duplicate colors
+// calculateDuplicatePenalty heavily penalizes duplicate or near-duplicate colors.
 func calculateDuplicatePenalty(colors []api.LAB) float64 {
 	penalty := 0.0
 
 	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
 			diff := api.DeltaE(colors[i], colors[j])
-
-			// If colors are identical or nearly identical
-			if diff < 5.0 {
+			switch {
+			case diff < 5.0:
 				penalty += 10.0 // Very high penalty per duplicate
-			} else if diff < 10.0 {
+			case diff < 10.0:
 				penalty += 5.0 // High penalty for very similar
-			} else if diff < 15.0 {
+			case diff < 15.0:
 				penalty += 2.0 // Moderate penalty for similar
 			}
 		}
@@ -205,8 +205,8 @@ func calculateDuplicatePenalty(colors []api.LAB) float64 {
 	return penalty
 }
 
-// calculateHueDiversity measures hue variation in accent colors
-// Returns higher score for colors spread across color wheel
+// calculateHueDiversity measures hue variation in accent colors.
+// Returns higher score for colors spread across color wheel.
 func calculateHueDiversity(colors []api.LAB) float64 {
 	if len(colors) < 2 {
 		return 0
@@ -238,13 +238,13 @@ func calculateHueDiversity(colors []api.LAB) float64 {
 	return math.Min(diversity/5.0, 20.0)
 }
 
-// scoredIndividual pairs an individual with its fitness score
+// scoredIndividual pairs an individual with its fitness score.
 type scoredIndividual struct {
 	individual Individual
 	fitness    float64
 }
 
-// scorePop calculates fitness for entire population and sorts by fitness
+// scorePop calculates fitness for entire population and sorts by fitness.
 func scorePop(population []Individual, imageColors []api.LAB, polarity api.Polarity) []scoredIndividual {
 	scored := make([]scoredIndividual, len(population))
 
@@ -256,14 +256,9 @@ func scorePop(population []Individual, imageColors []api.LAB, polarity api.Polar
 		}
 	}
 
-	// Sort by fitness (descending - higher is better)
-	for i := range scored {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].fitness > scored[i].fitness {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
-
+	// Stable sort keeps input order on ties so deterministic RNG paths stay fixed.
+	slices.SortStableFunc(scored, func(a, b scoredIndividual) int {
+		return cmp.Compare(b.fitness, a.fitness)
+	})
 	return scored
 }
