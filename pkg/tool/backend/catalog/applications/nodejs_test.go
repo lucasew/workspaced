@@ -13,7 +13,7 @@ func TestNodejsListArtifactsAcceptsVersionWithoutVPrefix(t *testing.T) {
 	t.Parallel()
 
 	tool := &nodejsTool{}
-	artifacts, err := tool.ListArtifacts(logging.NewRootContext(nil), "22.16.0")
+	artifacts, err := tool.ListArtifacts(logging.NewWriterContext(t.Output()), "22.16.0")
 	if err != nil {
 		t.Fatal(err)
 	}

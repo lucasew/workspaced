@@ -27,7 +27,7 @@ func (probeImpl) ID() string { return "probe_test" }
 func TestWithAndWithResult(t *testing.T) {
 	driver.Register[probe](probeFactory{})
 	t.Setenv("WORKSPACED_FORCE_DRIVER_TEST_PROBE_DRIVER", "probe_test")
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	if err := driver.With(ctx, func(p probe) error {
 		if p.ID() != "probe_test" {

@@ -31,7 +31,7 @@ func isReleaseCI() bool {
 
 func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
 	t.Helper()
-	base := logging.NewRootContext(nil)
+	base := logging.NewWriterContext(t.Output())
 	g, ctx := taskgroup.New(base, taskgroup.DefaultLimits())
 	return ctx, func() {
 		// Best-effort drain. Failed fetchurl attempts can leave canceled

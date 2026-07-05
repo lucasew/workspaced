@@ -15,7 +15,7 @@ import (
 func TestGenerateInLocalBin(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 	target := filepath.Join(home, "opt", "workspaced")
 
 	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{target})
@@ -51,7 +51,7 @@ func TestGenerateInLocalBin(t *testing.T) {
 func TestGenerateInLocalBinValidation(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	if _, err := shim.GenerateInLocalBin(ctx, "", []string{"/bin/true"}); !errors.Is(err, shim.ErrEmptyName) {
 		t.Fatalf("empty name: got %v want %v", err, shim.ErrEmptyName)

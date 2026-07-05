@@ -13,7 +13,7 @@ import (
 func TestWhichDriverExposesPathOnly(t *testing.T) {
 	shell.RegisterWhich("shell_test_which", "Test sh", "sh")
 
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 	// Force the test registration regardless of weights.
 	t.Setenv("WORKSPACED_FORCE_SHELL_DRIVER", "shell_test_which")
 

@@ -14,7 +14,7 @@ func TestFlutterListVersionsAndArtifacts(t *testing.T) {
 	t.Parallel()
 
 	tool := &flutterTool{}
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	versions, err := tool.ListVersions(ctx)
 	if err != nil {
@@ -77,7 +77,7 @@ func TestFlutterNormalizeAndLatest(t *testing.T) {
 	t.Parallel()
 
 	tool := &flutterTool{}
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	// "latest" should resolve without error and produce an artifact.
 	artifacts, err := tool.ListArtifacts(ctx, "latest")

@@ -14,7 +14,7 @@ func TestGoListArtifactsAcceptsVersionWithoutGoPrefix(t *testing.T) {
 	t.Parallel()
 
 	tool := &goTool{}
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	versions, err := tool.ListVersions(ctx)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestGoListArtifactsAcceptsGoPrefixedVersion(t *testing.T) {
 	t.Parallel()
 
 	tool := &goTool{}
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	versions, err := tool.ListVersions(ctx)
 	if err != nil {

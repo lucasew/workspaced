@@ -29,7 +29,7 @@ func TestRun(t *testing.T) {
 	}
 
 	p := New()
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	err := p.Detect(ctx, dir)
 	if err != nil {

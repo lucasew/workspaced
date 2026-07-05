@@ -54,7 +54,7 @@ workspaced: {
 		t.Fatalf("chmod bin: %v", err)
 	}
 
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 	cfg, err := configcue.LoadForWorkspace(ctx, workspaceRoot)
 	if err != nil {
 		t.Fatalf("load config: %v", err)

@@ -11,7 +11,7 @@ import (
 )
 
 func TestShimGeneration(t *testing.T) {
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	// Create temp directory for test
 	tmpDir := t.TempDir()
@@ -48,7 +48,7 @@ func TestShimGeneration(t *testing.T) {
 }
 
 func TestShimWithSpecialCharacters(t *testing.T) {
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	tmpDir := t.TempDir()
 	shimPath := filepath.Join(tmpDir, "special-shim")

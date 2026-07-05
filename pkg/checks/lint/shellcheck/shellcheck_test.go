@@ -53,7 +53,7 @@ func TestRunReportsIssues(t *testing.T) {
 	}
 
 	p := New()
-	ctx := logging.NewRootContext(nil)
+	ctx := logging.NewWriterContext(t.Output())
 
 	if err := p.Detect(ctx, dir); err != nil {
 		t.Fatalf("Detect: %v", err)
