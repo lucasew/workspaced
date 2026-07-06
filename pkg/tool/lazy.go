@@ -139,64 +139,37 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 		name string
 		lt   modfile.LockedTool
 	}
-	resolveOne := func(ctx context.Context, s *taskgroup.Status, name string) (update, error) {
-		toolCfg := lazyTools[name]
-		spec, lockRef, err := lazyToolSpec(name, toolCfg)
-		if err != nil {
-			return update{}, err
-		}
-		version := spec.Version
-		if version == "" || version == "latest" {
-			if s != nil {
-				s.Update("resolving latest for " + name)
-			}
-			l := logging.GetLogger(ctx)
-			l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
-			v, err := mgr.ResolveLatestVersion(ctx, spec)
+	// Map resolves versions in parallel; reduce writes the lockfile serially.
+	updates, err := taskgroup.Map[string, update]{
+		Name:     "lazy-tools",
+		Items:    needsWork,
+		PoolKind: taskgroup.Control,
+		TaskName: func(_ int, name string) string { return "tool:" + name },
+		Fn: func(ctx context.Context, s *taskgroup.Status, name string) (update, error) {
+			toolCfg := lazyTools[name]
+			spec, lockRef, err := lazyToolSpec(name, toolCfg)
 			if err != nil {
-				l.Warn("failed to resolve lazy tool version", "tool", name, "ref", lockRef, "error", err)
 				return update{}, err
 			}
-			version = v
-		} else if s != nil {
-			s.Update("preparing lock entry for " + name)
-		}
-		if s != nil {
+			version := spec.Version
+			if version == "" || version == "latest" {
+				s.Update("resolving latest for " + name)
+				l := logging.GetLogger(ctx)
+				l.Info("resolving lazy tool version", "tool", name, "ref", lockRef)
+				v, err := mgr.ResolveLatestVersion(ctx, spec)
+				if err != nil {
+					return update{}, fmt.Errorf("resolve latest for %q: %w", name, err)
+				}
+				version = v
+			} else {
+				s.Update("preparing lock entry for " + name)
+			}
 			s.Update(name + "@" + version)
-		}
-		return update{name: name, lt: lockedToolWithRenovate(lockRef, version, spec)}, nil
-	}
-
-	var updates []update
-	if taskgroup.FromContext(ctx) != nil {
-		// Map resolves versions in parallel; reduce writes the lockfile serially.
-		// Latest-resolve failures become a nil-ish skip via empty name filter below
-		// only on the sequential path; under taskgroup they fail the map (prior behavior).
-		mapped, mapErr := taskgroup.Map[string, update]{
-			Name:     "lazy-tools",
-			Items:    needsWork,
-			PoolKind: taskgroup.Control,
-			TaskName: func(_ int, name string) string { return "tool:" + name },
-			Fn:       resolveOne,
-		}.Run(ctx)
-		if mapErr != nil {
-			return 0, mapErr
-		}
-		updates = mapped
-	} else {
-		// No group in context: sequential resolve (tests / direct callers).
-		// Spec errors abort; latest-resolve errors skip that tool.
-		for _, name := range needsWork {
-			toolCfg := lazyTools[name]
-			if _, _, err := lazyToolSpec(name, toolCfg); err != nil {
-				return 0, fmt.Errorf("lazy tool %q: %w", name, err)
-			}
-			u, err := resolveOne(ctx, nil, name)
-			if err != nil {
-				continue
-			}
-			updates = append(updates, u)
-		}
+			return update{name: name, lt: lockedToolWithRenovate(lockRef, version, spec)}, nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		return 0, err
 	}
 
 	// Reduce: apply collected updates serially (lockfile mutation must be safe).

@@ -185,31 +185,20 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 		}
 	}
 
-	if taskgroup.FromContext(ctx) != nil {
-		patches, err := taskgroup.Map[Action, statePatch]{
-			Name:     "apply",
-			Items:    work,
-			PoolKind: taskgroup.IO,
-			TaskName: taskName,
-			Fn: func(ctx context.Context, s *taskgroup.Status, a Action) (statePatch, error) {
-				s.Update(PrettyPath(a.Target))
-				return applyFS(ctx, a)
-			},
-		}.Run(ctx)
-		if err != nil {
-			return err
-		}
-		for _, p := range patches {
-			applyPatch(state, p)
-		}
-		return nil
+	patches, err := taskgroup.Map[Action, statePatch]{
+		Name:     "apply",
+		Items:    work,
+		PoolKind: taskgroup.IO,
+		TaskName: taskName,
+		Fn: func(ctx context.Context, s *taskgroup.Status, a Action) (statePatch, error) {
+			s.Update(PrettyPath(a.Target))
+			return applyFS(ctx, a)
+		},
+	}.Run(ctx)
+	if err != nil {
+		return err
 	}
-
-	for _, a := range work {
-		p, err := applyFS(ctx, a)
-		if err != nil {
-			return err
-		}
+	for _, p := range patches {
 		applyPatch(state, p)
 	}
 	return nil

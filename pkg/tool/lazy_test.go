@@ -12,6 +12,7 @@ import (
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
 	parsespec "workspaced/pkg/parse/spec"
+	"workspaced/pkg/taskgroup"
 )
 
 func TestRefreshLazyToolLocksPreservesExistingLock(t *testing.T) {
@@ -31,15 +32,17 @@ workspaced: {
 }
 `)
 
+	// Pin every lazy tool that the codebase prelude injects (plus gh from the
+	// test cue) so refresh has nothing to resolve and must leave the lock untouched.
 	writeTestFile(t, filepath.Join(workspaceRoot, "workspaced.lock.json"), `{
   "dependencies": [
-    {
-      "kind": "tool",
-      "ref": "github:cli/cli",
-      "currentValue": "0.1.0",
-      "depName": "cli/cli",
-      "datasource": "github-releases"
-    }
+    {"kind": "tool", "ref": "github:cli/cli", "currentValue": "0.1.0", "depName": "cli/cli", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "github:golangci/golangci-lint", "currentValue": "1.0.0", "depName": "golangci/golangci-lint", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "registry:shellcheck", "currentValue": "0.1.0", "depName": "shellcheck", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "github:astral-sh/ruff", "currentValue": "0.1.0", "depName": "astral-sh/ruff", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "github:rhysd/actionlint", "currentValue": "0.1.0", "depName": "rhysd/actionlint", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "registry:biome", "currentValue": "0.1.0", "depName": "biome", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "registry:nodejs", "currentValue": "0.1.0", "depName": "nodejs", "datasource": "github-releases"}
   ]
 }
 `)
@@ -54,7 +57,8 @@ workspaced: {
 		t.Fatalf("chmod bin: %v", err)
 	}
 
-	ctx := logging.NewWriterContext(t.Output())
+	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	t.Cleanup(func() { _ = g.Wait() })
 	cfg, err := configcue.LoadForWorkspace(ctx, workspaceRoot)
 	if err != nil {
 		t.Fatalf("load config: %v", err)
