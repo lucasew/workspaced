@@ -3,9 +3,11 @@ package exec
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"workspaced/pkg/driver"
+	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
 )
 
@@ -29,6 +31,8 @@ func IsBinaryAvailable(ctx context.Context, name string) bool {
 }
 
 // Run creates an exec.Cmd using the selected driver.
+// Stderr defaults to the process os.Stderr (including session UI redirects).
+// Context writers from executil override stdout/stderr when set.
 func Run(ctx context.Context, name string, args ...string) (*exec.Cmd, error) {
 	logger := logging.GetLogger(ctx)
 	logger.Debug("running command", "name", name, "args", args)
@@ -36,7 +40,9 @@ func Run(ctx context.Context, name string, args ...string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	return d.Run(ctx, name, args...), nil
+	cmd := d.Run(ctx, name, args...)
+	attachDefaultWriters(ctx, cmd)
+	return cmd, nil
 }
 
 // Which locates a command in PATH using the selected driver.
@@ -55,9 +61,25 @@ func MustRun(ctx context.Context, name string, args ...string) *exec.Cmd {
 	cmd, err := Run(ctx, name, args...)
 	if err != nil {
 		// Fallback to direct exec if driver fails
-		return exec.CommandContext(ctx, name, args...)
+		cmd = exec.CommandContext(ctx, name, args...)
+		attachDefaultWriters(ctx, cmd)
+		return cmd
 	}
 	return cmd
+}
+
+// attachDefaultWriters sets stderr to the process os.Stderr so Output() does
+// not swallow diagnostics, then applies executil context overrides when set.
+// Stdout is left unset unless the context carries one, so callers can still
+// use Cmd.Output() or assign a capture buffer.
+func attachDefaultWriters(ctx context.Context, cmd *exec.Cmd) {
+	cmd.Stderr = os.Stderr
+	if stdout := executil.Stdout(ctx); stdout != nil {
+		cmd.Stdout = stdout
+	}
+	if stderr := executil.Stderr(ctx); stderr != nil {
+		cmd.Stderr = stderr
+	}
 }
 
 // RequireBinary returns driver.ErrIncompatible when name is missing from PATH.

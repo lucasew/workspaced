@@ -1,15 +1,19 @@
 package nix
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+
 	"workspaced/pkg/api"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
@@ -39,6 +43,37 @@ func parseFlakeRef(ref string) (repo string, item string) {
 	return
 }
 
+// nixCmd builds a command with explicit stdout/stderr (context writers or
+// process streams). Never leaves either stream nil.
+func nixCmd(ctx context.Context, stdout, stderr io.Writer, name string, args ...string) *exec.Cmd {
+	cmd := execdriver.MustRun(ctx, name, args...)
+	if stdout == nil {
+		stdout = executil.StdoutOr(ctx, os.Stdout)
+	}
+	if stderr == nil {
+		stderr = executil.StderrOr(ctx, os.Stderr)
+	}
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	return cmd
+}
+
+// nixOutput runs name/args with stderr on the process/context stream and
+// captures stdout (e.g. nix build --print-out-paths, --json).
+func nixOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	var stdout bytes.Buffer
+	cmd := nixCmd(ctx, &stdout, nil, name, args...)
+	if err := cmd.Run(); err != nil {
+		return nil, err
+	}
+	return stdout.Bytes(), nil
+}
+
+// nixRun streams both stdout and stderr to context/process writers.
+func nixRun(ctx context.Context, name string, args ...string) error {
+	return nixCmd(ctx, nil, nil, name, args...).Run()
+}
+
 func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
 	if repo == "" || repo == "." || repo == "," {
 		root, err := envdriver.GetDotfilesRoot(ctx)
@@ -48,8 +83,7 @@ func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
 		repo = root
 	}
 
-	// Use nix flake archive to ensure the source is in the Nix store and get its path
-	out, err := execdriver.MustRun(ctx, "nix", "flake", "archive", repo, "--json").Output()
+	out, err := nixOutput(ctx, "nix", "flake", "archive", repo, "--json")
 	if err != nil {
 		return "", fmt.Errorf("failed to archive flake %s to store: %w", repo, err)
 	}
@@ -71,16 +105,15 @@ func CopyClosure(ctx context.Context, target string, path string, direction Dire
 	} else {
 		args = append(args, "--from", target, path)
 	}
-
-	cmd := execdriver.MustRun(ctx, "nix-copy-closure", args...)
-	executil.InheritContextWriters(ctx, cmd)
-	return cmd.Run()
+	if err := nixRun(ctx, "nix-copy-closure", args...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetRemoteCacheDir(ctx context.Context, target string) (string, error) {
-	// Sentinel: Use XDG_RUNTIME_DIR (wiped on reboot) or fallback to user cache
 	script := `echo "${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/rbuild-outputs"`
-	out, err := execdriver.MustRun(ctx, "ssh", target, script).Output()
+	out, err := nixOutput(ctx, "ssh", target, script)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +146,6 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 		logger.Info(msg, "progress", prog)
 	}
 
-	// 1. Resolve source
 	updateProgress("Resolving flake metadata...", 0.1)
 	repo, item := parseFlakeRef(ref)
 
@@ -122,13 +154,11 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 		return "", err
 	}
 
-	// 2. Sync source to target
 	updateProgress(fmt.Sprintf("Syncing sources to %s...", target), 0.3)
 	if err := CopyClosure(ctx, target, sourcePath, To); err != nil {
 		return "", fmt.Errorf("failed to copy source to %s: %w", target, err)
 	}
 
-	// 3. Remote build
 	updateProgress("Building on remote server...", 0.6)
 	remoteCache, err := GetRemoteCacheDir(ctx, target)
 	if err != nil {
@@ -140,28 +170,22 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	uuid := fmt.Sprintf("%x", buildID)
 	outLink := fmt.Sprintf("%s/%s", remoteCache, uuid)
 
-	buildCmd := "nix build"
-
 	safeRef := fmt.Sprintf("%s#%s", sourcePath, item)
 	remoteArgs := []string{
 		target, "-t",
 		"mkdir", "-p", remoteCache, "&&",
-		buildCmd, "-L", fmt.Sprintf("%q", safeRef), "--out-link", outLink, "--show-trace",
+		"nix", "build", "-L", fmt.Sprintf("%q", safeRef), "--out-link", outLink, "--show-trace",
 	}
-
-	cmdBuild := execdriver.MustRun(ctx, "ssh", remoteArgs...)
-	executil.InheritContextWriters(ctx, cmdBuild)
-	if err := cmdBuild.Run(); err != nil {
+	if err := nixRun(ctx, "ssh", remoteArgs...); err != nil {
 		return "", fmt.Errorf("%w: remote build failed: %w", api.ErrBuildFailed, err)
 	}
 
-	out, err := execdriver.MustRun(ctx, "ssh", target, "realpath", outLink).Output()
+	out, err := nixOutput(ctx, "ssh", target, "realpath", outLink)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve result path: %w", err)
 	}
 	resultPath := strings.TrimSpace(string(out))
 
-	// 4. Copy back
 	if copyBack {
 		updateProgress("Syncing result back...", 0.9)
 		if err := CopyClosure(ctx, target, resultPath, From); err != nil {
@@ -178,7 +202,6 @@ func Build(ctx context.Context, ref string, useCache bool) (string, error) {
 
 	repo, item := parseFlakeRef(ref)
 
-	// Resolve the source path to a store path
 	sourcePath, err := ResolveFlakePath(ctx, repo)
 	if err != nil {
 		return "", err
@@ -197,20 +220,14 @@ func Build(ctx context.Context, ref string, useCache bool) (string, error) {
 	}
 
 	logger.Info("performing nix build", "ref", ref)
-	// We use the store path of the source to ensure deterministic build and avoid re-evaluation if not needed.
-	// -L streams build logs on stderr; keep stdout clean for --print-out-paths.
-	cmd := execdriver.MustRun(ctx, "nix", "build", "-L", fmt.Sprintf("%s#%s", sourcePath, item), "--no-link", "--print-out-paths")
-	if stderr := executil.Stderr(ctx); stderr != nil {
-		cmd.Stderr = stderr
-	}
-	out, err := cmd.Output()
+	// -L streams build logs on stderr; stdout stays --print-out-paths only.
+	out, err := nixOutput(ctx, "nix", "build", "-L", fmt.Sprintf("%s#%s", sourcePath, item), "--no-link", "--print-out-paths")
 	if err != nil {
 		return "", fmt.Errorf("%w: nix build failed: %w", api.ErrBuildFailed, err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	resultPath := lines[0]
-	// If multiple paths, try to find the one with bin/
 	for _, line := range lines {
 		if info, err := os.Stat(filepath.Join(line, "bin")); err == nil && info.IsDir() {
 			resultPath = line
@@ -242,11 +259,8 @@ func Rebuild(ctx context.Context, action string, flake string) error {
 		flake = "github:lucasew/nixcfg"
 	}
 
-	// Check if we are on a known node
 	supportedNodes := []string{"riverwood", "whiterun", "ravenrock", "atomicpi", "recovery"}
-	isSupported := slices.Contains(supportedNodes, hostname)
-
-	if !isSupported {
+	if !slices.Contains(supportedNodes, hostname) {
 		return fmt.Errorf("%w: %s", api.ErrHostNotFound, hostname)
 	}
 
@@ -271,11 +285,8 @@ func Rebuild(ctx context.Context, action string, flake string) error {
 			Command: cmdName,
 			Args:    args,
 		})
-	} else {
-		cmd := execdriver.MustRun(ctx, cmdName, args...)
-		executil.InheritContextWriters(ctx, cmd)
-		return cmd.Run()
 	}
+	return nixRun(ctx, cmdName, args...)
 }
 
 func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
@@ -308,17 +319,11 @@ func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
 		return fmt.Errorf("activation script not found at %s: %w", activatePath, err)
 	}
 
-	cmd := execdriver.MustRun(ctx, activatePath)
-	executil.InheritContextWriters(ctx, cmd)
-	return cmd.Run()
+	return nixRun(ctx, activatePath)
 }
 
 func GetFlakeOutput(ctx context.Context, flake, output string) (string, error) {
-	cmd := execdriver.MustRun(ctx, "nix", "build", "-L", fmt.Sprintf("%s#%s", flake, output), "--no-link", "--print-out-paths")
-	if stderr := executil.Stderr(ctx); stderr != nil {
-		cmd.Stderr = stderr
-	}
-	out, err := cmd.Output()
+	out, err := nixOutput(ctx, "nix", "build", "-L", fmt.Sprintf("%s#%s", flake, output), "--no-link", "--print-out-paths")
 	if err != nil {
 		return "", err
 	}

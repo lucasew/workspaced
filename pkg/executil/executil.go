@@ -49,15 +49,36 @@ func Env(ctx context.Context) []string {
 	return env
 }
 
-// InheritContextWriters configures the command's Stdout and Stderr to write to the writers
-// stored in the context, allowing output capture or redirection.
+// InheritContextWriters sets cmd.Stdout and cmd.Stderr from context writers when
+// present, otherwise the process os.Stdout / os.Stderr. Always assigns both so
+// callers never rely on Output() swallowing an unset stderr.
 func InheritContextWriters(ctx context.Context, cmd *exec.Cmd) {
 	if stdout := Stdout(ctx); stdout != nil {
 		cmd.Stdout = stdout
+	} else {
+		cmd.Stdout = os.Stdout
 	}
 	if stderr := Stderr(ctx); stderr != nil {
 		cmd.Stderr = stderr
+	} else {
+		cmd.Stderr = os.Stderr
 	}
+}
+
+// StdoutOr returns the context stdout writer, or fallback when unset.
+func StdoutOr(ctx context.Context, fallback io.Writer) io.Writer {
+	if w := Stdout(ctx); w != nil {
+		return w
+	}
+	return fallback
+}
+
+// StderrOr returns the context stderr writer, or fallback when unset.
+func StderrOr(ctx context.Context, fallback io.Writer) io.Writer {
+	if w := Stderr(ctx); w != nil {
+		return w
+	}
+	return fallback
 }
 
 // GetEnv retrieves an environment variable from the context or the system.
