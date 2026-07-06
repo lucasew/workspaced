@@ -64,21 +64,21 @@ func deltaESq(c1, c2 api.LAB) float64 {
 }
 
 // maxDeltaE finds the maximum perceptual distance between any two colors.
+// Uses squared distance for comparison (monotonic with DeltaE), sqrt only once.
 func maxDeltaE(colors []api.LAB) float64 {
 	if len(colors) < 2 {
 		return 0
 	}
 
-	maxDist := 0.0
+	maxSq := 0.0
 	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
-			dist := api.DeltaE(colors[i], colors[j])
-			if dist > maxDist {
-				maxDist = dist
+			if sq := deltaESq(colors[i], colors[j]); sq > maxSq {
+				maxSq = sq
 			}
 		}
 	}
-	return maxDist
+	return math.Sqrt(maxSq)
 }
 
 // minDeltaE finds the minimum perceptual distance between any two colors.
@@ -89,31 +89,30 @@ func minDeltaE(colors []api.LAB) float64 {
 
 // accentPairStats computes min pairwise DeltaE and the near-duplicate penalty
 // in a single O(n²) pass (same results as separate minDeltaE + penalty scans).
+// Uses squared distances internally; thresholds are pre-squared (5²=25, 10²=100, 15²=225).
 func accentPairStats(colors []api.LAB) (minDist, duplicatePenalty float64) {
 	if len(colors) < 2 {
 		return 0, 0
 	}
 
-	minDist = math.MaxFloat64
+	minSq := math.MaxFloat64
 	for i := range colors {
 		for j := i + 1; j < len(colors); j++ {
-			// Full DeltaE keeps threshold buckets and minDist bit-identical to
-			// the historical two-pass path (fitness ties drive survivor order).
-			diff := api.DeltaE(colors[i], colors[j])
-			if diff < minDist {
-				minDist = diff
+			sq := deltaESq(colors[i], colors[j])
+			if sq < minSq {
+				minSq = sq
 			}
 			switch {
-			case diff < 5.0:
+			case sq < 25.0: // 5.0²
 				duplicatePenalty += 10.0 // Very high penalty per duplicate
-			case diff < 10.0:
+			case sq < 100.0: // 10.0²
 				duplicatePenalty += 5.0 // High penalty for very similar
-			case diff < 15.0:
+			case sq < 225.0: // 15.0²
 				duplicatePenalty += 2.0 // Moderate penalty for similar
 			}
 		}
 	}
-	return minDist, duplicatePenalty
+	return math.Sqrt(minSq), duplicatePenalty
 }
 
 // calculateImageSimilarity measures how well the palette matches the image colors.
@@ -141,25 +140,28 @@ func calculateImageSimilarity(paletteColors []api.LAB, imageColors []api.LAB) fl
 	return -avgDist
 }
 
+// Target lightness patterns (static, never mutated).
+var darkLightnesses = [8]float64{10, 30, 45, 65, 75, 90, 95, 95}
+var lightLightnesses = [8]float64{90, 70, 55, 35, 25, 10, 5, 5}
+
 // calculateLightnessError measures deviation from target lightness pattern.
 // Based on Stylix Stylix/Palette.hs lines 82-94.
 func calculateLightnessError(colors []api.LAB, polarity api.Polarity) float64 {
-	var targetLightnesses []float64
+	var targetLightnesses *[8]float64
 
 	switch polarity {
 	case api.PolarityDark:
-		// Dark theme: background dark, foreground light
-		targetLightnesses = []float64{10, 30, 45, 65, 75, 90, 95, 95}
+		targetLightnesses = &darkLightnesses
 	case api.PolarityLight:
-		// Light theme: background light, foreground dark
-		targetLightnesses = []float64{90, 70, 55, 35, 25, 10, 5, 5}
+		targetLightnesses = &lightLightnesses
 	case api.PolarityAny:
 		return 0
 	}
 
 	// Calculate error for base00-07 (primary scale)
 	errorSum := 0.0
-	for i := 0; i < 8 && i < len(colors); i++ {
+	n := min(8, len(colors))
+	for i := 0; i < n; i++ {
 		diff := colors[i].L - targetLightnesses[i]
 		errorSum += math.Abs(diff)
 	}

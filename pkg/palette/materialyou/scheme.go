@@ -153,7 +153,7 @@ type Role struct {
 	Background       func(s *Scheme) *Role
 	SecondBackground func(s *Scheme) *Role
 	ContrastCurve    *ContrastCurve
-	ToneDeltaPair    func(s *Scheme) *ToneDeltaPair
+	ToneDeltaPair    *ToneDeltaPair
 }
 
 func highestSurface(s *Scheme) *Role {
@@ -355,9 +355,7 @@ func initRoles() {
 	roles["primary_container"].Background = highestSurface
 	roles["primary_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["primary"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["primary_container"], roles["primary"], 10.0, "Nearer", false)
-	}
+	roles["primary"].ToneDeltaPair = tdp(roles["primary_container"], roles["primary"], 10.0, "Nearer", false)
 	roles["primary_container"].ToneDeltaPair = roles["primary"].ToneDeltaPair
 
 	roles["on_primary_container"] = r("on_primary_container", "Primary", func(s *Scheme) float64 {
@@ -408,9 +406,7 @@ func initRoles() {
 	roles["secondary_container"].Background = highestSurface
 	roles["secondary_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["secondary"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["secondary_container"], roles["secondary"], 10.0, "Nearer", false)
-	}
+	roles["secondary"].ToneDeltaPair = tdp(roles["secondary_container"], roles["secondary"], 10.0, "Nearer", false)
 	roles["secondary_container"].ToneDeltaPair = roles["secondary"].ToneDeltaPair
 
 	roles["on_secondary_container"] = r("on_secondary_container", "Secondary", func(s *Scheme) float64 {
@@ -452,9 +448,7 @@ func initRoles() {
 	roles["tertiary_container"].Background = highestSurface
 	roles["tertiary_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["tertiary"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["tertiary_container"], roles["tertiary"], 10.0, "Nearer", false)
-	}
+	roles["tertiary"].ToneDeltaPair = tdp(roles["tertiary_container"], roles["tertiary"], 10.0, "Nearer", false)
 	roles["tertiary_container"].ToneDeltaPair = roles["tertiary"].ToneDeltaPair
 
 	roles["on_tertiary_container"] = r("on_tertiary_container", "Tertiary", func(s *Scheme) float64 {
@@ -496,9 +490,7 @@ func initRoles() {
 	roles["error_container"].Background = highestSurface
 	roles["error_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["error"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["error_container"], roles["error"], 10.0, "Nearer", false)
-	}
+	roles["error"].ToneDeltaPair = tdp(roles["error_container"], roles["error"], 10.0, "Nearer", false)
 	roles["error_container"].ToneDeltaPair = roles["error"].ToneDeltaPair
 
 	roles["on_error_container"] = r("on_error_container", "Error", func(s *Scheme) float64 {
@@ -521,9 +513,7 @@ func initRoles() {
 	roles["primary_fixed_dim"].Background = highestSurface
 	roles["primary_fixed_dim"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["primary_fixed"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["primary_fixed"], roles["primary_fixed_dim"], 10.0, "Lighter", true)
-	}
+	roles["primary_fixed"].ToneDeltaPair = tdp(roles["primary_fixed"], roles["primary_fixed_dim"], 10.0, "Lighter", true)
 	roles["primary_fixed_dim"].ToneDeltaPair = roles["primary_fixed"].ToneDeltaPair
 
 	roles["on_primary_fixed"] = r("on_primary_fixed", "Primary", func(s *Scheme) float64 { return 10.0 })
@@ -546,9 +536,7 @@ func initRoles() {
 	roles["secondary_fixed_dim"].Background = highestSurface
 	roles["secondary_fixed_dim"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["secondary_fixed"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["secondary_fixed"], roles["secondary_fixed_dim"], 10.0, "Lighter", true)
-	}
+	roles["secondary_fixed"].ToneDeltaPair = tdp(roles["secondary_fixed"], roles["secondary_fixed_dim"], 10.0, "Lighter", true)
 	roles["secondary_fixed_dim"].ToneDeltaPair = roles["secondary_fixed"].ToneDeltaPair
 
 	roles["on_secondary_fixed"] = r("on_secondary_fixed", "Secondary", func(s *Scheme) float64 { return 10.0 })
@@ -571,9 +559,7 @@ func initRoles() {
 	roles["tertiary_fixed_dim"].Background = highestSurface
 	roles["tertiary_fixed_dim"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
-	roles["tertiary_fixed"].ToneDeltaPair = func(s *Scheme) *ToneDeltaPair {
-		return tdp(roles["tertiary_fixed"], roles["tertiary_fixed_dim"], 10.0, "Lighter", true)
-	}
+	roles["tertiary_fixed"].ToneDeltaPair = tdp(roles["tertiary_fixed"], roles["tertiary_fixed_dim"], 10.0, "Lighter", true)
 	roles["tertiary_fixed_dim"].ToneDeltaPair = roles["tertiary_fixed"].ToneDeltaPair
 
 	roles["on_tertiary_fixed"] = r("on_tertiary_fixed", "Tertiary", func(s *Scheme) float64 { return 10.0 })
@@ -596,7 +582,7 @@ func getTone(role *Role, s *Scheme) float64 {
 	decreasing := cl < 0.0
 
 	if role.ToneDeltaPair != nil {
-		pair := role.ToneDeltaPair(s)
+		pair := role.ToneDeltaPair
 		roleA := pair.Subject
 		roleB := pair.Basis
 		delta := pair.Delta
@@ -791,9 +777,36 @@ func colorOf(roleName string, s *Scheme) string {
 
 func colorsFor(isDark bool, sourceHex string) map[string]string {
 	s := mkScheme(isDark, sourceHex)
-	res := make(map[string]string)
+	res := make(map[string]string, len(roles))
 	for name := range roles {
 		res[name] = colorOf(name, s)
 	}
 	return res
+}
+
+// colorsForBoth computes dark and light colors sharing the same PaletteSet,
+// avoiding redundant HCT solves since the tonal palettes are memoized.
+func colorsForBoth(sourceHex string) (dark, light map[string]string) {
+	src := hctFromHex(sourceHex)
+	palettes := rainbowPalettes(src.Hue, src.Chroma)
+
+	mkSchemeWith := func(isDark bool) *Scheme {
+		return &Scheme{
+			IsDark:         isDark,
+			ContrastLevel:  0.0,
+			SourceColorHct: src,
+			Palettes:       palettes,
+		}
+	}
+
+	darkScheme := mkSchemeWith(true)
+	lightScheme := mkSchemeWith(false)
+
+	dark = make(map[string]string, len(roles))
+	light = make(map[string]string, len(roles))
+	for name := range roles {
+		dark[name] = colorOf(name, darkScheme)
+		light[name] = colorOf(name, lightScheme)
+	}
+	return dark, light
 }
