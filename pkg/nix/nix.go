@@ -146,7 +146,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	remoteArgs := []string{
 		target, "-t",
 		"mkdir", "-p", remoteCache, "&&",
-		buildCmd, fmt.Sprintf("%q", safeRef), "--out-link", outLink, "--show-trace",
+		buildCmd, "-L", fmt.Sprintf("%q", safeRef), "--out-link", outLink, "--show-trace",
 	}
 
 	cmdBuild := execdriver.MustRun(ctx, "ssh", remoteArgs...)
@@ -197,8 +197,12 @@ func Build(ctx context.Context, ref string, useCache bool) (string, error) {
 	}
 
 	logger.Info("performing nix build", "ref", ref)
-	// We use the store path of the source to ensure deterministic build and avoid re-evaluation if not needed
-	cmd := execdriver.MustRun(ctx, "nix", "build", fmt.Sprintf("%s#%s", sourcePath, item), "--no-link", "--print-out-paths")
+	// We use the store path of the source to ensure deterministic build and avoid re-evaluation if not needed.
+	// -L streams build logs on stderr; keep stdout clean for --print-out-paths.
+	cmd := execdriver.MustRun(ctx, "nix", "build", "-L", fmt.Sprintf("%s#%s", sourcePath, item), "--no-link", "--print-out-paths")
+	if stderr := executil.Stderr(ctx); stderr != nil {
+		cmd.Stderr = stderr
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("%w: nix build failed: %w", api.ErrBuildFailed, err)
@@ -310,7 +314,7 @@ func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
 }
 
 func GetFlakeOutput(ctx context.Context, flake, output string) (string, error) {
-	cmd := execdriver.MustRun(ctx, "nix", "build", fmt.Sprintf("%s#%s", flake, output), "--no-link", "--print-out-paths")
+	cmd := execdriver.MustRun(ctx, "nix", "build", "-L", fmt.Sprintf("%s#%s", flake, output), "--no-link", "--print-out-paths")
 	if stderr := executil.Stderr(ctx); stderr != nil {
 		cmd.Stderr = stderr
 	}
