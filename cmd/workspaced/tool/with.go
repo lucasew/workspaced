@@ -79,46 +79,60 @@ Examples:
 
 					g := taskgroup.MustFromContext(cmd.Context())
 					g.Go("tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-						// Perform the tool resolution/install using the task's context.
-						// This context is tied to the group and supports cancellation
-						// (e.g. ^C during download will abort the fetch/install tasks).
+						// Resolution/install runs under this task's ctx so ^C cancels fetches.
+						// No Unit(): the ensure Map owns the aggregate bar.
 						m, err := tool.NewManager()
 						if err != nil {
 							return err
 						}
 
-						// Ensure side tools (everything but we will search for the command provider below).
-						// Using Ensure (not EnsureInstalled) so we don't require the command name to exist
-						// in every listed tool.
-						for _, specStr := range toolSpecs[:len(toolSpecs)-1] {
-							s.Update("ensuring " + specStr)
-							if err := m.Ensure(ctx, specStr); err != nil {
-								return fmt.Errorf("failed to ensure tool %s: %w", specStr, err)
-							}
+						type specItem struct {
+							index int
+							spec  string
+						}
+						type binOutcome struct {
+							index   int
+							binPath string
+							miss    bool
+						}
+						items := make([]specItem, len(toolSpecs))
+						for i, spec := range toolSpecs {
+							items[i] = specItem{index: i, spec: spec}
 						}
 
-						// The command name may be provided by any of the listed tools (search from the end
-						// so the rightmost one that matches wins). This makes "with nodejs uv -- node"
-						// work naturally even if "nodejs" is not the last entry.
-						var binPath string
-						var found bool
-						for i := len(toolSpecs) - 1; i >= 0; i-- {
-							spec := toolSpecs[i]
-							s.Update("ensuring " + spec)
-							bp, err := m.EnsureInstalled(ctx, spec, command)
-							if err == nil {
-								binPath = bp
-								found = true
+						// Map installs each spec (with command as binary hint). Soft-miss when
+						// the tool tree has no such binary; hard errors fail the map.
+						// Reduce picks the rightmost hit so "with nodejs uv -- node" still
+						// resolves node from nodejs even if uv is listed last.
+						outcomes, err := taskgroup.Map[specItem, binOutcome]{
+							Name:     "tool-with:ensure",
+							Items:    items,
+							PoolKind: taskgroup.Control,
+							TaskName: func(_ int, it specItem) string { return "ensure:" + it.spec },
+							Fn: func(ctx context.Context, st *taskgroup.Status, it specItem) (binOutcome, error) {
+								st.Update(it.spec)
+								bp, err := m.EnsureInstalled(ctx, it.spec, command)
+								if err == nil {
+									return binOutcome{index: it.index, binPath: bp}, nil
+								}
+								if isBinaryNotFound(err) {
+									return binOutcome{index: it.index, miss: true}, nil
+								}
+								return binOutcome{}, fmt.Errorf("failed to ensure tool %s: %w", it.spec, err)
+							},
+						}.Run(ctx)
+						if err != nil {
+							return err
+						}
+
+						binPath := ""
+						for i := len(outcomes) - 1; i >= 0; i-- {
+							if !outcomes[i].miss && outcomes[i].binPath != "" {
+								binPath = outcomes[i].binPath
 								break
 							}
-							if errors.Is(err, tool.ErrBinaryNotFound) || strings.Contains(err.Error(), "binary not found") {
-								// This tool doesn't contain the requested command; try the previous one in the list.
-								continue
-							}
-							// Hard failure (resolution, network, etc.) for a candidate -> surface it.
-							return fmt.Errorf("failed to ensure tool %s: %w", spec, err)
 						}
-						if !found {
+						if binPath == "" {
 							return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
 						}
 
@@ -148,4 +162,8 @@ Examples:
 				},
 			}
 		})
+}
+
+func isBinaryNotFound(err error) bool {
+	return errors.Is(err, tool.ErrBinaryNotFound) || strings.Contains(err.Error(), "binary not found")
 }
