@@ -1,8 +1,11 @@
 package mod
 
 import (
+	"context"
+
 	"workspaced/pkg/logging"
 	"workspaced/pkg/modfile"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -19,19 +22,26 @@ func init() {
 
 func runModLock(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
-	logger := logging.GetLogger(ctx)
-	ws, err := modfile.DetectWorkspace(ctx, "")
-	if err != nil {
-		return err
-	}
-	result, err := modfile.GenerateLock(ctx, ws)
-	if err != nil {
-		return err
-	}
-	if result.Changed {
-		logger.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
-	} else {
-		logger.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
-	}
+	g := taskgroup.MustFromContext(ctx)
+	g.Go("mod:lock", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("refreshing lockfile")
+		// No Unit(): PopulateSourceLockHashes owns the source-locks aggregate bar
+		// when sources need resolution; otherwise this finishes immediately.
+		logger := logging.GetLogger(ctx)
+		ws, err := modfile.DetectWorkspace(ctx, "")
+		if err != nil {
+			return err
+		}
+		result, err := modfile.GenerateLock(ctx, ws)
+		if err != nil {
+			return err
+		}
+		if result.Changed {
+			logger.Info("wrote lockfile", "path", ws.SumPath(), "sources", result.Sources)
+		} else {
+			logger.Info("lockfile up to date", "path", ws.SumPath(), "sources", result.Sources)
+		}
+		return nil
+	})
 	return nil
 }
