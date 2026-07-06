@@ -65,9 +65,7 @@ type Colorscheme struct {
 }
 
 func GenerateColorscheme(source string, customColors map[string]string) Colorscheme {
-	roleColors := func(isDark bool) map[string]string {
-		return colorsFor(isDark, source)
-	}
+	darkRoles, lightRoles := colorsForBoth(source)
 
 	customFor := func(isDark bool) map[string]string {
 		res := make(map[string]string)
@@ -86,9 +84,9 @@ func GenerateColorscheme(source string, customColors map[string]string) Colorsch
 		return res
 	}
 
-	modeColors := func(isDark bool) ModeColors {
+	modeColors := func(isDark bool, roleColors map[string]string) ModeColors {
 		res := ModeColors{}
-		for k, v := range roleColors(isDark) {
+		for k, v := range roleColors {
 			res[k] = v
 		}
 		for k, v := range customFor(isDark) {
@@ -99,7 +97,7 @@ func GenerateColorscheme(source string, customColors map[string]string) Colorsch
 	}
 
 	return Colorscheme{
-		Dark:  modeColors(true),
-		Light: modeColors(false),
+		Dark:  modeColors(true, darkRoles),
+		Light: modeColors(false, lightRoles),
 	}
 }

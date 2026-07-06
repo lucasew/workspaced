@@ -3,7 +3,7 @@ package materialyou
 import (
 	"context"
 	"image"
-	"slices"
+	"image/color"
 
 	"workspaced/pkg/logging"
 	"workspaced/pkg/palette/api"
@@ -31,35 +31,18 @@ func (d *Driver) Extract(ctx context.Context, img image.Image, opts api.Options)
 		return nil, ctx.Err()
 	}
 
-	freq := make(map[string]int, len(colors))
-	for _, c := range colors {
-		freq[api.ToHex(c)]++
-	}
-
-	type kv struct {
-		k string
-		v int
-	}
-	ss := make([]kv, 0, len(freq))
-	for k, v := range freq {
-		ss = append(ss, kv{k, v})
-	}
-	// Frequency desc; hex asc on ties so map iteration order cannot flip the winner
-	// (SampleImage returns unique colors, so multi-color images often all have count 1).
-	slices.SortFunc(ss, func(a, b kv) int {
-		if d := b.v - a.v; d != 0 {
-			return d
+	// SampleImage returns unique colors (all frequency 1).
+	// Pick the lexicographically smallest hex — equivalent to lowest packed RGB.
+	minColor := colors[0]
+	minKey := uint32(minColor.R)<<16 | uint32(minColor.G)<<8 | uint32(minColor.B)
+	for _, c := range colors[1:] {
+		key := uint32(c.R)<<16 | uint32(c.G)<<8 | uint32(c.B)
+		if key < minKey {
+			minKey = key
+			minColor = c
 		}
-		if a.k < b.k {
-			return -1
-		}
-		if a.k > b.k {
-			return 1
-		}
-		return 0
-	})
-
-	baseColor := ss[0].k
+	}
+	baseColor := api.ToHex(color.RGBA(minColor))
 	// Debug: one-liner for CLI -d; avoid Info so default runs and tests stay quiet.
 	logger.Debug("selected base color for Material You", "hex", "#"+baseColor)
 

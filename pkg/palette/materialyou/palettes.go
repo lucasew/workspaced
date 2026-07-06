@@ -28,12 +28,20 @@ type TonalPalette struct {
 }
 
 func newTonalPalette(hue, chroma float64) TonalPalette {
+	cache := make(map[float64]string, 8)
 	var toneOf func(t float64) string
 	toneOf = func(t float64) string {
-		if t == 99.0 && isYellow(hue) {
-			return averageHex(toneOf(98.0), toneOf(100.0))
+		if v, ok := cache[t]; ok {
+			return v
 		}
-		return hexFromHct(HCT{Hue: hue, Chroma: chroma, Tone: t})
+		var v string
+		if t == 99.0 && isYellow(hue) {
+			v = averageHex(toneOf(98.0), toneOf(100.0))
+		} else {
+			v = hexFromHct(HCT{Hue: hue, Chroma: chroma, Tone: t})
+		}
+		cache[t] = v
+		return v
 	}
 	return TonalPalette{
 		Hue:    hue,

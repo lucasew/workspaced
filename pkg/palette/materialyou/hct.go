@@ -1,7 +1,6 @@
 package materialyou
 
 import (
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -14,14 +13,15 @@ func max0(x float64) float64 {
 	return 0.0
 }
 
-func matmul(row []float64, mat [][]float64) []float64 {
+func matmul(row [3]float64, mat *[3][3]float64) [3]float64 {
 	r0 := row[0]
 	r1 := row[1]
 	r2 := row[2]
-	dot := func(v []float64) float64 {
-		return r0*v[0] + r1*v[1] + r2*v[2]
+	return [3]float64{
+		r0*mat[0][0] + r1*mat[0][1] + r2*mat[0][2],
+		r0*mat[1][0] + r1*mat[1][1] + r2*mat[1][2],
+		r0*mat[2][0] + r1*mat[2][1] + r2*mat[2][2],
 	}
-	return []float64{dot(mat[0]), dot(mat[1]), dot(mat[2])}
 }
 
 var labE = 216.0 / 24389.0
@@ -80,7 +80,7 @@ type RGB struct {
 	B float64
 }
 
-func argbFromLinrgb(linrgb []float64) RGB {
+func argbFromLinrgb(linrgb [3]float64) RGB {
 	return RGB{
 		R: delinearized(linrgb[0]),
 		G: delinearized(linrgb[1]),
@@ -98,8 +98,6 @@ func lstarFromRgb(c RGB) float64 {
 	return 116.0*labF(y/100.0) - 16.0
 }
 
-var d65 = []float64{95.047, 100.0, 108.883}
-
 type ViewingConditions struct {
 	N      float64
 	Aw     float64
@@ -107,13 +105,13 @@ type ViewingConditions struct {
 	Ncb    float64
 	C      float64
 	Nc     float64
-	RgbD   []float64
+	RgbD   [3]float64
 	Fl     float64
 	FLRoot float64
 	Z      float64
 }
 
-func makeVc(whitePoint []float64, adaptingLuminance float64, backgroundLstar float64, surround float64) ViewingConditions {
+func makeVc(whitePoint [3]float64, adaptingLuminance float64, backgroundLstar float64, surround float64) ViewingConditions {
 	rW := whitePoint[0]*0.401288 + whitePoint[1]*0.650173 + whitePoint[2]*(-0.051461)
 	gW := whitePoint[0]*(-0.250268) + whitePoint[1]*1.204414 + whitePoint[2]*0.045854
 	bW := whitePoint[0]*(-0.002079) + whitePoint[1]*0.048952 + whitePoint[2]*0.953127
@@ -137,7 +135,7 @@ func makeVc(whitePoint []float64, adaptingLuminance float64, backgroundLstar flo
 	}
 
 	nc := f
-	rgbD := []float64{
+	rgbD := [3]float64{
 		d*(100.0/rW) + 1.0 - d,
 		d*(100.0/gW) + 1.0 - d,
 		d*(100.0/bW) + 1.0 - d,
@@ -153,9 +151,9 @@ func makeVc(whitePoint []float64, adaptingLuminance float64, backgroundLstar flo
 	nbb := 0.725 / math.Pow(n, 0.2)
 
 	fac := func(i int, rw float64) float64 { return math.Pow(fl*rgbD[i]*rw/100.0, 0.42) }
-	rgbAF := []float64{fac(0, rW), fac(1, gW), fac(2, bW)}
+	rgbAF := [3]float64{fac(0, rW), fac(1, gW), fac(2, bW)}
 
-	rgbA := make([]float64, 3)
+	var rgbA [3]float64
 	for i, x := range rgbAF {
 		rgbA[i] = 400.0 * x / (x + 27.13)
 	}
@@ -176,6 +174,7 @@ func makeVc(whitePoint []float64, adaptingLuminance float64, backgroundLstar flo
 	}
 }
 
+var d65 = [3]float64{95.047, 100.0, 108.883}
 var vc = makeVc(d65, (200.0/math.Pi)*yFromLstar(50.0)/100.0, 50.0, 2.0)
 
 type CAM16 struct {
@@ -241,11 +240,21 @@ func hexToRgb(hex string) RGB {
 	return RGB{R: float64(r), G: float64(g), B: float64(b)}
 }
 
+var hexDigits = [16]byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'}
+
 func rgbToHex(c RGB) string {
-	r := clampInt(0, 255, int(math.Floor(c.R+0.5)))
-	g := clampInt(0, 255, int(math.Floor(c.G+0.5)))
-	b := clampInt(0, 255, int(math.Floor(c.B+0.5)))
-	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+	r := byte(clampInt(0, 255, int(math.Floor(c.R+0.5))))
+	g := byte(clampInt(0, 255, int(math.Floor(c.G+0.5))))
+	b := byte(clampInt(0, 255, int(math.Floor(c.B+0.5))))
+	var buf [7]byte
+	buf[0] = '#'
+	buf[1] = hexDigits[r>>4]
+	buf[2] = hexDigits[r&0x0f]
+	buf[3] = hexDigits[g>>4]
+	buf[4] = hexDigits[g&0x0f]
+	buf[5] = hexDigits[b>>4]
+	buf[6] = hexDigits[b&0x0f]
+	return string(buf[:])
 }
 
 type HCT struct {
@@ -276,8 +285,8 @@ func solveToRgb(hueDegrees, chroma, lstar float64) RGB {
 	hueRadians := hue / 180.0 * math.Pi
 	y := yFromLstar(lstar)
 
-	exact := findResultByJ(hueRadians, chroma, y)
-	if exact != nil {
+	exact, ok := findResultByJ(hueRadians, chroma, y)
+	if ok {
 		return argbFromLinrgb(exact)
 	}
 	return argbFromLinrgb(bisectToLimit(y, hueRadians))
@@ -289,7 +298,7 @@ func inverseChromaticAdaptation(adapted float64) float64 {
 	return signum(adapted) * math.Pow(base, 1.0/0.42)
 }
 
-func findResultByJ(hueRadians, chroma, y float64) []float64 {
+func findResultByJ(hueRadians, chroma, y float64) ([3]float64, bool) {
 	tInnerCoeff := 1.0 / math.Pow(1.64-math.Pow(0.29, vc.N), 0.73)
 	eHue := 0.25 * (math.Cos(hueRadians+2.0) + 3.8)
 	p1 := eHue * (50000.0 / 13.0) * vc.Nc * vc.Ncb
@@ -313,60 +322,56 @@ func findResultByJ(hueRadians, chroma, y float64) []float64 {
 		gA := (460.0*p2 - 891.0*a - 261.0*b) / 1403.0
 		bA := (460.0*p2 - 220.0*a - 6300.0*b) / 1403.0
 
-		linrgb := matmul([]float64{
+		linrgb := matmul([3]float64{
 			inverseChromaticAdaptation(rA),
 			inverseChromaticAdaptation(gA),
 			inverseChromaticAdaptation(bA),
-		}, linrgbFromScaledDiscount)
+		}, &linrgbFromScaledDiscount)
 
 		l0 := linrgb[0]
 		l1 := linrgb[1]
 		l2 := linrgb[2]
 
 		if l0 < 0.0 || l1 < 0.0 || l2 < 0.0 {
-			return nil
+			return [3]float64{}, false
 		}
 		fnj := 0.2126*l0 + 0.7152*l1 + 0.0722*l2
 		if fnj <= 0.0 {
-			return nil
+			return [3]float64{}, false
 		}
 		if round == 4 || math.Abs(fnj-y) < 0.002 {
 			if l0 > 100.01 || l1 > 100.01 || l2 > 100.01 {
-				return nil
+				return [3]float64{}, false
 			}
-			return linrgb
+			return linrgb, true
 		}
 		j -= (fnj - y) * j / (2.0 * fnj)
 	}
-	return nil
+	return [3]float64{}, false
 }
 
-type StepState struct {
-	left        []float64
-	right       []float64
+type stepState struct {
+	left        [3]float64
+	right       [3]float64
 	leftHue     float64
 	rightHue    float64
 	initialized bool
 	uncut       bool
 }
 
-func bisectToSegment(y, targetHue float64) [][]float64 {
-	st := StepState{
-		left:        []float64{-1.0, -1.0, -1.0},
-		right:       []float64{-1.0, -1.0, -1.0},
-		leftHue:     0.0,
-		rightHue:    0.0,
-		initialized: false,
-		uncut:       true,
+func bisectToSegment(y, targetHue float64) [2][3]float64 {
+	st := stepState{
+		left:  [3]float64{-1.0, -1.0, -1.0},
+		right: [3]float64{-1.0, -1.0, -1.0},
 	}
 	for n := 0; n < 12; n++ {
-		mid := nthVertex(y, n)
-		if mid[0] < 0.0 {
+		mid, ok := nthVertex(y, n)
+		if !ok {
 			continue
 		}
 		midHue := hueOf(mid)
 		if !st.initialized {
-			st = StepState{
+			st = stepState{
 				left:        mid,
 				right:       mid,
 				leftHue:     midHue,
@@ -386,11 +391,11 @@ func bisectToSegment(y, targetHue float64) [][]float64 {
 			}
 		}
 	}
-	return [][]float64{st.left, st.right}
+	return [2][3]float64{st.left, st.right}
 }
 
-func midpoint(a, b []float64) []float64 {
-	return []float64{(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0, (a[2] + b[2]) / 2.0}
+func midpoint(a, b [3]float64) [3]float64 {
+	return [3]float64{(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0, (a[2] + b[2]) / 2.0}
 }
 
 func criticalPlaneBelow(x float64) int {
@@ -401,15 +406,15 @@ func criticalPlaneAbove(x float64) int {
 	return int(math.Ceil(x - 0.5))
 }
 
-type PlaneState struct {
-	left    []float64
-	right   []float64
+type planeState struct {
+	left    [3]float64
+	right   [3]float64
 	leftHue float64
 	lPlane  int
 	rPlane  int
 }
 
-func bisectToLimit(y, targetHue float64) []float64 {
+func bisectToLimit(y, targetHue float64) [3]float64 {
 	seg := bisectToSegment(y, targetHue)
 	left := seg[0]
 	right := seg[1]
@@ -428,7 +433,7 @@ func bisectToLimit(y, targetHue float64) []float64 {
 			rPlane0 = criticalPlaneBelow(trueDelinearized(right[axis]))
 		}
 
-		s := PlaneState{
+		s := planeState{
 			left:    left,
 			right:   right,
 			leftHue: hueOf(left),
@@ -440,7 +445,7 @@ func bisectToLimit(y, targetHue float64) []float64 {
 			if math.Abs(float64(s.rPlane-s.lPlane)) <= 1.0 {
 				break
 			}
-			mPlane := int(math.Floor(float64(s.lPlane+s.rPlane) / 2.0))
+			mPlane := (s.lPlane + s.rPlane) / 2
 			if mPlane < 0 || mPlane >= len(criticalPlanes) {
 				break
 			}
@@ -468,8 +473,8 @@ func chromaticAdaptation(comp float64) float64 {
 	return signum(comp) * 400.0 * af / (af + 27.13)
 }
 
-func hueOf(linrgb []float64) float64 {
-	sd := matmul(linrgb, scaledDiscountFromLinrgb)
+func hueOf(linrgb [3]float64) float64 {
+	sd := matmul(linrgb, &scaledDiscountFromLinrgb)
 	rA := chromaticAdaptation(sd[0])
 	gA := chromaticAdaptation(sd[1])
 	bA := chromaticAdaptation(sd[2])
@@ -486,15 +491,15 @@ func intercept(source, mid, target float64) float64 {
 	return (mid - source) / (target - source)
 }
 
-func lerpPoint(source []float64, t float64, target []float64) []float64 {
-	return []float64{
+func lerpPoint(source [3]float64, t float64, target [3]float64) [3]float64 {
+	return [3]float64{
 		source[0] + (target[0]-source[0])*t,
 		source[1] + (target[1]-source[1])*t,
 		source[2] + (target[2]-source[2])*t,
 	}
 }
 
-func setCoordinate(source []float64, coord float64, target []float64, axis int) []float64 {
+func setCoordinate(source [3]float64, coord float64, target [3]float64, axis int) [3]float64 {
 	return lerpPoint(source, intercept(source[axis], coord, target[axis]), target)
 }
 
@@ -502,58 +507,57 @@ func isBounded(x float64) bool {
 	return 0.0 <= x && x <= 100.0
 }
 
-func nthVertex(y float64, n int) []float64 {
+func nthVertex(y float64, n int) ([3]float64, bool) {
 	kR := yFromLinrgb[0]
 	kG := yFromLinrgb[1]
 	kB := yFromLinrgb[2]
 
 	coordA := 0.0
-	if math.Mod(float64(n), 4.0) > 1.0 {
+	if n%4 > 1 {
 		coordA = 100.0
 	}
 	coordB := 0.0
-	if math.Mod(float64(n), 2.0) != 0.0 {
+	if n%2 != 0 {
 		coordB = 100.0
 	}
-	bad := []float64{-1.0, -1.0, -1.0}
 
 	if n < 4 {
 		g := coordA
 		b := coordB
 		r := (y - g*kG - b*kB) / kR
 		if isBounded(r) {
-			return []float64{r, g, b}
+			return [3]float64{r, g, b}, true
 		}
-		return bad
+		return [3]float64{}, false
 	} else if n < 8 {
 		b := coordA
 		r := coordB
 		g := (y - r*kR - b*kB) / kG
 		if isBounded(g) {
-			return []float64{r, g, b}
+			return [3]float64{r, g, b}, true
 		}
-		return bad
+		return [3]float64{}, false
 	} else {
 		r := coordA
 		g := coordB
 		b := (y - r*kR - g*kG) / kB
 		if isBounded(b) {
-			return []float64{r, g, b}
+			return [3]float64{r, g, b}, true
 		}
-		return bad
+		return [3]float64{}, false
 	}
 }
 
-var scaledDiscountFromLinrgb = [][]float64{
+var scaledDiscountFromLinrgb = [3][3]float64{
 	{0.001200833568784504, 0.002389694492170889, 0.0002795742885861124},
 	{0.0005891086651375999, 0.0029785502573438758, 0.0003270666104008398},
 	{0.00010146692491640572, 0.0005364214359186694, 0.0032979401770712076},
 }
 
-var linrgbFromScaledDiscount = [][]float64{
+var linrgbFromScaledDiscount = [3][3]float64{
 	{1373.2198709594231, -1100.4251190754821, -7.278681089101213},
 	{-271.815969077903, 559.6580465940733, -32.46047482791194},
 	{1.9622899599665666, -57.173814538844006, 308.7233197812385},
 }
 
-var yFromLinrgb = []float64{0.2126, 0.7152, 0.0722}
+var yFromLinrgb = [3]float64{0.2126, 0.7152, 0.0722}
