@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/executil"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/nix"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )
@@ -37,26 +39,39 @@ func init() {
 
 				action, _ := cmd.Flags().GetString("action")
 
-				for _, node := range nodes {
-					logger := logging.GetLogger(ctx)
-					logger = logger.With("node", node)
-					logger.Info("Deploying to node")
-					if err := deployNode(ctx, flake, node, action); err != nil {
-						logger.Error("Failed to deploy to node", "error", err)
-						return err
+				// Each owns the aggregate bar; deployNode may spawn nested fetch/build work.
+				err := taskgroup.Each[string]{
+					Name:     "nix-deploy",
+					Items:    nodes,
+					PoolKind: taskgroup.Internet,
+					TaskName: func(_ int, node string) string { return "deploy:" + node },
+					Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
+						s.Update(node)
+						logger := logging.GetLogger(ctx).With("node", node)
+						logger.Info("Deploying to node")
+						if err := deployNode(ctx, flake, node, action); err != nil {
+							logger.Error("Failed to deploy to node", "error", err)
+							return err
+						}
+						return nil
+					},
+				}.Run(ctx)
+				if err != nil {
+					return err
+				}
+
+				deployed := append([]string(nil), nodes...)
+				taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+					n := notification.Notification{
+						Title:   "NixOS Deploy",
+						Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),
+						Icon:    "nix-snowflake",
 					}
-				}
-
-				n := notification.Notification{
-					Title:   "NixOS Deploy",
-					Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(nodes, ", ")),
-					Icon:    "nix-snowflake",
-				}
-				if err := notification.Notify(ctx, &n); err != nil {
-					logger := logging.GetLogger(ctx)
-					logger.Error("failed to send notification", "error", err)
-				}
-
+					if err := notification.Notify(ctx, &n); err != nil {
+						logging.GetLogger(ctx).Error("failed to send notification", "error", err)
+					}
+					return nil
+				})
 				return nil
 			},
 		}
@@ -99,7 +114,7 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 		}
 	}
 
-	// 3. Switch System Configuration
+	// 4. Switch system configuration
 	logger.Info("Switching system configuration on node", "action", action)
 	currentSystemOut, err := execdriver.MustRun(ctx, "ssh", node, "realpath /run/current-system").Output()
 	if err == nil {
