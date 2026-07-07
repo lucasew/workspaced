@@ -744,16 +744,6 @@ func getTone(role *Role, s *Scheme) float64 {
 	return darkOption
 }
 
-func mkScheme(isDark bool, sourceHex string) *Scheme {
-	src := hctFromHex(sourceHex)
-	return &Scheme{
-		IsDark:         isDark,
-		ContrastLevel:  0.0,
-		SourceColorHct: src,
-		Palettes:       rainbowPalettes(src.Hue, src.Chroma),
-	}
-}
-
 func colorOf(roleName string, s *Scheme) string {
 	role := roles[roleName]
 	tone := getTone(role, s)
@@ -773,15 +763,6 @@ func colorOf(roleName string, s *Scheme) string {
 	default:
 		return s.Palettes.Neutral.Tone(tone)
 	}
-}
-
-func colorsFor(isDark bool, sourceHex string) map[string]string {
-	s := mkScheme(isDark, sourceHex)
-	res := make(map[string]string, len(roles))
-	for name := range roles {
-		res[name] = colorOf(name, s)
-	}
-	return res
 }
 
 // colorsForBoth computes dark and light colors sharing the same PaletteSet,

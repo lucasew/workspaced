@@ -23,7 +23,6 @@ func calculateFitness(ind Individual, imageColors []api.LAB, polarity api.Polari
 	score -= primarySim / 10.0 // Penalize high maximum distance (want low spread)
 
 	// Accent pairwise stats in one pass: min distance + duplicate penalty.
-	// Previously minDeltaE and calculateDuplicatePenalty each scanned C(n,2).
 	accentDiff, duplicatePenalty := accentPairStats(ind.colors[8:16])
 	score += accentDiff * 2.0        // Double weight - want distinct colors
 	score -= duplicatePenalty * 50.0 // Massive penalty for duplicates
@@ -81,15 +80,9 @@ func maxDeltaE(colors []api.LAB) float64 {
 	return math.Sqrt(maxSq)
 }
 
-// minDeltaE finds the minimum perceptual distance between any two colors.
-func minDeltaE(colors []api.LAB) float64 {
-	d, _ := accentPairStats(colors)
-	return d
-}
-
 // accentPairStats computes min pairwise DeltaE and the near-duplicate penalty
-// in a single O(n²) pass (same results as separate minDeltaE + penalty scans).
-// Uses squared distances internally; thresholds are pre-squared (5²=25, 10²=100, 15²=225).
+// in a single O(n²) pass. Uses squared distances internally; thresholds are
+// pre-squared (5²=25, 10²=100, 15²=225).
 func accentPairStats(colors []api.LAB) (minDist, duplicatePenalty float64) {
 	if len(colors) < 2 {
 		return 0, 0
@@ -209,12 +202,6 @@ func calculateContrastScore(colors []api.LAB) float64 {
 	}
 
 	return score
-}
-
-// calculateDuplicatePenalty heavily penalizes duplicate or near-duplicate colors.
-func calculateDuplicatePenalty(colors []api.LAB) float64 {
-	_, penalty := accentPairStats(colors)
-	return penalty
 }
 
 // calculateHueDiversity measures hue variation in accent colors.
