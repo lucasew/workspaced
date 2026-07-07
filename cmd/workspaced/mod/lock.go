@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"workspaced/pkg/logging"
-	"workspaced/pkg/modfile"
+	"workspaced/internal/modfile"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"

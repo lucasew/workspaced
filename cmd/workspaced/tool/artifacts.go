@@ -7,10 +7,10 @@ import (
 	"sort"
 	"text/tabwriter"
 
-	"workspaced/pkg/tool"
-	"workspaced/pkg/tool/backend"
+	"workspaced/internal/tool"
+	"workspaced/internal/tool/backend"
 
-	parsespec "workspaced/pkg/parse/spec"
+	parsespec "workspaced/internal/parse/spec"
 
 	"github.com/spf13/cobra"
 )

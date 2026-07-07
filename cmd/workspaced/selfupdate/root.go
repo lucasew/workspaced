@@ -14,11 +14,11 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/miseutil"
+	"workspaced/internal/miseutil"
 	"workspaced/pkg/taskgroup"
-	"workspaced/pkg/tool/backend"
-	githubprov "workspaced/pkg/tool/backend/github"
-	"workspaced/pkg/version"
+	"workspaced/internal/tool/backend"
+	githubprov "workspaced/internal/tool/backend/github"
+	"workspaced/internal/version"
 
 	"github.com/spf13/cobra"
 )

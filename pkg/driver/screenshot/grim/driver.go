@@ -12,7 +12,7 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/screenshot"
 	api "workspaced/pkg/driver/wm"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 )
 
 func init() {

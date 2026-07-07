@@ -11,7 +11,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 
 	"github.com/spf13/cobra"
 )

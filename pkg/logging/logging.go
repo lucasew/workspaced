@@ -6,7 +6,7 @@ import (
 	"io"
 	"log/slog"
 
-	"workspaced/pkg/types"
+	"workspaced/internal/types"
 )
 
 type loggerKey struct{}

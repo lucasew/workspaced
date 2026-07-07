@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/clipboard"
 	"workspaced/pkg/driver/notification"

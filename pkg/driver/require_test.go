@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"workspaced/pkg/driver"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 )
 
 func TestRequireEnv(t *testing.T) {

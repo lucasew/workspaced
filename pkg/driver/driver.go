@@ -32,7 +32,7 @@ import (
 	"strings"
 	"sync"
 
-	"workspaced/pkg/compat"
+	"workspaced/internal/compat"
 	"workspaced/pkg/logging"
 )
 

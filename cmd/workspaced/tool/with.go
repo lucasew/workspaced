@@ -10,7 +10,7 @@ import (
 
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/taskgroup"
-	"workspaced/pkg/tool"
+	"workspaced/internal/tool"
 
 	"github.com/spf13/cobra"
 )

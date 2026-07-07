@@ -17,8 +17,8 @@ import (
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/shellgen"
-	"workspaced/pkg/version"
+	"workspaced/internal/shellgen"
+	"workspaced/internal/version"
 )
 
 func getInitCommand() *cobra.Command {

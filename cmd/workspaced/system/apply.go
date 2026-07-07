@@ -3,14 +3,14 @@ package system
 import (
 	"context"
 	"fmt"
-	"workspaced/pkg/cmdctx"
-	"workspaced/pkg/configcue"
+	"workspaced/internal/cmdctx"
+	"workspaced/internal/configcue"
 	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/modfile"
-	_ "workspaced/pkg/modfile/sourceprovider/prelude"
-	"workspaced/pkg/nix"
-	"workspaced/pkg/tool"
+	"workspaced/internal/modfile"
+	_ "workspaced/internal/modfile/sourceprovider/prelude"
+	"workspaced/internal/nix"
+	"workspaced/internal/tool"
 
 	"github.com/spf13/cobra"
 )

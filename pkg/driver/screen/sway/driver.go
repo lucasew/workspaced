@@ -9,7 +9,7 @@ import (
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/screen"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 )
 
 func init() {

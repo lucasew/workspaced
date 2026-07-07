@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/dialog"
 	"workspaced/pkg/driver/wm"

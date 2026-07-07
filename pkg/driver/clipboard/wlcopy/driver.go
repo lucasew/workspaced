@@ -11,7 +11,7 @@ import (
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/clipboard"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 	"workspaced/pkg/logging"
 )
 

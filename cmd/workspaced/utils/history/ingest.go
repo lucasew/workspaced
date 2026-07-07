@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/db"
+	"workspaced/internal/db"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/types"
+	"workspaced/internal/types"
 )
 
 var ErrUnknownSource = errors.New("unknown source")

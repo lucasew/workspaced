@@ -10,7 +10,7 @@ import (
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
-	"workspaced/pkg/version"
+	"workspaced/internal/version"
 
 	"github.com/spf13/cobra"
 )

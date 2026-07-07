@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 	"workspaced/pkg/api"
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/logging"
 )

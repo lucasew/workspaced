@@ -6,7 +6,7 @@ import (
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/wallpaper"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 )
 
 func init() {

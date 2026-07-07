@@ -6,15 +6,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/cmdctx"
-	"workspaced/pkg/configcue"
-	"workspaced/pkg/deployer"
-	"workspaced/pkg/dotfiles"
-	"workspaced/pkg/modfile"
-	_ "workspaced/pkg/modfile/sourceprovider/prelude"
-	"workspaced/pkg/source"
+	"workspaced/internal/cmdctx"
+	"workspaced/internal/configcue"
+	"workspaced/internal/deployer"
+	"workspaced/internal/dotfiles"
+	"workspaced/internal/modfile"
+	_ "workspaced/internal/modfile/sourceprovider/prelude"
+	"workspaced/internal/source"
 	"workspaced/pkg/taskgroup"
-	"workspaced/pkg/tool"
+	"workspaced/internal/tool"
 
 	"github.com/spf13/cobra"
 )

@@ -1,7 +1,7 @@
 package open
 
 import (
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 	"workspaced/pkg/driver/opener"
 	"workspaced/pkg/driver/terminal"
 

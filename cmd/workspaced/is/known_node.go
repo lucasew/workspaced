@@ -3,7 +3,7 @@ package is
 import (
 	"fmt"
 	"os"
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 
 	"github.com/spf13/cobra"
 )

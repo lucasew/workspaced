@@ -255,9 +255,8 @@ Conceptual pipeline when scanning module `config/`:
 6. Compares with managed state (e.g. under `~/.local/share/workspaced/state.json`)
 7. Applies: create / update / delete
 
-Implementation lives under `pkg/source/` and apply/deployer paths in this repo
-(older docs may mention `provider_symlink`-style names; trust current package
-layout when navigating code).
+Implementation lives under `internal/source/`, `internal/apply/`, and `internal/deployer/`
+(older docs may say `provider_symlink`; ignore those names).
 
 ## Generator bundle fast-path (deep; generator authors)
 

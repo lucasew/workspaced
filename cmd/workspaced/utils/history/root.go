@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/types"
+	"workspaced/internal/types"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"

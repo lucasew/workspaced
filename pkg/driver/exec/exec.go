@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	"workspaced/pkg/driver"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 	"workspaced/pkg/logging"
 )
 

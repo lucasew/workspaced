@@ -22,22 +22,23 @@ linters:
   settings:
     # depguard configuration: enforce correct import layering.
     # The previous default "Main" list behavior (from enabling-all) was effectively inverted
-    # or too coarse (e.g. "cmd" substring in pkg/cmdregistry caused spurious "not allowed from list 'Main'"
+    # or too coarse (e.g. "cmd" substring in cmdregistry caused spurious "not allowed from list 'Main'"
     # on legitimate cobra usage). We explicitly define the rule the correct way:
-    #   non-cmd packages (pkg/..., etc.) must not import workspaced/cmd/... packages.
+    #   non-cmd packages (pkg/..., internal/..., etc.) must not import workspaced/cmd/... packages.
     # cmd/... (the application entrypoints + their internal wiring) are allowed to import each other
-    # and pkg/... as needed.
+    # and pkg/... / internal/... as needed.
     depguard:
       rules:
-        "pkg-must-not-import-cmd":
+        "non-cmd-must-not-import-cmd":
           deny:
             - pkg: "workspaced/cmd"
-              desc: "pkg/... must not import cmd/... (inverts layering; cmd/ contains main entrypoints and command wiring that should not be library dependencies). See AGENTS.md"
+              desc: "pkg/... and internal/... must not import workspaced/cmd/..."
           files:
-            # Scope to library code only. A negation-only pattern like "!cmd/**" is treated
+            # Scope to non-cmd code only. A negation-only pattern like "!cmd/**" is treated
             # as a positive match in depguard v2 and falsely flags every cmd→cmd import.
-            # Positive pkg/** globs express the real invariant.
+            # Positive globs express the real invariant.
             - "pkg/**/*.go"
+            - "internal/**/*.go"
 
     dupl:
       # Report duplicated code fragments if they have at least this many tokens.

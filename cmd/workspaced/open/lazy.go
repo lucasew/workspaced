@@ -8,8 +8,8 @@ import (
 
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/taskgroup"
-	"workspaced/pkg/tool"
-	_ "workspaced/pkg/tool/prelude"
+	"workspaced/internal/tool"
+	_ "workspaced/internal/tool/prelude"
 
 	"github.com/spf13/cobra"
 )

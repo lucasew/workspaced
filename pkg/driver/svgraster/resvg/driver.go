@@ -14,7 +14,7 @@ import (
 	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/tool"
+	"workspaced/internal/tool"
 )
 
 const defaultResvgSpec = "registry:resvg"

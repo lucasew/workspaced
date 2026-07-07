@@ -4,7 +4,7 @@ import (
 	"os"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/sudo"
+	"workspaced/internal/sudo"
 
 	"github.com/spf13/cobra"
 )

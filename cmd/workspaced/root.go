@@ -13,17 +13,17 @@ import (
 	"time"
 
 	cueerrors "cuelang.org/go/cue/errors"
-	"workspaced/pkg/cmdctx"
-	"workspaced/pkg/cmdregistry"
-	"workspaced/pkg/configcue"
+	"workspaced/internal/cmdctx"
+	"workspaced/internal/cmdregistry"
+	"workspaced/internal/configcue"
 	envdriver "workspaced/pkg/driver/env"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
 	_ "workspaced/pkg/palette/prelude"
-	"workspaced/pkg/shellgen"
+	"workspaced/internal/shellgen"
 	"workspaced/pkg/taskgroup"
-	_ "workspaced/pkg/tool/prelude"
-	"workspaced/pkg/version"
+	_ "workspaced/internal/tool/prelude"
+	"workspaced/internal/version"
 
 	"github.com/spf13/cobra"
 )

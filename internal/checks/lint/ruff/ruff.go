@@ -1,0 +1,59 @@
+package ruff
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+
+	"workspaced/internal/checks"
+	"workspaced/internal/checks/lint"
+	"workspaced/internal/tool"
+
+	"github.com/owenrumney/go-sarif/v2/sarif"
+)
+
+// check implements the lint.Linter interface for Python projects using Ruff.
+type check struct{}
+
+// New creates a new Ruff linter check.
+func New() lint.Linter {
+	return &check{}
+}
+
+func init() {
+	lint.Register(New())
+}
+
+func (c *check) Name() string {
+	return "ruff"
+}
+
+func (c *check) Detect(ctx context.Context, dir string) error {
+	return checks.RequireFile(dir, "uv.lock")
+}
+
+func (c *check) Run(ctx context.Context, dir string) (*sarif.Run, error) {
+	// Use tool.EnsureAndRun to execute ruff.
+	// This automatically handles installation and version resolution.
+	// Falls back to registry:ruff for the cataloged tool (with version prefix fixes).
+	cmd, err := tool.EnsureAndRunLazyWithFallbackAt(ctx, dir, "ruff", "ruff", "registry:ruff", "check", "--output-format=sarif", "--exit-zero", ".")
+	if err != nil {
+		return nil, fmt.Errorf("setup ruff: %w", err)
+	}
+
+	cmd.Dir = dir
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("ruff execution failed: %w (stderr: %s)", err, stderr.String())
+	}
+
+	run, err := checks.FirstSARIFRun(stdout.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("%w (stdout: %s)", err, stdout.String())
+	}
+	return run, nil
+}

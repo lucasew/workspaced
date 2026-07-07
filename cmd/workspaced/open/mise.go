@@ -9,7 +9,7 @@ import (
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/shim/bash"
 	"workspaced/pkg/logging"
-	"workspaced/pkg/miseutil"
+	"workspaced/internal/miseutil"
 
 	"github.com/spf13/cobra"
 )

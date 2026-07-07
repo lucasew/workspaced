@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 	"time"
-	"workspaced/pkg/cmdregistry"
-	"workspaced/pkg/db"
+	"workspaced/internal/cmdregistry"
+	"workspaced/internal/db"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 

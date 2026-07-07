@@ -12,7 +12,7 @@ import (
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/executil"
+	"workspaced/internal/executil"
 	"workspaced/pkg/logging"
 )
 

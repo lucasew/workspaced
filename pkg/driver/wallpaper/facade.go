@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/pkg/api"
-	"workspaced/pkg/configcue"
+	"workspaced/internal/configcue"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"

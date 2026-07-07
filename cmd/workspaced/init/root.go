@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
-	"workspaced/pkg/constants"
+	"workspaced/internal/constants"
 	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
 

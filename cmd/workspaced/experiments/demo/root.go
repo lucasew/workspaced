@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"workspaced/pkg/cmdregistry"
+	"workspaced/internal/cmdregistry"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 

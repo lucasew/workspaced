@@ -1,7 +1,7 @@
 package media
 
 import (
-	"workspaced/pkg/cmdregistry"
+	"workspaced/internal/cmdregistry"
 
 	"github.com/spf13/cobra"
 )

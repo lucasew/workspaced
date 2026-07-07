@@ -1,7 +1,7 @@
 package sudo
 
 import (
-	"workspaced/pkg/sudo"
+	"workspaced/internal/sudo"
 
 	"github.com/spf13/cobra"
 )

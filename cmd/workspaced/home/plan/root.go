@@ -2,7 +2,7 @@ package plan
 
 import (
 	"workspaced/cmd/workspaced/home/apply"
-	"workspaced/pkg/cmdctx"
+	"workspaced/internal/cmdctx"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"

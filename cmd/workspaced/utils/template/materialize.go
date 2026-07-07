@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"workspaced/pkg/configcue"
-	"workspaced/pkg/deployer"
-	"workspaced/pkg/source"
-	"workspaced/pkg/template"
+	"workspaced/internal/configcue"
+	"workspaced/internal/deployer"
+	"workspaced/internal/source"
+	"workspaced/internal/template"
 
 	"github.com/spf13/cobra"
 )

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
-	"workspaced/pkg/checks/lint"
-	_ "workspaced/pkg/checks/prelude"
+	"workspaced/internal/checks/lint"
+	_ "workspaced/internal/checks/prelude"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 

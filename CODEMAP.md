@@ -1,26 +1,27 @@
 # Workspaced code map
 
-Read this before editing.
+Read this before editing. Layout rule is in AGENTS.md (`pkg/` vs `internal/` vs `cmd/`).
 
 ## Architecture
 
 CUE config (`workspaced.cue`) drives everything.
 
 - Drivers (`pkg/driver`): OS features (audio, clipboard, WM, …). One impl per interface, chosen by weights and compatibility checks.
-- Modules + source pipeline (`pkg/module`, `pkg/source`): config and templates become real files, streamed in memory.
-- Tool backends (`pkg/tool/backend`): github, mise, catalog. Each yields installable, lockable tools.
-- Checks (`pkg/checks`): matching linters and formatters all run.
+- Modules + source pipeline (`internal/module`, `internal/source`): config and templates become real files, streamed in memory.
+- Tool backends (`internal/tool/backend`): github, mise, catalog. Each yields installable, lockable tools.
+- Checks (`internal/checks`): matching linters and formatters all run.
 - CLI packages under `cmd/workspaced/` are small and intention-based.
 
 ## Critical locations
 
 - `pkg/driver/driver.go` and `pkg/driver/prelude`: driver system
-- `pkg/tool/backend/backend.go` and `catalog/`: tool backends
-- `pkg/tool/checks`: optional `InstallChecker` for install trees. `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) does full install verification; required by `mise release`, and on CI for `refs/tags/*` (via `CI`+`GITHUB_REF` or the autorelease workflow step)
-- `pkg/configcue/`, `pkg/modfile/`, `pkg/source/`: config, state, rendering
-- `pkg/apply/`, `pkg/deployer/`: apply flow
 - `pkg/taskgroup/`: Session, progress UI, `Map`/`Each`/`Isolate` (package doc + AGENTS.md map/reduce rule)
-- `cmd/workspaced/root.go`: only place that imports driver/tool preludes
+- `pkg/palette/`, `pkg/logging/`, `pkg/api/`: rest of `pkg/`
+- `internal/tool/backend/backend.go` and `internal/tool/backend/catalog/`: tool backends
+- `internal/tool/checks`: optional `InstallChecker` for install trees. `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) does full install verification; required by `mise release`, and on CI for `refs/tags/*` (via `CI`+`GITHUB_REF` or the autorelease workflow step)
+- `internal/configcue/`, `internal/modfile/`, `internal/source/`: config, state, rendering
+- `internal/apply/`, `internal/deployer/`: apply flow
+- `cmd/workspaced/root.go`: `pkg/driver/prelude`; tool/check preludes load from the cmds that need them
 
 ## Registration (`init()` based)
 
@@ -29,14 +30,14 @@ CUE config (`workspaced.cue`) drives everything.
 - Curated tools: `catalog.RegisterTool(name, ctor)`
 - CLI subcommands: `GetCommand()` (wired by devtool)
 
-Never import the preludes except from `cmd/workspaced/root.go`.
+Never import driver prelude except from `cmd/workspaced/root.go`. Tool/check preludes: from the cmd that needs them, not from `pkg/`.
 
 ## Common tasks
 
 - New driver capability: `pkg/driver/newthing/` (interface + facade + impl), then add to prelude.
-- Curated tool: `pkg/tool/backend/catalog/applications/`
+- Curated tool: `internal/tool/backend/catalog/applications/`
 - Change how a tool locks: that backend's `EnrichLockfile`.
-- CUE schema changes: `pkg/configcue/schema.cue`
+- CUE schema changes: `internal/configcue/schema.cue`
 
 Rules live in AGENTS.md. An older long-table version of this file may still be in git history if you need it.
 
@@ -54,7 +55,7 @@ For complex subsystems, mirror `skills/workspaced/references/templates.md`: deci
 
 - No lists in module configs.
 - Use `pkg/driver/exec` outside driver implementations.
-- Import driver/tool preludes only from `cmd/workspaced/root.go`.
+- Import driver prelude only from `cmd/workspaced/root.go`.
 
 Rest is in AGENTS.md and `skills/workspaced/`.
 
