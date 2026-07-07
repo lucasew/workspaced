@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/api"
 	"workspaced/internal/constants"
+	"workspaced/pkg/api"
 )
 
 // FindDotfilesRoot walks constants.DotfilesCandidates using home for ~ expansion.

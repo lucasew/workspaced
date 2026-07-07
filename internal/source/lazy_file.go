@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"workspaced/pkg/logging"
 	"workspaced/internal/template"
+	"workspaced/pkg/logging"
 )
 
 // TemplateFile represents a lazily-rendered template file.

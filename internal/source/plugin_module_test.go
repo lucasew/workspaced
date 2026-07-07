@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"workspaced/internal/configcue"
+	_ "workspaced/internal/module/prelude"
 	_ "workspaced/pkg/driver/env/native"
 	"workspaced/pkg/logging"
-	_ "workspaced/internal/module/prelude"
 	"workspaced/pkg/taskgroup"
 )
 

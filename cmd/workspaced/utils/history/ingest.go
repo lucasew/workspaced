@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"workspaced/internal/db"
-	"workspaced/pkg/logging"
 	"workspaced/internal/types"
+	"workspaced/pkg/logging"
 )
 
 var ErrUnknownSource = errors.New("unknown source")

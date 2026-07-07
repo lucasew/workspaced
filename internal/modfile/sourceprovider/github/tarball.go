@@ -11,9 +11,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"workspaced/internal/githubutil"
 	"workspaced/pkg/driver"
 	httpclientdriver "workspaced/pkg/driver/httpclient"
-	"workspaced/internal/githubutil"
 	"workspaced/pkg/logging"
 )
 

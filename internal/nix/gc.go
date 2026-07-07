@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/internal/executil"
-	"workspaced/pkg/logging"
 	"workspaced/internal/sudo"
 	"workspaced/internal/types"
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
 )
 
 func CleanupProfiles(ctx context.Context) error {

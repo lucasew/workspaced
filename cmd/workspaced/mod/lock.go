@@ -3,8 +3,8 @@ package mod
 import (
 	"context"
 
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"

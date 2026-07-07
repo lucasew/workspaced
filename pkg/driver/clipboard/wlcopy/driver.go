@@ -7,11 +7,11 @@ import (
 	"image/png"
 	"io"
 	"strings"
+	"workspaced/internal/executil"
 	dapi "workspaced/pkg/api"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/clipboard"
 	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/internal/executil"
 	"workspaced/pkg/logging"
 )
 

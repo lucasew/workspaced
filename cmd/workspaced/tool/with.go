@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"workspaced/internal/tool"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/taskgroup"
-	"workspaced/internal/tool"
 
 	"github.com/spf13/cobra"
 )

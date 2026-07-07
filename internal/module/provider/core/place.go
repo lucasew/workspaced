@@ -8,8 +8,8 @@ import (
 	"sort"
 	"strings"
 
-	envdriver "workspaced/pkg/driver/env"
 	"workspaced/internal/module"
+	envdriver "workspaced/pkg/driver/env"
 )
 
 func init() {

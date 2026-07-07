@@ -6,8 +6,8 @@ import (
 
 	"workspaced/internal/checks"
 	"workspaced/internal/checks/lint"
-	"workspaced/pkg/logging"
 	"workspaced/internal/tool"
+	"workspaced/pkg/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )

@@ -7,11 +7,11 @@ import (
 	"sort"
 
 	"workspaced/internal/configcue"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	_ "workspaced/internal/modfile/sourceprovider/prelude"
 	"workspaced/internal/module"
 	_ "workspaced/internal/module/prelude"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
 

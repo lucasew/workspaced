@@ -3,10 +3,10 @@ package foot
 import (
 	"context"
 	"fmt"
+	"workspaced/internal/executil"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/terminal"
-	"workspaced/internal/executil"
 )
 
 func init() {

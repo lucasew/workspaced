@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	_ "workspaced/pkg/driver/httpclient/native"
-	"workspaced/pkg/logging"
 	_ "workspaced/internal/tool/backend/catalog"
 	_ "workspaced/internal/tool/backend/catalog/applications"
 	_ "workspaced/internal/tool/backend/github"
+	_ "workspaced/pkg/driver/httpclient/native"
+	"workspaced/pkg/logging"
 )
 
 func TestRun(t *testing.T) {

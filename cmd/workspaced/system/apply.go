@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"workspaced/internal/cmdctx"
 	"workspaced/internal/configcue"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	_ "workspaced/internal/modfile/sourceprovider/prelude"
 	"workspaced/internal/nix"
 	"workspaced/internal/tool"
+	envdriver "workspaced/pkg/driver/env"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 	"workspaced/internal/deployer"
-	"workspaced/pkg/logging"
 	"workspaced/internal/source"
+	"workspaced/pkg/logging"
 )
 
 var (

@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"workspaced/pkg/logging"
 	"workspaced/internal/types"
+	"workspaced/pkg/logging"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"

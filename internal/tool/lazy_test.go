@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"workspaced/internal/configcue"
-	_ "workspaced/pkg/driver/env/native"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	parsespec "workspaced/internal/parse/spec"
+	_ "workspaced/pkg/driver/env/native"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
 

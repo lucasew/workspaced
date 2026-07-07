@@ -12,14 +12,14 @@ import (
 	"workspaced/internal/configcue"
 	"workspaced/internal/deployer"
 	"workspaced/internal/dotfiles"
-	envdriver "workspaced/pkg/driver/env"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	_ "workspaced/internal/modfile/sourceprovider/prelude"
 	"workspaced/internal/source"
-	"workspaced/pkg/taskgroup"
 	"workspaced/internal/tool"
+	envdriver "workspaced/pkg/driver/env"
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

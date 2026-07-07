@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"workspaced/internal/configcue"
-	"workspaced/pkg/logging"
 	"workspaced/internal/template"
+	"workspaced/pkg/logging"
 )
 
 // Plugin processes a list of files and returns a new list.

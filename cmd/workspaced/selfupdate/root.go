@@ -10,15 +10,15 @@ import (
 	"runtime/debug"
 	"strings"
 
+	"workspaced/internal/miseutil"
+	"workspaced/internal/tool/backend"
+	githubprov "workspaced/internal/tool/backend/github"
+	"workspaced/internal/version"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/shim"
 	"workspaced/pkg/logging"
-	"workspaced/internal/miseutil"
 	"workspaced/pkg/taskgroup"
-	"workspaced/internal/tool/backend"
-	githubprov "workspaced/internal/tool/backend/github"
-	"workspaced/internal/version"
 
 	"github.com/spf13/cobra"
 )
