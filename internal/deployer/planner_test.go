@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/pkg/logging"
 	"workspaced/internal/source"
+	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 )
 

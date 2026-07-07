@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strings"
 
+	"workspaced/internal/executil"
+	"workspaced/internal/nix"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
-	"workspaced/internal/executil"
 	"workspaced/pkg/logging"
-	"workspaced/internal/nix"
 	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"

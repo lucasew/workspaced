@@ -19,11 +19,11 @@ import (
 	"github.com/pbnjay/memory"
 
 	"cuelang.org/go/cue/ast"
+	"workspaced/internal/modulecue"
 	"workspaced/pkg/driver"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
-	"workspaced/internal/modulecue"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"

@@ -10,11 +10,11 @@ import (
 	"strings"
 	"sync"
 
+	"workspaced/internal/tool"
 	"workspaced/pkg/driver"
 	"workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/svgraster"
 	"workspaced/pkg/logging"
-	"workspaced/internal/tool"
 )
 
 const defaultResvgSpec = "registry:resvg"

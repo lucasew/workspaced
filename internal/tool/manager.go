@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/pkg/logging"
 	parsespec "workspaced/internal/parse/spec"
-	"workspaced/pkg/taskgroup"
 	"workspaced/internal/tool/backend"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 // Manager orchestrates the lifecycle, installation, and storage mapping for external tools.

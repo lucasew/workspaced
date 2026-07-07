@@ -14,15 +14,15 @@ import (
 	"strings"
 	"sync"
 
+	"workspaced/internal/executil"
+	"workspaced/internal/icons"
+	"workspaced/internal/sudo"
+	"workspaced/internal/types"
 	"workspaced/pkg/api"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
-	"workspaced/internal/executil"
-	"workspaced/internal/icons"
 	"workspaced/pkg/logging"
-	"workspaced/internal/sudo"
-	"workspaced/internal/types"
 )
 
 var buildCache sync.Map // key: sourcePath#attribute, value: resultPath

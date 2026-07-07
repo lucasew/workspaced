@@ -16,14 +16,14 @@ import (
 	"workspaced/internal/cmdctx"
 	"workspaced/internal/cmdregistry"
 	"workspaced/internal/configcue"
+	"workspaced/internal/shellgen"
+	_ "workspaced/internal/tool/prelude"
+	"workspaced/internal/version"
 	envdriver "workspaced/pkg/driver/env"
 	_ "workspaced/pkg/driver/prelude"
 	"workspaced/pkg/logging"
 	_ "workspaced/pkg/palette/prelude"
-	"workspaced/internal/shellgen"
 	"workspaced/pkg/taskgroup"
-	_ "workspaced/internal/tool/prelude"
-	"workspaced/internal/version"
 
 	"github.com/spf13/cobra"
 )

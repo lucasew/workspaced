@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	"workspaced/internal/semver"
 	"workspaced/internal/tool/backend"
@@ -17,6 +16,7 @@ import (
 	"workspaced/internal/tool/backend/github"
 	providerinstall "workspaced/internal/tool/backend/install"
 	"workspaced/internal/tool/checks"
+	"workspaced/pkg/logging"
 )
 
 func init() {

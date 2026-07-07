@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"workspaced/internal/db/sqlc"
+	"workspaced/internal/types"
 	envdriver "workspaced/pkg/driver/env"
 	"workspaced/pkg/logging"
-	"workspaced/internal/types"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/sqlite"

@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"workspaced/internal/types"
 	"workspaced/pkg/driver/notification"
 	"workspaced/pkg/logging"
-	"workspaced/internal/types"
 )
 
 func getQueueDir() (string, error) {

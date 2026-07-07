@@ -8,14 +8,14 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	"workspaced/internal/tool/backend"
 	"workspaced/internal/tool/backend/catalog"
 	providerinstall "workspaced/internal/tool/backend/install"
 	"workspaced/internal/tool/checks"
+	"workspaced/pkg/driver"
+	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/logging"
 )
 
 func init() {

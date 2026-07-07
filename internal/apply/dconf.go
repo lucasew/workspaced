@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 	"workspaced/internal/configcue"
+	"workspaced/internal/source"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
-	"workspaced/internal/source"
 )
 
 // DconfPlugin emits a content-hash marker so dconf changes participate in deploy planning.

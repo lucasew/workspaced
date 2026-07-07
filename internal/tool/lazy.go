@@ -10,13 +10,13 @@ import (
 	"strings"
 
 	"workspaced/internal/configcue"
-	envdriver "workspaced/pkg/driver/env"
 	"workspaced/internal/git"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	parsespec "workspaced/internal/parse/spec"
-	"workspaced/pkg/taskgroup"
 	"workspaced/internal/tool/backend"
+	envdriver "workspaced/pkg/driver/env"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 var (

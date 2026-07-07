@@ -13,8 +13,8 @@ import (
 	"workspaced/internal/modfile"
 	_ "workspaced/internal/modfile/sourceprovider/prelude"
 	"workspaced/internal/source"
-	"workspaced/pkg/taskgroup"
 	"workspaced/internal/tool"
+	"workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

@@ -10,12 +10,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"workspaced/internal/tool"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/httpclient"
 	"workspaced/pkg/driver/shim/bash"
 	"workspaced/pkg/logging"
-	"workspaced/internal/tool"
 )
 
 const installerURL = "https://mise.run"

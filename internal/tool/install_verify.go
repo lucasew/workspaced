@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"workspaced/pkg/logging"
 	"workspaced/internal/tool/backend"
 	"workspaced/internal/tool/checks"
+	"workspaced/pkg/logging"
 )
 
 // fixAndCheck runs optional InstallFixer.Fix then checks.Run.

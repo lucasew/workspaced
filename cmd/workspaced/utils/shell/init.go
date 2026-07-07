@@ -14,11 +14,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"workspaced/internal/shellgen"
+	"workspaced/internal/version"
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
-	"workspaced/internal/shellgen"
-	"workspaced/internal/version"
 )
 
 func getInitCommand() *cobra.Command {

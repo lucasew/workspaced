@@ -12,14 +12,14 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/httpclient"
 	"workspaced/internal/githubutil"
-	"workspaced/pkg/logging"
 	"workspaced/internal/modfile"
 	"workspaced/internal/tool"
 	"workspaced/internal/tool/backend"
 	providerinstall "workspaced/internal/tool/backend/install"
+	"workspaced/pkg/driver"
+	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/logging"
 )
 
 var (

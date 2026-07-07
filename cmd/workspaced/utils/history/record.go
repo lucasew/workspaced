@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 	"workspaced/internal/db"
-	"workspaced/pkg/logging"
 	"workspaced/internal/types"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

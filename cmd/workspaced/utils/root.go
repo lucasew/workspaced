@@ -12,8 +12,8 @@ import (
 
 	"workspaced/internal/cmdregistry"
 	"workspaced/internal/executil"
-	"workspaced/pkg/logging"
 	"workspaced/internal/types"
+	"workspaced/pkg/logging"
 
 	"github.com/gorilla/websocket"
 

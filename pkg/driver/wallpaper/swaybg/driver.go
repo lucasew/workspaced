@@ -3,10 +3,10 @@ package swaybg
 import (
 	"context"
 	"fmt"
+	"workspaced/internal/executil"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/wallpaper"
-	"workspaced/internal/executil"
 )
 
 func init() {
