@@ -54,16 +54,9 @@ func (t *nodejsTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v := normalizeNodejsVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.listVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoNodeVersions
-		}
-		v = vers[0]
+	v, err := resolveToolVersion(ctx, version, normalizeNodejsVersion, t.listVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	osPart, archPart, ext := t.nodePlatformAndExt()

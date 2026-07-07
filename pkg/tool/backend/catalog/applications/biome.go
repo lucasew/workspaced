@@ -70,7 +70,7 @@ func (t *biomeTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *biomeTool) Install(ctx context.Context, version string, destDir string) error {
-	v, err := t.resolveVersion(ctx, version)
+	v, err := resolveToolVersion(ctx, version, normalizeBiomeVersion, t.ListVersions)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (t *biomeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *biomeTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v, err := t.resolveVersion(ctx, version)
+	v, err := resolveToolVersion(ctx, version, normalizeBiomeVersion, t.ListVersions)
 	if err != nil {
 		return nil, err
 	}
@@ -171,21 +171,6 @@ func (t *biomeTool) EnsureBinary(ctx context.Context, version string, cmdName st
 		}
 	}
 	return "", err
-}
-
-func (t *biomeTool) resolveVersion(ctx context.Context, version string) (string, error) {
-	v := normalizeBiomeVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return "", err
-		}
-		if len(vers) == 0 {
-			return "", ErrNoVersions
-		}
-		return vers[0], nil
-	}
-	return v, nil
 }
 
 // biomeVersionFromTag returns the semver part of an @biomejs/biome@X.Y.Z tag.

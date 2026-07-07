@@ -49,14 +49,7 @@ func (t *terraformTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *terraformTool) Install(ctx context.Context, version string, destDir string) error {
-	arts, err := t.ListArtifacts(ctx, version)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-	return t.InstallArtifact(ctx, arts[0], destDir)
+	return installFirstArtifact(ctx, version, destDir, normalizeTerraformVersion, t.ListVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *terraformTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -66,16 +59,9 @@ func (t *terraformTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *terraformTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoVersions
-		}
-		v = vers[0]
+	v, err := resolveToolVersion(ctx, version, normalizeTerraformVersion, t.ListVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	osName, arch, ok := terraformPlatform()
@@ -93,6 +79,10 @@ func (t *terraformTool) ListArtifacts(ctx context.Context, version string) ([]ba
 
 func (t *terraformTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+}
+
+func normalizeTerraformVersion(version string) string {
+	return strings.TrimPrefix(strings.TrimSpace(version), "v")
 }
 
 func (t *terraformTool) InstallChecks() []checks.Check {

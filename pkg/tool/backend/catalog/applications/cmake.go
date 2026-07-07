@@ -96,29 +96,7 @@ func (t *cmakeTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *cmakeTool) Install(ctx context.Context, version string, destDir string) error {
-	v := normalizeCMakeVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return err
-		}
-		if len(vers) == 0 {
-			return ErrNoVersions
-		}
-		v = vers[0]
-	}
-	arts, err := t.ListArtifacts(ctx, v)
-	if err != nil {
-		return err
-	}
-	if len(arts) == 0 {
-		return ErrNoPlatformArtifact
-	}
-	artifact := backend.SelectArtifact(arts, runtime.GOOS, runtime.GOARCH, "cmake")
-	if artifact == nil {
-		return fmt.Errorf("no suitable cmake artifact found for %s/%s @ %s", runtime.GOOS, runtime.GOARCH, v)
-	}
-	return t.InstallArtifact(ctx, *artifact, destDir)
+	return installSelectedArtifact(ctx, version, destDir, "cmake", "registry:cmake", normalizeCMakeVersion, t.ListVersions, t.ListArtifacts, t.InstallArtifact)
 }
 
 func (t *cmakeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -127,16 +105,9 @@ func (t *cmakeTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *cmakeTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v := normalizeCMakeVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoVersions
-		}
-		v = vers[0]
+	v, err := resolveToolVersion(ctx, version, normalizeCMakeVersion, t.ListVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	dir := cmakeDirForVersion(v)

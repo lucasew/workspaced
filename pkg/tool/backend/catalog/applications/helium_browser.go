@@ -87,16 +87,9 @@ func (t *heliumBrowserTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *heliumBrowserTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v := strings.TrimSpace(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoVersions
-		}
-		v = vers[0]
+	v, err := resolveToolVersion(ctx, version, strings.TrimSpace, t.ListVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	var all []backend.Artifact

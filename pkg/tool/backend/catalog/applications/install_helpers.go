@@ -20,7 +20,7 @@ func resolveToolVersion(ctx context.Context, version string, normalize func(stri
 	if len(vers) == 0 {
 		return "", ErrNoVersions
 	}
-	return vers[0], nil
+	return normalize(vers[0]), nil
 }
 
 func installFirstArtifact(

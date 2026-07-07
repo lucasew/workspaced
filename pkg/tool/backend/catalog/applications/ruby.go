@@ -79,16 +79,9 @@ func (t *rubyTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *rubyTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v := t.normalizeVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.ListVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoVersions
-		}
-		v = vers[0]
+	v, err := resolveToolVersion(ctx, version, t.normalizeVersion, t.ListVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	tag := "ruby-" + v

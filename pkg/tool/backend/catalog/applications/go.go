@@ -41,16 +41,9 @@ func (t *goTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *goTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	relVer := goVersionForIndex(version)
-	if relVer == "" || relVer == "latest" {
-		vers, err := t.listVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoVersions
-		}
-		relVer = goVersionForIndex(vers[0])
+	relVer, err := resolveToolVersion(ctx, version, goVersionForIndex, t.listVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	u := "https://go.dev/dl/?mode=json"

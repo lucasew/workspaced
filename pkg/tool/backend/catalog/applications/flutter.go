@@ -43,16 +43,9 @@ func (t *flutterTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *flutterTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
-	v := normalizeFlutterVersion(version)
-	if v == "" || v == "latest" {
-		vers, err := t.listVersions(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if len(vers) == 0 {
-			return nil, ErrNoVersions
-		}
-		v = vers[0]
+	v, err := resolveToolVersion(ctx, version, normalizeFlutterVersion, t.listVersions)
+	if err != nil {
+		return nil, err
 	}
 
 	u := t.releasesURL()
