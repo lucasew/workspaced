@@ -1,7 +1,6 @@
 package apps
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -102,7 +101,7 @@ func TestRubyToolImplementsInstallFixer(t *testing.T) {
 	script := filepath.Join(bin, "irb")
 	_ = os.WriteFile(script, []byte("#!/opt/hostedtoolcache/Ruby/4.0.5/x64/bin/ruby\n# gem wrapper\n"), 0o755)
 
-	if err := tool.Fix(context.Background(), dir); err != nil {
+	if err := tool.Fix(t.Context(), dir); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(script)

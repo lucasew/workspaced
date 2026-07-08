@@ -198,7 +198,7 @@ func TestFromContext(t *testing.T) {
 	if got != g {
 		t.Fatal("FromContext did not return the group")
 	}
-	if FromContext(context.Background()) != nil {
+	if FromContext(t.Context()) != nil {
 		t.Fatal("FromContext on empty context should return nil")
 	}
 }
@@ -540,7 +540,7 @@ func TestIsolateDoesNotCancelParentSiblings(t *testing.T) {
 
 func TestGoIsolatedWithoutGroupRunsSync(t *testing.T) {
 	var ran bool
-	err := GoIsolated(context.Background(), "x", CPU, func(ctx context.Context, s *Status) error {
+	err := GoIsolated(withLogger(t), "x", CPU, func(ctx context.Context, s *Status) error {
 		ran = true
 		if s == nil {
 			t.Fatal("status is nil")

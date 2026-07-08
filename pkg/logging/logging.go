@@ -47,7 +47,7 @@ func NewRootContext(l *slog.Logger) context.Context {
 	if l == nil {
 		l = slog.Default()
 	}
-	return ContextWithLogger(context.Background(), l)
+	return ContextWithLogger(context.Background(), l) //nolint:forbidigo // root context
 }
 
 // NewWriterContext returns a root context whose logger writes plain records to w.

@@ -1,7 +1,6 @@
 package driver_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -10,7 +9,7 @@ import (
 )
 
 func TestRequireEnv(t *testing.T) {
-	ctx := executil.WithEnv(context.Background(), []string{"FOO=1"})
+	ctx := executil.WithEnv(t.Context(), []string{"FOO=1"})
 	if err := driver.RequireEnv(ctx, "FOO"); err != nil {
 		t.Fatalf("present: %v", err)
 	}
@@ -21,7 +20,7 @@ func TestRequireEnv(t *testing.T) {
 }
 
 func TestRequireAnyEnv(t *testing.T) {
-	ctx := executil.WithEnv(context.Background(), []string{"WAYLAND_DISPLAY=wayland-0"})
+	ctx := executil.WithEnv(t.Context(), []string{"WAYLAND_DISPLAY=wayland-0"})
 	if err := driver.RequireAnyEnv(ctx, "DISPLAY", "WAYLAND_DISPLAY"); err != nil {
 		t.Fatalf("any present: %v", err)
 	}

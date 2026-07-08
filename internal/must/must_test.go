@@ -28,7 +28,7 @@ func TestMustPanics(t *testing.T) {
 
 func TestMustContext(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
+	ctx := t.Context()
 	var saw context.Context
 	must.MustContext(ctx, func(c context.Context) error {
 		saw = c
@@ -53,7 +53,7 @@ func TestValueAndValueContext(t *testing.T) {
 	if v := must.Value(func() (int, error) { return 7, nil }); v != 7 {
 		t.Fatalf("Value = %d", v)
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 	if v := must.ValueContext(ctx, func(context.Context) (string, error) { return "ok", nil }); v != "ok" {
 		t.Fatalf("ValueContext = %q", v)
 	}
