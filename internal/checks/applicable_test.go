@@ -34,7 +34,7 @@ func TestApplicable(t *testing.T) {
 	}
 
 	var skips []string
-	got := checks.Applicable(context.Background(), dir, items, func(name, reason string, err error) {
+	got := checks.Applicable(t.Context(), dir, items, func(name, reason string, err error) {
 		skips = append(skips, name+":"+reason)
 		if name == "fail" && !errors.Is(err, detectErr) {
 			t.Errorf("fail skip err = %v, want %v", err, detectErr)
