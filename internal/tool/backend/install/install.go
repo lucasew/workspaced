@@ -288,11 +288,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 		_ = os.Remove(tmp)
 		return err
 	}
-	if err := resp.Body.Close(); err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return err
-	}
+	logging.Close(ctx, resp.Body)
 	if err := outFile.Close(); err != nil {
 		_ = os.Remove(tmp)
 		return err
