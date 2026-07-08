@@ -3,7 +3,9 @@ package source
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
+
 	"workspaced/internal/template"
 	"workspaced/pkg/logging"
 )
@@ -43,34 +45,44 @@ type ConcatenatedFile struct {
 	Components []File
 }
 
+// multiReadCloser chains readers and closes every component on Close.
+// io.MultiReader alone does not close underlying ReadClosers; NopCloser
+// on top of it made Close a no-op and leaked open files.
+type multiReadCloser struct {
+	r       io.Reader
+	closers []io.Closer
+}
+
+func (m *multiReadCloser) Read(p []byte) (int, error) {
+	return m.r.Read(p)
+}
+
+func (m *multiReadCloser) Close() error {
+	var errs []error
+	for _, c := range m.closers {
+		if err := c.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func (f *ConcatenatedFile) Reader() (io.ReadCloser, error) {
-	readers := []io.Reader{}
+	readers := make([]io.Reader, 0, len(f.Components)*2)
+	closers := make([]io.Closer, 0, len(f.Components))
 	for i, c := range f.Components {
 		r, err := c.Reader()
 		if err != nil {
+			for _, cl := range closers {
+				_ = cl.Close()
+			}
 			return nil, err
 		}
-		// Note: we might leak readers if we don't close them.
-		// io.MultiReader doesn't close underlying readers.
-		// However, most readers here are BufferFiles or StaticFiles.
-		// For safety, let's wrap them.
-		readers = append(readers, &autoCloserReader{r})
-
+		closers = append(closers, r)
+		readers = append(readers, r)
 		if i < len(f.Components)-1 {
 			readers = append(readers, bytes.NewReader([]byte("\n")))
 		}
 	}
-	return io.NopCloser(io.MultiReader(readers...)), nil
-}
-
-type autoCloserReader struct {
-	inner io.ReadCloser
-}
-
-func (r *autoCloserReader) Read(p []byte) (n int, err error) {
-	n, err = r.inner.Read(p)
-	if err == io.EOF {
-		logging.Close(logging.NewRootContext(nil), r.inner)
-	}
-	return n, err
+	return &multiReadCloser{r: io.MultiReader(readers...), closers: closers}, nil
 }

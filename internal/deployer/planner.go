@@ -28,7 +28,7 @@ func calculateHash(r io.Reader) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (Action, error) {
+func planOne(ctx context.Context, target string, d DesiredState, current ManagedInfo, managed bool) (Action, error) {
 	info, err := os.Lstat(target)
 	exists := err == nil
 
@@ -52,7 +52,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 	} else if desiredIsSymlink {
 		desiredTarget, err := d.File.LinkTarget()
 		if err != nil {
-			return Action{}, fmt.Errorf("failed to get desired link target for %s: %w", d.File.SourceInfo(), err)
+			return Action{}, fmt.Errorf("link target %s: %w", d.File.SourceInfo(), err)
 		}
 		actualTarget, err := os.Readlink(target)
 		if err != nil || desiredTarget != actualTarget {
@@ -64,10 +64,10 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 		} else {
 			reader, err := d.File.Reader()
 			if err != nil {
-				return Action{}, fmt.Errorf("failed to get reader for %s: %w", d.File.SourceInfo(), err)
+				return Action{}, fmt.Errorf("reader %s: %w", d.File.SourceInfo(), err)
 			}
 			desiredHash, err := calculateHash(reader)
-			logging.Close(logging.NewRootContext(nil), reader)
+			logging.Close(ctx, reader)
 			if err != nil {
 				return Action{}, err
 			}
@@ -77,7 +77,7 @@ func planOne(target string, d DesiredState, current ManagedInfo, managed bool) (
 				needsUpdate = true
 			} else {
 				actualHash, err := calculateHash(targetFile)
-				logging.Close(logging.NewRootContext(nil), targetFile)
+				logging.Close(ctx, targetFile)
 				if err != nil {
 					return Action{}, err
 				}
@@ -113,7 +113,7 @@ func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState
 			target := ds.Target()
 			s.Update(target)
 			current, managed := currentState.Files[target]
-			return planOne(target, ds, current, managed)
+			return planOne(ctx, target, ds, current, managed)
 		},
 	}.Run(ctx)
 	if err != nil {
