@@ -36,7 +36,14 @@ var (
 	ErrNoSVGFiles          = errors.New("no .svg or .svg.tmpl files found")
 )
 
-var sizeDirPrefixRe = regexp.MustCompile(`^\d+x\d+$`)
+var (
+	sizeDirPrefixRe = regexp.MustCompile(`^\d+x\d+$`)
+	// Constant patterns used on every themed SVG; compile once, not per icon.
+	hexColorRe   = regexp.MustCompile(`(?i)#([0-9a-f]{3}|[0-9a-f]{6})\b`)
+	svgViewBoxRe = regexp.MustCompile(`(?i)viewBox\s*=\s*"[^"]*([0-9.]+)\s+([0-9.]+)"`)
+	svgWidthRe   = regexp.MustCompile(`(?i)\bwidth\s*=\s*"([0-9.]+)(px)?"`)
+	svgHeightRe  = regexp.MustCompile(`(?i)\bheight\s*=\s*"([0-9.]+)(px)?"`)
+)
 var fastPNGEncoder = png.Encoder{CompressionLevel: png.BestSpeed}
 
 func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inputDir, outputDir string) error {
@@ -377,10 +384,9 @@ func mapHexColorsToScheme(content string, colors map[string]string) string {
 		return content
 	}
 
-	hexRe := regexp.MustCompile(`(?i)#([0-9a-f]{3}|[0-9a-f]{6})\b`)
 	cache := map[string]string{}
 
-	return hexRe.ReplaceAllStringFunc(content, func(match string) string {
+	return hexColorRe.ReplaceAllStringFunc(content, func(match string) string {
 		src := strings.ToLower(strings.TrimPrefix(match, "#"))
 		if len(src) == 3 {
 			src = fmt.Sprintf("%c%c%c%c%c%c", src[0], src[0], src[1], src[1], src[2], src[2])
@@ -456,18 +462,15 @@ func parseHexRGB(hex string) (int, int, int) {
 }
 
 func extractSVGAspectRatio(svg string) float64 {
-	viewBoxRe := regexp.MustCompile(`(?i)viewBox\s*=\s*"[^"]*([0-9.]+)\s+([0-9.]+)"`)
-	if m := viewBoxRe.FindStringSubmatch(svg); len(m) == 3 {
+	if m := svgViewBoxRe.FindStringSubmatch(svg); len(m) == 3 {
 		w, _ := strconv.ParseFloat(m[1], 64)
 		h, _ := strconv.ParseFloat(m[2], 64)
 		if w > 0 && h > 0 {
 			return w / h
 		}
 	}
-	widthRe := regexp.MustCompile(`(?i)\bwidth\s*=\s*"([0-9.]+)(px)?"`)
-	heightRe := regexp.MustCompile(`(?i)\bheight\s*=\s*"([0-9.]+)(px)?"`)
-	wm := widthRe.FindStringSubmatch(svg)
-	hm := heightRe.FindStringSubmatch(svg)
+	wm := svgWidthRe.FindStringSubmatch(svg)
+	hm := svgHeightRe.FindStringSubmatch(svg)
 	if len(wm) >= 2 && len(hm) >= 2 {
 		w, _ := strconv.ParseFloat(wm[1], 64)
 		h, _ := strconv.ParseFloat(hm[1], 64)
