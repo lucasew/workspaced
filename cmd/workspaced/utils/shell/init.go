@@ -33,10 +33,10 @@ Uses caching for performance - regenerates only when source files change.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			logger := logging.GetLogger(ctx)
 			startTime := time.Now()
 			defer func() {
 				if profile {
-					logger := logging.GetLogger(ctx)
 					logger.Info("shell init total time", "duration", time.Since(startTime))
 				}
 			}()
@@ -73,7 +73,6 @@ Uses caching for performance - regenerates only when source files change.`,
 			if !force {
 				if content, err := os.ReadFile(cacheFile); err == nil {
 					if profile {
-						logger := logging.GetLogger(ctx)
 						logger.Info("shell init cache hit", "cache_file", cacheFile)
 					}
 					fmt.Print(string(content))
@@ -81,14 +80,12 @@ Uses caching for performance - regenerates only when source files change.`,
 				}
 			}
 			if profile {
-				logger := logging.GetLogger(ctx)
 				logger.Info("shell init cache miss, generating")
 			}
 
 			// Read all prelude files in parallel
 			t1 := time.Now()
 			if profile {
-				logger := logging.GetLogger(ctx)
 				logger.Info("shell init glob files", "duration", time.Since(t1), "files", len(allFiles))
 			}
 
@@ -156,7 +153,6 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to execute source files: %w", err)
 			}
 			if profile {
-				logger := logging.GetLogger(ctx)
 				logger.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
 			}
 
@@ -172,7 +168,6 @@ Uses caching for performance - regenerates only when source files change.`,
 				return fmt.Errorf("failed to generate inline shell initialization: %w", err)
 			}
 			if profile {
-				logger := logging.GetLogger(ctx)
 				logger.Info("shell init generated inline code", "duration", time.Since(t3))
 			}
 			output.WriteString(inlineCode)
@@ -214,7 +209,6 @@ Uses caching for performance - regenerates only when source files change.`,
 
 			if err := os.WriteFile(cacheFile, []byte(result), 0644); err != nil {
 				// Non-fatal, continue
-				logger := logging.GetLogger(ctx)
 				logger.Warn("failed to write shell init cache", "cache_file", cacheFile, "error", err)
 			}
 
@@ -317,10 +311,10 @@ func executeSourceFiles(ctx context.Context, sourceFiles map[string]string) (map
 
 	// Collect results
 	outputMap := make(map[string]string)
+	logger := logging.GetLogger(ctx)
 	for result := range results {
 		if result.err != nil {
 			// Log warning but don't fail - just skip this source file
-			logger := logging.GetLogger(ctx)
 			logger.Warn("failed to execute .source.sh", "source", result.key+".source.sh", "error", result.err)
 			continue
 		}

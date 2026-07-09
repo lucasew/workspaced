@@ -25,7 +25,6 @@ func init() {
 				logger.Info("osmardetector started")
 				driver, err := driver.Get[battery.Driver](ctx)
 				if err != nil {
-					logger := logging.GetLogger(ctx)
 					logger.Error("failed to get battery driver", "error", err)
 					return
 				}
@@ -37,7 +36,6 @@ func init() {
 					case <-ticker.C:
 						status, err := driver.BatteryStatus(ctx)
 						if err != nil {
-							logger := logging.GetLogger(ctx)
 							logger.Error("failed to get battery status", "error", err)
 							continue
 						}

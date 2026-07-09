@@ -50,7 +50,6 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 
 	conn, _, err := dialer.Dial("ws://localhost/ws", nil)
 	if err != nil {
-		logger := logging.GetLogger(ctx)
 		logger.Info("daemon not reachable, running locally", "error", err)
 		return "", false, nil
 	}
@@ -79,7 +78,6 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 		var packet types.StreamPacket
 		if err := conn.ReadJSON(&packet); err != nil {
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				logger := logging.GetLogger(ctx)
 				logger.Debug("ws read error", "error", err)
 			}
 			return "", true, fmt.Errorf("failed to read response: %w", err)
@@ -104,8 +102,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 			for k, v := range entry.Attrs {
 				attrs = append(attrs, k, v)
 			}
-			l := logging.GetLogger(ctx)
-			l.Log(ctx, level, entry.Message, attrs...)
+			logger.Log(ctx, level, entry.Message, attrs...)
 		case "stdout":
 			var out string
 			if err := json.Unmarshal(packet.Payload, &out); err == nil {
@@ -124,7 +121,6 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 			if resp.Error != "" {
 				// Check if daemon is restarting itself
 				if resp.Error == "DAEMON_RESTARTING" || resp.Error == "DAEMON_RESTART_NEEDED" {
-					logger := logging.GetLogger(ctx)
 					logger.Info("daemon restarting with new binary, retrying locally")
 
 					// Daemon is exec'ing itself, just wait a bit and run locally

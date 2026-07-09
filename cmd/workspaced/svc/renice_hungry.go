@@ -31,7 +31,6 @@ func init() {
 					case <-ticker.C:
 						pid, cmdline, err := getHungryPID(ctx)
 						if err != nil {
-							logger := logging.GetLogger(ctx)
 							logger.Error("failed to get hungry PID", "error", err)
 							continue
 						}
@@ -39,7 +38,6 @@ func init() {
 							continue
 						}
 
-						logger := logging.GetLogger(ctx)
 						logger.Info("renicing process", "pid", pid, "cmd", cmdline)
 						_ = execdriver.MustRun(ctx, "renice", "7", pid).Run()
 					}

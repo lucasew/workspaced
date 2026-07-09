@@ -17,6 +17,7 @@ func init() {
 			Short: "Demo progress notification",
 			Run: func(cmd *cobra.Command, args []string) {
 				ctx := cmd.Context()
+				logger := logging.GetLogger(ctx)
 				n := &notification.Notification{
 					Title: "Progress Demo",
 					Icon:  "utilities-terminal",
@@ -28,7 +29,6 @@ func init() {
 					n.ID = 69
 					n.Progress = float64(percent) / 100.0
 					if err := notification.Notify(ctx, n); err != nil {
-						logger := logging.GetLogger(ctx)
 						logger.Error("error sending progress notification", "error", err)
 					}
 					time.Sleep(time.Second)
@@ -36,7 +36,6 @@ func init() {
 				n.Message = "Demo complete!"
 				n.Progress = 1.0
 				if err := notification.Notify(ctx, n); err != nil {
-					logger := logging.GetLogger(ctx)
 					logger.Error("error sending final notification", "error", err)
 				}
 			},
