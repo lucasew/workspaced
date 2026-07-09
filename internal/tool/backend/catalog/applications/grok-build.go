@@ -131,27 +131,32 @@ func (t *grokBuildTool) EnsureBinary(ctx context.Context, version string, cmdNam
 // --- grok-specific bits (follows https://x.ai/cli/install.sh artifact layout) ---
 
 func (t *grokBuildTool) probeLatest(ctx context.Context) (string, error) {
+	hc, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return "", err
+	}
 	for _, base := range []string{
 		"https://x.ai/cli",
 		"https://storage.googleapis.com/grok-build-public-artifacts/cli",
 	} {
 		u := base + "/stable"
-		hc, err := driver.Get[httpclient.Driver](ctx)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		if err != nil {
 			continue
 		}
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 		resp, err := hc.Client().Do(req)
 		if err != nil {
 			continue
 		}
-		defer logging.Close(ctx, resp.Body)
 		if resp.StatusCode == http.StatusOK {
 			b, _ := io.ReadAll(resp.Body)
+			logging.Close(ctx, resp.Body)
 			if s := strings.TrimSpace(string(b)); s != "" {
 				return s, nil
 			}
+			continue
 		}
+		logging.Close(ctx, resp.Body)
 	}
 	return "", ErrGrokBuildProbeFailure
 }

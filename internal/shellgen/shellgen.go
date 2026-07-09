@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -67,6 +68,10 @@ func Generate(ctx context.Context) (string, error) {
 	resultMap := make(map[string]string)
 	timings := make(map[string]time.Duration)
 	var errs []error
+	var logger *slog.Logger
+	if profile {
+		logger = logging.GetLogger(ctx)
+	}
 	for r := range results {
 		if r.err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", r.key, r.err))
@@ -75,7 +80,6 @@ func Generate(ctx context.Context) (string, error) {
 		resultMap[r.key] = r.output
 		timings[r.key] = r.duration
 		if profile {
-			logger := logging.GetLogger(ctx)
 			logger.Info("shell generator timing", "generator", r.key, "duration", r.duration)
 		}
 	}

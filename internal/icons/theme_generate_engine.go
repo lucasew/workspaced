@@ -412,17 +412,21 @@ func stripLeadingSizeDir(rel string) string {
 	return clean
 }
 
+// base16PaletteKeys is the ordered base16 (+ extended) keys used when mapping
+// free hex colors onto the active scheme. Package-level so mapHexColorsToScheme
+// does not rebuild the slice on every SVG.
+var base16PaletteKeys = []string{
+	"base00", "base01", "base02", "base03",
+	"base04", "base05", "base06", "base07",
+	"base08", "base09", "base0A", "base0B",
+	"base0C", "base0D", "base0E", "base0F",
+	"base10", "base11", "base12", "base13", "base14", "base15", "base16", "base17",
+}
+
 func extractPalette(colors map[string]string) []string {
-	keys := []string{
-		"base00", "base01", "base02", "base03",
-		"base04", "base05", "base06", "base07",
-		"base08", "base09", "base0A", "base0B",
-		"base0C", "base0D", "base0E", "base0F",
-		"base10", "base11", "base12", "base13", "base14", "base15", "base16", "base17",
-	}
-	out := make([]string, 0, len(keys))
-	seen := map[string]bool{}
-	for _, k := range keys {
+	out := make([]string, 0, len(base16PaletteKeys))
+	seen := make(map[string]bool, len(base16PaletteKeys))
+	for _, k := range base16PaletteKeys {
 		c := strings.ToLower(strings.TrimPrefix(colors[k], "#"))
 		if len(c) != 6 || seen[c] {
 			continue

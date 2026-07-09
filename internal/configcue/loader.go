@@ -288,6 +288,13 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		}
 	}
 
+	// Constant path + bare-style wrap shell: reuse across every file layer.
+	wsPath := cue.ParsePath("workspaced")
+	wrapTemplate := ctx.CompileString(`workspaced: {}`)
+	if err := wrapTemplate.Err(); err != nil {
+		return cue.Value{}, fmt.Errorf("compile workspaced wrap template:\n%s", cueerrors.Details(err, nil))
+	}
+
 	for _, path := range paths {
 		src, err := os.ReadFile(path)
 		if err != nil {
@@ -300,15 +307,14 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		// Support both wrapped style (`workspaced: { modules: ... }`)
 		// and bare style (top-level `modules: ...` etc. directly in the file).
 		// This makes sure modules etc from the cue are always under the workspaced value.
-		if ws := layerValue.LookupPath(cue.ParsePath("workspaced")); ws.Exists() {
+		if ws := layerValue.LookupPath(wsPath); ws.Exists() {
 			// wrapped style: the src itself starts with "workspaced: { ... }"
 			// unify the full layerValue so the "workspaced" key merges properly
 			v = v.Unify(layerValue)
 		} else {
 			// bare style (top-level modules, inputs etc. without the wrapper)
 			// wrap by filling the bare value under workspaced
-			template := ctx.CompileString(`workspaced: {}`)
-			wrapped := template.FillPath(cue.ParsePath("workspaced"), layerValue)
+			wrapped := wrapTemplate.FillPath(wsPath, layerValue)
 			v = v.Unify(wrapped)
 		}
 		if err := v.Err(); err != nil {
@@ -327,7 +333,7 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		}
 	}
 
-	configValue := v.LookupPath(cue.ParsePath("workspaced"))
+	configValue := v.LookupPath(wsPath)
 	if err := configValue.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("lookup workspaced value:\n%s", cueerrors.Details(err, nil))
 	}
@@ -730,8 +736,8 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 			return "", nil
 		}
 		if hasGitBoundary {
-			absParent, _ := filepath.Abs(parent)
-			absParent = filepath.Clean(absParent)
+			// dir started absolute and only walks via filepath.Dir, so parent is absolute.
+			absParent := filepath.Clean(parent)
 			if absParent != absGit && !strings.HasPrefix(absParent, absGit+string(filepath.Separator)) {
 				// would leave the git repo root; stop without considering parent
 				return "", nil
