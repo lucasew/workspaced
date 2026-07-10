@@ -74,16 +74,16 @@ func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd
 		return cmd
 	}
 
-	if os.Getenv("WORKSPACED_NO_PROOT") == "1" {
-		logger.Debug("proot disabled via WORKSPACED_NO_PROOT", "command", fullArgs)
-		cmd := exec.CommandContext(ctx, fullPath, args...)
-		cmd.Env = setupTermuxEnv(ctx, prefix)
-		return cmd
+	if os.Getenv("WORKSPACED_USE_PROOT") == "1" {
+		logger.Debug("proot enabled via WORKSPACED_USE_PROOT, using proot for command execution", "command", fullArgs)
+		return d.runWithProot(ctx, fullPath, args, prefix)
 	}
 
-	// Default: use proot for DNS/SSL access
-	logger.Debug("using proot for command execution", "command", fullArgs)
-	return d.runWithProot(ctx, fullPath, args, prefix)
+	// Default: run directly without proot
+	logger.Debug("proot is opt-in, running directly", "command", fullArgs)
+	cmd := exec.CommandContext(ctx, fullPath, args...)
+	cmd.Env = setupTermuxEnv(ctx, prefix)
+	return cmd
 }
 
 // runWithProot wraps command execution in proot with termux-chroot-like setup
