@@ -8,16 +8,18 @@ import (
 func init() {
 	// name == on-disk binary
 	for name, repo := range map[string]string{
-		"uv":       "astral-sh/uv",
-		"fzf":      "junegunn/fzf",
-		"fd":       "sharkdp/fd",
-		"sops":     "getsops/sops",
-		"tflint":   "terraform-linters/tflint",
-		"opencode": "anomalyco/opencode",
-		"rclone":   "rclone/rclone",
-		"rtk":      "rtk-ai/rtk",
-		"resvg":    "linebender/resvg",
-		"codex":    "openai/codex",
+		"uv":        "astral-sh/uv",
+		"fzf":       "junegunn/fzf",
+		"fd":        "sharkdp/fd",
+		"sops":      "getsops/sops",
+		"tflint":    "terraform-linters/tflint",
+		"opencode":  "anomalyco/opencode",
+		"rclone":    "rclone/rclone",
+		"rtk":       "rtk-ai/rtk",
+		"resvg":     "linebender/resvg",
+		"codex":     "openai/codex",
+		"contapila": "lucasew/contapila-go",
+		"refactree": "lucasew/refactree",
 	} {
 		catalog.RegisterGitHub(name, repo)
 	}
