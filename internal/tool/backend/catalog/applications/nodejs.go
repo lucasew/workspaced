@@ -64,7 +64,10 @@ func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]backe
 	url := fmt.Sprintf("https://nodejs.org/dist/%s/%s", v, filename)
 
 	// Fetch SHASUMS256.txt so we can attach hash and use fetchurl backend.
-	sums, _ := t.fetchShasums(ctx, v)
+	sums, err := t.fetchShasums(ctx, v)
+	if err != nil {
+		return nil, err
+	}
 	hash := ""
 	if h, ok := sums[filename]; ok && h != "" {
 		hash = "sha256:" + h
@@ -103,7 +106,10 @@ func (t *nodejsTool) listVersions(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
 		return nil, err
@@ -132,7 +138,10 @@ func (t *nodejsTool) fetchShasums(ctx context.Context, ver string) (map[string]s
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
 		return nil, err
