@@ -13,6 +13,7 @@ import (
 
 	"workspaced/pkg/driver"
 	cameraapi "workspaced/pkg/driver/camera"
+	"workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -78,10 +79,7 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	if err != nil {
 		return err
 	}
-
-	defer func() {
-		_ = out.Close()
-	}()
+	defer logging.Close(cmd.Context(), out, "path", outPath)
 	if err := png.Encode(out, img); err != nil {
 		return err
 	}
