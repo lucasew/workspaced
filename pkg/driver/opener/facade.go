@@ -2,6 +2,7 @@ package opener
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"workspaced/internal/configcue"
@@ -47,7 +48,10 @@ func OpenWebapp(ctx context.Context, wa WebappConfig) error {
 	}
 
 	if wa.Profile != "" {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
 		profileDir := filepath.Join(home, ".config/workspaced/webapp/profiles", wa.Profile)
 		args = append(args, "--user-data-dir="+profileDir)
 	}
