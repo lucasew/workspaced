@@ -99,15 +99,7 @@ func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) (
 	defer logging.Close(ctx, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		msg := strings.TrimSpace(string(body))
-		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
-			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", url, resp.Status, ErrAPIError)
-		}
-		if msg != "" {
-			return nil, fmt.Errorf("github api error for %s: %s: %s: %w", url, resp.Status, msg, ErrAPIError)
-		}
-		return nil, fmt.Errorf("github api error for %s: %s: %w", url, resp.Status, ErrAPIError)
+		return nil, apiErrorFromResponse(url, resp)
 	}
 
 	var releases []release
@@ -142,6 +134,24 @@ func releaseTags(releases []release, includePrerelease bool) []string {
 	return versions
 }
 
+// apiErrorFromResponse turns a non-OK GitHub API response into ErrAPIError.
+// When the body is readable, rate-limit wording is detected; if ReadAll fails,
+// fall back to a status-only message that includes the read error.
+func apiErrorFromResponse(requestURL string, resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("github api error for %s: %s (reading body: %v): %w", requestURL, resp.Status, err, ErrAPIError)
+	}
+	msg := strings.TrimSpace(string(body))
+	if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
+		return fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", requestURL, resp.Status, ErrAPIError)
+	}
+	if msg != "" {
+		return fmt.Errorf("github api error for %s: %s: %s: %w", requestURL, resp.Status, msg, ErrAPIError)
+	}
+	return fmt.Errorf("github api error for %s: %s: %w", requestURL, resp.Status, ErrAPIError)
+}
+
 func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, version string) ([]backend.Artifact, error) {
 	logger := logging.GetLogger(ctx)
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/tags/%s", pkg.Repo, version)
@@ -172,15 +182,7 @@ func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, v
 	defer logging.Close(ctx, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		msg := strings.TrimSpace(string(body))
-		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
-			return nil, fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", url, resp.Status, ErrAPIError)
-		}
-		if msg != "" {
-			return nil, fmt.Errorf("github api error for %s: %s: %s: %w", url, resp.Status, msg, ErrAPIError)
-		}
-		return nil, fmt.Errorf("github api error for %s: %s: %w", url, resp.Status, ErrAPIError)
+		return nil, apiErrorFromResponse(url, resp)
 	}
 
 	var r release
