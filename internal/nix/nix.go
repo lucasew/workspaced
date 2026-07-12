@@ -166,7 +166,9 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	}
 
 	buildID := make([]byte, 8)
-	_, _ = rand.Read(buildID)
+	if _, err := rand.Read(buildID); err != nil {
+		return "", fmt.Errorf("failed to generate build ID: %w", err)
+	}
 	uuid := fmt.Sprintf("%x", buildID)
 	outLink := fmt.Sprintf("%s/%s", remoteCache, uuid)
 
