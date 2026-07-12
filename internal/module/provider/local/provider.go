@@ -85,7 +85,10 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 			if info.IsDir() {
 				return nil
 			}
-			rel, _ := filepath.Rel(presetPath, path)
+			rel, err := filepath.Rel(presetPath, path)
+			if err != nil {
+				return err
+			}
 			isSymlink := info.Mode()&os.ModeSymlink != 0
 			out = append(out, module.ResolvedFile{
 				RelPath:    rel,
