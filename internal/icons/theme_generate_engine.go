@@ -108,7 +108,12 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 			// so that icons with the same basename in different categories
 			// (e.g. apps/brightnesssettings.svg vs devices/brightnesssettings.svg)
 			// get unique task names. This matches the deduplication key logic.
-			rel, _ := filepath.Rel(inputDir, iconPath)
+			// On Rel failure (e.g. paths on different volumes), fall back to the
+			// basename so progress labels stay unique-ish instead of collapsing.
+			rel, err := filepath.Rel(inputDir, iconPath)
+			if err != nil {
+				return "icon:" + filepath.Base(iconPath)
+			}
 			relOut := strings.TrimSuffix(rel, ".tmpl")
 			relOut = strings.TrimSuffix(relOut, ".svg") + ".svg"
 			relOut = stripLeadingSizeDir(relOut)
