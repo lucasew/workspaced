@@ -55,7 +55,12 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 	}
 	defer logging.Close(ctx, conn, "socket", socketPath)
 
-	clientHash, _ := executil.GetBinaryHash(ctx)
+	// Best-effort: daemon skips mismatch detection when BinaryHash is empty.
+	clientHash, err := executil.GetBinaryHash(ctx)
+	if err != nil {
+		logger.Warn("failed to hash client binary; daemon mismatch check skipped", "error", err)
+		clientHash = ""
+	}
 
 	req := types.Request{
 		Command:    cmdName,
@@ -64,7 +69,10 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 		BinaryHash: clientHash,
 	}
 
-	payload, _ := json.Marshal(req)
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return "", true, fmt.Errorf("failed to marshal daemon request: %w", err)
+	}
 	packet := types.StreamPacket{
 		Type:    "request",
 		Payload: payload,
