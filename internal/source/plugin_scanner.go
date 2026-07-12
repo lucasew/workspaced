@@ -46,7 +46,10 @@ func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 	// Expand paths
 	baseDir := os.ExpandEnv(cfg.BaseDir)
 	if strings.HasPrefix(baseDir, "~/") {
-		home, _ := os.UserHomeDir()
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get home directory: %w", err)
+		}
 		baseDir = filepath.Join(home, baseDir[2:])
 	}
 
