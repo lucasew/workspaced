@@ -60,12 +60,18 @@ func (t *llvmTool) ListVersions(ctx context.Context) ([]string, error) {
 	defer logging.Close(ctx, resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("github releases for llvm: %s (reading body: %v)", resp.Status, err)
+		}
 		msg := strings.TrimSpace(string(body))
 		if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
 			return nil, fmt.Errorf("github api rate limit exceeded for llvm releases (consider setting GITHUB_TOKEN or 'gh auth login')")
 		}
-		return nil, fmt.Errorf("github releases for llvm: %s: %s", resp.Status, msg)
+		if msg != "" {
+			return nil, fmt.Errorf("github releases for llvm: %s: %s", resp.Status, msg)
+		}
+		return nil, fmt.Errorf("github releases for llvm: %s", resp.Status)
 	}
 
 	var rels []struct {

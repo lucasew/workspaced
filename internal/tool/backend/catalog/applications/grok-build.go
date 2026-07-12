@@ -149,8 +149,12 @@ func (t *grokBuildTool) probeLatest(ctx context.Context) (string, error) {
 			continue
 		}
 		if resp.StatusCode == http.StatusOK {
-			b, _ := io.ReadAll(resp.Body)
+			b, err := io.ReadAll(resp.Body)
 			logging.Close(ctx, resp.Body)
+			if err != nil {
+				// Read failure: treat as empty body and try the next channel.
+				continue
+			}
 			if s := strings.TrimSpace(string(b)); s != "" {
 				return s, nil
 			}
