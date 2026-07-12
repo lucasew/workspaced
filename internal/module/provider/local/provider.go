@@ -70,7 +70,10 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 			return nil, fmt.Errorf("%w: %q in module %q", ErrUnknownPreset, presetName, req.Ref)
 		}
 		if targetBase == "~" {
-			home, _ := os.UserHomeDir()
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get home directory: %w", err)
+			}
 			targetBase = home
 		}
 
