@@ -468,7 +468,7 @@ func untargz(ctx context.Context, src, dest string) error {
 func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 	for {
 		header, err := reader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return nil
 		}
 		if err != nil {
