@@ -50,9 +50,8 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 	}
 
 	// Scanner goroutine feeds the notification with live rsync status lines.
-	scanDone := make(chan struct{})
+	scanDone := make(chan error, 1)
 	go func() {
-		defer close(scanDone)
 		scanner := bufio.NewScanner(pr)
 		lastUpdate := time.Now()
 		for scanner.Scan() {
@@ -68,13 +67,14 @@ func (a RsyncAction) Run(ctx context.Context, n *notification.Notification) erro
 				lastUpdate = time.Now()
 			}
 		}
+		scanDone <- scanner.Err()
 	}()
 
 	err := rsync.Sync(ctx, a.Src, a.Dst, opts)
 
 	// Close write side so the scanner goroutine drains and exits.
-	pw.Close()
-	<-scanDone
+	logging.Close(ctx, pw)
+	scanErr := <-scanDone
 
-	return err
+	return errors.Join(err, scanErr)
 }
