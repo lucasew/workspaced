@@ -32,8 +32,9 @@ func TestResolveRuntimeInputs_valid(t *testing.T) {
 	if got, ok := out["localmod"]["path"].(string); !ok || !strings.HasSuffix(filepath.Clean(got), filepath.Join("modules", "foo")) {
 		t.Fatalf("localmod path = %#v", out["localmod"])
 	}
-	if got, ok := out["gh"]["path"].(string); !ok || !strings.Contains(got, filepath.Join(".cache", "workspaced", "sources", "github")) {
-		t.Fatalf("gh path = %#v", out["gh"])
+	got, ok := out["gh"]["path"].(string)
+	if !ok || !filepath.IsAbs(got) || !strings.Contains(got, filepath.Join(".cache", "workspaced", "sources", "github")) {
+		t.Fatalf("gh path = %#v, want absolute cache path under .cache/workspaced/sources/github", out["gh"])
 	}
 }
 

@@ -859,7 +859,10 @@ func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []La
 
 	modulesBaseDir := resolvedSelfModulesBase(paths, discovered)
 	workspaceRoot := filepath.Dir(modulesBaseDir)
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("user home dir: %w", err)
+	}
 	out := map[string]map[string]any{}
 	for name, input := range cfgInputs {
 		spec := strings.TrimSpace(input.From)
