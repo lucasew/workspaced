@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -62,7 +63,10 @@ func (p *DotDProcessorPlugin) Process(ctx context.Context, files []File) ([]File
 
 		// Use info from the first file for bases
 		first := groupFiles[0]
-		relPath, _ := filepath.Rel(first.TargetBase(), targetPath)
+		relPath, err := filepath.Rel(first.TargetBase(), targetPath)
+		if err != nil {
+			return nil, fmt.Errorf("dotd relative path for %q from %q: %w", targetPath, first.TargetBase(), err)
+		}
 
 		result = append(result, &ConcatenatedFile{
 			BasicFile: BasicFile{
