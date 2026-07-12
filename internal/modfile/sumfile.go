@@ -2,6 +2,7 @@ package modfile
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -119,7 +120,7 @@ type sumFileDisk struct {
 
 func LoadSumFile(path string) (*SumFile, error) {
 	out := &SumFile{}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return out, nil
 	}
 	data, err := os.ReadFile(path)
