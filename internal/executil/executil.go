@@ -97,18 +97,18 @@ func GetEnv(ctx context.Context, key string) string {
 func GetBinaryHash(ctx context.Context) (string, error) {
 	exePath, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("failed to get executable path: %w", err)
+		return "", fmt.Errorf("executable path: %w", err)
 	}
 
 	file, err := os.Open(exePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to open executable: %w", err)
+		return "", fmt.Errorf("open executable: %w", err)
 	}
 	defer logging.Close(ctx, file)
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("failed to hash executable: %w", err)
+		return "", fmt.Errorf("hash executable: %w", err)
 	}
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
@@ -118,12 +118,12 @@ func GetBinaryHash(ctx context.Context) (string, error) {
 func GetBinaryMtime() (time.Time, error) {
 	exePath, err := os.Executable()
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to get executable path: %w", err)
+		return time.Time{}, fmt.Errorf("executable path: %w", err)
 	}
 
 	info, err := os.Stat(exePath)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to stat executable: %w", err)
+		return time.Time{}, fmt.Errorf("stat executable: %w", err)
 	}
 
 	return info.ModTime(), nil
