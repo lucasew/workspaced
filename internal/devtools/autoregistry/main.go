@@ -29,10 +29,17 @@ func ExtractPackage(ctx context.Context, gofile string) (string, error) {
 	}
 	defer logging.Close(ctx, f)
 	scanner := bufio.NewScanner(f)
-	scanner.Scan()
-	parts := strings.Split(scanner.Text(), " ")
-	return strings.TrimSpace(parts[1]), nil
-
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return "", fmt.Errorf("scan %s: %w", gofile, err)
+		}
+		return "", fmt.Errorf("no package line in %s", gofile)
+	}
+	parts := strings.Fields(scanner.Text())
+	if len(parts) < 2 || parts[0] != "package" {
+		return "", fmt.Errorf("no package line in %s", gofile)
+	}
+	return parts[1], nil
 }
 
 func (r DetectedRoot) Children(ctx context.Context) (iter.Seq[DetectedRoot], error) {
