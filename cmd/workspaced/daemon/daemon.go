@@ -110,7 +110,6 @@ func RunDaemon(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	slog.SetDefault(slog.New(logging.NewPlainHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	logger := logging.GetLogger(ctx)
 	logger.Info("daemon starting", "pid", os.Getpid())
 
@@ -363,7 +362,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 
 	handler := &logging.ChannelLogHandler{
 		Out:    outCh,
-		Parent: slog.Default().Handler(),
+		Parent: logger.Handler(),
 		Ctx:    ctx,
 	}
 	reqLogger := slog.New(handler)
