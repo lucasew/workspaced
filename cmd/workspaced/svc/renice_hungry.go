@@ -39,7 +39,10 @@ func init() {
 						}
 
 						logger.Info("renicing process", "pid", pid, "cmd", cmdline)
-						_ = execdriver.MustRun(ctx, "renice", "7", pid).Run()
+						if err := execdriver.MustRun(ctx, "renice", "7", pid).Run(); err != nil {
+							logger.Error("failed to renice process", "pid", pid, "cmd", cmdline, "error", err)
+							continue
+						}
 					}
 				}
 			},
