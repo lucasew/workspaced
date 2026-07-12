@@ -516,11 +516,5 @@ func lockedToolWithRenovate(lockRef string, version string, spec parsespec.Spec)
 	lt.PackageName = entry.PackageName
 	lt.Versioning = entry.Versioning
 
-	// The Tool had a chance to influence CurrentValue too.
-	if entry.CurrentValue != "" {
-		// We don't store CurrentValue on LockedTool (it lives on the dep),
-		// but the upsert logic will pick it up via other paths if needed.
-	}
-
 	return lt
 }
