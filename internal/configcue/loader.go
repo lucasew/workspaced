@@ -849,8 +849,13 @@ func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []La
 		Version string `json:"version"`
 	}
 	cfgInputs := map[string]inputCfg{}
-	tmp, _ := json.Marshal(inputsRaw)
-	_ = json.Unmarshal(tmp, &cfgInputs)
+	tmp, err := json.Marshal(inputsRaw)
+	if err != nil {
+		return nil, fmt.Errorf("marshal inputs for resolution: %w", err)
+	}
+	if err := json.Unmarshal(tmp, &cfgInputs); err != nil {
+		return nil, fmt.Errorf("decode inputs for resolution: %w", err)
+	}
 
 	modulesBaseDir := resolvedSelfModulesBase(paths, discovered)
 	workspaceRoot := filepath.Dir(modulesBaseDir)
