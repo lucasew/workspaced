@@ -101,7 +101,9 @@ func SyncRepo(ctx context.Context, path string) error {
 
 	logger.Info("git pull --rebase", "path", path)
 	if err := execdriver.MustRun(ctx, "git", "-C", path, "pull", "--rebase").Run(); err != nil {
-		_ = execdriver.MustRun(ctx, "git", "-C", path, "rebase", "--abort").Run()
+		if abortErr := execdriver.MustRun(ctx, "git", "-C", path, "rebase", "--abort").Run(); abortErr != nil {
+			logging.ReportError(ctx, abortErr, "op", "git rebase --abort", "path", path)
+		}
 		return fmt.Errorf("git pull rebase failed (conflict?): %w", err)
 	}
 
