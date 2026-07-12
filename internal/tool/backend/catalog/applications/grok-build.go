@@ -111,7 +111,9 @@ func (t *grokBuildTool) InstallArtifact(ctx context.Context, art backend.Artifac
 		agent = "agent.exe"
 	}
 	_ = os.Remove(filepath.Join(destDir, agent))
-	_ = os.Symlink(bin, filepath.Join(destDir, agent))
+	if err := os.Symlink(bin, filepath.Join(destDir, agent)); err != nil {
+		return fmt.Errorf("symlink agent: %w", err)
+	}
 	return nil
 }
 
