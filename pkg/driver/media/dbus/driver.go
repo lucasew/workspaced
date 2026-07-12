@@ -82,9 +82,13 @@ func (d *Driver) getBestPlayer(ctx context.Context) (dbus.BusObject, string, err
 		if err != nil {
 			continue
 		}
+		status, ok := statusVar.Value().(string)
+		if !ok {
+			continue
+		}
 		infos = append(infos, playerInfo{
 			name:   p,
-			status: statusVar.Value().(string),
+			status: status,
 			obj:    obj,
 		})
 	}
@@ -129,20 +133,29 @@ func (d *Driver) GetMetadata(ctx context.Context) (*media.Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
+	status, ok := statusVar.Value().(string)
+	if !ok {
+		return nil, fmt.Errorf("playback status: unexpected type %T", statusVar.Value())
+	}
 
 	metadataVar, err := obj.GetProperty("org.mpris.MediaPlayer2.Player.Metadata")
 	if err != nil {
 		return nil, err
 	}
 
-	m := metadataVar.Value().(map[string]dbus.Variant)
+	m, ok := metadataVar.Value().(map[string]dbus.Variant)
+	if !ok {
+		return nil, fmt.Errorf("metadata: unexpected type %T", metadataVar.Value())
+	}
 	res := &media.Metadata{
 		Player: name,
-		Status: media.PlaybackStatus(statusVar.Value().(string)),
+		Status: media.PlaybackStatus(status),
 	}
 
 	if v, ok := m["xesam:title"]; ok {
-		res.Title = v.Value().(string)
+		if title, ok := v.Value().(string); ok {
+			res.Title = title
+		}
 	}
 	if v, ok := m["xesam:artist"]; ok {
 		switch val := v.Value().(type) {
@@ -161,7 +174,9 @@ func (d *Driver) GetMetadata(ctx context.Context) (*media.Metadata, error) {
 		}
 	}
 	if v, ok := m["mpris:artUrl"]; ok {
-		res.ArtUrl = v.Value().(string)
+		if artUrl, ok := v.Value().(string); ok {
+			res.ArtUrl = artUrl
+		}
 	}
 	if v, ok := m["mpris:length"]; ok {
 		switch val := v.Value().(type) {
@@ -202,10 +217,14 @@ func (d *Driver) Watch(ctx context.Context, callback func(*media.Metadata)) erro
 			if len(signal.Body) < 2 {
 				continue
 			}
-			if signal.Body[0].(string) != "org.mpris.MediaPlayer2.Player" {
+			iface, ok := signal.Body[0].(string)
+			if !ok || iface != "org.mpris.MediaPlayer2.Player" {
 				continue
 			}
-			changed := signal.Body[1].(map[string]dbus.Variant)
+			changed, ok := signal.Body[1].(map[string]dbus.Variant)
+			if !ok {
+				continue
+			}
 			if _, ok := changed["Metadata"]; ok {
 				meta, err := d.GetMetadata(ctx)
 				if err == nil {
