@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"workspaced/internal/modfile"
-	"workspaced/internal/modfile/sourceprovider/common"
+	"workspaced/internal/modfile/sourceprovider/sourcecache"
 	"workspaced/pkg/logging"
 )
 
@@ -132,7 +132,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 
 	logger := logging.GetLogger(ctx)
 	logger.Info("resolving github source", "alias", s.Alias, "repo", s.Repo(), "ref", s.Ref(), "url", s.Config.URL)
-	return common.EnsureCachedDir(ctx, "github", s.CacheKey(), func(tmpDir string) error {
+	return sourcecache.EnsureCachedDir(ctx, "github", s.CacheKey(), func(tmpDir string) error {
 		meta, err := downloadAndExtractTarball(ctx, s, tmpDir, "")
 		if err != nil {
 			return fmt.Errorf("failed to fetch source %q: %w", alias, err)
