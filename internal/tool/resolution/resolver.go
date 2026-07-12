@@ -24,7 +24,10 @@ func NewResolver(toolsDir string) *Resolver {
 }
 
 func (r *Resolver) Resolve(ctx context.Context, toolName string) (string, error) {
-	version := r.resolveVersion(ctx, toolName)
+	version, err := r.resolveVersion(ctx, toolName)
+	if err != nil {
+		return "", err
+	}
 
 	// Search for the tool binary in installed packages
 	entries, err := os.ReadDir(r.toolsDir)
@@ -106,33 +109,41 @@ func (r *Resolver) checkBin(verDir, toolName string) string {
 	return ""
 }
 
-func (r *Resolver) resolveVersion(ctx context.Context, toolName string) string {
+func (r *Resolver) resolveVersion(ctx context.Context, toolName string) (string, error) {
 	// 1. .tool-versions
-	if v := r.findInToolVersions(ctx, toolName); v != "" {
-		return v
+	v, err := r.findInToolVersions(ctx, toolName)
+	if err != nil {
+		return "", err
+	}
+	if v != "" {
+		return v, nil
 	}
 
 	// 2. Env var: WORKSPACED_TOOL_VERSION
 	envKey := "WORKSPACED_" + strings.ToUpper(strings.ReplaceAll(toolName, "-", "_")) + "_VERSION"
 	if v := os.Getenv(envKey); v != "" {
-		return v
+		return v, nil
 	}
 
 	// 3. Fallback
-	return "latest"
+	return "latest", nil
 }
 
-func (r *Resolver) findInToolVersions(ctx context.Context, toolName string) string {
+func (r *Resolver) findInToolVersions(ctx context.Context, toolName string) (string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return ""
+		return "", nil
 	}
 
 	for {
 		p := filepath.Join(cwd, ".tool-versions")
 		if _, err := os.Stat(p); err == nil {
-			if v := readToolVersion(ctx, p, toolName); v != "" {
-				return v
+			v, err := readToolVersion(ctx, p, toolName)
+			if err != nil {
+				return "", err
+			}
+			if v != "" {
+				return v, nil
 			}
 		}
 
@@ -147,19 +158,23 @@ func (r *Resolver) findInToolVersions(ctx context.Context, toolName string) stri
 	if err == nil {
 		p := filepath.Join(home, ".config", "workspaced", ".tool-versions")
 		if _, err := os.Stat(p); err == nil {
-			if v := readToolVersion(ctx, p, toolName); v != "" {
-				return v
+			v, err := readToolVersion(ctx, p, toolName)
+			if err != nil {
+				return "", err
+			}
+			if v != "" {
+				return v, nil
 			}
 		}
 	}
 
-	return ""
+	return "", nil
 }
 
-func readToolVersion(ctx context.Context, path, toolName string) string {
+func readToolVersion(ctx context.Context, path, toolName string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return ""
+		return "", err
 	}
 	defer logging.Close(ctx, f)
 
@@ -171,10 +186,13 @@ func readToolVersion(ctx context.Context, path, toolName string) string {
 		}
 		parts := strings.Fields(line)
 		if len(parts) >= 2 && parts[0] == toolName {
-			return parts[1]
+			return parts[1], nil
 		}
 	}
-	return ""
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("scan %s: %w", path, err)
+	}
+	return "", nil
 }
 
 func sortVersions(versions []string) {
