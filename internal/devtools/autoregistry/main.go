@@ -48,13 +48,15 @@ func (r DetectedRoot) Children(ctx context.Context) (iter.Seq[DetectedRoot], err
 		return nil, err
 	}
 	return func(yield func(DetectedRoot) bool) {
+		logger := logging.GetLogger(ctx)
 		for _, item := range items {
 			dirname := path.Base(path.Dir(item))
 			dir := path.Join(r.Dir, dirname)
 			file := path.Join(dir, "root.go")
 			pkg, err := ExtractPackage(ctx, file)
 			if err != nil {
-				panic(err)
+				logger.Warn("skipping root.go: ExtractPackage failed", "file", file, "error", err)
+				continue
 			}
 			if !yield(DetectedRoot{
 				Dir:        dir,
