@@ -55,13 +55,15 @@ func Which(ctx context.Context, name string) (string, error) {
 }
 
 // MustRun creates and returns an exec.Cmd using the selected driver.
-// Panics if the driver cannot be loaded (should only happen during initialization).
-// Use this for compatibility with code that expects *exec.Cmd directly.
+// If the driver cannot be loaded, it logs a warning (name + error) and falls
+// back to os/exec.CommandContext so callers that expect *exec.Cmd keep working.
+// Prefer Run when the caller can handle the error.
 func MustRun(ctx context.Context, name string, args ...string) *exec.Cmd {
 	cmd, err := Run(ctx, name, args...)
 	if err != nil {
-		// Fallback to direct exec if driver fails
-		cmd = exec.CommandContext(ctx, name, args...)
+		logger := logging.GetLogger(ctx)
+		logger.Warn("exec driver unavailable; falling back to raw os/exec", "name", name, "error", err)
+		cmd = exec.CommandContext(ctx, name, args...) //nolint:forbidigo // facade fallback when driver.Get fails
 		attachDefaultWriters(ctx, cmd)
 		return cmd
 	}
