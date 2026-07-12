@@ -1,6 +1,6 @@
 # Install each curated catalog tool and run install checks on real runners.
-# Mirrors the multi-target layout of lucasew/nixcfg nixpkgs-review (native OS/arch only).
-# Per-tool failures are appended to GITHUB_STEP_SUMMARY by the Go tests themselves.
+# Linux only (amd64 + arm64). Per-tool failures append to GITHUB_STEP_SUMMARY
+# from the Go tests themselves when that env is set.
 
 name: Registry install
 run-name: Registry install${{ github.event_name == 'workflow_dispatch' && ' (manual)' || '' }}
@@ -22,16 +22,6 @@ on:
         description: aarch64-linux (ubuntu-24.04-arm)
         default: true
         required: true
-      aarch64-darwin:
-        type: boolean
-        description: aarch64-darwin (macos-latest)
-        default: true
-        required: true
-      x86_64-darwin:
-        type: boolean
-        description: x86_64-darwin (macos-26-intel)
-        default: true
-        required: true
 
 concurrency:
   group: registry-install-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -51,16 +41,12 @@ jobs:
           EVENT: ${{ github.event_name }}
           X86_64_LINUX: ${{ github.event.inputs.x86_64-linux }}
           AARCH64_LINUX: ${{ github.event.inputs.aarch64-linux }}
-          AARCH64_DARWIN: ${{ github.event.inputs.aarch64-darwin }}
-          X86_64_DARWIN: ${{ github.event.inputs.x86_64-darwin }}
         run: |
           set -euo pipefail
           # On push/PR, enable all targets. On workflow_dispatch, honor inputs.
           all='[
             {"target":"x86_64-linux","os":"ubuntu-latest"},
-            {"target":"aarch64-linux","os":"ubuntu-24.04-arm"},
-            {"target":"aarch64-darwin","os":"macos-latest"},
-            {"target":"x86_64-darwin","os":"macos-26-intel"}
+            {"target":"aarch64-linux","os":"ubuntu-24.04-arm"}
           ]'
           write_matrix() {
             echo "matrix=$(jq -c '{include: .}' "$1")" >> "$GITHUB_OUTPUT"
@@ -74,14 +60,10 @@ jobs:
             --argjson all "$all" \
             --arg x86_64_linux "${X86_64_LINUX:-true}" \
             --arg aarch64_linux "${AARCH64_LINUX:-true}" \
-            --arg aarch64_darwin "${AARCH64_DARWIN:-true}" \
-            --arg x86_64_darwin "${X86_64_DARWIN:-true}" \
             '
             [
               if $x86_64_linux == "true" then ($all[] | select(.target=="x86_64-linux")) else empty end,
-              if $aarch64_linux == "true" then ($all[] | select(.target=="aarch64-linux")) else empty end,
-              if $aarch64_darwin == "true" then ($all[] | select(.target=="aarch64-darwin")) else empty end,
-              if $x86_64_darwin == "true" then ($all[] | select(.target=="x86_64-darwin")) else empty end
+              if $aarch64_linux == "true" then ($all[] | select(.target=="aarch64-linux")) else empty end
             ]
             ' > /tmp/matrix.json
           if [[ "$(jq 'length' /tmp/matrix.json)" -eq 0 ]]; then
