@@ -10,6 +10,7 @@ import (
 
 	"workspaced/internal/module"
 	envdriver "workspaced/pkg/driver/env"
+	"workspaced/pkg/logging"
 )
 
 func init() {
@@ -47,12 +48,15 @@ func (placeModule) Prepare(ctx context.Context, cfg map[string]any, resolver mod
 //	  // You can also reference the built-in self input directly:
 //	  ".local/bin": "self:bin"
 //	}
+//	// When true, skip items whose source path does not exist instead of failing.
+//	ignore_missing: true
 type placeConfig struct {
-	Items map[string]string `json:"items"`
+	Items         map[string]string `json:"items"`
+	IgnoreMissing bool              `json:"ignore_missing"`
 }
 
 func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
-	_ = ctx
+	logger := logging.GetLogger(ctx)
 
 	cfg, err := module.DecodeConfig[placeConfig](req.ModuleConfig)
 	if err != nil {
@@ -77,6 +81,10 @@ func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 
 		st, err := os.Stat(srcPath)
 		if err != nil {
+			if cfg.IgnoreMissing && os.IsNotExist(err) {
+				logger.Info("place: skipping missing source", "module", req.ModuleName, "dest", dest, "source", srcPath)
+				continue
+			}
 			return nil, fmt.Errorf("place source %q: %w", srcPath, err)
 		}
 
