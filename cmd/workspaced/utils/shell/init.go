@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -19,6 +18,7 @@ import (
 	envdriver "workspaced/pkg/driver/env"
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 func getInitCommand() *cobra.Command {
@@ -109,42 +109,28 @@ Uses caching for performance - regenerates only when source files change.`,
 			}
 			sort.Strings(files)
 
-			// Read all files in parallel
-			type fileContent struct {
-				path    string
-				content string
-				err     error
-			}
-
-			results := make(chan fileContent, len(files))
-			var wg sync.WaitGroup
-
-			for _, file := range files {
-				wg.Add(1)
-				go func(path string) {
-					defer wg.Done()
+			// Read all files in parallel (ordered map; Session is on CLI ctx).
+			contents, err := taskgroup.Map[string, string]{
+				Name:     "read-prelude",
+				Items:    files,
+				PoolKind: taskgroup.IO,
+				TaskName: func(_ int, path string) string {
+					return "read:" + filepath.Base(path)
+				},
+				Fn: func(ctx context.Context, s *taskgroup.Status, path string) (string, error) {
 					content, err := os.ReadFile(path)
-					results <- fileContent{
-						path:    path,
-						content: string(content),
-						err:     err,
+					if err != nil {
+						return "", fmt.Errorf("failed to read %s: %w", path, err)
 					}
-				}(file)
+					return string(content), nil
+				},
+			}.Run(ctx)
+			if err != nil {
+				return err
 			}
-
-			// Wait and close results channel
-			go func() {
-				wg.Wait()
-				close(results)
-			}()
-
-			// Collect results maintaining order
-			contentMap := make(map[string]string)
-			for result := range results {
-				if result.err != nil {
-					return fmt.Errorf("failed to read %s: %w", result.path, result.err)
-				}
-				contentMap[result.path] = result.content
+			contentMap := make(map[string]string, len(files))
+			for i, path := range files {
+				contentMap[path] = contents[i]
 			}
 
 			t2 := time.Now()
@@ -261,65 +247,59 @@ func calculatePreludeFingerprint(files []string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil))[:16], nil
 }
 
-// generateColorCodes generates ANSI color codes inline without calling external commands
-
-// executeSourceFiles executes all .source.sh files in parallel and returns their outputs
+// executeSourceFiles executes all .source.sh files in parallel and returns their outputs.
+// Failures are soft: log a warning and omit that key so callers fall back to the .sh file.
 func executeSourceFiles(ctx context.Context, sourceFiles map[string]string) (map[string]string, error) {
 	if len(sourceFiles) == 0 {
 		return make(map[string]string), nil
 	}
 
-	type sourceResult struct {
-		key    string
+	type sourceItem struct {
+		key  string
+		path string
+	}
+	type sourceOutput struct {
 		output string
-		err    error
+		ok     bool
 	}
 
-	results := make(chan sourceResult, len(sourceFiles))
-	var wg sync.WaitGroup
-
+	items := make([]sourceItem, 0, len(sourceFiles))
 	for key, path := range sourceFiles {
-		wg.Add(1)
-		go func(k, p string) {
-			defer wg.Done()
+		items = append(items, sourceItem{key: key, path: path})
+	}
 
-			// Execute the source file with bash using execdriver
-			cmd, err := execdriver.Run(ctx, "bash", p)
+	results, err := taskgroup.Map[sourceItem, sourceOutput]{
+		Name:     "source-files",
+		Items:    items,
+		PoolKind: taskgroup.IO,
+		TaskName: func(_ int, item sourceItem) string {
+			return "source:" + item.key
+		},
+		Fn: func(ctx context.Context, s *taskgroup.Status, item sourceItem) (sourceOutput, error) {
+			logger := logging.GetLogger(ctx)
+			cmd, err := execdriver.Run(ctx, "bash", item.path)
 			if err != nil {
-				results <- sourceResult{
-					key:    k,
-					output: "",
-					err:    err,
-				}
-				return
+				logger.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)
+				return sourceOutput{}, nil
 			}
 			cmd.Env = os.Environ()
 			output, err := cmd.Output()
-
-			results <- sourceResult{
-				key:    k,
-				output: string(output),
-				err:    err,
+			if err != nil {
+				logger.Warn("failed to execute .source.sh", "source", item.key+".source.sh", "error", err)
+				return sourceOutput{}, nil
 			}
-		}(key, path)
+			return sourceOutput{output: string(output), ok: true}, nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	// Collect results
-	outputMap := make(map[string]string)
-	logger := logging.GetLogger(ctx)
-	for result := range results {
-		if result.err != nil {
-			// Log warning but don't fail - just skip this source file
-			logger.Warn("failed to execute .source.sh", "source", result.key+".source.sh", "error", result.err)
-			continue
+	outputMap := make(map[string]string, len(items))
+	for i, item := range items {
+		if results[i].ok {
+			outputMap[item.key] = results[i].output
 		}
-		outputMap[result.key] = result.output
 	}
-
 	return outputMap, nil
 }
