@@ -57,7 +57,9 @@ func monitorCapsLock(ctx context.Context) {
 			}
 			if !capsActive != screenActive {
 				logger.Info("toggling screen", "active", !capsActive)
-				_ = screen.SetDPMS(ctx, !capsActive)
+				if err := screen.SetDPMS(ctx, !capsActive); err != nil {
+					logger.Error("failed to set screen DPMS", "active", !capsActive, "error", err)
+				}
 			}
 		}
 	}
