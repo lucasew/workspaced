@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
+
 	"workspaced/internal/configcue"
 	"workspaced/pkg/api"
 	"workspaced/pkg/driver"
@@ -42,9 +44,18 @@ func SetStatic(ctx context.Context, path string) error {
 
 	logger.Info("setting wallpaper", "path", path)
 
-	// Stop existing wallpaper-change service if it exists
-	stopCmd := execdriver.MustRun(ctx, "systemctl", "--user", "stop", "wallpaper-change.service")
-	_ = stopCmd.Run() // Ignore errors if service doesn't exist
+	// Stop existing wallpaper-change service if it exists (best-effort).
+	// Missing/not-loaded unit is expected; unexpected stop failures are reported.
+	if err := execdriver.MustRun(ctx, "systemctl", "--user", "stop", "wallpaper-change.service").Run(); err != nil {
+		msg := strings.ToLower(err.Error())
+		// systemctl exit 5 = unit not installed/loaded; stderr often says "not found" / "not loaded"
+		if !strings.Contains(msg, "not found") &&
+			!strings.Contains(msg, "could not be found") &&
+			!strings.Contains(msg, "not loaded") &&
+			!strings.Contains(msg, "exit status 5") {
+			logging.ReportError(ctx, err, "op", "systemctl --user stop wallpaper-change.service")
+		}
+	}
 
 	d, err := driver.Get[Driver](ctx)
 	if err != nil {
