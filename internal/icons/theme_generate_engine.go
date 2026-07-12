@@ -205,9 +205,12 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	}
 
 	if opts.UpdateCache && execdriver.IsBinaryAvailable(ctx, "gtk-update-icon-cache") {
+		logger := logging.GetLogger(ctx)
 		cacheCmd, err := execdriver.Run(ctx, "gtk-update-icon-cache", "-f", "-q", outputDir)
-		if err == nil {
-			_ = cacheCmd.Run()
+		if err != nil {
+			logger.Warn("failed to prepare gtk-update-icon-cache", "dir", outputDir, "error", err)
+		} else if err := cacheCmd.Run(); err != nil {
+			logger.Warn("gtk-update-icon-cache failed", "dir", outputDir, "error", err)
 		}
 	}
 
