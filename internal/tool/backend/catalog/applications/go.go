@@ -51,7 +51,10 @@ func (t *goTool) ListArtifacts(ctx context.Context, version string) ([]backend.A
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
 		return nil, err
@@ -126,7 +129,10 @@ func (t *goTool) listVersions(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
 		return nil, err

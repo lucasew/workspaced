@@ -53,7 +53,10 @@ func (t *flutterTool) ListArtifacts(ctx context.Context, version string) ([]back
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
 		return nil, err
@@ -122,7 +125,10 @@ func (t *flutterTool) listVersions(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
 		return nil, err
