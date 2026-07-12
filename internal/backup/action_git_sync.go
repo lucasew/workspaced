@@ -12,6 +12,7 @@ import (
 
 	execdriver "workspaced/pkg/driver/exec"
 	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/logging"
 )
 
 var (
@@ -211,7 +212,9 @@ func (a GitRepoSyncAction) remoteHasBranch(ctx context.Context, remoteName, bran
 
 func (a GitRepoSyncAction) pullRebase(ctx context.Context, remoteName, branch string) error {
 	if err := a.run(ctx, "pull", "--rebase", remoteName, branch); err != nil {
-		_ = a.run(ctx, "rebase", "--abort")
+		if abortErr := a.run(ctx, "rebase", "--abort"); abortErr != nil {
+			logging.ReportError(ctx, abortErr, "op", "git rebase --abort", "path", a.Src)
+		}
 		return fmt.Errorf("git pull --rebase failed for %s: %w", a.Src, err)
 	}
 	return nil
