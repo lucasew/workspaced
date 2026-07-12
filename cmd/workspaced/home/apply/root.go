@@ -150,8 +150,13 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 						return nil // Don't execute on phone
 					}
 
-					home, _ := os.UserHomeDir()
-					dummyTheme := home + "/.local/share/themes/dummy"
+					home, err := os.UserHomeDir()
+					if err != nil {
+						// Best-effort hook: skip GTK reload rather than fail apply.
+						logger.Warn("failed to get home directory for gtk theme reload", "error", err)
+						return nil
+					}
+					dummyTheme := filepath.Join(home, ".local", "share", "themes", "dummy")
 					if _, err := os.Stat(dummyTheme); err == nil {
 						targetTheme := "adw-gtk3-dark"
 						if readCmd, err := execdriver.Run(ctx, "dconf", "read", "/org/gnome/desktop/interface/gtk-theme"); err == nil {
