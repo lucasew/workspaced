@@ -2,6 +2,7 @@ package deployer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -49,7 +50,7 @@ func (s *FileStateStore) Load() (*State, error) {
 	state := &State{Files: make(map[string]ManagedInfo)}
 
 	// If the file does not exist, return an empty state
-	if _, err := os.Stat(s.path); os.IsNotExist(err) {
+	if _, err := os.Stat(s.path); errors.Is(err, os.ErrNotExist) {
 		return state, nil
 	}
 
