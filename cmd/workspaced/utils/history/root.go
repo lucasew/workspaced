@@ -29,7 +29,10 @@ func GetCommand() *cobra.Command {
 }
 
 func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
 	path := filepath.Join(home, ".bash_history")
 	file, err := os.Open(path)
 	if err != nil {
@@ -64,7 +67,10 @@ func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 }
 
 func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
+	}
 	dbPath := filepath.Join(home, ".local/share/atuin/history.db")
 
 	// Open atuin database using the registered sqlite driver
