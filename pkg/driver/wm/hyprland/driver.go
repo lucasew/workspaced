@@ -96,11 +96,16 @@ func (d *Driver) GetWorkspaces(ctx context.Context) ([]api.Workspace, error) {
 		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
 	}
 
-	activeWSOut, _ := execdriver.MustRun(ctx, "hyprctl", "activeworkspace", "-j").Output()
+	activeWSOut, err := execdriver.MustRun(ctx, "hyprctl", "activeworkspace", "-j").Output()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	}
 	var activeWS struct {
 		Name string `json:"name"`
 	}
-	_ = json.Unmarshal(activeWSOut, &activeWS)
+	if err := json.Unmarshal(activeWSOut, &activeWS); err != nil {
+		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	}
 
 	var result []api.Workspace
 	for _, w := range workspaces {
