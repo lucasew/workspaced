@@ -141,7 +141,10 @@ func RunDaemon(ctx context.Context) error {
 			f, err := os.Open(iconPath)
 			if err == nil {
 				defer logging.Close(ctx, f, "path", iconPath)
-				icon, _, _ = image.Decode(f)
+				icon, _, err = image.Decode(f)
+				if err != nil {
+					logger.Debug("failed to decode tray icon", "path", iconPath, "error", err)
+				}
 			}
 		}
 
