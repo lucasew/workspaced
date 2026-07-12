@@ -4,16 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
 )
 
 // Generator is a function that generates shell code
@@ -35,74 +34,68 @@ var generators = map[string]Generator{
 	"20-history":    func(ctx context.Context) (string, error) { return GenerateHistory() },
 }
 
-// Generate executes all generators in parallel and returns ordered output
+// Generate executes all generators in parallel and returns ordered output.
+// Requires a taskgroup Session/Group on ctx (CLI root installs one).
 func Generate(ctx context.Context) (string, error) {
 	profile := os.Getenv("WORKSPACED_PROFILE") == "1"
 
-	type result struct {
-		key      string
+	keys := make([]string, 0, len(generators))
+	for k := range generators {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	type genOut struct {
 		output   string
 		err      error
 		duration time.Duration
 	}
 
-	results := make(chan result, len(generators))
-	var wg sync.WaitGroup
-
-	for key, gen := range generators {
-		wg.Add(1)
-		go func(k string, g Generator) {
-			defer wg.Done()
+	// Soft-collect per-generator errors so we can errors.Join them all
+	// (Map itself is first-error-wins if Fn returns err).
+	outs, err := taskgroup.Map[string, genOut]{
+		Name:     "shellgen",
+		Items:    keys,
+		PoolKind: taskgroup.Control,
+		TaskName: func(_ int, key string) string { return "gen:" + key },
+		Fn: func(ctx context.Context, s *taskgroup.Status, key string) (genOut, error) {
 			start := time.Now()
-			output, err := g(ctx)
-			results <- result{key: k, output: output, err: err, duration: time.Since(start)}
-		}(key, gen)
+			output, err := generators[key](ctx)
+			return genOut{output: output, err: err, duration: time.Since(start)}, nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		return "", err
 	}
 
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	// Collect results
-	resultMap := make(map[string]string)
-	timings := make(map[string]time.Duration)
 	var errs []error
-	var logger *slog.Logger
 	if profile {
-		logger = logging.GetLogger(ctx)
-	}
-	for r := range results {
-		if r.err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", r.key, r.err))
-			continue
-		}
-		resultMap[r.key] = r.output
-		timings[r.key] = r.duration
-		if profile {
-			logger.Info("shell generator timing", "generator", r.key, "duration", r.duration)
+		logger := logging.GetLogger(ctx)
+		for i, key := range keys {
+			if outs[i].err != nil {
+				continue
+			}
+			logger.Info("shell generator timing", "generator", key, "duration", outs[i].duration)
 		}
 	}
-
-	if len(errs) > 0 {
-		return "", errors.Join(errs...)
-	}
-
-	keys := make([]string, 0, len(resultMap))
-	for k := range resultMap {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
 
 	var output strings.Builder
-	for _, key := range keys {
+	for i, key := range keys {
+		o := outs[i]
+		if o.err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", key, o.err))
+			continue
+		}
 		fmt.Fprintf(&output, "# Generated: %s\n", key)
-		output.WriteString(resultMap[key])
-		if !strings.HasSuffix(resultMap[key], "\n") {
+		output.WriteString(o.output)
+		if !strings.HasSuffix(o.output, "\n") {
 			output.WriteString("\n")
 		}
 		output.WriteString("\n")
 	}
 
+	if len(errs) > 0 {
+		return "", errors.Join(errs...)
+	}
 	return output.String(), nil
 }
