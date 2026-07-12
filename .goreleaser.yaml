@@ -15,9 +15,9 @@ before:
     - go mod tidy
     # you may remove this if you don't need go generate
     - mise run ci
-    # Registry install checks run once via `mise release` (depends) or on
-    # tag pushes in .github/workflows/autorelease.yml — not here, to avoid
-    # downloading every catalog tool twice in one release.
+    # Registry install checks: `mise release` depends on test:registry-install
+    # (host platform). Multi-target CI is .github/workflows/registry-install.yml.
+    # Not here, to avoid downloading every catalog tool twice in one release.
 
 builds:
   - binary: workspaced

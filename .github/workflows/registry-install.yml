@@ -1,0 +1,111 @@
+# Install each curated catalog tool and run install checks on real runners.
+# Mirrors the multi-target layout of lucasew/nixcfg nixpkgs-review (native OS/arch only).
+# Per-tool failures are appended to GITHUB_STEP_SUMMARY by the Go tests themselves.
+
+name: Registry install
+run-name: Registry install${{ github.event_name == 'workflow_dispatch' && ' (manual)' || '' }}
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      x86_64-linux:
+        type: boolean
+        description: x86_64-linux (ubuntu-latest)
+        default: true
+        required: true
+      aarch64-linux:
+        type: boolean
+        description: aarch64-linux (ubuntu-24.04-arm)
+        default: true
+        required: true
+      aarch64-darwin:
+        type: boolean
+        description: aarch64-darwin (macos-latest)
+        default: true
+        required: true
+      x86_64-darwin:
+        type: boolean
+        description: x86_64-darwin (macos-26-intel)
+        default: true
+        required: true
+
+concurrency:
+  group: registry-install-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          EVENT: ${{ github.event_name }}
+          X86_64_LINUX: ${{ github.event.inputs.x86_64-linux }}
+          AARCH64_LINUX: ${{ github.event.inputs.aarch64-linux }}
+          AARCH64_DARWIN: ${{ github.event.inputs.aarch64-darwin }}
+          X86_64_DARWIN: ${{ github.event.inputs.x86_64-darwin }}
+        run: |
+          set -euo pipefail
+          # On push/PR, enable all targets. On workflow_dispatch, honor inputs.
+          all='[
+            {"target":"x86_64-linux","os":"ubuntu-latest"},
+            {"target":"aarch64-linux","os":"ubuntu-24.04-arm"},
+            {"target":"aarch64-darwin","os":"macos-latest"},
+            {"target":"x86_64-darwin","os":"macos-26-intel"}
+          ]'
+          write_matrix() {
+            echo "matrix=$(jq -c '{include: .}' "$1")" >> "$GITHUB_OUTPUT"
+          }
+          if [[ "$EVENT" != "workflow_dispatch" ]]; then
+            echo "$all" | jq -c . > /tmp/matrix.json
+            write_matrix /tmp/matrix.json
+            exit 0
+          fi
+          jq -nc \
+            --argjson all "$all" \
+            --arg x86_64_linux "${X86_64_LINUX:-true}" \
+            --arg aarch64_linux "${AARCH64_LINUX:-true}" \
+            --arg aarch64_darwin "${AARCH64_DARWIN:-true}" \
+            --arg x86_64_darwin "${X86_64_DARWIN:-true}" \
+            '
+            [
+              if $x86_64_linux == "true" then ($all[] | select(.target=="x86_64-linux")) else empty end,
+              if $aarch64_linux == "true" then ($all[] | select(.target=="aarch64-linux")) else empty end,
+              if $aarch64_darwin == "true" then ($all[] | select(.target=="aarch64-darwin")) else empty end,
+              if $x86_64_darwin == "true" then ($all[] | select(.target=="x86_64-darwin")) else empty end
+            ]
+            ' > /tmp/matrix.json
+          if [[ "$(jq 'length' /tmp/matrix.json)" -eq 0 ]]; then
+            echo "No targets selected" >&2
+            exit 1
+          fi
+          write_matrix /tmp/matrix.json
+
+  install:
+    name: ${{ matrix.target }}
+    needs: setup
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4
+
+      - name: Registry install checks
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WORKSPACED_TEST_TOOL_INSTALL: "1"
+          TARGET: ${{ matrix.target }}
+        run: mise run test:registry-install

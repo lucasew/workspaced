@@ -51,11 +51,7 @@ jobs:
     - name: Build binaries
       run: mise ci
 
-    - name: Registry install checks
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: mise run test:registry-install
+    # Multi-target catalog install lives in registry-install.yml (not here).
 
     - name: Create Pull Request if there is new stuff from updaters
       if: github.event_name != 'pull_request'

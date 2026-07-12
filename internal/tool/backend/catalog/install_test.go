@@ -2,8 +2,11 @@ package catalog_test
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	// Minimal driver set for tool install (not full prelude: that is reserved
@@ -27,6 +30,28 @@ func isReleaseCI() bool {
 	}
 	ref := os.Getenv("GITHUB_REF")
 	return strings.HasPrefix(ref, "refs/tags/")
+}
+
+// stepSummaryMu serializes appends to GITHUB_STEP_SUMMARY (parallel subtests).
+var stepSummaryMu sync.Mutex
+
+func appendStepSummary(s string) {
+	path := os.Getenv("GITHUB_STEP_SUMMARY")
+	if path == "" {
+		return
+	}
+	stepSummaryMu.Lock()
+	defer stepSummaryMu.Unlock()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	_, _ = f.WriteString(s)
+}
+
+func reportInstallFailure(tool, msg string) {
+	appendStepSummary(fmt.Sprintf("### `%s`\n\n```\n%s\n```\n\n", tool, strings.TrimSpace(msg)))
 }
 
 func testInstallContext(t *testing.T) (ctx context.Context, wait func()) {
@@ -75,11 +100,18 @@ func TestRegistryInstall(t *testing.T) {
 		t.Skip("set WORKSPACED_TEST_TOOL_INSTALL=1 (or run on a release tag in CI) to run registry install checks")
 	}
 
+	target := os.Getenv("TARGET")
+	if target == "" {
+		target = runtime.GOOS + "/" + runtime.GOARCH
+	}
+	appendStepSummary(fmt.Sprintf("## Registry install (`%s`)\n\n", target))
+
 	for _, name := range catalog.ListTools() {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			tool, err := catalog.NewTool(name)
 			if err != nil {
+				reportInstallFailure(name, fmt.Sprintf("NewTool: %v", err))
 				t.Fatalf("NewTool(%q): %v", name, err)
 			}
 			ic, ok := tool.(checks.InstallChecker)
@@ -92,22 +124,27 @@ func TestRegistryInstall(t *testing.T) {
 
 			versions, err := tool.ListVersions(ctx)
 			if err != nil {
+				reportInstallFailure(name, fmt.Sprintf("ListVersions: %v", err))
 				t.Fatalf("ListVersions: %v", err)
 			}
 			if len(versions) == 0 {
+				reportInstallFailure(name, "ListVersions returned no versions")
 				t.Fatal("ListVersions returned no versions")
 			}
 
 			dest := t.TempDir()
 			if err := tool.Install(ctx, versions[0], dest); err != nil {
+				reportInstallFailure(name, fmt.Sprintf("Install(%q): %v", versions[0], err))
 				t.Fatalf("Install(%q): %v", versions[0], err)
 			}
 			if fixer, ok := tool.(backend.InstallFixer); ok {
 				if err := fixer.Fix(ctx, dest); err != nil {
+					reportInstallFailure(name, fmt.Sprintf("Fix: %v", err))
 					t.Fatalf("Fix: %v", err)
 				}
 			}
 			if err := checks.Run(ctx, dest, tool); err != nil {
+				reportInstallFailure(name, fmt.Sprintf("checks.Run: %v", err))
 				t.Fatalf("checks.Run: %v", err)
 			}
 		})
