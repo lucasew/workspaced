@@ -3,5 +3,7 @@ package apps
 import "workspaced/internal/tool/backend/catalog"
 
 func init() {
-	catalog.RegisterGitHub("shfmt", "patrickvane/shfmt")
+	// Official shfmt lives under mvdan/sh (patrickvane/shfmt is a stale fork
+	// whose release assets lack linux/arm64).
+	catalog.RegisterGitHub("shfmt", "mvdan/sh")
 }

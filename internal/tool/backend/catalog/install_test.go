@@ -2,6 +2,7 @@ package catalog_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -13,8 +14,8 @@ import (
 	// for cmd/workspaced/root.go). fetchurl + httpclient download; exec extracts.
 	"workspaced/internal/tool/backend"
 	"workspaced/internal/tool/backend/catalog"
-	_ "workspaced/internal/tool/backend/catalog/applications"
-	_ "workspaced/internal/tool/backend/github"
+	apps "workspaced/internal/tool/backend/catalog/applications"
+	"workspaced/internal/tool/backend/github"
 	"workspaced/internal/tool/checks"
 	_ "workspaced/pkg/driver/exec/native"
 	_ "workspaced/pkg/driver/fetchurl/fetchurl"
@@ -134,6 +135,11 @@ func TestRegistryInstall(t *testing.T) {
 
 			dest := t.TempDir()
 			if err := tool.Install(ctx, versions[0], dest); err != nil {
+				// Upstream may not ship binaries for every GOOS/GOARCH (e.g.
+				// resvg has no linux/arm64 release). That is not a registry bug.
+				if errors.Is(err, github.ErrNoArtifact) || errors.Is(err, apps.ErrNoPlatformArtifact) {
+					t.Skipf("no artifact for %s/%s: %v", runtime.GOOS, runtime.GOARCH, err)
+				}
 				reportInstallFailure(name, fmt.Sprintf("Install(%q): %v", versions[0], err))
 				t.Fatalf("Install(%q): %v", versions[0], err)
 			}
