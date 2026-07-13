@@ -41,13 +41,13 @@ func DriverNames() []string {
 func ExtractFromFile(ctx context.Context, path string, driver string, opts api.Options) (*api.Palette, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open image: %w", err)
+		return nil, fmt.Errorf("open image: %w", err)
 	}
 	defer logging.Close(ctx, f)
 
 	img, _, err := image.Decode(f)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode image: %w", err)
+		return nil, fmt.Errorf("decode image: %w", err)
 	}
 
 	d, err := GetDriver(ctx, driver)
