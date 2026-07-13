@@ -183,7 +183,7 @@ func loadConfig(ctx context.Context, opts DiscoverOptions) (*Config, error) {
 func decodeConfig(data []byte) (*Config, error) {
 	raw := map[string]any{}
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("failed to decode exported cue config: %w", err)
+		return nil, fmt.Errorf("decode exported cue config: %w", err)
 	}
 	if driversRaw, ok := raw["drivers"]; ok {
 		typed := map[string]map[string]int{}
