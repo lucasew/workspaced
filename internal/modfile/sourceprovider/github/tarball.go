@@ -47,7 +47,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 
 	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
 	if err != nil {
-		return "", fmt.Errorf("failed to get http client driver: %w", err)
+		return "", fmt.Errorf("get http client driver: %w", err)
 	}
 	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
