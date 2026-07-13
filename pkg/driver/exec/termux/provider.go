@@ -2,6 +2,7 @@ package termux
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -327,7 +328,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 
 	// Try to symlink first (saves space)
 	// Remove existing symlink/file if it exists (broken symlink check)
-	if err := os.Remove(targetCert); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(targetCert); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("failed to remove existing cert link %s: %w", targetCert, err)
 	}
 
