@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,7 +38,7 @@ func (c *check) Detect(ctx context.Context, dir string) error {
 	// Applies if .github/workflows exists and is not empty
 	workflowsDir := filepath.Join(dir, ".github", "workflows")
 	entries, err := os.ReadDir(workflowsDir)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return checks.ErrNotApplicable
 	}
 	if err != nil {
