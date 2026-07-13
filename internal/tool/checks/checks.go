@@ -125,7 +125,7 @@ func (c pathCheck) Check(ctx context.Context, destDir string) error {
 	}
 	info, err := os.Stat(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("%s: %w", path, fs.ErrNotExist)
 		}
 		return err
