@@ -2,6 +2,7 @@ package selfinstall
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -159,7 +160,7 @@ func copyFile(ctx context.Context, src, dst string) error {
 			logging.Close(ctx, tmp, "path", tmpPath)
 		}
 		logging.RunCleanup(ctx, "remove", func() error {
-			if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+			if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 			return nil

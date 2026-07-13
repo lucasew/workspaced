@@ -133,7 +133,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 		return err
 	}
 	defer logging.RunCleanup(ctx, "remove", func() error {
-		if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 		return nil
