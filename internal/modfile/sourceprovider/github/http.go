@@ -14,7 +14,7 @@ import (
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get http client driver: %w", err)
+		return fmt.Errorf("get http client driver: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
