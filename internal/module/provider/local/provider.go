@@ -72,7 +72,7 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 		if targetBase == "~" {
 			home, err := os.UserHomeDir()
 			if err != nil {
-				return nil, fmt.Errorf("failed to get home directory: %w", err)
+				return nil, fmt.Errorf("get home directory: %w", err)
 			}
 			targetBase = home
 		}
