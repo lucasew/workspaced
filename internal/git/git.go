@@ -28,7 +28,7 @@ func QuickSync(ctx context.Context) error {
 	repoDir := quicksync.RepoDir
 	entries, err := os.ReadDir(repoDir)
 	if err != nil {
-		return fmt.Errorf("failed to read repo dir %s: %w", repoDir, err)
+		return fmt.Errorf("read repo dir %s: %w", repoDir, err)
 	}
 
 	var repos []string
@@ -124,7 +124,7 @@ func GetRoot(ctx context.Context, path string) (string, error) {
 	cmd := execdriver.MustRun(ctx, "git", "-C", path, "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to get git root: %w", err)
+		return "", fmt.Errorf("git root: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
