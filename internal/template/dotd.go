@@ -3,6 +3,7 @@ package template
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 
 // ProcessDotD processes a .d.tmpl directory (file concatenation).
 func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]byte, error) {
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+	if _, err := os.Stat(dirPath); errors.Is(err, os.ErrNotExist) {
 		return nil, nil // Empty content if directory doesn't exist
 	}
 
