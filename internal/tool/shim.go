@@ -22,7 +22,7 @@ func RunTool(ctx context.Context, toolName string, args ...string) (*exec.Cmd, e
 	resolver := resolution.NewResolver(toolsDir)
 	binPath, err := resolver.Resolve(ctx, toolName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve tool %s: %w", toolName, err)
+		return nil, fmt.Errorf("resolve tool %s: %w", toolName, err)
 	}
 
 	// Exec
