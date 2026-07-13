@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -58,7 +59,7 @@ func (c *CASWriter) Seal() (string, error) {
 	hashStr := hex.EncodeToString(hash)
 	finalPath := filepath.Join(c.dir, hashStr)
 
-	if _, err := os.Stat(finalPath); os.IsNotExist(err) {
+	if _, err := os.Stat(finalPath); errors.Is(err, os.ErrNotExist) {
 		if err := os.Rename(c.tempFile.Name(), finalPath); err != nil {
 			return "", err
 		}
