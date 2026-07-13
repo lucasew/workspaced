@@ -359,7 +359,7 @@ func NormalizeInstalledBinaries(destDir string) error {
 	for _, dir := range []string{destDir, filepath.Join(destDir, "bin")} {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, os.ErrNotExist) {
 				continue
 			}
 			return err
