@@ -33,7 +33,7 @@ func init() {
 			RunE: func(c *cobra.Command, args []string) error {
 				hostname, err := os.Hostname()
 				if err != nil {
-					return fmt.Errorf("failed to get hostname: %w", err)
+					return fmt.Errorf("get hostname: %w", err)
 				}
 
 				nodeName := args[0]
