@@ -124,7 +124,7 @@ func (m *Manager) ResolveBinary(spec parsespec.Spec, cmdName string) (string, er
 	normalizedVersion := normalizeVersion(spec.Version)
 	versionDir := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
 
-	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
+	if _, err := os.Stat(versionDir); errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("%w: %s", ErrToolDirNotFound, versionDir)
 	}
 
