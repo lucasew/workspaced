@@ -37,7 +37,7 @@ func (d *Driver) SetVolume(ctx context.Context, level float64) error {
 	logger := logging.GetLogger(ctx)
 	logger.Info("set_volume", "level", level)
 	if err := execdriver.MustRun(ctx, "pactl", "set-sink-volume", sink, fmt.Sprintf("%d%%", int(level*100))).Run(); err != nil {
-		return fmt.Errorf("failed to set volume: %w", err)
+		return fmt.Errorf("set volume: %w", err)
 	}
 	return nil
 }
