@@ -51,7 +51,7 @@ func (t *llvmTool) ListVersions(ctx context.Context) ([]string, error) {
 
 	hc, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get http client: %w", err)
+		return nil, fmt.Errorf("get http client: %w", err)
 	}
 	resp, err := hc.Client().Do(req)
 	if err != nil {
