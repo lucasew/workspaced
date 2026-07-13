@@ -65,7 +65,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 
 	dir := screenshot.Dir
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create screenshot dir: %w", err)
+		return "", fmt.Errorf("create screenshot dir: %w", err)
 	}
 
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
@@ -74,12 +74,12 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 
 	f, err := os.Create(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to create screenshot file: %w", err)
+		return "", fmt.Errorf("create screenshot file: %w", err)
 	}
 	defer logging.Close(ctx, f)
 
 	if err := png.Encode(f, img); err != nil {
-		return "", fmt.Errorf("failed to encode screenshot: %w", err)
+		return "", fmt.Errorf("encode screenshot: %w", err)
 	}
 
 	// Post-processing: Clipboard

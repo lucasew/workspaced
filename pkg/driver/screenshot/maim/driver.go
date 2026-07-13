@@ -78,7 +78,7 @@ func (d *Driver) Capture(ctx context.Context, rect *api.Rect) (image.Image, erro
 
 	img, _, err := image.Decode(bytes.NewReader(out))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode maim output: %w", err)
+		return nil, fmt.Errorf("decode maim output: %w", err)
 	}
 
 	return img, nil
