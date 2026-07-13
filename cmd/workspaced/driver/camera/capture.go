@@ -73,7 +73,7 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-		return fmt.Errorf("failed to create output directory: %w", err)
+		return fmt.Errorf("create output directory: %w", err)
 	}
 	out, err := os.Create(outPath)
 	if err != nil {
