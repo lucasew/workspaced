@@ -42,6 +42,7 @@ var BinaryNameSuffixes = []string{
 	".amd64", ".arm64", ".x86_64", ".x64",
 }
 
-// BinaryVersionPattern matches version suffixes like "-v1.0.0" or "-1.0.0"
-// This is a regex pattern that will be applied after checking suffixes.
-const BinaryVersionPattern = `-(v?\d+\.[\d.]+\w*)$`
+// BinaryVersionPattern matches version suffixes like "-v1.0.0", "-1.0.0",
+// or "_v3.13.1" (mvdan/sh release assets use underscore + version).
+// Applied after BinaryNameSuffixes strip platform tokens.
+const BinaryVersionPattern = `[-_](v?\d+\.[\d.]+\w*)$`

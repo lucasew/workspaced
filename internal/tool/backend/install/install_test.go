@@ -129,6 +129,8 @@ func TestNormalizeBinaryName(t *testing.T) {
 		{"sops-v3.13.2.darwin.arm64", "sops"},
 		{"docker-compose-linux-x86_64", "docker-compose"},
 		{"shfmt_linux_amd64", "shfmt"},
+		{"shfmt_v3.13.1_linux_amd64", "shfmt"},
+		{"shfmt_v3.13.1_linux_arm64", "shfmt"},
 		{"codex-x86_64-unknown-linux-musl", "codex"},
 		{"codex-aarch64-apple-darwin", "codex"},
 		{"resvg", "resvg"},
