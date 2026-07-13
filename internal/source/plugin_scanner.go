@@ -53,7 +53,7 @@ func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 		baseDir = filepath.Join(home, baseDir[2:])
 	}
 
-	if _, err := os.Stat(baseDir); os.IsNotExist(err) {
+	if _, err := os.Stat(baseDir); errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("%w: %s", ErrBaseDirNotExist, baseDir)
 	}
 
