@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -81,7 +82,7 @@ func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 
 		st, err := os.Stat(srcPath)
 		if err != nil {
-			if cfg.IgnoreMissing && os.IsNotExist(err) {
+			if cfg.IgnoreMissing && errors.Is(err, os.ErrNotExist) {
 				logger.Info("place: skipping missing source", "module", req.ModuleName, "dest", dest, "source", srcPath)
 				continue
 			}
