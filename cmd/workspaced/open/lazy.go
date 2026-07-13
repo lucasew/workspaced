@@ -50,7 +50,7 @@ func lazyCommand() *cobra.Command {
 				execCtx := context.WithoutCancel(ctx)
 				c, err := execdriver.Run(execCtx, binPath, toolArgs...)
 				if err != nil {
-					return fmt.Errorf("failed to create command: %w", err)
+					return fmt.Errorf("create command: %w", err)
 				}
 				theCmd = c
 				return nil
