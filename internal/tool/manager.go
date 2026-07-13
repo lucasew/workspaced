@@ -2,6 +2,7 @@ package tool
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -194,7 +195,7 @@ func (m *Manager) ListInstalled() ([]InstalledTool, error) {
 	var tools []InstalledTool
 
 	entries, err := os.ReadDir(m.toolsDir)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
 	if err != nil {
