@@ -20,7 +20,7 @@ func GenerateCompletion() (string, error) {
 	// Generate completion directly using cobra API (much faster than exec)
 	var buf strings.Builder
 	if err := rootCommand.GenBashCompletionV2(&buf, true); err != nil {
-		return "", fmt.Errorf("failed to generate bash completion: %w", err)
+		return "", fmt.Errorf("generate bash completion: %w", err)
 	}
 
 	return buf.String(), nil
