@@ -108,7 +108,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 
 	cacheRoot := envdriver.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
 	cacheDir := filepath.Join(cacheRoot, fp)
-	if _, err := os.Stat(filepath.Join(cacheDir, "index.theme")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(cacheDir, "index.theme")); errors.Is(err, os.ErrNotExist) {
 		if err := os.MkdirAll(cacheDir, 0755); err != nil {
 			return nil, err
 		}
