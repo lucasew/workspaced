@@ -118,7 +118,7 @@ Examples:
 								if isBinaryNotFound(err) {
 									return binOutcome{index: it.index, miss: true}, nil
 								}
-								return binOutcome{}, fmt.Errorf("failed to ensure tool %s: %w", it.spec, err)
+								return binOutcome{}, fmt.Errorf("ensure tool %s: %w", it.spec, err)
 							},
 						}.Run(ctx)
 						if err != nil {
