@@ -77,6 +77,12 @@ func (t *curatedGitHub) Install(ctx context.Context, version string, destDir str
 			if chosen := backend.SelectArtifact(arts, runtime.GOOS, runtime.GOARCH, t.binaryHint); chosen != nil {
 				return at.InstallArtifact(ctx, *chosen, destDir)
 			}
+			// Release listed but no GOOS/GOARCH match — keep ErrNoArtifact so
+			// callers (and the v-prefix fallback below) do not treat this as a
+			// missing tag and probe a different version string.
+			if len(arts) > 0 {
+				return fmt.Errorf("no suitable artifact found for %s/%s for registry@%s: %w", runtime.GOOS, runtime.GOARCH, ver, github.ErrNoArtifact)
+			}
 		}
 		return t.inner.Install(ctx, ver, destDir)
 	}
@@ -84,8 +90,13 @@ func (t *curatedGitHub) Install(ctx context.Context, version string, destDir str
 		return try(v)
 	}
 	if !strings.HasPrefix(v, "v") {
+		// Prefer v-prefixed tags (common on GitHub). Only fall back to the bare
+		// version when that tag is missing from the API — not when the release
+		// exists but has no artifact for this platform (ErrNoArtifact).
 		if err := try("v" + v); err == nil {
 			return nil
+		} else if !errors.Is(err, github.ErrAPIError) {
+			return err
 		}
 	}
 	return try(v)
