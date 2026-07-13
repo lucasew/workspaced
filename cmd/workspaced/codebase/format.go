@@ -35,7 +35,7 @@ func init() {
 
 				root, err := git.GetRoot(cmd.Context(), absPath)
 				if err != nil {
-					return fmt.Errorf("failed to find git root (format must run inside a git repo): %w", err)
+					return fmt.Errorf("find git root (format must run inside a git repo): %w", err)
 				}
 
 				ctx := cmd.Context()
