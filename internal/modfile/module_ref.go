@@ -54,7 +54,7 @@ func ResolveModuleFromConfig(cfg *configcue.Config, moduleName string, modCfg co
 	}
 	inputs, err := cfg.Inputs()
 	if err != nil {
-		return ResolvedModuleSource{}, fmt.Errorf("failed to decode inputs: %w", err)
+		return ResolvedModuleSource{}, fmt.Errorf("decode inputs: %w", err)
 	}
 	input, ok := inputs[inputName]
 	if !ok {
