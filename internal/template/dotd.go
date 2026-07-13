@@ -33,13 +33,13 @@ func (e *Engine) ProcessDotD(ctx context.Context, dirPath string, data any) ([]b
 		filePath := filepath.Join(dirPath, fileName)
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", fileName, err)
+			return nil, fmt.Errorf("read %s: %w", fileName, err)
 		}
 
 		if strings.HasSuffix(fileName, ".tmpl") {
 			rendered, err := e.Render(ctx, string(content), data)
 			if err != nil {
-				return nil, fmt.Errorf("failed to render template %s: %w", fileName, err)
+				return nil, fmt.Errorf("render template %s: %w", fileName, err)
 			}
 			result.Write(rendered)
 		} else {

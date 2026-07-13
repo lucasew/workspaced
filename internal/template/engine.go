@@ -52,7 +52,7 @@ func WithFuncMap(funcMap template.FuncMap) Option {
 func (e *Engine) Render(ctx context.Context, tmpl string, data any) ([]byte, error) {
 	t, err := template.New("template").Funcs(e.funcMap).Parse(tmpl)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse template: %w", err)
+		return nil, fmt.Errorf("parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
@@ -60,7 +60,7 @@ func (e *Engine) Render(ctx context.Context, tmpl string, data any) ([]byte, err
 		if errors.Is(err, ErrFileSkipped) {
 			return nil, ErrFileSkipped
 		}
-		return nil, fmt.Errorf("failed to execute template: %w", err)
+		return nil, fmt.Errorf("execute template: %w", err)
 	}
 
 	return buf.Bytes(), nil
@@ -70,7 +70,7 @@ func (e *Engine) Render(ctx context.Context, tmpl string, data any) ([]byte, err
 func (e *Engine) RenderFile(ctx context.Context, path string, data any) ([]byte, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read template file: %w", err)
+		return nil, fmt.Errorf("read template file: %w", err)
 	}
 
 	return e.Render(ctx, string(content), data)
