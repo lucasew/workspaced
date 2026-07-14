@@ -1,12 +1,12 @@
 module workspaced
 
-go 1.25.0
+go 1.25.6
 
 require (
 	charm.land/bubbletea/v2 v2.0.7
 	cuelang.org/go v0.17.0
 	github.com/coreos/go-systemd/v22 v22.7.0
-	github.com/fetchurl/fetchurl v0.0.0-20260624181900-ecd306491e44
+	github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gokrazy/rsync v0.3.3
 	github.com/golang-migrate/migrate/v4 v4.19.1
