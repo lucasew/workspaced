@@ -42,7 +42,7 @@ func init() {
 
 				events, err := database.SearchHistory(ctx, "", 5000)
 				if err != nil {
-					return fmt.Errorf("failed to fetch history: %w", err)
+					return fmt.Errorf("fetch history: %w", err)
 				}
 
 				if len(events) == 0 {
