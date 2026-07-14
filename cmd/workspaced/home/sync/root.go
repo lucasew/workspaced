@@ -19,7 +19,7 @@ func GetCommand() *cobra.Command {
 			ctx := cmd.Context()
 			root, err := envdriver.GetDotfilesRoot(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to get dotfiles root: %w", err)
+				return fmt.Errorf("get dotfiles root: %w", err)
 			}
 
 			logger := logging.GetLogger(ctx)
