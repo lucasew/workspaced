@@ -125,11 +125,11 @@ func LoadSumFile(path string) (*SumFile, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", path, err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	var disk sumFileDisk
 	if err := json.Unmarshal(data, &disk); err != nil {
-		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 
 	out.Dependencies = disk.Dependencies
