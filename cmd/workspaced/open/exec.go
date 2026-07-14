@@ -31,7 +31,7 @@ Examples:
 
 			command, err := execdriver.Run(ctx, args[0], args[1:]...)
 			if err != nil {
-				return fmt.Errorf("failed to create command: %w", err)
+				return fmt.Errorf("create command: %w", err)
 			}
 
 			// Modify PATH if requested
