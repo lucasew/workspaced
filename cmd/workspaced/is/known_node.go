@@ -17,13 +17,13 @@ func init() {
 			RunE: func(c *cobra.Command, args []string) error {
 				cfg, err := configcue.LoadHome(c.Context())
 				if err != nil {
-					return fmt.Errorf("failed to load config: %w", err)
+					return fmt.Errorf("load config: %w", err)
 				}
 				var hosts map[string]struct {
 					IPs []string `json:"ips"`
 				}
 				if err := cfg.Decode("hosts", &hosts); err != nil {
-					return fmt.Errorf("failed to decode hosts: %w", err)
+					return fmt.Errorf("decode hosts: %w", err)
 				}
 
 				// Try hostname first
@@ -37,7 +37,7 @@ func init() {
 				// Try matching by IP
 				localIPs, err := getLocalIPs()
 				if err != nil {
-					return fmt.Errorf("failed to get local IPs: %w", err)
+					return fmt.Errorf("get local IPs: %w", err)
 				}
 				localIPSet := make(map[string]struct{}, len(localIPs))
 				for _, ip := range localIPs {
