@@ -48,6 +48,8 @@ github.com/emicklei/proto v1.14.3 h1:zEhlzNkpP8kN6utonKMzlPfIvy82t5Kb9mufaJxSe1Q
 github.com/emicklei/proto v1.14.3/go.mod h1:rn1FgRS/FANiZdD2djyH7TMA9jdRDcYQ9IEN9yvjX0A=
 github.com/fetchurl/fetchurl v0.0.0-20260624181900-ecd306491e44 h1:6sEbN792MmMN23p+etg6EOTpiiKV1EnpZxkK5vjN0Jk=
 github.com/fetchurl/fetchurl v0.0.0-20260624181900-ecd306491e44/go.mod h1:rjsF6Jf1ueMEuMyRSGU9kaBLNdGcJBNZXxxCfbIoxgg=
+github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b h1:dx7DXonAznC51yya+/6GR08U1c45hV8ovZqgRD2gG4Y=
+github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b/go.mod h1:DPetlyhaswp5gzjSxJ11ouPp40CCY7TeC1I3yIGNdA4=
 github.com/gdamore/encoding v1.0.0/go.mod h1:alR0ol34c49FCSBLjhosxzcPHQbf2trDkoo5dl+VrEg=
 github.com/gdamore/encoding v1.0.1 h1:YzKZckdBL6jVt2Gc+5p82qhrGiqMdG/eNs6Wy0u3Uhw=
 github.com/gdamore/encoding v1.0.1/go.mod h1:0Z0cMFinngz9kS1QfMjCP8TY7em3bZYeeklsSDPivEo=
