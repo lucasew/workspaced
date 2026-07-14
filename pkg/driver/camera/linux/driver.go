@@ -116,7 +116,7 @@ func (c *cameraDevice) Capture(ctx context.Context) (image.Image, error) {
 
 	img, _, err := image.Decode(bytes.NewReader(stdout.Bytes()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode camera frame from %s: %w", c.device, err)
+		return nil, fmt.Errorf("decode camera frame from %s: %w", c.device, err)
 	}
 	return img, nil
 }
