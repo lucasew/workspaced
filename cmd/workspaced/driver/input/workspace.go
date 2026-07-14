@@ -30,7 +30,7 @@ func init() {
 					Workspaces map[string]int `json:"workspaces"`
 				}
 				if err := json.Unmarshal(result.JSON, &raw); err != nil {
-					return fmt.Errorf("failed to decode evaluated config: %w", err)
+					return fmt.Errorf("decode evaluated config: %w", err)
 				}
 
 				var items []dialog.Item
