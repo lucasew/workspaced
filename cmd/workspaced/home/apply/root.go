@@ -129,7 +129,9 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 						if action.Type != deployer.ActionCreate && action.Type != deployer.ActionUpdate {
 							continue
 						}
-						if action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(os.Getenv("HOME"), ".config", "workspaced", "dconf.marker") {
+						// Match DconfPlugin, which places the marker under UserHomeDir
+						// (not os.Getenv("HOME") — those can diverge when HOME is unset).
+						if action.Desired.File != nil && deployer.GetTarget(action.Desired) == filepath.Join(home, ".config", "workspaced", "dconf.marker") {
 							needsDconfApply = true
 							break
 						}
