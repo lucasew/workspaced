@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,13 +78,21 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 	}
 	defer logging.Close(ctx, resp.Body)
 
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("GET %s: %s", url, resp.Status)
+	}
+
 	out, err := os.Create(path)
 	if err != nil {
 		return "", err
 	}
-	defer logging.Close(ctx, out)
-
 	if _, err := io.Copy(out, resp.Body); err != nil {
+		logging.Close(ctx, out)
+		_ = os.Remove(path)
+		return "", err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(path)
 		return "", err
 	}
 
