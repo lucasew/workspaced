@@ -108,6 +108,9 @@ func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 		e.Duration = duration / 1000000 // nano to milli
 		events = append(events, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate atuin history: %w", err)
+	}
 	return events, nil
 }
 
