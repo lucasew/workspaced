@@ -16,7 +16,7 @@ func init() {
 	catalog.RegisterGitHub("rtk", "rtk-ai/rtk", checks.Binary("rtk"))
 	catalog.RegisterGitHub("resvg", "linebender/resvg", checks.Binary("resvg"))
 	catalog.RegisterGitHub("codex", "openai/codex", checks.Binary("codex"))
-	catalog.RegisterGitHub("contapila", "lucasew/contapila-go", checks.Binary("contapila"))
+	catalog.RegisterGitHub("contapila", "lucasew/contapila", checks.Binary("contapila"))
 	catalog.RegisterGitHub("docker-compose", "docker/compose", checks.Binary("docker-compose"))
 	catalog.RegisterGitHub("refactree", "lucasew/refactree", checks.Binary("rft"))
 	catalog.RegisterGitHub("ripgrep", "burntsushi/ripgrep", checks.Binary("rg"))
