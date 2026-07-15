@@ -47,24 +47,24 @@ Uses caching for performance - regenerates only when source files change.`,
 
 			dotfilesRoot, err := findDotfilesRoot(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to find dotfiles root: %w", err)
+				return fmt.Errorf("find dotfiles root: %w", err)
 			}
 
 			preludeDir := filepath.Join(dotfilesRoot, "bin", "prelude")
 
 			allFiles, err := filepath.Glob(filepath.Join(preludeDir, "*.sh"))
 			if err != nil {
-				return fmt.Errorf("failed to list prelude files: %w", err)
+				return fmt.Errorf("list prelude files: %w", err)
 			}
 
 			preludeFingerprint, err := calculatePreludeFingerprint(allFiles)
 			if err != nil {
-				return fmt.Errorf("failed to fingerprint prelude files: %w", err)
+				return fmt.Errorf("fingerprint prelude files: %w", err)
 			}
 
 			cacheDir := getCacheDir()
 			if err := os.MkdirAll(cacheDir, 0755); err != nil {
-				return fmt.Errorf("failed to create cache directory: %w", err)
+				return fmt.Errorf("create cache directory: %w", err)
 			}
 
 			buildID := version.GetBuildID()
@@ -120,7 +120,7 @@ Uses caching for performance - regenerates only when source files change.`,
 				Fn: func(ctx context.Context, s *taskgroup.Status, path string) (string, error) {
 					content, err := os.ReadFile(path)
 					if err != nil {
-						return "", fmt.Errorf("failed to read %s: %w", path, err)
+						return "", fmt.Errorf("read %s: %w", path, err)
 					}
 					return string(content), nil
 				},
@@ -136,7 +136,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			t2 := time.Now()
 			sourceOutputs, err := executeSourceFiles(ctx, sourceFiles)
 			if err != nil {
-				return fmt.Errorf("failed to execute source files: %w", err)
+				return fmt.Errorf("execute source files: %w", err)
 			}
 			if profile {
 				logger.Info("shell init executed .source.sh files", "duration", time.Since(t2), "files", len(sourceFiles))
@@ -151,7 +151,7 @@ Uses caching for performance - regenerates only when source files change.`,
 			t3 := time.Now()
 			inlineCode, err := shellgen.Generate(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to generate inline shell initialization: %w", err)
+				return fmt.Errorf("generate inline shell initialization: %w", err)
 			}
 			if profile {
 				logger.Info("shell init generated inline code", "duration", time.Since(t3))
