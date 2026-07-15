@@ -127,4 +127,39 @@ workspaced: {
 	lazy_tools?: [string]: #LazyTool
 	drivers?: [string]: [string]: int
 	concurrency?: #Concurrency
+
+	// LSP router: language servers behind `workspaced codebase lsp`.
+	// Empty / omitted means the proxy still speaks LSP but routes nowhere.
+	lsp?: #LSP
+}
+
+// #LSP is the codebase-local language server router config.
+#LSP: {
+	// extension (with or without leading dot) -> our language id
+	extensions?: [string]: string
+	// editor languageId -> our language id (used when extension map misses)
+	language_ids?: [string]: string
+	// our language -> ordered server attachments (keys like "00_gopls")
+	languages?: [string]: #LSPLanguage
+	// server id -> process definition
+	servers?: [string]: #LSPServer
+	// soft timeout per backend request (Go duration string), default applied in code
+	request_timeout?: string
+}
+
+#LSPLanguage: {
+	// ordered attachment key -> capabilities this server may handle for the language
+	[string]: #LSPAttachment
+}
+
+#LSPAttachment: {
+	// capability flags (hover, definition, diagnostics, …). Empty = all.
+	capabilities?: [string]: bool
+}
+
+#LSPServer: {
+	// argv for the language server (stdio)
+	cmd: [...string] & [_, ...]
+	// lazy_tools names to ensure before spawn (map for deep-merge)
+	needs?: [string]: bool
 }
