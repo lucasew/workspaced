@@ -79,8 +79,13 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(cmd.Context(), out, "path", outPath)
 	if err := png.Encode(out, img); err != nil {
+		logging.Close(cmd.Context(), out, "path", outPath)
+		_ = os.Remove(outPath)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(outPath)
 		return err
 	}
 	cmd.Println(outPath)
