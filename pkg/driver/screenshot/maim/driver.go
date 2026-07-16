@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"image"
 	_ "image/png"
-	"strconv"
 	"strings"
+
 	"workspaced/internal/executil"
 	"workspaced/pkg/driver"
 	execdriver "workspaced/pkg/driver/exec"
@@ -53,14 +53,11 @@ func (d *Driver) SelectArea(ctx context.Context) (*api.Rect, error) {
 	}
 	raw := strings.TrimSpace(string(out))
 	parts := strings.Fields(raw)
-	if len(parts) != 4 {
-		return nil, fmt.Errorf("invalid slop output: %q", raw)
+	rect, err := screenshot.ParseRectParts(parts)
+	if err != nil {
+		return nil, fmt.Errorf("invalid slop output %q: %w", raw, err)
 	}
-	x, _ := strconv.Atoi(parts[0])
-	y, _ := strconv.Atoi(parts[1])
-	w, _ := strconv.Atoi(parts[2])
-	h, _ := strconv.Atoi(parts[3])
-	return &api.Rect{X: x, Y: y, Width: w, Height: h}, nil
+	return rect, nil
 }
 
 func (d *Driver) Capture(ctx context.Context, rect *api.Rect) (image.Image, error) {
