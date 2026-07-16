@@ -76,10 +76,14 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("create screenshot file: %w", err)
 	}
-	defer logging.Close(ctx, f)
-
 	if err := png.Encode(f, img); err != nil {
+		logging.Close(ctx, f)
+		_ = os.Remove(path)
 		return "", fmt.Errorf("encode screenshot: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", fmt.Errorf("close screenshot file: %w", err)
 	}
 
 	// Post-processing: Clipboard
