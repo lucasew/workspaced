@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,11 +91,15 @@ func SetAPOD(ctx context.Context) error {
 		return err
 	}
 
-	resp, err := httpDriver.Client().Get(fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", apiKey))
+	apiURL := fmt.Sprintf("https://api.nasa.gov/planetary/apod?api_key=%s", apiKey)
+	resp, err := httpDriver.Client().Get(apiURL)
 	if err != nil {
 		return err
 	}
 	defer logging.Close(ctx, resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: %s", apiURL, resp.Status)
+	}
 
 	var apod APODResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apod); err != nil {
@@ -104,6 +109,9 @@ func SetAPOD(ctx context.Context) error {
 	url := apod.HDURL
 	if url == "" {
 		url = apod.URL
+	}
+	if url == "" {
+		return fmt.Errorf("APOD response missing image URL")
 	}
 
 	home, err := os.UserHomeDir()
@@ -116,19 +124,26 @@ func SetAPOD(ctx context.Context) error {
 	}
 	outPath := filepath.Join(cacheDir, "apod.jpg")
 
-	out, err := os.Create(outPath)
-	if err != nil {
-		return err
-	}
-	defer logging.Close(ctx, out)
-
 	imgResp, err := httpDriver.Client().Get(url)
 	if err != nil {
 		return err
 	}
 	defer logging.Close(ctx, imgResp.Body)
+	if imgResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET %s: %s", url, imgResp.Status)
+	}
 
+	out, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
 	if _, err := io.Copy(out, imgResp.Body); err != nil {
+		logging.Close(ctx, out)
+		_ = os.Remove(outPath)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(outPath)
 		return err
 	}
 
