@@ -91,9 +91,13 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		if err != nil {
 			return err
 		}
-		defer logging.Close(ctx, out)
-
 		if err := png.Encode(out, img); err != nil {
+			logging.Close(ctx, out)
+			_ = os.Remove(path)
+			return err
+		}
+		if err := out.Close(); err != nil {
+			_ = os.Remove(path)
 			return err
 		}
 
