@@ -97,8 +97,16 @@ func (s *FileStateStore) Save(state *State) error {
 		return fmt.Errorf("failed to marshal state: %w", err)
 	}
 
-	if err := os.WriteFile(s.path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write state file: %w", err)
+	// Write via temp + rename so a crash mid-write cannot leave a truncated
+	// state.json that later Load cannot parse (same pattern as lockfile).
+	tmpPath := s.path + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to write state temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, s.path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to replace state file: %w", err)
 	}
 
 	return nil

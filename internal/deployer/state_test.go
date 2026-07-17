@@ -62,6 +62,52 @@ func TestFileStateStoreRelativeToRoot(t *testing.T) {
 	}
 }
 
+func TestFileStateStoreSaveIsAtomic(t *testing.T) {
+	dir := t.TempDir()
+	root := filepath.Join(dir, "root")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	statePath := filepath.Join(dir, "state.json")
+	// Pre-existing state that must remain readable if replace is atomic.
+	old := &State{Files: map[string]ManagedInfo{
+		filepath.Join(root, "old.txt"): {SourceInfo: "old"},
+	}}
+	store, err := NewFileStateStore(statePath, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(old); err != nil {
+		t.Fatal(err)
+	}
+
+	next := &State{Files: map[string]ManagedInfo{
+		filepath.Join(root, "new.txt"): {SourceInfo: "new"},
+	}}
+	if err := store.Save(next); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if _, err := os.Stat(statePath + ".tmp"); !os.IsNotExist(err) {
+		t.Fatalf("temp file should be gone after successful Save, err=%v", err)
+	}
+
+	raw, err := os.ReadFile(statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var disk State
+	if err := json.Unmarshal(raw, &disk); err != nil {
+		t.Fatalf("final state must be valid JSON: %v\n%s", err, raw)
+	}
+	if _, ok := disk.Files["new.txt"]; !ok {
+		t.Fatalf("expected new.txt after save, got %#v", disk.Files)
+	}
+	if _, ok := disk.Files["old.txt"]; ok {
+		t.Fatalf("old.txt should have been replaced, got %#v", disk.Files)
+	}
+}
+
 func TestFileStateStoreMigratesAbsoluteKeys(t *testing.T) {
 	dir := t.TempDir()
 	root := filepath.Join(dir, "root")
