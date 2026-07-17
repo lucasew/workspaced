@@ -15,6 +15,10 @@ import (
 // in input order. The orchestrator is the sole progress owner — do not wrap
 // Run in another Control+Unit parent or call Unit on children unless an item
 // has multi-step progress of its own.
+//
+// By default items run concurrently (subject to PoolKind limits). Set Serial
+// to run one item at a time while keeping the aggregate N/M bar and per-item
+// child tasks in the TUI.
 type Map[T any, U any] struct {
 	// Name is the orchestrator task label (and sole aggregate bar).
 	// Empty defaults to "map".
@@ -26,6 +30,9 @@ type Map[T any, U any] struct {
 	Pool func(T) PoolKind
 	// PoolKind is used when Pool is nil.
 	PoolKind PoolKind
+	// Serial runs items one at a time (each child depends on the previous).
+	// Progress reporting is unchanged: one aggregate bar plus per-item tasks.
+	Serial bool
 	// TaskName labels each child task for logs/TUI. Nil uses "name:<i>".
 	TaskName func(int, T) string
 	// Fn runs for each item with its own *Status.
@@ -84,13 +91,19 @@ func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 		childGroup, _ := parent.SubGroup(ctx)
 		results = make([]U, len(m.Items))
 		var completed atomic.Int64
+		var prevID string
 
 		for i := range m.Items {
 			item := m.Items[i]
 			childName := m.childName(i, item, name)
 			pool := m.poolFor(item)
 
-			childGroup.Go(childName, pool, func(ctx context.Context, itemStatus *Status) error {
+			var deps []string
+			if m.Serial && prevID != "" {
+				deps = []string{prevID}
+			}
+
+			id := childGroup.Go(childName, pool, func(ctx context.Context, itemStatus *Status) error {
 				u, err := m.Fn(ctx, itemStatus, item)
 				if err != nil {
 					return err
@@ -101,7 +114,10 @@ func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 				s.Progress(cur, total)
 				s.Update(fmt.Sprintf("%d/%d", cur, total))
 				return nil
-			})
+			}, deps...)
+			if m.Serial {
+				prevID = id
+			}
 		}
 
 		mapErr = childGroup.Wait()
@@ -130,7 +146,7 @@ func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 
 // Each fans out Items under one aggregate Control progress bar without
 // collecting results. Same scheduling and progress rules as Map; Fn returns
-// only an error.
+// only an error. Set Serial to process items one at a time.
 type Each[T any] struct {
 	// Name is the orchestrator task label (and sole aggregate bar).
 	// Empty defaults to "map".
@@ -142,6 +158,8 @@ type Each[T any] struct {
 	Pool func(T) PoolKind
 	// PoolKind is used when Pool is nil.
 	PoolKind PoolKind
+	// Serial runs items one at a time. See Map.Serial.
+	Serial bool
 	// TaskName labels each child task for logs/TUI. Nil uses "name:<i>".
 	TaskName func(int, T) string
 	// Fn runs for each item with its own *Status.
@@ -159,6 +177,7 @@ func (e Each[T]) Run(ctx context.Context) error {
 		Items:    e.Items,
 		Pool:     e.Pool,
 		PoolKind: e.PoolKind,
+		Serial:   e.Serial,
 		TaskName: e.TaskName,
 		Fn: func(ctx context.Context, s *Status, item T) (struct{}, error) {
 			return struct{}{}, e.Fn(ctx, s, item)

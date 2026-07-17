@@ -233,6 +233,55 @@ func TestMap_BasicAndOrder(t *testing.T) {
 	}
 }
 
+func TestMap_SerialRunsOneAtATime(t *testing.T) {
+	g, ctx := New(withLogger(t), DefaultLimits())
+	_ = g
+
+	var (
+		mu           sync.Mutex
+		inFlight     int
+		maxInFlight  int
+		startedOrder []int
+	)
+
+	input := []int{1, 2, 3, 4}
+	results, err := Map[int, int]{
+		Items:    input,
+		PoolKind: CPU,
+		Serial:   true,
+		Fn: func(ctx context.Context, s *Status, v int) (int, error) {
+			mu.Lock()
+			inFlight++
+			if inFlight > maxInFlight {
+				maxInFlight = inFlight
+			}
+			startedOrder = append(startedOrder, v)
+			mu.Unlock()
+
+			time.Sleep(20 * time.Millisecond)
+
+			mu.Lock()
+			inFlight--
+			mu.Unlock()
+			return v, nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		t.Fatalf("Map.Run: %v", err)
+	}
+	if maxInFlight != 1 {
+		t.Fatalf("max concurrent %d, want 1", maxInFlight)
+	}
+	if len(results) != len(input) {
+		t.Fatalf("results len %d, want %d", len(results), len(input))
+	}
+	for i, v := range startedOrder {
+		if v != input[i] {
+			t.Fatalf("started order %v, want %v", startedOrder, input)
+		}
+	}
+}
+
 func TestMap_Empty(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	_ = g

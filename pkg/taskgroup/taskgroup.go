@@ -18,6 +18,7 @@
 //   - Command Control task: optional anchor with Status.Unit when the command
 //     is one logical step and nested work has no aggregate bar of its own.
 //   - Map[T,U].Run: fan-out that collects results under one aggregate bar.
+//     Serial: true keeps the bar but runs one item at a time (e.g. formatters).
 //   - Each[T].Run: same fan-out when only errors matter (no struct{} results).
 //     Children should not also call Unit (avoids N stuck 0/1 bars).
 //   - Isolate / GoIsolated: error boundary SubGroup so a failure does not

@@ -23,7 +23,9 @@ func Register(f Formatter) {
 	checks.Register[Formatter](f)
 }
 
-// RunAll executes all applicable formatters in parallel and joins per-tool errors.
+// RunAll executes all applicable formatters under one Map progress bar.
+// Items run serially so tools do not rewrite the same tree concurrently.
+// Per-tool errors are joined after every applicable formatter has run.
 func RunAll(ctx context.Context, dir string) error {
 	logger := logging.GetLogger(ctx)
 	formatters := checks.List[Formatter]()
@@ -38,6 +40,7 @@ func RunAll(ctx context.Context, dir string) error {
 		Name:     "format",
 		Items:    applicable,
 		PoolKind: taskgroup.CPU,
+		Serial:   true,
 		TaskName: func(_ int, f Formatter) string { return "fmt:" + f.Name() },
 		Fn: func(ctx context.Context, s *taskgroup.Status, fmtr Formatter) (error, error) {
 			l := logging.GetLogger(ctx)
