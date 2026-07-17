@@ -1,0 +1,18 @@
+workspaced: {
+	hosts: {
+		"{{ .Hostname }}": {
+			ips: {{ toJSON .LocalIPs }}
+			user: "{{ .Hostname }}"
+		}
+	}
+
+	modules: {
+		example: {
+			input: "self"
+			path: "modules/example"
+			config: {
+				enable: true
+			}
+		}
+	}
+}

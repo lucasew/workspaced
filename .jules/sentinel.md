@@ -1,0 +1,2 @@
+- 2026-05-12: [Command Injection] Avoid using shell interpreters (like 'sh -c') with interpolated variables; pass arguments discretely to command execution wrappers.
+- 2025-05-31: Window manager IPC commands (like swaymsg/i3-msg) concatenate exec arguments into a single command payload, meaning all user inputs must be properly escaped (e.g. using %q) to prevent command injection.

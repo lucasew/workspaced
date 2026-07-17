@@ -1,0 +1,198 @@
+package open
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+
+	"workspaced/pkg/driver"
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/httpclient"
+	"workspaced/pkg/driver/shim/bash"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/miseutil"
+
+	"github.com/spf13/cobra"
+)
+
+// getMisePath returns the path where mise should be installed.
+// Priority: MISE_INSTALL_PATH env var > ~/.local/share/workspaced/bin/mise
+func getMisePath() string {
+	if path := os.Getenv("MISE_INSTALL_PATH"); path != "" {
+		return path
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
+}
+
+// installMise downloads and installs mise using the official installer.
+func installMise(ctx *cobra.Command) error {
+	misePath := getMisePath()
+	if misePath == "" {
+		return miseutil.ErrMiseInstallPathUnknown
+	}
+
+	miseDir := filepath.Dir(misePath)
+	if err := os.MkdirAll(miseDir, 0755); err != nil {
+		return fmt.Errorf("failed to create mise directory: %w", err)
+	}
+
+	logger := logging.GetLogger(ctx.Context())
+	logger.Info("installing mise", "path", misePath)
+
+	logger.Info("downloading mise installer", "url", "https://mise.run")
+	httpDriver, err := driver.Get[httpclient.Driver](ctx.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get http client: %w", err)
+	}
+
+	resp, err := httpDriver.Client().Get("https://mise.run")
+	if err != nil {
+		return fmt.Errorf("failed to download installer: %w", err)
+	}
+	defer logging.Close(ctx.Context(), resp.Body, "url", "https://mise.run")
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%w: HTTP %d", miseutil.ErrHTTPDownloadFailed, resp.StatusCode)
+	}
+
+	scriptBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read installer script: %w", err)
+	}
+
+	installCmd, err := execdriver.Run(ctx.Context(), bash.GetShell(ctx.Context()), "-s")
+	if err != nil {
+		return fmt.Errorf("failed to create install command: %w", err)
+	}
+
+	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
+	installCmd.Stdout = os.Stderr
+	installCmd.Stderr = os.Stderr
+	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", misePath))
+
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install mise: %w", err)
+	}
+
+	if _, err := os.Stat(misePath); os.IsNotExist(err) {
+		return fmt.Errorf("%w: binary not found at %s", miseutil.ErrMiseInstallFailed, misePath)
+	}
+
+	logger.Info("mise installed successfully", "path", misePath)
+	return nil
+}
+
+// ensureMise checks if mise is installed and installs it if needed.
+func ensureMise(ctx *cobra.Command) (string, error) {
+	logger := logging.GetLogger(ctx.Context())
+	misePath := getMisePath()
+	if misePath == "" {
+		return "", miseutil.ErrMiseInstallPathUnknown
+	}
+
+	if _, err := os.Stat(misePath); os.IsNotExist(err) {
+		if err := installMise(ctx); err != nil {
+			return "", err
+		}
+	}
+
+	// Generate wrapper in ~/.local/bin/mise if it doesn't exist
+	if err := ensureMiseWrapper(ctx.Context(), misePath); err != nil {
+		logger.Warn("failed to create mise wrapper", "error", err)
+	}
+
+	return misePath, nil
+}
+
+// ensureMiseWrapper creates a wrapper script in ~/.local/bin/mise
+func ensureMiseWrapper(ctx context.Context, misePath string) error {
+	logger := logging.GetLogger(ctx)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	wrapperDir := filepath.Join(home, ".local", "bin")
+	wrapperPath := filepath.Join(wrapperDir, "mise")
+
+	workspacedBin := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
+
+	if content, err := os.ReadFile(wrapperPath); err == nil {
+		expectedContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
+		if string(content) == expectedContent {
+			return nil
+		}
+	}
+
+	if err := os.MkdirAll(wrapperDir, 0755); err != nil {
+		return fmt.Errorf("failed to create wrapper directory: %w", err)
+	}
+
+	wrapperContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", bash.GetShell(ctx), workspacedBin)
+
+	if err := os.WriteFile(wrapperPath, []byte(wrapperContent), 0755); err != nil {
+		return fmt.Errorf("failed to write wrapper: %w", err)
+	}
+
+	logger.Info("created mise wrapper", "path", wrapperPath)
+	return nil
+}
+
+func miseCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                "mise [args...]",
+		Short:              "Run mise (installs automatically if needed)",
+		DisableFlagParsing: true,
+		Long: `Run mise using a custom installation path.
+
+This command ensures mise is installed in a consistent location.
+
+Installation path priority:
+  1. MISE_INSTALL_PATH environment variable
+  2. ~/.local/share/workspaced/bin/mise (default)
+
+If mise is not found, it will be automatically installed using the official
+installer from https://mise.run/
+
+Examples:
+  workspaced open mise --version
+  workspaced open mise install node@20
+  workspaced open mise use -g python@3.11
+  MISE_INSTALL_PATH=/custom/path/mise workspaced open mise --version`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+
+			misePath, err := ensureMise(cmd)
+			if err != nil {
+				return err
+			}
+
+			miseCmd, err := execdriver.Run(ctx, misePath, args...)
+			if err != nil {
+				return fmt.Errorf("failed to create command: %w", err)
+			}
+
+			miseCmd.Stdin = os.Stdin
+			miseCmd.Stdout = os.Stdout
+			miseCmd.Stderr = os.Stderr
+
+			if err := miseCmd.Run(); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+	return cmd
+}

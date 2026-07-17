@@ -1,0 +1,165 @@
+package codebase
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"text/tabwriter"
+
+	"workspaced/pkg/checks/lint"
+	_ "workspaced/pkg/checks/prelude"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/taskgroup"
+
+	"github.com/owenrumney/go-sarif/v2/sarif"
+	"github.com/spf13/cobra"
+)
+
+func init() {
+	Registry.Register(func(c *cobra.Command) {
+		var format string
+
+		cmd := &cobra.Command{
+			Use:   "lint [path]",
+			Short: "Run linters on the specified path (defaults to current directory)",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				path, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				if len(args) > 0 {
+					path = args[0]
+				}
+				path, err = filepath.Abs(path)
+				if err != nil {
+					return err
+				}
+
+				ctx := cmd.Context()
+				g := taskgroup.MustFromContext(ctx)
+				var report *sarif.Report
+				g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+					s.Update("running linters")
+					s.Progress(0, 1)
+					defer s.Progress(1, 1)
+					var err error
+					report, err = lint.RunAll(ctx, path)
+					return err
+				})
+				taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+					if report == nil {
+						return nil
+					}
+					saveSarifToCI(ctx, report)
+					return printReport(report, format)
+				})
+				return nil
+			},
+		}
+
+		cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (table, sarif)")
+
+		c.AddCommand(cmd)
+	})
+}
+
+func saveSarifToCI(ctx context.Context, report *sarif.Report) {
+	sarifEnvVars := []string{"MISE_CI_SARIF_OUTPUT_DIR"}
+	for _, envVar := range sarifEnvVars {
+		if outputDir := os.Getenv(envVar); outputDir != "" {
+			if err := os.MkdirAll(outputDir, 0755); err != nil {
+				logger := logging.GetLogger(ctx)
+				logger.Warn("failed to create SARIF output directory", "output_dir", outputDir, "error", err)
+				continue
+			}
+
+			sarifPath := filepath.Join(outputDir, "lint.sarif")
+			file, err := os.Create(sarifPath)
+			if err != nil {
+				logger := logging.GetLogger(ctx)
+				logger.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
+				continue
+			}
+
+			encoder := json.NewEncoder(file)
+			encoder.SetIndent("", "  ")
+			if err := encoder.Encode(report); err != nil {
+				logger := logging.GetLogger(ctx)
+				logger.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
+			}
+			if err := file.Close(); err != nil {
+				logger := logging.GetLogger(ctx)
+				logger.Warn("failed to close SARIF report file", "sarif_path", sarifPath, "error", err)
+			}
+		}
+	}
+}
+
+func printReport(report *sarif.Report, format string) error {
+	switch format {
+	case "sarif":
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(report)
+	case "table":
+		return printTable(report)
+	default:
+		return fmt.Errorf("unknown format: %s (supported: table, sarif)", format)
+	}
+}
+
+func printTable(report *sarif.Report) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	if _, err := fmt.Fprintln(w, "TOOL\tLEVEL\tFILE:LINE\tMESSAGE"); err != nil {
+		return err
+	}
+
+	for _, run := range report.Runs {
+		toolName := run.Tool.Driver.Name
+
+		if run.Tool.Driver.Name != "" {
+			toolName = run.Tool.Driver.Name
+		} else if run.Tool.Driver.InformationURI != nil {
+			toolName = *run.Tool.Driver.InformationURI
+		}
+
+		for _, res := range run.Results {
+			file := ""
+			line := 0
+			msg := ""
+
+			if res.Message.Text != nil {
+				msg = *res.Message.Text
+			}
+
+			if len(res.Locations) > 0 {
+				loc := res.Locations[0].PhysicalLocation
+				if loc != nil {
+					if loc.ArtifactLocation != nil && loc.ArtifactLocation.URI != nil {
+						file = *loc.ArtifactLocation.URI
+					}
+					if loc.Region != nil && loc.Region.StartLine != nil {
+						line = *loc.Region.StartLine
+					}
+				}
+			}
+
+			fileLine := file
+			if line > 0 {
+				fileLine = fmt.Sprintf("%s:%d", file, line)
+			}
+
+			level := "unknown"
+			if res.Level != nil {
+				level = *res.Level
+			}
+
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", toolName, level, fileLine, msg); err != nil {
+				return err
+			}
+		}
+	}
+	return w.Flush()
+}

@@ -1,0 +1,54 @@
+{
+  "dependencies": [
+    {
+      "kind": "tool",
+      "ref": "github:astral-sh/ruff",
+      "depName": "astral-sh/ruff",
+      "currentValue": "0.15.18",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
+      "ref": "github:biomejs/biome",
+      "depName": "biomejs/biome",
+      "currentValue": "@biomejs/js-api@6.0.0",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
+      "ref": "github:golangci/golangci-lint",
+      "depName": "golangci/golangci-lint",
+      "currentValue": "v2.12.2",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
+      "ref": "github:rhysd/actionlint",
+      "depName": "rhysd/actionlint",
+      "currentValue": "v1.7.12",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
+      "ref": "registry:biome",
+      "depName": "biomejs/biome",
+      "currentValue": "2.5.0",
+      "datasource": "github-releases",
+      "versioning": "semver"
+    },
+    {
+      "kind": "tool",
+      "ref": "registry:nodejs",
+      "depName": "",
+      "currentValue": "v26.3.1",
+      "datasource": ""
+    },
+    {
+      "kind": "tool",
+      "ref": "registry:shellcheck",
+      "depName": "koalaman/shellcheck",
+      "currentValue": "0.11.0",
+      "datasource": "github-releases"
+    }
+  ]
+}
