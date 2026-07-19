@@ -14,8 +14,10 @@ func init() {
 	Registry.Register(func(c *cobra.Command) {
 		c.AddCommand(&cobra.Command{
 			Use:   "lsp",
-			Short: "Language server router (stdio LSP proxy driven by workspaced.cue)",
-			Long: `Speak LSP on stdio and route to language servers declared in codebase workspaced.cue.
+			Short: "Experimental: language server router (stdio LSP proxy driven by workspaced.cue)",
+			Long: `Experimental. Speak LSP on stdio and route to language servers declared in codebase workspaced.cue.
+
+API, cue schema, and merge behavior may change without a migration path.
 
 The editor should use this as its only language server. On initialize, the
 client root is taken from rootUri (single workspace folder only). Config is
