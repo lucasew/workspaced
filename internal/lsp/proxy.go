@@ -124,9 +124,9 @@ func (p *Proxy) onInitialize(ctx context.Context, msg *Message) error {
 	logger := logging.GetLogger(ctx)
 
 	var params struct {
-		RootURI               string `json:"rootUri"`
-		RootPath              string `json:"rootPath"`
-		WorkspaceFolders      []struct {
+		RootURI          string `json:"rootUri"`
+		RootPath         string `json:"rootPath"`
+		WorkspaceFolders []struct {
 			URI  string `json:"uri"`
 			Name string `json:"name"`
 		} `json:"workspaceFolders"`

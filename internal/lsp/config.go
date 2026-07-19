@@ -17,11 +17,11 @@ const defaultRequestTimeout = 10 * time.Second
 
 // Config is the decoded workspaced.lsp block.
 type Config struct {
-	Extensions     map[string]string              `json:"extensions"`
-	LanguageIDs    map[string]string              `json:"language_ids"`
+	Extensions     map[string]string                `json:"extensions"`
+	LanguageIDs    map[string]string                `json:"language_ids"`
 	Languages      map[string]map[string]Attachment `json:"languages"`
-	Servers        map[string]Server              `json:"servers"`
-	RequestTimeout string                         `json:"request_timeout"`
+	Servers        map[string]Server                `json:"servers"`
+	RequestTimeout string                           `json:"request_timeout"`
 }
 
 // Attachment binds an ordered language entry to capability flags.
