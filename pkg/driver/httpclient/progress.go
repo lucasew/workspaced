@@ -32,7 +32,6 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	}
 
 	name := taskName(req)
-	msgName := strings.TrimPrefix(name, "fetch:")
 
 	// Channel used to hand the response (headers) back to the caller of RoundTrip
 	// as soon as they are available. The body may still be streaming.
@@ -46,7 +45,7 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		l := logging.GetLogger(ctx)
 		l.Debug("http request promoted to internet task", "name", name, "url", req.URL.String())
 
-		s.Update("fetching " + msgName)
+		s.Update(name)
 
 		// Run the actual request inside the task's context (for cancellation etc.).
 		req = req.WithContext(ctx)
@@ -197,31 +196,74 @@ func humanBytes(b int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-// taskName chooses a friendly name for the internet task.
-// Real asset downloads (names containing ".") get a "fetch:" prefix so bars
-// render as "🌐 fetch:thefile.tar.gz: [bar] ...".
-// API/resource calls (e.g. paths ending in UUIDs, numeric IDs, or segments
-// without dots) get a plain base so we don't fake "fetch:" labels for them.
-func taskName(req *http.Request) string {
-	if req == nil || req.URL == nil {
-		return "http:request"
+type taskLabelKey struct{}
+
+// WithTaskLabel attaches a human-readable progress task name for HTTP requests
+// made with this context. When set, it overrides automatic URL-derived labels
+// (e.g. opaque GitHub asset IDs).
+func WithTaskLabel(ctx context.Context, label string) context.Context {
+	if ctx == nil || strings.TrimSpace(label) == "" {
+		return ctx
 	}
-	if base := filepath.Base(req.URL.Path); base != "" && base != "." && base != "/" {
-		if strings.Contains(base, ".") {
-			return "fetch:" + base
+	return context.WithValue(ctx, taskLabelKey{}, strings.TrimSpace(label))
+}
+
+// taskName chooses a friendly name for the internet task.
+// Prefer WithTaskLabel on the request context. Otherwise:
+//   - real filenames (contain ".") → "fetch:name"
+//   - GitHub release asset API paths → "github release"
+//   - UUIDs / bare IDs → host-based label
+func taskName(req *http.Request) string {
+	if req != nil {
+		if v, ok := req.Context().Value(taskLabelKey{}).(string); ok && v != "" {
+			return v
 		}
-		if looksLikeUUID(base) {
-			// Opaque resource IDs (e.g. some API or internal paths) should not
-			// pollute the UI with raw UUIDs as task labels.
-			return "http:" + req.URL.Host
+	}
+	if req == nil || req.URL == nil {
+		return "http request"
+	}
+	path := req.URL.Path
+	host := req.URL.Host
+	// GitHub API release assets: /repos/{owner}/{repo}/releases/assets/{id}
+	if strings.Contains(host, "github") && strings.Contains(path, "/releases/assets/") {
+		return "github release download"
+	}
+	// objects.githubusercontent.com hashed paths
+	if strings.Contains(host, "githubusercontent.com") {
+		return "github download"
+	}
+	if base := filepath.Base(path); base != "" && base != "." && base != "/" {
+		if strings.Contains(base, ".") {
+			return "download " + base
+		}
+		if looksLikeUUID(base) || isAllDigits(base) {
+			if host != "" {
+				return "http " + host
+			}
+			return "http request"
 		}
 		return base
 	}
-	return "http:" + req.URL.Host
+	if host != "" {
+		return "http " + host
+	}
+	return "http request"
 }
 
 func looksLikeUUID(s string) bool {
 	return len(s) == 36 && strings.Count(s, "-") == 4
+}
+
+func isAllDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // WithProgress wraps the given RoundTripper so that every request made
