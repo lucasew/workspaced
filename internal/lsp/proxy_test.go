@@ -45,7 +45,7 @@ func TestProxyInitializeEmptyConfig(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 
-	serverIn, clientToServer := io.Pipe()   // client writes → server reads
+	serverIn, clientToServer := io.Pipe()    // client writes → server reads
 	clientFromServer, serverOut := io.Pipe() // server writes → client reads
 
 	ctx, cancel := context.WithCancel(logging.NewWriterContext(io.Discard))
