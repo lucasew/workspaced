@@ -4,14 +4,14 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type PlaybackStatus string

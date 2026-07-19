@@ -3,13 +3,13 @@ package opener
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"os"
+	"path/filepath"
 )
 
 // WebappConfig is used for passing parameters to OpenWebapp

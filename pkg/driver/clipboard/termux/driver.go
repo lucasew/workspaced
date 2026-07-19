@@ -3,13 +3,13 @@ package termux
 import (
 	"context"
 	"fmt"
-	"image"
-	"os"
-	"strings"
 	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/clipboard"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"image"
+	"os"
+	"strings"
 )
 
 func init() {

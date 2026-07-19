@@ -5,12 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/semver"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"github.com/lucasew/workspaced/internal/semver"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var ErrToolNotFound = errors.New("tool not found")

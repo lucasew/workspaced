@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type stdoutKey struct{}

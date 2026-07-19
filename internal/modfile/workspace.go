@@ -3,10 +3,10 @@ package modfile
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"github.com/lucasew/workspaced/internal/git"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"os"
+	"path/filepath"
 )
 
 type Workspace struct {

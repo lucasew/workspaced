@@ -2,9 +2,9 @@ package modfile
 
 import (
 	"fmt"
+	"github.com/lucasew/workspaced/internal/configcue"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/internal/configcue"
 )
 
 func ResolveModuleFromConfig(cfg *configcue.Config, moduleName string, modCfg configcue.ModuleEntry, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {

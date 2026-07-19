@@ -3,12 +3,12 @@ package doctor
 import (
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"reflect"
 	"strings"
 	"text/tabwriter"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

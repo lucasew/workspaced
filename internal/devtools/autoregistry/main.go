@@ -4,14 +4,14 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/git"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"iter"
 	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

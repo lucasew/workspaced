@@ -4,8 +4,8 @@ package codec
 import (
 	"fmt"
 
-	"github.com/owenrumney/go-sarif/v2/sarif"
 	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
 // Name identifies a closed set of stdout codecs.

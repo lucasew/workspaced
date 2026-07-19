@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
-	"sync"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/media"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"sync"
 )
 
 var wmMu sync.Mutex

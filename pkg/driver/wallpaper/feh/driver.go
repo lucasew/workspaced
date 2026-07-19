@@ -3,10 +3,10 @@ package feh
 import (
 	"context"
 	"fmt"
-	"os"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/wallpaper"
+	"os"
 )
 
 func init() {

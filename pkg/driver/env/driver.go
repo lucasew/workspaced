@@ -2,11 +2,11 @@ package env
 
 import (
 	"context"
+	"github.com/lucasew/workspaced/pkg/driver"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // Driver provides platform-specific environment operations.

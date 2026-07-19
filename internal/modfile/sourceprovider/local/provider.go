@@ -2,9 +2,9 @@ package local
 
 import (
 	"context"
+	"github.com/lucasew/workspaced/internal/modfile"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 type Provider struct{}

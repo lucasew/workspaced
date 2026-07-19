@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"os"
 	"path/filepath"
 	"strings"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
 )
 
 var (

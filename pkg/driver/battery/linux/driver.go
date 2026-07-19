@@ -3,11 +3,11 @@ package linux
 import (
 	"context"
 	"fmt"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/battery"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/battery"
 )
 
 func init() {

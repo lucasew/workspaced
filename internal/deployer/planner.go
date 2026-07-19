@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
-	"os"
-	"strings"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
+	"io"
+	"os"
+	"strings"
 )
 
 // Planner compares current state with desired state and generates actions.

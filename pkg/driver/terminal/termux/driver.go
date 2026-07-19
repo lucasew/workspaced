@@ -3,10 +3,10 @@ package termux
 import (
 	"context"
 	"fmt"
-	"strings"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/terminal"
+	"strings"
 )
 
 func init() {

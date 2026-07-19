@@ -2,8 +2,8 @@ package is
 
 import (
 	"fmt"
-	"os"
 	"github.com/lucasew/workspaced/internal/configcue"
+	"os"
 
 	"github.com/spf13/cobra"
 )

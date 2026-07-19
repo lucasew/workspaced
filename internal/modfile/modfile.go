@@ -3,10 +3,10 @@ package modfile
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
 	"github.com/lucasew/workspaced/internal/configcue"
 	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	"path/filepath"
+	"strings"
 )
 
 var (

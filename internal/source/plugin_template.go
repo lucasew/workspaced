@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/template"
 	"io"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/template"
 )
 
 // TemplateExpanderPlugin renders templates and expands multi-file output.

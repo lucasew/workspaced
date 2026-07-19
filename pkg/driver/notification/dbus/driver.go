@@ -3,10 +3,10 @@ package dbus
 import (
 	"context"
 	"fmt"
-	"slices"
-	"sync"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"slices"
+	"sync"
 
 	"github.com/godbus/dbus/v5"
 )

@@ -3,13 +3,13 @@ package git
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"github.com/lucasew/workspaced/internal/configcue"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func QuickSync(ctx context.Context) error {

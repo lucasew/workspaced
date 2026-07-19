@@ -3,15 +3,15 @@ package nix
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/sudo"
 	"github.com/lucasew/workspaced/internal/types"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 func CleanupProfiles(ctx context.Context) error {

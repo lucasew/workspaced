@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/modfile"
 	"github.com/lucasew/workspaced/internal/tool"
 	"github.com/lucasew/workspaced/internal/tool/backend"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 var (

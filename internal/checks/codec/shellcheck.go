@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/owenrumney/go-sarif/v2/sarif"
 	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
 const shellcheckInfoURI = "https://github.com/koalaman/shellcheck"

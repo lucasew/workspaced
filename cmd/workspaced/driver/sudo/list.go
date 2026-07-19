@@ -1,9 +1,9 @@
 package sudo
 
 import (
+	"github.com/lucasew/workspaced/internal/sudo"
 	"sort"
 	"time"
-	"github.com/lucasew/workspaced/internal/sudo"
 
 	"github.com/spf13/cobra"
 )

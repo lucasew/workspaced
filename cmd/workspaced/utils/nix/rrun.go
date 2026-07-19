@@ -2,12 +2,12 @@ package nix
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/nix"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
