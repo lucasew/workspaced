@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"workspaced/internal/checks/formatter"
-	_ "workspaced/internal/checks/prelude"
 	"workspaced/internal/git"
 	"workspaced/pkg/taskgroup"
 
@@ -19,6 +18,10 @@ func init() {
 		c.AddCommand(&cobra.Command{
 			Use:   "format [path]",
 			Short: "Format code in the repository (runs at git root)",
+			Long: `Run CUE-configured formatters (workspaced.formatter.tools) at the git root.
+
+Tools are declared in the codebase workspaced.cue / prelude (detect, needs, cmd).
+Stderr from formatters is passed through.`,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				path, err := os.Getwd()
 				if err != nil {
@@ -42,7 +45,6 @@ func init() {
 				g := taskgroup.MustFromContext(ctx)
 				g.Go("codebase:format", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("running formatters")
-					// formatter.RunAll maps each tool to an error, then joins failures.
 					return formatter.RunAll(ctx, root)
 				})
 				return nil

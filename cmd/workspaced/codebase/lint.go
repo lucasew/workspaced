@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 
 	"workspaced/internal/checks/lint"
-	_ "workspaced/internal/checks/prelude"
+	"workspaced/internal/checks/review"
 	"workspaced/pkg/logging"
 	"workspaced/pkg/taskgroup"
 
@@ -20,10 +20,17 @@ import (
 func init() {
 	Registry.Register(func(c *cobra.Command) {
 		var format string
+		var doReview bool
 
 		cmd := &cobra.Command{
 			Use:   "lint [path]",
 			Short: "Run linters on the specified path (defaults to current directory)",
+			Long: `Run CUE-configured linters (workspaced.lint.tools) and print findings.
+
+With --review, also emit GitHub Actions workflow-command annotations for findings
+on the relevant diff (base…HEAD, or last commit). Outside GitHub Actions this is
+a soft no-op (warning only). Exit code is non-zero only if a linter fails to run,
+not because findings exist.`,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				path, err := os.Getwd()
 				if err != nil {
@@ -42,7 +49,6 @@ func init() {
 				var report *sarif.Report
 				g.Go("codebase:lint", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 					s.Update("running linters")
-					// lint.RunAll maps each tool to a SARIF run, then bundles them.
 					var err error
 					report, err = lint.RunAll(ctx, path)
 					return err
@@ -52,6 +58,11 @@ func init() {
 						return nil
 					}
 					saveSarifToCI(ctx, report)
+					if doReview {
+						if err := review.AnnotateIfApplicable(ctx, report, review.AnnotateOptions{Root: path}); err != nil {
+							return err
+						}
+					}
 					return printReport(report, format)
 				})
 				return nil
@@ -59,6 +70,7 @@ func init() {
 		}
 
 		cmd.Flags().StringVarP(&format, "format", "f", "table", "Output format (table, sarif)")
+		cmd.Flags().BoolVar(&doReview, "review", false, "Post GitHub Actions annotations for findings on the relevant diff")
 
 		c.AddCommand(cmd)
 	})
