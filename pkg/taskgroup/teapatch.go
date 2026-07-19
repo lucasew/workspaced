@@ -84,19 +84,19 @@ func (w *teaWriter) File() (*os.File, error) {
 }
 
 // close tears down the optional File() pipe, waits for the background copy,
-// and emits any trailing partial line. Safe to call when File() was never used.
+// and drops any trailing partial line. Safe to call when File() was never used.
+//
+// Intentionally does not call print/Printf: session teardown may run while the
+// bubbletea event loop is already wedged or about to Quit; flushing via
+// Program.Printf here deadlocks ("all goroutines are asleep") under
+// WORKSPACED_FORCE_TUI or short-lived sessions. Transcript loss of a partial
+// final line is preferable to hanging the process.
 func (w *teaWriter) close() {
-	// Force a line boundary so any buffered partial line goes through Write's
-	// normal '\n' path (and thus print) before we tear the pipe down. Without
-	// this, a final write that never ticked a newline can leave the drain
-	// sitting on incomplete buffer state and stall cleanup.
-	//
-	// Prefer calling restore (which closes the pipe) only after the UI is no
-	// longer required; session teardown restores globals before Quit so print
-	// during this flush is best-effort onto a stopping program.
-	_, _ = w.Write([]byte("\n"))
-
 	w.mu.Lock()
+	// Stop accepting print callbacks before unblocking the pipe copy so a
+	// concurrent Write from io.Copy cannot re-enter Program.Printf.
+	w.print = nil
+	w.buf = nil
 	pw, pr, done := w.pipeW, w.pipeR, w.copyDone
 	w.pipeW, w.pipeR, w.copyDone = nil, nil, nil
 	w.mu.Unlock()
@@ -111,14 +111,4 @@ func (w *teaWriter) close() {
 	if done != nil {
 		<-done
 	}
-
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if len(w.buf) == 0 {
-		return
-	}
-	if w.print != nil {
-		w.print(string(w.buf))
-	}
-	w.buf = nil
 }
