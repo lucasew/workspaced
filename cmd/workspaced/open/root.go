@@ -1,9 +1,9 @@
 package open
 
 import (
-	"workspaced/internal/configcue"
-	"workspaced/pkg/driver/opener"
-	"workspaced/pkg/driver/terminal"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/driver/opener"
+	"github.com/lucasew/workspaced/pkg/driver/terminal"
 
 	"github.com/spf13/cobra"
 )

@@ -5,10 +5,10 @@ import (
 	"context"
 	"fmt"
 
-	"workspaced/internal/checks"
-	"workspaced/internal/checks/codec"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/lucasew/workspaced/internal/checks/codec"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )

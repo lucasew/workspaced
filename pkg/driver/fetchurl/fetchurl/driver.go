@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"workspaced/pkg/driver"
-	fetchurldriver "workspaced/pkg/driver/fetchurl"
-	"workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	fetchurldriver "github.com/lucasew/workspaced/pkg/driver/fetchurl"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/fetchurl/fetchurl"
 )

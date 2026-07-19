@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // Driver provides platform-specific environment operations.

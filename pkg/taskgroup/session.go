@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type sessionKey struct{}

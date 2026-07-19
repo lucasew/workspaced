@@ -7,12 +7,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/configcue"
-	"workspaced/internal/modfile"
-	parsespec "workspaced/internal/parse/spec"
-	_ "workspaced/pkg/driver/env/native"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/modfile"
+	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 func TestRefreshLazyToolLocksPreservesExistingLock(t *testing.T) {

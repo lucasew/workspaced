@@ -10,8 +10,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/git"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/git"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -145,7 +145,7 @@ var cmd = &cobra.Command{
 		var RootDetected = DetectedRoot{
 			Dir:        path.Join(root, "cmd", "workspaced"),
 			Package:    "main",
-			ImportPath: "workspaced/cmd/workspaced",
+			ImportPath: "github.com/lucasew/workspaced/cmd/workspaced",
 		}
 		return HandleRegistryCodegen(cmd.Context(), RootDetected)
 	},

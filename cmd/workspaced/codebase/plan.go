@@ -1,8 +1,8 @@
 package codebase
 
 import (
-	"workspaced/internal/cmdctx"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/cmdctx"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

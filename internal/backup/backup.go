@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"workspaced/internal/cmdctx"
-	"workspaced/internal/configcue"
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/cmdctx"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

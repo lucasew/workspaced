@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	_ "workspaced/pkg/driver/prelude"
-	"workspaced/pkg/driver/shim"
-	"workspaced/pkg/logging"
+	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
+	"github.com/lucasew/workspaced/pkg/driver/shim"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestGenerateInLocalBin(t *testing.T) {

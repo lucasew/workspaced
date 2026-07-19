@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/configcue"
 )
 
 // Tool is one CUE-declared linter or formatter.

@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"text/tabwriter"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -89,8 +89,8 @@ func GetCommand() *cobra.Command {
 // getFriendlyInterfaceName extracts a user-friendly type name from the full interface path
 func getFriendlyInterfaceName(fullPath string) string {
 	// Extract the part after the last "/"
-	// e.g., "workspaced/pkg/driver/audio.Driver" -> "audio.Driver"
-	// or   "workspaced/pkg/driver/dialog.Chooser" -> "dialog.Chooser"
+	// e.g., "github.com/lucasew/workspaced/pkg/driver/audio.Driver" -> "audio.Driver"
+	// or   "github.com/lucasew/workspaced/pkg/driver/dialog.Chooser" -> "dialog.Chooser"
 	parts := strings.Split(fullPath, "/")
 	if len(parts) == 0 {
 		return strings.ToLower(fullPath)
@@ -110,7 +110,7 @@ func getFriendlyInterfaceName(fullPath string) string {
 	typeName := dotParts[1]
 
 	// If it's the main "driver" package (e.g., "driver.Driver"), use the parent package
-	// e.g., "workspaced/pkg/driver/audio.Driver" -> "audio"
+	// e.g., "github.com/lucasew/workspaced/pkg/driver/audio.Driver" -> "audio"
 	if pkg == "driver" && len(parts) >= 2 {
 		parentPkg := parts[len(parts)-2]
 		return strings.ToLower(parentPkg)

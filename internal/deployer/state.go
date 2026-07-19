@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	envdriver "workspaced/pkg/driver/env"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 // StateStore is the interface for state persistence.

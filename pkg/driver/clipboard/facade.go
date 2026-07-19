@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // WriteImage writes a stdlib image.Image to the clipboard using the available driver.

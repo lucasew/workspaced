@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/configcue"
 )
 
 func ResolveModuleFromConfig(cfg *configcue.Config, moduleName string, modCfg configcue.ModuleEntry, modulesBaseDir string, sumFile *SumFile) (ResolvedModuleSource, error) {

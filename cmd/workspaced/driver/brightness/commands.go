@@ -1,7 +1,7 @@
 package brightness
 
 import (
-	"workspaced/pkg/driver/brightness"
+	"github.com/lucasew/workspaced/pkg/driver/brightness"
 )
 
 func init() {

@@ -3,7 +3,7 @@ package apps
 import (
 	"context"
 
-	"workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 // stubTool is a minimal implementation of backend.Tool for use in tests,

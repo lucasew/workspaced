@@ -15,14 +15,14 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/internal/constants"
-	"workspaced/internal/tool/backend"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/fetchurl"
-	"workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/constants"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/fetchurl"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"workspaced/internal/template"
+	"github.com/lucasew/workspaced/internal/template"
 )
 
 // DotDProcessorPlugin processes .d.tmpl directories (concatenation).

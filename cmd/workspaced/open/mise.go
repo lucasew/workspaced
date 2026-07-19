@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/internal/miseutil"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/shim/bash"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/miseutil"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/shim/bash"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"workspaced/internal/module"
+	"github.com/lucasew/workspaced/internal/module"
 )
 
 func init() {

@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 // Backend is the thin handler registered for one tool source/registry

@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"testing"
 
-	"workspaced/internal/modfile"
-	"workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/tool/backend"
 )
 
 func TestBinaryCandidates(t *testing.T) {

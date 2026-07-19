@@ -1,7 +1,7 @@
 package open
 
 import (
-	"workspaced/pkg/driver/opener"
+	"github.com/lucasew/workspaced/pkg/driver/opener"
 
 	"github.com/spf13/cobra"
 )

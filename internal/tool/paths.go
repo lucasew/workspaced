@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
 func GetToolsDir() (string, error) {

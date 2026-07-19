@@ -12,16 +12,16 @@ import (
 
 	// Minimal driver set for tool install (not full prelude: that is reserved
 	// for cmd/workspaced/root.go). fetchurl + httpclient download; exec extracts.
-	"workspaced/internal/tool/backend"
-	"workspaced/internal/tool/backend/catalog"
-	apps "workspaced/internal/tool/backend/catalog/applications"
-	"workspaced/internal/tool/backend/github"
-	"workspaced/internal/tool/checks"
-	_ "workspaced/pkg/driver/exec/native"
-	_ "workspaced/pkg/driver/fetchurl/fetchurl"
-	_ "workspaced/pkg/driver/httpclient/native"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	apps "github.com/lucasew/workspaced/internal/tool/backend/catalog/applications"
+	"github.com/lucasew/workspaced/internal/tool/backend/github"
+	"github.com/lucasew/workspaced/internal/tool/checks"
+	_ "github.com/lucasew/workspaced/pkg/driver/exec/native"
+	_ "github.com/lucasew/workspaced/pkg/driver/fetchurl/fetchurl"
+	_ "github.com/lucasew/workspaced/pkg/driver/httpclient/native"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // isReleaseCI is true when running under CI on a git tag ref (release builds).

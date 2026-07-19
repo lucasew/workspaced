@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/configcue"
 )
 
 var (

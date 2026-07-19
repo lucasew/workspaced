@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/internal/checks/formatter"
-	"workspaced/internal/git"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/checks/formatter"
+	"github.com/lucasew/workspaced/internal/git"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

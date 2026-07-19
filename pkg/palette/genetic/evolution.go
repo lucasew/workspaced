@@ -3,7 +3,7 @@ package genetic
 import (
 	"math/rand"
 
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 const (

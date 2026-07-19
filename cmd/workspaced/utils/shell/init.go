@@ -13,12 +13,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/internal/shellgen"
-	"workspaced/internal/version"
-	envdriver "workspaced/pkg/driver/env"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/shellgen"
+	"github.com/lucasew/workspaced/internal/version"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 func getInitCommand() *cobra.Command {

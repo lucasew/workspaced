@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/media"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/media"
 
 	"github.com/godbus/dbus/v5"
 )

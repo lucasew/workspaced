@@ -8,11 +8,11 @@ import (
 	"os"
 	"strings"
 
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	rsyncdriver "workspaced/pkg/driver/rsync"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	rsyncdriver "github.com/lucasew/workspaced/pkg/driver/rsync"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 func init() {

@@ -3,7 +3,7 @@ package dialog
 import (
 	"context"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // Choose allows selecting an item from a list. It tries graphical choosers first.

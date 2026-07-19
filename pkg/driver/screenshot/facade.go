@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"workspaced/internal/configcue"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/clipboard"
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/driver/wm"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/clipboard"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/driver/wm"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func ResolveRect(ctx context.Context, targetType TargetType) (*wm.Rect, error) {

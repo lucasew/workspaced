@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend"
 )
 
 func resolveToolVersion(ctx context.Context, version string, normalize func(string) string, listVersions func(context.Context) ([]string, error)) (string, error) {

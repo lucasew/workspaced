@@ -3,8 +3,8 @@ package backup
 import (
 	"context"
 
-	"workspaced/internal/backup"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/backup"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

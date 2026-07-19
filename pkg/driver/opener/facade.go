@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"workspaced/internal/configcue"
-	"workspaced/internal/executil"
-	"workspaced/pkg/driver"
-	envdriver "workspaced/pkg/driver/env"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 // WebappConfig is used for passing parameters to OpenWebapp

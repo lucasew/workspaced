@@ -5,7 +5,7 @@ import (
 	"math"
 	"slices"
 
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 // Individual represents a candidate palette solution.

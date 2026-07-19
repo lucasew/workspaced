@@ -11,12 +11,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/internal/configcue"
-	"workspaced/pkg/api"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func SetStatic(ctx context.Context, path string) error {

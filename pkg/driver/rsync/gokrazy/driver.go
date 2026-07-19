@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
-	"workspaced/pkg/driver"
-	rsyncdriver "workspaced/pkg/driver/rsync"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/pkg/driver"
+	rsyncdriver "github.com/lucasew/workspaced/pkg/driver/rsync"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	gokrsync "github.com/gokrazy/rsync/rsynccmd"
 )

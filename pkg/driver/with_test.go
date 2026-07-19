@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type probe interface {

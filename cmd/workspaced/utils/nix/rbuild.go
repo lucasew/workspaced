@@ -1,7 +1,7 @@
 package nix
 
 import (
-	"workspaced/internal/nix"
+	"github.com/lucasew/workspaced/internal/nix"
 
 	"github.com/spf13/cobra"
 )

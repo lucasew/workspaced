@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"workspaced/internal/executil"
+	"github.com/lucasew/workspaced/internal/executil"
 )
 
 // IsTermux reports whether TERMUX_VERSION is set in the process environment.

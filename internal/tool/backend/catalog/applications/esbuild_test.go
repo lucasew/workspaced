@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"workspaced/internal/modfile"
-	_ "workspaced/pkg/driver/httpclient/native"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/modfile"
+	_ "github.com/lucasew/workspaced/pkg/driver/httpclient/native"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestEsbuildPlatform(t *testing.T) {

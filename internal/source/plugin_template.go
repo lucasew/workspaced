@@ -7,8 +7,8 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/configcue"
-	"workspaced/internal/template"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/template"
 )
 
 // TemplateExpanderPlugin renders templates and expands multi-file output.

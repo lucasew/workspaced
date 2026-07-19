@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func withLogger(t *testing.T) context.Context {

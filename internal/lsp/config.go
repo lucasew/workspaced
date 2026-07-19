@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/configcue"
 )
 
 const defaultRequestTimeout = 10 * time.Second

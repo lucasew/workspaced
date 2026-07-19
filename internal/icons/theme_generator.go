@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	envdriver "workspaced/pkg/driver/env"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 var ErrIconSourceDirNotFound = errors.New("icon source directory not found")

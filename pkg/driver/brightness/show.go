@@ -2,9 +2,9 @@ package brightness
 
 import (
 	"context"
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 
-	"workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
 )
 
 func ShowStatus(ctx context.Context) error {

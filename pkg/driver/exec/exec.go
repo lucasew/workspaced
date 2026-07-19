@@ -6,9 +6,9 @@ import (
 	"os"
 	"os/exec"
 
-	"workspaced/internal/executil"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // Driver provides platform-specific command execution.

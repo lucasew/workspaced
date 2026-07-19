@@ -42,7 +42,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (

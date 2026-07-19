@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

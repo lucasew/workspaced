@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend"
 )
 
 var (

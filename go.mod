@@ -1,4 +1,4 @@
-module workspaced
+module github.com/lucasew/workspaced
 
 go 1.25.6
 

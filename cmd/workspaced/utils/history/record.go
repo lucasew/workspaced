@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"time"
-	"workspaced/internal/db"
-	"workspaced/internal/types"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/db"
+	"github.com/lucasew/workspaced/internal/types"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/palette"
+	"github.com/lucasew/workspaced/pkg/palette"
 )
 
 func GetCommand() *cobra.Command {

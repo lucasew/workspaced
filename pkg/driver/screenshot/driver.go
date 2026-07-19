@@ -7,7 +7,7 @@ import (
 	"image"
 	"strconv"
 
-	api "workspaced/pkg/driver/wm"
+	api "github.com/lucasew/workspaced/pkg/driver/wm"
 )
 
 var (

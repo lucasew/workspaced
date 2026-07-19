@@ -2,7 +2,7 @@ package shell
 
 import (
 	"context"
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // Driver provides shell execution capabilities

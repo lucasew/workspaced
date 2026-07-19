@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/driver/rsync"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/driver/rsync"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

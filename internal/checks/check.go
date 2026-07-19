@@ -9,7 +9,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"workspaced/internal/compat"
+	"github.com/lucasew/workspaced/internal/compat"
 )
 
 // Check is the base interface for discoverable, directory-applicable actions

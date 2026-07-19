@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/notification"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
 )
 
 var (

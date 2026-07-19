@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
-	"workspaced/internal/checks/lint"
-	"workspaced/internal/checks/review"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/checks/lint"
+	"github.com/lucasew/workspaced/internal/checks/review"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 	"github.com/spf13/cobra"

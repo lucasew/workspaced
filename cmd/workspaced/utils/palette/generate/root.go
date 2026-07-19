@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/palette"
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 func GetCommand() *cobra.Command {

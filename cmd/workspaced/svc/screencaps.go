@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/driver/screen"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver/screen"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

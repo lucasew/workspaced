@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func writeLSP(t *testing.T, w io.Writer, v any) {

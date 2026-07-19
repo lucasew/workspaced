@@ -8,10 +8,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/internal/version"
-	"workspaced/pkg/driver/shim"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/version"
+	"github.com/lucasew/workspaced/pkg/driver/shim"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

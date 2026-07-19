@@ -2,8 +2,8 @@ package screenshot
 
 import (
 	"errors"
-	dapi "workspaced/pkg/api"
-	"workspaced/pkg/driver/screenshot"
+	dapi "github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver/screenshot"
 
 	"github.com/spf13/cobra"
 )

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	envdriver "workspaced/pkg/driver/env"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 // GenerateDaemon generates daemon startup code

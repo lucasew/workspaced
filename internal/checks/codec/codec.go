@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
-	"workspaced/internal/checks"
+	"github.com/lucasew/workspaced/internal/checks"
 )
 
 // Name identifies a closed set of stdout codecs.

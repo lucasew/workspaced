@@ -3,9 +3,9 @@ package mod
 import (
 	"context"
 
-	"workspaced/internal/modfile"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

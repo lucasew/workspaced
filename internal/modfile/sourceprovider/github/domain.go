@@ -2,7 +2,7 @@ package github
 
 import (
 	"strings"
-	"workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 type Source struct {

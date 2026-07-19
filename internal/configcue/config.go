@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/pkg/driver"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

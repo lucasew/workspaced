@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"workspaced/internal/must"
+	"github.com/lucasew/workspaced/internal/must"
 )
 
 func TestMustOK(t *testing.T) {

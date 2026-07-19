@@ -12,9 +12,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"workspaced/internal/tool"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/tool"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // Backend is one running language server process.

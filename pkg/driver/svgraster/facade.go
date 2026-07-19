@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 func Ensure(ctx context.Context) error {

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/internal/modfile"
-	"workspaced/internal/modfile/sourceprovider/sourcecache"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile/sourceprovider/sourcecache"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (

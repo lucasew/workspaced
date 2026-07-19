@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"workspaced/internal/tool/backend/catalog"
+	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 
 	"github.com/spf13/cobra"
 )

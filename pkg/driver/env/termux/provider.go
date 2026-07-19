@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/driver"
-	envdriver "workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 func init() {

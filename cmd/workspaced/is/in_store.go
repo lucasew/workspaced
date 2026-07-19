@@ -2,7 +2,7 @@ package is
 
 import (
 	"errors"
-	envdriver "workspaced/pkg/driver/env"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 
 	"github.com/spf13/cobra"
 )

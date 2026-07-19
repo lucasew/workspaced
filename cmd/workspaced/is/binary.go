@@ -2,7 +2,7 @@ package is
 
 import (
 	"fmt"
-	execdriver "workspaced/pkg/driver/exec"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 
 	"github.com/spf13/cobra"
 )

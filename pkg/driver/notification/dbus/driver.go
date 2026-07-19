@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 	"sync"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
 
 	"github.com/godbus/dbus/v5"
 )

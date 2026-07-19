@@ -2,7 +2,7 @@ package tool
 
 import (
 	"fmt"
-	"workspaced/internal/tool"
+	"github.com/lucasew/workspaced/internal/tool"
 
 	"github.com/spf13/cobra"
 )

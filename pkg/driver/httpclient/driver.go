@@ -3,7 +3,7 @@ package httpclient
 import (
 	"net/http"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // Driver provides an HTTP client with platform-specific certificate handling.

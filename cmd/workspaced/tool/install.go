@@ -3,8 +3,8 @@ package tool
 import (
 	"context"
 
-	"workspaced/internal/tool"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/tool"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

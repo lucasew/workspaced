@@ -9,14 +9,14 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/internal/configcue"
-	"workspaced/internal/git"
-	"workspaced/internal/modfile"
-	parsespec "workspaced/internal/parse/spec"
-	"workspaced/internal/tool/backend"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/git"
+	"github.com/lucasew/workspaced/internal/modfile"
+	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

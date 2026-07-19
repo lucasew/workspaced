@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/checks"
+	"github.com/lucasew/workspaced/internal/checks"
 )
 
 type stubCheck struct {

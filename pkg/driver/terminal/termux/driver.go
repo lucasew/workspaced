@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/terminal"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/terminal"
 )
 
 func init() {

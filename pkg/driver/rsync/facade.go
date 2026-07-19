@@ -6,9 +6,9 @@ import (
 	"io"
 	"strings"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // Sync performs an rsync transfer using the selected driver.

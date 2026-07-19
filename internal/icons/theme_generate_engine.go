@@ -17,11 +17,11 @@ import (
 	"strings"
 	"text/template"
 
-	"workspaced/internal/configcue"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/svgraster"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/configcue"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/svgraster"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	xdraw "golang.org/x/image/draw"
 )

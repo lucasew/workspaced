@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"workspaced/internal/configcue"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // Proxy is the editor-facing LSP router.

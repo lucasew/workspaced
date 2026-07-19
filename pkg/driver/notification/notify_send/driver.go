@@ -3,9 +3,9 @@ package notify_send
 import (
 	"context"
 	"fmt"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
 )
 
 func init() {

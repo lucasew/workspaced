@@ -3,8 +3,8 @@ package opener
 import (
 	"context"
 
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 type binaryFactory struct {

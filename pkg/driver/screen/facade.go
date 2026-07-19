@@ -2,9 +2,9 @@ package screen
 
 import (
 	"context"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/power"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/power"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func Lock(ctx context.Context) error {

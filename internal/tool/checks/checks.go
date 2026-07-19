@@ -15,7 +15,7 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend"
 )
 
 // ErrFailed is returned when one or more install checks do not pass.

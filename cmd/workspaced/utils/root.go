@@ -10,10 +10,10 @@ import (
 	"os"
 	"time"
 
-	"workspaced/internal/cmdregistry"
-	"workspaced/internal/executil"
-	"workspaced/internal/types"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/internal/types"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/gorilla/websocket"
 

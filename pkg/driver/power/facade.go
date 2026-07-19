@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"workspaced/internal/configcue"
-	"workspaced/pkg/api"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func Lock(ctx context.Context) error {

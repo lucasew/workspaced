@@ -7,11 +7,11 @@ import (
 	"image/png"
 	"io"
 	"strings"
-	dapi "workspaced/pkg/api"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/clipboard"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	dapi "github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/clipboard"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

@@ -1,8 +1,8 @@
 package camera
 
 import (
-	"workspaced/pkg/driver"
-	cameraapi "workspaced/pkg/driver/camera"
+	"github.com/lucasew/workspaced/pkg/driver"
+	cameraapi "github.com/lucasew/workspaced/pkg/driver/camera"
 
 	"github.com/spf13/cobra"
 )

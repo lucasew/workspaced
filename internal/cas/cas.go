@@ -8,8 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/logging"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type CASWriter struct {

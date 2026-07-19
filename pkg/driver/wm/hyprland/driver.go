@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"workspaced/internal/executil"
-	dapi "workspaced/pkg/api"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	api "workspaced/pkg/driver/wm"
+	"github.com/lucasew/workspaced/internal/executil"
+	dapi "github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	api "github.com/lucasew/workspaced/pkg/driver/wm"
 )
 
 func init() {

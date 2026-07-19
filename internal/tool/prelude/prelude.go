@@ -1,8 +1,8 @@
 package prelude
 
 import (
-	_ "workspaced/internal/tool/backend/catalog"
-	_ "workspaced/internal/tool/backend/catalog/applications"
-	_ "workspaced/internal/tool/backend/github"
-	_ "workspaced/internal/tool/backend/mise"
+	_ "github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	_ "github.com/lucasew/workspaced/internal/tool/backend/catalog/applications"
+	_ "github.com/lucasew/workspaced/internal/tool/backend/github"
+	_ "github.com/lucasew/workspaced/internal/tool/backend/mise"
 )

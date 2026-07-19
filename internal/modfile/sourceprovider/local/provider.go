@@ -4,7 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 type Provider struct{}

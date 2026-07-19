@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // SkipFunc is called when a check is skipped during Applicable selection.

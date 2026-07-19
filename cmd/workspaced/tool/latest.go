@@ -3,9 +3,9 @@ package tool
 import (
 	"fmt"
 
-	"workspaced/internal/tool"
+	"github.com/lucasew/workspaced/internal/tool"
 
-	parsespec "workspaced/internal/parse/spec"
+	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 
 	"github.com/spf13/cobra"
 )

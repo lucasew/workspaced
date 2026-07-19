@@ -1,6 +1,6 @@
 package apps
 
-import "workspaced/internal/tool/backend/catalog"
+import "github.com/lucasew/workspaced/internal/tool/backend/catalog"
 
 func init() {
 	// Official shfmt lives under mvdan/sh (patrickvane/shfmt is a stale fork

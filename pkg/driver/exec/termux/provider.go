@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/internal/executil"
-	"workspaced/pkg/api"
-	"workspaced/pkg/driver"
-	envdriver "workspaced/pkg/driver/env"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type Factory struct{}

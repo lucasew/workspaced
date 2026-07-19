@@ -13,9 +13,9 @@ import (
 	"strconv"
 	"strings"
 
-	"workspaced/pkg/driver"
-	cameraapi "workspaced/pkg/driver/camera"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver"
+	cameraapi "github.com/lucasew/workspaced/pkg/driver/camera"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 func init() {

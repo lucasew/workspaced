@@ -11,15 +11,15 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/internal/modfile"
-	"workspaced/internal/tool/backend"
-	"workspaced/internal/tool/backend/catalog"
-	providerinstall "workspaced/internal/tool/backend/install"
-	"workspaced/internal/tool/checks"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
+	"github.com/lucasew/workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var ErrGrokBuildProbeFailure = errors.New("failed to probe grok-build latest from x.ai channels")

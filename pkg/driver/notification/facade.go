@@ -3,7 +3,7 @@ package notification
 import (
 	"context"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 func Notify(ctx context.Context, n *Notification) error {

@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"workspaced/internal/modfile"
-	"workspaced/internal/tool/backend"
-	"workspaced/internal/tool/backend/catalog"
-	"workspaced/internal/tool/backend/github"
-	"workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	"github.com/lucasew/workspaced/internal/tool/backend/github"
+	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
 func init() {

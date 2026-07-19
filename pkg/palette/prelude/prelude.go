@@ -1,6 +1,6 @@
 package prelude
 
 import (
-	_ "workspaced/pkg/palette/genetic"
-	_ "workspaced/pkg/palette/materialyou"
+	_ "github.com/lucasew/workspaced/pkg/palette/genetic"
+	_ "github.com/lucasew/workspaced/pkg/palette/materialyou"
 )

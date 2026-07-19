@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/configcue"
-	parsespec "workspaced/internal/parse/spec"
+	"github.com/lucasew/workspaced/internal/configcue"
+	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 )
 
 var (

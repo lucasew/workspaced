@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"workspaced/internal/git"
-	envdriver "workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/internal/git"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 type Workspace struct {

@@ -32,8 +32,8 @@ import (
 	"strings"
 	"sync"
 
-	"workspaced/internal/compat"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/compat"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (
@@ -127,9 +127,9 @@ func forceDriverFromEnv(ifaceName string) string {
 		return v
 	}
 	// Derive a friendly key, e.g.
-	//   "workspaced/pkg/driver/rsync.Driver"        -> WORKSPACED_FORCE_RSYNC_DRIVER
-	//   "workspaced/pkg/driver/clipboard.Driver"    -> WORKSPACED_FORCE_CLIPBOARD_DRIVER
-	//   "workspaced/pkg/driver/dialog.Chooser"      -> WORKSPACED_FORCE_DIALOG_CHOOSER_DRIVER
+	//   "github.com/lucasew/workspaced/pkg/driver/rsync.Driver"        -> WORKSPACED_FORCE_RSYNC_DRIVER
+	//   "github.com/lucasew/workspaced/pkg/driver/clipboard.Driver"    -> WORKSPACED_FORCE_CLIPBOARD_DRIVER
+	//   "github.com/lucasew/workspaced/pkg/driver/dialog.Chooser"      -> WORKSPACED_FORCE_DIALOG_CHOOSER_DRIVER
 	key := ifaceName
 	if idx := strings.LastIndex(key, "/"); idx >= 0 {
 		key = key[idx+1:]

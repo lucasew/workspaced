@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"workspaced/internal/configcue"
-	envdriver "workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/internal/configcue"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 
 	"github.com/pbnjay/memory"
 )

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"workspaced/internal/tool/resolution"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/internal/tool/resolution"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 // RunTool acts as the unified shim bridge. When the shim wrapper binary is executed

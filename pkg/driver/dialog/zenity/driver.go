@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"workspaced/internal/executil"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/dialog"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/dialog"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 func init() {

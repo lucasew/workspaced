@@ -13,9 +13,9 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/internal/icons"
-	"workspaced/internal/module"
-	envdriver "workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/internal/icons"
+	"github.com/lucasew/workspaced/internal/module"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 func init() {

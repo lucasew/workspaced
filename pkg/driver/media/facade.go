@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func RunAction(ctx context.Context, action string) error {

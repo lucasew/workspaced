@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	execdriver "workspaced/pkg/driver/exec"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 // NodeModuleBinRel returns the path of a node_modules/.bin entry relative to dir.

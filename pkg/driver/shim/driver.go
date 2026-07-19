@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 var (

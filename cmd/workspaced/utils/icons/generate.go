@@ -2,7 +2,7 @@ package icons
 
 import (
 	"os"
-	iconspkg "workspaced/internal/icons"
+	iconspkg "github.com/lucasew/workspaced/internal/icons"
 
 	"github.com/spf13/cobra"
 )

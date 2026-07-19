@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 type stdoutKey struct{}

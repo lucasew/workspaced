@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-	"workspaced/internal/db"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/db"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

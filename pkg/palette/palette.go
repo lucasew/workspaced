@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"workspaced/pkg/logging"
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 // GetDriver returns a palette extraction driver by name.

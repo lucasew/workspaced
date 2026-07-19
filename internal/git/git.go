@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/configcue"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/configcue"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func QuickSync(ctx context.Context) error {

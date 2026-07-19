@@ -1,7 +1,7 @@
 package experiments
 
 import (
-	"workspaced/internal/cmdregistry"
+	"github.com/lucasew/workspaced/internal/cmdregistry"
 
 	"github.com/spf13/cobra"
 )

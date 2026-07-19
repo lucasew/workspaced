@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend"
 )
 
 func TestFixRubyShebangs(t *testing.T) {

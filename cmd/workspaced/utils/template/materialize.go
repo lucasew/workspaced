@@ -4,10 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"workspaced/internal/configcue"
-	"workspaced/internal/deployer"
-	"workspaced/internal/source"
-	"workspaced/internal/template"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/deployer"
+	"github.com/lucasew/workspaced/internal/source"
+	"github.com/lucasew/workspaced/internal/template"
 
 	"github.com/spf13/cobra"
 )

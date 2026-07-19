@@ -1,7 +1,7 @@
 package workspace
 
 import (
-	"workspaced/internal/cmdregistry"
+	"github.com/lucasew/workspaced/internal/cmdregistry"
 
 	"github.com/spf13/cobra"
 )

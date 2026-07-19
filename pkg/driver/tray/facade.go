@@ -2,7 +2,7 @@ package tray
 
 import (
 	"context"
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // GetDefault returns the appropriate tray driver for the current environment.

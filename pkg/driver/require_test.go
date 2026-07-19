@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"workspaced/internal/executil"
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 func TestRequireEnv(t *testing.T) {

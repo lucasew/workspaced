@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/source"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/source"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 func TestPlannerDetectsCommentOnlyContentChange(t *testing.T) {

@@ -1,7 +1,7 @@
 package rsync
 
 import (
-	"workspaced/pkg/driver/rsync"
+	"github.com/lucasew/workspaced/pkg/driver/rsync"
 
 	"github.com/spf13/cobra"
 )

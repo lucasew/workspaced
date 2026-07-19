@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	"workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 func TestMergeEssentialPaths(t *testing.T) {

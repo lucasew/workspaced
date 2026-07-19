@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 func (p Provider) ConfigureFromSpec(cfg *modfile.SourceConfig, target string) {

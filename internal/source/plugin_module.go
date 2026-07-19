@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 	"sort"
 
-	"workspaced/internal/configcue"
-	"workspaced/internal/modfile"
-	_ "workspaced/internal/modfile/sourceprovider/prelude"
-	"workspaced/internal/module"
-	_ "workspaced/internal/module/prelude"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/modfile"
+	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
+	"github.com/lucasew/workspaced/internal/module"
+	_ "github.com/lucasew/workspaced/internal/module/prelude"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 type ModuleScannerPlugin struct {

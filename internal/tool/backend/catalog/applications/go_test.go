@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	_ "workspaced/pkg/driver/httpclient/native"
+	_ "github.com/lucasew/workspaced/pkg/driver/httpclient/native"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestGoListArtifactsAcceptsVersionWithoutGoPrefix(t *testing.T) {

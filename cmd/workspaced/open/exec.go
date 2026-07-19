@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/taskgroup"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 
 	"github.com/spf13/cobra"
 )

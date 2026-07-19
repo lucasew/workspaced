@@ -1,6 +1,6 @@
 package prelude
 
 import (
-	_ "workspaced/internal/modfile/sourceprovider/github"
-	_ "workspaced/internal/modfile/sourceprovider/local"
+	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/github"
+	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/local"
 )

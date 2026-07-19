@@ -3,7 +3,7 @@ package audio
 import (
 	"context"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 const step = 0.05

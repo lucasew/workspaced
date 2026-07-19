@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/checks"
+	"github.com/lucasew/workspaced/internal/checks"
 )
 
 func TestNodeModuleBinRel(t *testing.T) {

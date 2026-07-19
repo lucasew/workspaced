@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"workspaced/internal/deployer"
-	"workspaced/internal/source"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/deployer"
+	"github.com/lucasew/workspaced/internal/source"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestLogApplyResult(t *testing.T) {

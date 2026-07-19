@@ -10,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
-	"workspaced/internal/constants"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/constants"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

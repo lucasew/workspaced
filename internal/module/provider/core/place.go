@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"workspaced/internal/module"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/module"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

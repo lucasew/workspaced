@@ -8,11 +8,11 @@ import (
 	_ "image/png"
 	"strings"
 
-	"workspaced/internal/executil"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/screenshot"
-	api "workspaced/pkg/driver/wm"
+	"github.com/lucasew/workspaced/internal/executil"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/screenshot"
+	api "github.com/lucasew/workspaced/pkg/driver/wm"
 )
 
 func init() {

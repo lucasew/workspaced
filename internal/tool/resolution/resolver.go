@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"workspaced/internal/semver"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/semver"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var ErrToolNotFound = errors.New("tool not found")

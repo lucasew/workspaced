@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/miseutil"
-	"workspaced/internal/modfile"
-	"workspaced/internal/tool"
-	"workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/miseutil"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/tool"
+	"github.com/lucasew/workspaced/internal/tool/backend"
 )
 
 var (

@@ -3,7 +3,7 @@ package module
 import (
 	"context"
 	"os"
-	"workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/internal/configcue"
 )
 
 type ResolveRequest struct {

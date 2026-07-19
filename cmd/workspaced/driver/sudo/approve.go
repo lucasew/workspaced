@@ -2,9 +2,9 @@ package sudo
 
 import (
 	"os"
-	"workspaced/internal/sudo"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/sudo"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

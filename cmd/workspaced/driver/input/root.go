@@ -3,8 +3,8 @@ package input
 import (
 	"errors"
 	"fmt"
-	"workspaced/internal/cmdregistry"
-	"workspaced/pkg/driver/dialog"
+	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"github.com/lucasew/workspaced/pkg/driver/dialog"
 
 	"github.com/spf13/cobra"
 )

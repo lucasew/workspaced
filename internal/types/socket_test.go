@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/types"
+	"github.com/lucasew/workspaced/internal/types"
 )
 
 func TestDaemonSocketPathUsesXDGRuntimeDir(t *testing.T) {

@@ -6,12 +6,12 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/internal/modfile"
-	"workspaced/internal/tool/backend"
-	"workspaced/internal/tool/backend/catalog"
-	"workspaced/internal/tool/backend/github"
-	providerinstall "workspaced/internal/tool/backend/install"
-	"workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	"github.com/lucasew/workspaced/internal/tool/backend/github"
+	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
+	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
 func init() {

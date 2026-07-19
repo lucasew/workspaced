@@ -3,7 +3,7 @@ package genetic
 import (
 	"testing"
 
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 func TestMapToPaletteCounts(t *testing.T) {

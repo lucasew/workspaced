@@ -1,8 +1,8 @@
 package apps
 
 import (
-	"workspaced/internal/tool/backend/catalog"
-	"workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
+	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
 func init() {

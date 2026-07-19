@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/internal/tool"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/internal/tool"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 // ResolveCmd ensures lazy tools from needs and returns argv + optional env extras.

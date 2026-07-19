@@ -1,7 +1,7 @@
 package config
 
 import (
-	"workspaced/cmd/workspaced/configcmd"
+	"github.com/lucasew/workspaced/cmd/workspaced/configcmd"
 
 	"github.com/spf13/cobra"
 )

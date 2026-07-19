@@ -8,11 +8,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	parsespec "workspaced/internal/parse/spec"
-	"workspaced/internal/tool/backend"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var (

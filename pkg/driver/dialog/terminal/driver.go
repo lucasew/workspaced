@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/dialog"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/dialog"
 
 	"github.com/ktr0731/go-fuzzyfinder"
 
-	"workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/api"
 )
 
 func init() {

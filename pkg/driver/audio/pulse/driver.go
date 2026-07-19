@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/audio"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/audio"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var sink = "@DEFAULT_SINK@"

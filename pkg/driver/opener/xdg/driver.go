@@ -3,8 +3,8 @@ package xdg
 import (
 	"context"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/opener"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/opener"
 )
 
 func init() {

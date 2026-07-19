@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/internal/module"
-	"workspaced/internal/modulecue"
+	"github.com/lucasew/workspaced/internal/module"
+	"github.com/lucasew/workspaced/internal/modulecue"
 )
 
 var (

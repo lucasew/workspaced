@@ -10,9 +10,9 @@ import (
 	"slices"
 	"strings"
 
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/logging"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (

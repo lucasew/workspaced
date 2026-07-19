@@ -1,7 +1,7 @@
 package audio
 
 import (
-	"workspaced/pkg/driver/audio"
+	"github.com/lucasew/workspaced/pkg/driver/audio"
 )
 
 func init() {

@@ -1,8 +1,8 @@
 package input
 
 import (
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/dialog"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/dialog"
 
 	"github.com/spf13/cobra"
 )

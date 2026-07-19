@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"sync"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/media"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/media"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var wmMu sync.Mutex

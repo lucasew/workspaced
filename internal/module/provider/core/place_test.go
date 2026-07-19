@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"workspaced/internal/module"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/module"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestPlaceResolveIgnoreMissing(t *testing.T) {

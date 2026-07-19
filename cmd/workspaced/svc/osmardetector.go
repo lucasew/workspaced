@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/battery"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/battery"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

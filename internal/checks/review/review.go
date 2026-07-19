@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"workspaced/internal/git"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/git"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )

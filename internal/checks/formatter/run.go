@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"workspaced/internal/checks"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/checks"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // RunAll loads CUE formatter tools and runs applicable ones serially.

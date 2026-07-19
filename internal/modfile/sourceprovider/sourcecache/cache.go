@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (

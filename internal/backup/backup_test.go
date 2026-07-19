@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"testing"
 
-	"workspaced/internal/backup"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/backup"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestArchiveAction_RunValidation(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"workspaced/internal/lsp"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/lsp"
+	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

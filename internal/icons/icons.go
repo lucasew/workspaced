@@ -17,11 +17,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/pkg/driver"
-	envdriver "workspaced/pkg/driver/env"
-	httpclientdriver "workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 var ErrBadHTTPStatus = errors.New("unexpected HTTP status")

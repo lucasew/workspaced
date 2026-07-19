@@ -3,8 +3,8 @@ package shell
 import (
 	"context"
 
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 // whichFactory selects a shell by resolving a binary name on PATH.

@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	envdriver "workspaced/pkg/driver/env"
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func GetCommand() *cobra.Command {

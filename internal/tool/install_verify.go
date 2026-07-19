@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"workspaced/internal/tool/backend"
-	"workspaced/internal/tool/checks"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	"github.com/lucasew/workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // fixAndCheck runs optional InstallFixer.Fix then checks.Run.

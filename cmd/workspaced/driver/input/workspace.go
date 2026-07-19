@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"workspaced/internal/configcue"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/dialog"
-	"workspaced/pkg/driver/wm"
+	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/dialog"
+	"github.com/lucasew/workspaced/pkg/driver/wm"
 
 	"github.com/spf13/cobra"
 )

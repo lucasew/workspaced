@@ -3,7 +3,7 @@ package media
 import (
 	"context"
 
-	"workspaced/pkg/driver/media"
+	"github.com/lucasew/workspaced/pkg/driver/media"
 )
 
 func init() {

@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/driver"
-	execdriver "workspaced/pkg/driver/exec"
-	shimdriver "workspaced/pkg/driver/shim"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	shimdriver "github.com/lucasew/workspaced/pkg/driver/shim"
 )
 
 type Factory struct{}

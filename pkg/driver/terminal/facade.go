@@ -3,7 +3,7 @@ package terminal
 import (
 	"context"
 
-	"workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // Open opens the preferred terminal emulator.

@@ -1,8 +1,8 @@
 package tool
 
 import (
-	"workspaced/internal/cmdregistry"
-	_ "workspaced/internal/tool/prelude"
+	"github.com/lucasew/workspaced/internal/cmdregistry"
+	_ "github.com/lucasew/workspaced/internal/tool/prelude"
 
 	"github.com/spf13/cobra"
 )

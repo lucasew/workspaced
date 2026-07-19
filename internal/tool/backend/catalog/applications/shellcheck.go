@@ -1,6 +1,6 @@
 package apps
 
-import "workspaced/internal/tool/backend/catalog"
+import "github.com/lucasew/workspaced/internal/tool/backend/catalog"
 
 func init() {
 	catalog.RegisterGitHub("shellcheck", "koalaman/shellcheck")

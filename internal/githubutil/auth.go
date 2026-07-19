@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	execdriver "workspaced/pkg/driver/exec"
-	"workspaced/pkg/logging"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (

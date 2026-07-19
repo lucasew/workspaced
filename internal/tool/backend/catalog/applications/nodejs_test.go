@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestNodejsListArtifactsAcceptsVersionWithoutVPrefix(t *testing.T) {

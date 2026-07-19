@@ -4,10 +4,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/pkg/driver"
-	_ "workspaced/pkg/driver/exec/native"
-	"workspaced/pkg/driver/shell"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver"
+	_ "github.com/lucasew/workspaced/pkg/driver/exec/native"
+	"github.com/lucasew/workspaced/pkg/driver/shell"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestWhichDriverExposesPathOnly(t *testing.T) {

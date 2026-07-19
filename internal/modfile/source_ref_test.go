@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/modfile"
-	_ "workspaced/internal/modfile/sourceprovider/prelude"
+	"github.com/lucasew/workspaced/internal/modfile"
+	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
 )
 
 func TestTryResolveSourceRefToPath(t *testing.T) {

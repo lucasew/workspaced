@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 func TestAccentPairStatsMatchesHistoricalTwoPass(t *testing.T) {

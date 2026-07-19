@@ -12,14 +12,14 @@ import (
 	"runtime"
 	"strings"
 
-	"workspaced/internal/githubutil"
-	"workspaced/internal/modfile"
-	"workspaced/internal/tool"
-	"workspaced/internal/tool/backend"
-	providerinstall "workspaced/internal/tool/backend/install"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/httpclient"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/githubutil"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/tool"
+	"github.com/lucasew/workspaced/internal/tool/backend"
+	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (

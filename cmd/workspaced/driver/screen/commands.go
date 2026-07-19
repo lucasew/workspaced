@@ -3,7 +3,7 @@ package screen
 import (
 	"context"
 
-	"workspaced/pkg/driver/screen"
+	"github.com/lucasew/workspaced/pkg/driver/screen"
 )
 
 func init() {

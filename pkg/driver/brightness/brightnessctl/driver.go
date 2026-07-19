@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/brightness"
-	execdriver "workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/brightness"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 )
 
 func init() {

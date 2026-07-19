@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"workspaced/internal/source"
-	envdriver "workspaced/pkg/driver/env"
-	"workspaced/pkg/logging"
-	"workspaced/pkg/taskgroup"
+	"github.com/lucasew/workspaced/internal/source"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // RelToRoot returns path relative to root when path is under root.

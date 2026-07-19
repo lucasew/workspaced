@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"workspaced/pkg/driver/notification"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {

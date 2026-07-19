@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"workspaced/pkg/driver"
-	"workspaced/pkg/driver/battery"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/battery"
 )
 
 func init() {

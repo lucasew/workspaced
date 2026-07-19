@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/modfile"
 )
 
 func TestRehydrateLockedSource(t *testing.T) {

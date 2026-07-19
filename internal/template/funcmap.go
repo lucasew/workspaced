@@ -9,12 +9,12 @@ import (
 	"strings"
 	"sync"
 	"text/template"
-	"workspaced/internal/icons"
-	"workspaced/internal/modfile"
-	"workspaced/internal/text"
-	envdriver "workspaced/pkg/driver/env"
-	shimdriver "workspaced/pkg/driver/shim"
-	"workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/icons"
+	"github.com/lucasew/workspaced/internal/modfile"
+	"github.com/lucasew/workspaced/internal/text"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	shimdriver "github.com/lucasew/workspaced/pkg/driver/shim"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // ErrFileSkipped is returned when a template calls {{ skip }}.

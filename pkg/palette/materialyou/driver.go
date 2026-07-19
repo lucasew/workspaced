@@ -5,8 +5,8 @@ import (
 	"image"
 	"image/color"
 
-	"workspaced/pkg/logging"
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 func init() {

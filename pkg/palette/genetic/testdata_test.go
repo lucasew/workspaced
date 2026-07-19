@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"workspaced/pkg/logging"
-	"workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
 func paletteTestdata(t testing.TB, name string) string {
