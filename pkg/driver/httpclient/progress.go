@@ -59,24 +59,24 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		total := resp.ContentLength
 		if total > 0 {
 			s.Progress(0, total)
-			s.Update(fmt.Sprintf("fetching %s (0 / %s)", msgName, humanBytes(total)))
+			s.Update(fmt.Sprintf("%s (0 / %s)", name, humanBytes(total)))
 			resp.Body = &progressReadCloser{
 				ReadCloser:   resp.Body,
 				s:            s,
 				total:        total,
-				name:         msgName,
+				name:         name,
 				completionCh: bodyComplete,
 			}
 		} else {
 			// Unknown size (no Content-Length). Keep the task visible with a
 			// running byte counter. The task will complete when body is closed.
 			s.Progress(0, 1)
-			s.Update("fetching " + msgName)
+			s.Update(name)
 			resp.Body = &progressReadCloser{
 				ReadCloser:   resp.Body,
 				s:            s,
 				total:        0,
-				name:         msgName,
+				name:         name,
 				completionCh: bodyComplete,
 			}
 		}
@@ -98,10 +98,10 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 		if total > 0 {
 			s.Progress(total, total)
-			s.Update(fmt.Sprintf("fetched %s (%s)", msgName, humanBytes(total)))
+			s.Update(fmt.Sprintf("%s (%s)", name, humanBytes(total)))
 		} else {
 			s.Progress(1, 1)
-			s.Update("fetched " + msgName)
+			s.Update(name)
 		}
 		return nil
 	})
