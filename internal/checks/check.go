@@ -1,12 +1,8 @@
-// Package checks provides the base mechanism for aggregated "checks"
-// (linters and formatters, and potentially other discoverable code actions).
+// Package checks runs aggregated linters and formatters declared in CUE
+// (workspaced.lint / workspaced.formatter). Unlike drivers (one impl by weight),
+// every tool whose detect firewall matches is run.
 //
-// Unlike the driver system (which selects exactly one implementation by weight +
-// compatibility), checks are *aggregated*: RunAll executes every check whose
-// Detect() succeeds for the directory.
-//
-// Implementations live under the lint/ and formatter/ subpackages. They register
-// via checks.Register or the category helpers (lint.Register, formatter.Register).
+// See docs/specs/checks-cue-review.md.
 package checks
 
 import (

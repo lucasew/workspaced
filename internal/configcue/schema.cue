@@ -131,6 +131,42 @@ workspaced: {
 	// LSP router: language servers behind `workspaced codebase lsp`.
 	// Empty / omitted means the proxy still speaks LSP but routes nowhere.
 	lsp?: #LSP
+
+	// Linters for `workspaced codebase lint` (CUE-defined tools + codecs).
+	lint?: #Checks
+	// Formatters for `workspaced codebase format`.
+	formatter?: #Checks
+}
+
+// #Checks is a map of named check tools (lint or formatter).
+#Checks: {
+	tools?: [string]: #CheckTool
+}
+
+// #CheckTool is one linter or formatter declaration.
+#CheckTool: {
+	// Off-switch without deleting the entry (default on).
+	enable: bool | *true
+	// Ordered firewall rules (keys like "00-go-mod"); first match wins.
+	detect?: [string]: #DetectRule
+	// lazy_tools names to ensure before run (map for deep-merge).
+	needs?: [string]: bool
+	// argv (format tools should include write flags).
+	cmd: [...string] & [_, ...]
+	// Lint only: codec name (sarif, actionlint_json, shellcheck_json, eslint_json).
+	output?: string
+	// When true, append files matching the winning detect rule's glob to cmd.
+	args_from_globs?: bool
+}
+
+// #DetectRule is one firewall entry for tool applicability.
+#DetectRule: {
+	// Match if this path exists under the run root (file or directory).
+	path?: string
+	// Match if any file under the root matches this glob (** and {a,b} supported).
+	glob?: string
+	// Outcome when this rule is the first match.
+	enable: bool
 }
 
 // #LSP is the codebase-local language server router config.

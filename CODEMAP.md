@@ -9,7 +9,7 @@ CUE config (`workspaced.cue`) drives everything.
 - Drivers (`pkg/driver`): OS features (audio, clipboard, WM, …). One impl per interface, chosen by weights and compatibility checks.
 - Modules + source pipeline (`internal/module`, `internal/source`): config and templates become real files, streamed in memory.
 - Tool backends (`internal/tool/backend`): github, mise, catalog. Each yields installable, lockable tools.
-- Checks (`internal/checks`): matching linters and formatters all run.
+- Checks (`internal/checks`): CUE-defined linters/formatters (`lint`/`formatter` tools + codecs); `lint --review` → GHA workflow annotations.
 - CLI packages under `cmd/workspaced/` are small and intention-based.
 
 ## Critical locations

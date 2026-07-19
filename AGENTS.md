@@ -27,7 +27,8 @@ Break these and behavior will be wrong.
   4. Consume via `{{ .Field }}` in templates.
 - No lists in module configs. Shapes must deep-merge cleanly.
 - Driver preloads: import `_ "workspaced/pkg/driver/prelude"` only from `cmd/workspaced/root.go`. Never duplicate that import in subcommands. (`pkg/driver` tests may import it.)
-- Tool/check preloads (`internal/tool/prelude`, `internal/checks/prelude`): import from the cmd that needs registration, not from `pkg/`.
+- Tool preloads (`internal/tool/prelude`): import from the cmd that needs registration, not from `pkg/`.
+- Linters/formatters: CUE `workspaced.lint` / `workspaced.formatter` (see `docs/specs/checks-cue-review.md`); no per-tool Go packages.
 - Process execution outside driver implementations goes through `pkg/driver/exec`.
 - Network: `fetchurl` driver when you have a hash, otherwise `httpclient`. Do not use `http.DefaultClient` directly.
 - Tool backends: scope on backends (github, mise, catalog), not on individual tools. Prefer the word "backend".
