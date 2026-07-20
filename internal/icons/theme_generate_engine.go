@@ -182,9 +182,11 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 					}
 					if err := fastPNGEncoder.Encode(f, final); err != nil {
 						logging.Close(ctx, f)
+						_ = os.Remove(targetPNG)
 						return nil, err
 					}
 					if err := f.Close(); err != nil {
+						_ = os.Remove(targetPNG)
 						return nil, err
 					}
 					localDirs = append(localDirs, filepath.ToSlash(sizeDir))
