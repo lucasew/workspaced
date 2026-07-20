@@ -3,12 +3,12 @@ package input
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strconv"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	"github.com/lucasew/workspaced/pkg/driver/wm"
+	"sort"
+	"strconv"
 
 	"github.com/spf13/cobra"
 )

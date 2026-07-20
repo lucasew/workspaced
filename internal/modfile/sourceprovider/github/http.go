@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"github.com/lucasew/workspaced/internal/githubutil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"net/http"
 )
 
 func (s Source) GetJSON(ctx context.Context, url string, out any) error {

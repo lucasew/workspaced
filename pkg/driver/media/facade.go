@@ -3,10 +3,10 @@ package media
 import (
 	"context"
 	"fmt"
-	"time"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"time"
 )
 
 func RunAction(ctx context.Context, action string) error {

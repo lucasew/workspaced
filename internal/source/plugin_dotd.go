@@ -3,10 +3,10 @@ package source
 import (
 	"context"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/template"
 	"path/filepath"
 	"sort"
 	"strings"
-	"github.com/lucasew/workspaced/internal/template"
 )
 
 // DotDProcessorPlugin processes .d.tmpl directories (concatenation).

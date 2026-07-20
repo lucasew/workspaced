@@ -8,8 +8,8 @@ package tool
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"github.com/lucasew/workspaced/internal/tool/backend"
+	"sync"
 )
 
 var (

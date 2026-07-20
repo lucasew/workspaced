@@ -3,9 +3,9 @@ package history
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"time"
 
 	"github.com/spf13/cobra"
 )

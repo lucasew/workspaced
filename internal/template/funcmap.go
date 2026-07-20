@@ -4,17 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-	"text/template"
 	"github.com/lucasew/workspaced/internal/icons"
 	"github.com/lucasew/workspaced/internal/modfile"
 	"github.com/lucasew/workspaced/internal/text"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	shimdriver "github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"text/template"
 )
 
 // ErrFileSkipped is returned when a template calls {{ skip }}.

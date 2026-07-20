@@ -3,11 +3,11 @@ package wofi
 import (
 	"context"
 	"fmt"
-	"strings"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"strings"
 )
 
 func init() {

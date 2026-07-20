@@ -3,10 +3,10 @@ package native
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"os/exec"
 )
 
 type Factory struct{}

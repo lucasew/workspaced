@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 	"github.com/lucasew/workspaced/internal/deployer"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"time"
 )
 
 var (

@@ -3,8 +3,8 @@ package source
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"path/filepath"
 )
 
 // StrictConflictResolverPlugin garante exclusividade total de caminhos

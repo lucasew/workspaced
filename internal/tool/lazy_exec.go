@@ -3,8 +3,8 @@ package tool
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"os/exec"
 )
 
 // EnsureAndRunLazy handles the lifecycle for a tool configured dynamically in a workspace.

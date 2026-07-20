@@ -5,14 +5,14 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/constants"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
 	"text/template"
-	"github.com/lucasew/workspaced/internal/constants"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )

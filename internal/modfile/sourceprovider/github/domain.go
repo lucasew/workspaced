@@ -1,8 +1,8 @@
 package github
 
 import (
-	"strings"
 	"github.com/lucasew/workspaced/internal/modfile"
+	"strings"
 )
 
 type Source struct {

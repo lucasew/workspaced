@@ -3,13 +3,13 @@ package history
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strings"
-	"time"
 	"github.com/lucasew/workspaced/internal/cmdregistry"
 	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
+	"os"
+	"strings"
+	"time"
 
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/spf13/cobra"

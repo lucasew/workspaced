@@ -1,9 +1,9 @@
 package codebase
 
 import (
-	"os"
 	"github.com/lucasew/workspaced/internal/git"
 	"github.com/lucasew/workspaced/internal/tool"
+	"os"
 
 	"github.com/spf13/cobra"
 )

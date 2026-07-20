@@ -4,14 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/source"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // DconfPlugin emits a content-hash marker so dconf changes participate in deploy planning.

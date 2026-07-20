@@ -2,11 +2,11 @@ package history
 
 import (
 	"encoding/json"
-	"os"
-	"time"
 	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )

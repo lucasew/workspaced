@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/module"
+	"github.com/lucasew/workspaced/internal/modulecue"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/internal/module"
-	"github.com/lucasew/workspaced/internal/modulecue"
 )
 
 var (

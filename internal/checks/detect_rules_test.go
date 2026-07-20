@@ -30,7 +30,7 @@ func TestEvaluateDetectFirstMatchWins(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, err := EvaluateDetect(dir, map[string]DetectRule{
-		"00-deny": {Path: "go.mod", Enable: false},
+		"00-deny":  {Path: "go.mod", Enable: false},
 		"01-allow": {Path: "go.mod", Enable: true},
 	})
 	if err != nil {

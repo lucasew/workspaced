@@ -3,11 +3,11 @@ package brightnessctl
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/brightness"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"strconv"
+	"strings"
 )
 
 func init() {

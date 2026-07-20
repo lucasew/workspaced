@@ -3,12 +3,12 @@ package bash
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	shimdriver "github.com/lucasew/workspaced/pkg/driver/shim"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 type Factory struct{}

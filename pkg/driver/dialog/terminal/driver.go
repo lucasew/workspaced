@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
+	"os"
+	"strings"
 
 	"github.com/ktr0731/go-fuzzyfinder"
 

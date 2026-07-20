@@ -3,11 +3,11 @@ package power
 import (
 	"context"
 	"fmt"
-	"net"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"net"
 )
 
 func Lock(ctx context.Context) error {

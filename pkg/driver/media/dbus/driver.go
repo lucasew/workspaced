@@ -3,9 +3,9 @@ package dbus
 import (
 	"context"
 	"fmt"
-	"strings"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/media"
+	"strings"
 
 	"github.com/godbus/dbus/v5"
 )

@@ -3,11 +3,11 @@ package template
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
 	"github.com/lucasew/workspaced/internal/source"
 	"github.com/lucasew/workspaced/internal/template"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )

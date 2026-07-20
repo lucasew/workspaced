@@ -3,10 +3,10 @@ package modfile
 import (
 	"context"
 	"encoding/json"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func IsLockableProvider(provider string) bool {

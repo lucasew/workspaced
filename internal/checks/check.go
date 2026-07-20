@@ -8,8 +8,8 @@ package checks
 import (
 	"context"
 	"errors"
-	"reflect"
 	"github.com/lucasew/workspaced/internal/compat"
+	"reflect"
 )
 
 // Check is the base interface for discoverable, directory-applicable actions

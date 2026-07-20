@@ -3,10 +3,10 @@ package source
 import (
 	"context"
 	"fmt"
-	"os"
-	"runtime"
 	"github.com/lucasew/workspaced/internal/configcue"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"os"
+	"runtime"
 
 	"github.com/pbnjay/memory"
 )

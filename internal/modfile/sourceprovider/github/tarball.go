@@ -8,14 +8,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
 	"github.com/lucasew/workspaced/internal/githubutil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {

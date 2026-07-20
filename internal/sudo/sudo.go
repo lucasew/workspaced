@@ -5,12 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"time"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 func getQueueDir() (string, error) {
