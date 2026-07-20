@@ -1,7 +1,7 @@
 package version
 
 import (
-	_ "embed"
+	"runtime"
 	"runtime/debug"
 	"strings"
 )
@@ -38,7 +38,40 @@ func BuildID() string {
 	return "dev"
 }
 
-// GetBuildID returns a build identifier combining version and commit hash
+// Platform returns GOOS-GOARCH[-microarch] for this binary.
+// Microarch comes from the build setting for the active GOARCH
+// (GOAMD64, GOARM, GOARM64, GO386, …), e.g. "linux-amd64-v1", "linux-arm-7".
+func Platform() string {
+	p := runtime.GOOS + "-" + runtime.GOARCH
+	if m := microarch(); m != "" {
+		return p + "-" + m
+	}
+	return p
+}
+
+// microarch returns the GO$GOARCH microarchitecture level recorded at build time.
+func microarch() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	for _, s := range info.Settings {
+		switch s.Key {
+		case "GOAMD64", "GOARM", "GOARM64", "GO386",
+			"GOMIPS", "GOMIPS64", "GOPPC64", "GORISCV64", "GOWASM":
+			return s.Value
+		}
+	}
+	return ""
+}
+
+// GetBuildID returns a build identifier combining version and commit hash.
+// No platform: keep it filename-safe (shell-init cache keys).
 func GetBuildID() string {
 	return Version() + "-" + BuildID()
+}
+
+// VersionString is the full --version line body: "<buildID> <platform>".
+func VersionString() string {
+	return GetBuildID() + " " + Platform()
 }

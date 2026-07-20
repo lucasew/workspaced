@@ -73,7 +73,7 @@ func main() {
 	cmd := &cobra.Command{
 		Use:           "workspaced",
 		Short:         "workspaced - declarative user environment manager",
-		Version:       version.GetBuildID(),
+		Version:       version.VersionString(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(c *cobra.Command, args []string) error {
