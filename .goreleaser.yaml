@@ -30,7 +30,7 @@ builds:
       - darwin
       - android
     ldflags:
-      - -s -w -X workspaced/internal/version.version={{ .Version }}
+      - -s -w -X github.com/lucasew/workspaced/internal/version.version={{ .Version }}
     ignore:
       - goos: android
         goarch: amd64
