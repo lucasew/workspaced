@@ -1,14 +1,14 @@
 package tool
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/lucasew/workspaced/internal/tool/checks"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 func GetToolsDir() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return "", err
 	}
@@ -16,7 +16,7 @@ func GetToolsDir() (string, error) {
 }
 
 func GetShimsDir() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return "", err
 	}

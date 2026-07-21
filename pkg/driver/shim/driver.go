@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 var (
@@ -42,8 +44,9 @@ func Generate(ctx context.Context, path string, command []string) error {
 }
 
 // LocalBinDir returns ~/.local/bin for the current user.
+// Uses env.ResolveHomeDir so Termux proot HOME=/home is expanded to the real path.
 func LocalBinDir() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return "", err
 	}
@@ -53,6 +56,9 @@ func LocalBinDir() (string, error) {
 // GenerateInLocalBin ensures ~/.local/bin exists and writes an executable shim
 // named name that runs command. Returns the absolute shim path. Callers own
 // success logging so install vs update wording stays at the call site.
+//
+// command paths should already be absolute real paths (not Termux chroot views);
+// self-install uses ResolveHomeDir for that reason.
 func GenerateInLocalBin(ctx context.Context, name string, command []string) (string, error) {
 	if name == "" {
 		return "", ErrEmptyName
@@ -63,6 +69,17 @@ func GenerateInLocalBin(ctx context.Context, name string, command []string) (str
 	if filepath.Base(name) != name || name == "." || name == ".." {
 		return "", fmt.Errorf("shim name %q must be a plain base name", name)
 	}
+
+	// Normalize absolute command targets so shims stay valid outside proot.
+	normalized := make([]string, len(command))
+	for i, arg := range command {
+		if i == 0 && filepath.IsAbs(arg) {
+			normalized[i] = normalizeAbsHomePath(arg)
+		} else {
+			normalized[i] = arg
+		}
+	}
+	command = normalized
 
 	localBin, err := LocalBinDir()
 	if err != nil {
@@ -77,4 +94,21 @@ func GenerateInLocalBin(ctx context.Context, name string, command []string) (str
 		return "", err
 	}
 	return shimPath, nil
+}
+
+// normalizeAbsHomePath rewrites a Termux chroot absolute path that starts with
+// /home/ to the real $PREFIX/../home/... so the baked exec target works outside proot.
+func normalizeAbsHomePath(path string) string {
+	home, err := envdriver.ResolveHomeDir()
+	if err != nil || home == "" || home == "/home" {
+		return path
+	}
+	const chrootHome = "/home"
+	if path == chrootHome {
+		return home
+	}
+	if strings.HasPrefix(path, chrootHome+"/") {
+		return home + path[len(chrootHome):]
+	}
+	return path
 }

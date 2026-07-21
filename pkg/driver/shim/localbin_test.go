@@ -15,6 +15,10 @@ import (
 func TestGenerateInLocalBin(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("TERMUX_VERSION", "")
+	t.Setenv("TERMUX_APP_PACKAGE", "")
+	t.Setenv("WORKSPACED_IN_PROOT", "")
+	t.Setenv("PREFIX", "")
 	ctx := logging.NewWriterContext(t.Output())
 	target := filepath.Join(home, "opt", "workspaced")
 
@@ -67,6 +71,11 @@ func TestGenerateInLocalBinValidation(t *testing.T) {
 func TestLocalBinDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// Ensure Termux rewrite does not apply in unit tests.
+	t.Setenv("TERMUX_VERSION", "")
+	t.Setenv("TERMUX_APP_PACKAGE", "")
+	t.Setenv("WORKSPACED_IN_PROOT", "")
+	t.Setenv("PREFIX", "")
 
 	got, err := shim.LocalBinDir()
 	if err != nil {
@@ -75,5 +84,39 @@ func TestLocalBinDir(t *testing.T) {
 	want := filepath.Join(home, ".local", "bin")
 	if got != want {
 		t.Fatalf("LocalBinDir: got %q want %q", got, want)
+	}
+}
+
+func TestGenerateInLocalBinRewritesTermuxChrootTarget(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", "/home")
+	t.Setenv("TERMUX_VERSION", "0.118.3")
+	t.Setenv("PREFIX", filepath.Join(home, "usr"))
+	// Real home is PREFIX/../home; create it so layout stays under temp.
+	realHome := filepath.Join(home, "home")
+	if err := os.MkdirAll(filepath.Join(realHome, ".local", "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Point PREFIX so ResolveHomeDir → <home>/home
+	t.Setenv("PREFIX", filepath.Join(home, "usr"))
+
+	ctx := logging.NewWriterContext(t.Output())
+	// Target as seen inside proot
+	chrootTarget := "/home/.local/share/workspaced/bin/workspaced"
+	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{chrootTarget})
+	if err != nil {
+		t.Fatalf("GenerateInLocalBin: %v", err)
+	}
+
+	content, err := os.ReadFile(shimPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantTarget := filepath.Join(realHome, ".local", "share", "workspaced", "bin", "workspaced")
+	if !strings.Contains(string(content), wantTarget) {
+		t.Fatalf("shim should rewrite chroot target to %q, got:\n%s", wantTarget, content)
+	}
+	if strings.Contains(string(content), "exec /home/.local/") {
+		t.Fatalf("shim still has chroot path:\n%s", content)
 	}
 }

@@ -3,10 +3,10 @@ package source
 import (
 	"context"
 	"fmt"
+	"runtime"
+
 	"github.com/lucasew/workspaced/internal/configcue"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"os"
-	"runtime"
 
 	"github.com/pbnjay/memory"
 )
@@ -34,9 +34,12 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 		}
 	}
 
-	home, err := os.UserHomeDir()
+	home, err := envdriver.GetHomeDir(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("user home dir: %w", err)
+		home, err = envdriver.ResolveHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("user home dir: %w", err)
+		}
 	}
 	userDataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {

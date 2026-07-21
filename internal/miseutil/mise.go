@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/lucasew/workspaced/internal/tool"
 	"github.com/lucasew/workspaced/pkg/driver"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/driver/shim/bash"
@@ -36,7 +37,7 @@ func GetPath() string {
 		return path
 	}
 
-	home, err := os.UserHomeDir()
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return ""
 	}
