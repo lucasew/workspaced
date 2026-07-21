@@ -87,36 +87,39 @@ func TestLocalBinDir(t *testing.T) {
 	}
 }
 
-func TestGenerateInLocalBinRewritesTermuxChrootTarget(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", "/home")
-	t.Setenv("TERMUX_VERSION", "0.118.3")
-	t.Setenv("PREFIX", filepath.Join(home, "usr"))
-	// Real home is PREFIX/../home; create it so layout stays under temp.
-	realHome := filepath.Join(home, "home")
-	if err := os.MkdirAll(filepath.Join(realHome, ".local", "bin"), 0o755); err != nil {
+// HOME under /home/<user> must not be re-prefixed when writing shims (the old
+// /home/ string rewrite turned /home/user/... into /home/user/user/...).
+func TestGenerateInLocalBinKeepsNormalHomePaths(t *testing.T) {
+	// Use a path shaped like a real Linux home.
+	root := t.TempDir()
+	home := filepath.Join(root, "home", "user")
+	if err := os.MkdirAll(home, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Point PREFIX so ResolveHomeDir → <home>/home
-	t.Setenv("PREFIX", filepath.Join(home, "usr"))
+	t.Setenv("HOME", home)
+	t.Setenv("TERMUX_VERSION", "")
+	t.Setenv("TERMUX_APP_PACKAGE", "")
+	t.Setenv("WORKSPACED_IN_PROOT", "")
+	t.Setenv("PREFIX", "")
 
+	target := filepath.Join(home, ".local", "share", "workspaced", "bin", "workspaced")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	ctx := logging.NewWriterContext(t.Output())
-	// Target as seen inside proot
-	chrootTarget := "/home/.local/share/workspaced/bin/workspaced"
-	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{chrootTarget})
+	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{target})
 	if err != nil {
 		t.Fatalf("GenerateInLocalBin: %v", err)
 	}
-
 	content, err := os.ReadFile(shimPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantTarget := filepath.Join(realHome, ".local", "share", "workspaced", "bin", "workspaced")
-	if !strings.Contains(string(content), wantTarget) {
-		t.Fatalf("shim should rewrite chroot target to %q, got:\n%s", wantTarget, content)
+	if !strings.Contains(string(content), target) {
+		t.Fatalf("shim missing exact target %q:\n%s", target, content)
 	}
-	if strings.Contains(string(content), "exec /home/.local/") {
-		t.Fatalf("shim still has chroot path:\n%s", content)
+	doubled := filepath.Join(home, "user")
+	if strings.Contains(string(content), doubled) {
+		t.Fatalf("shim re-prefixed home (doubled user path):\n%s", content)
 	}
 }
