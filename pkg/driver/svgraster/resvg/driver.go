@@ -1,6 +1,7 @@
 package resvg
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -45,12 +46,13 @@ func resolveResvg(ctx context.Context) (string, error) {
 		}
 		// Verify on first resolution (cheap --version) so Ensure and first
 		// use behave the same as before.
+		// exec.Run pre-sets Stderr (for Output/Run); do not use CombinedOutput.
 		c, err := exec.Run(ctx, bin, "--version")
 		if err != nil {
 			resvgErr = fmt.Errorf("failed to prepare resvg command: %w", err)
 			return
 		}
-		if _, err := c.CombinedOutput(); err != nil {
+		if err := c.Run(); err != nil {
 			resvgErr = fmt.Errorf("resvg --version check failed: %w", err)
 			return
 		}
@@ -96,8 +98,11 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare resvg command: %w", err)
 	}
-	if out, err := c.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("resvg failed: %w: %s", err, strings.TrimSpace(string(out)))
+	// Capture diagnostics without CombinedOutput (Stderr already attached).
+	var stderr bytes.Buffer
+	c.Stderr = &stderr
+	if err := c.Run(); err != nil {
+		return nil, fmt.Errorf("resvg failed: %w: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
 	f, err := os.Open(outPNG)
