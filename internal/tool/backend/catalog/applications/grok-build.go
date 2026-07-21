@@ -51,7 +51,7 @@ func (t *grokBuildTool) Install(ctx context.Context, version string, destDir str
 			return err
 		}
 	}
-	plat := t.grokPlatform()
+	plat := grokPlatform(runtime.GOOS, runtime.GOARCH)
 	url := "https://x.ai/cli/grok-" + v + "-" + plat
 	if runtime.GOOS == "windows" {
 		url += ".exe"
@@ -72,7 +72,7 @@ func (t *grokBuildTool) ListArtifacts(ctx context.Context, version string) ([]ba
 			return nil, err
 		}
 	}
-	plat := t.grokPlatform()
+	plat := grokPlatform(runtime.GOOS, runtime.GOARCH)
 	u := "https://x.ai/cli/grok-" + v + "-" + plat
 	if runtime.GOOS == "windows" {
 		u += ".exe"
@@ -167,15 +167,22 @@ func (t *grokBuildTool) probeLatest(ctx context.Context) (string, error) {
 	return "", ErrGrokBuildProbeFailure
 }
 
-func (t *grokBuildTool) grokPlatform() string {
-	osn := runtime.GOOS
-	if osn == "darwin" {
+// grokPlatform maps GOOS/GOARCH to the x.ai CLI artifact suffix
+// (e.g. linux-x86_64, macos-aarch64). Android has no dedicated build;
+// use the Linux binary (same ABI as Termux and other Android Linux userlands).
+func grokPlatform(goos, goarch string) string {
+	osn := goos
+	switch osn {
+	case "darwin":
 		osn = "macos"
+	case "android":
+		osn = "linux"
 	}
-	arch := runtime.GOARCH
-	if arch == "amd64" {
+	arch := goarch
+	switch arch {
+	case "amd64":
 		arch = "x86_64"
-	} else if arch == "arm64" {
+	case "arm64":
 		arch = "aarch64"
 	}
 	return osn + "-" + arch
