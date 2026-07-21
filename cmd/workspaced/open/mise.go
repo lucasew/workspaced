@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/lucasew/workspaced/internal/miseutil"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/shim/bash"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -32,7 +33,7 @@ func ensureMise(ctx context.Context) (string, error) {
 // ensureMiseWrapper creates a wrapper script in ~/.local/bin/mise
 func ensureMiseWrapper(ctx context.Context, misePath string) error {
 	logger := logging.GetLogger(ctx)
-	home, err := os.UserHomeDir()
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return fmt.Errorf("get home directory: %w", err)
 	}

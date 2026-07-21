@@ -102,14 +102,11 @@ func runSelfUpdate(ctx context.Context, force bool) error {
 // ============================================================================
 
 func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
-	// Install to fixed location (not versioned)
-	home, err := os.UserHomeDir()
+	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
+	installDir, installPath, err := workspacedInstallPaths(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return err
 	}
-
-	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
-	installPath := filepath.Join(installDir, "workspaced")
 
 	goVersion := getGoVersion()
 	if goVersion == "" {
@@ -232,13 +229,11 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 		return fmt.Errorf("%w: %s/%s (available: %v)", ErrNoArtifactFound, runtime.GOOS, runtime.GOARCH, available)
 	}
 
-	// Install to fixed location (not versioned)
-	home, err := os.UserHomeDir()
+	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
+	installDir, _, err := workspacedInstallPaths(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return err
 	}
-
-	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
 	tmpDir := filepath.Join(installDir, ".tmp-"+normalizedLatest)
 
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -360,6 +355,29 @@ func updateWorkspacedShim(ctx context.Context, workspacedPath string) error {
 	}
 	logging.GetLogger(ctx).Info("updated shim", "path", shimPath, "target", workspacedPath)
 	return nil
+}
+
+// workspacedInstallPaths returns the fixed bin dir and workspaced binary path
+// under the env driver's user data dir (ResolveHomeDir on Termux).
+func workspacedInstallPaths(ctx context.Context) (installDir, installPath string, err error) {
+	dataDir, err := envdriver.GetUserDataDir(ctx)
+	if err != nil {
+		home, homeErr := envdriver.ResolveHomeDir()
+		if homeErr != nil {
+			return "", "", fmt.Errorf("failed to get home directory: %w", err)
+		}
+		dataDir = filepath.Join(home, ".local", "share", "workspaced")
+		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
+			return "", "", fmt.Errorf("failed to create user data dir: %w", mkErr)
+		}
+	}
+	installDir = filepath.Join(dataDir, "bin")
+	name := "workspaced"
+	if runtime.GOOS == "windows" {
+		name = "workspaced.exe"
+	}
+	installPath = filepath.Join(installDir, name)
+	return installDir, installPath, nil
 }
 
 func findSourcePath(ctx context.Context) (string, error) {

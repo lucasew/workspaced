@@ -2,11 +2,12 @@ package env
 
 import (
 	"context"
-	"github.com/lucasew/workspaced/pkg/driver"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/lucasew/workspaced/pkg/driver"
 )
 
 // Driver provides platform-specific environment operations.
@@ -101,10 +102,10 @@ func IsInStore(ctx context.Context) bool {
 	return len(root) >= 10 && root[:10] == "/nix/store"
 }
 
-// ExpandPath expands ~ via os.UserHomeDir and $VAR via os.ExpandEnv.
+// ExpandPath expands ~ via ResolveHomeDir and $VAR via os.ExpandEnv.
 // Callers that know a driver-specific home should use ExpandPathIn instead.
 func ExpandPath(path string) string {
-	home, _ := os.UserHomeDir()
+	home, _ := ResolveHomeDir()
 	return ExpandPathIn(path, home)
 }
 

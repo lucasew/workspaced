@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/lucasew/workspaced/internal/version"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
@@ -58,13 +59,21 @@ func runSelfInstall(ctx context.Context, force bool) error {
 		return fmt.Errorf("failed to get current binary: %w", err)
 	}
 
-	// Determine install location (fixed path, not versioned)
-	home, err := os.UserHomeDir()
+	// Fixed install location under real home (not Termux proot /home view).
+	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		// Bootstrap before drivers/weights: fall back to ResolveHomeDir.
+		home, homeErr := envdriver.ResolveHomeDir()
+		if homeErr != nil {
+			return fmt.Errorf("failed to get home directory: %w", err)
+		}
+		dataDir = filepath.Join(home, ".local", "share", "workspaced")
+		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
+			return fmt.Errorf("failed to create user data dir: %w", mkErr)
+		}
 	}
 
-	installDir := filepath.Join(home, ".local", "share", "workspaced", "bin")
+	installDir := filepath.Join(dataDir, "bin")
 	installPath := filepath.Join(installDir, "workspaced")
 
 	currentVersion := version.Version()
@@ -129,11 +138,15 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 
 func createMiseShim(ctx context.Context) error {
 	// Always create shim, even if mise not installed yet.
-	home, err := os.UserHomeDir()
+	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
-		return err
+		home, homeErr := envdriver.ResolveHomeDir()
+		if homeErr != nil {
+			return err
+		}
+		dataDir = filepath.Join(home, ".local", "share", "workspaced")
 	}
-	misePath := filepath.Join(home, ".local", "share", "workspaced", "bin", "mise")
+	misePath := filepath.Join(dataDir, "bin", "mise")
 	shimPath, err := shim.GenerateInLocalBin(ctx, "mise", []string{misePath})
 	if err != nil {
 		return err

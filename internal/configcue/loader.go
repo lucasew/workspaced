@@ -81,7 +81,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 	}
 
 	if opts.HomeMode {
-		homeDir, err := os.UserHomeDir()
+		homeDir, err := envdriver.ResolveHomeDir()
 		if err == nil && homeDir != "" {
 			p := filepath.Join(homeDir, "workspaced.cue")
 			if fileExists(p) {
@@ -781,9 +781,13 @@ func fileExists(path string) bool {
 }
 
 func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[string]any) (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := envdriver.GetHomeDir(ctx)
 	if err != nil {
-		return "", fmt.Errorf("user home dir: %w", err)
+		// Fallback when drivers are not ready (early bootstrap).
+		home, err = envdriver.ResolveHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("user home dir: %w", err)
+		}
 	}
 	configDir, err := envdriver.GetConfigDir(ctx)
 	if err != nil {
@@ -859,7 +863,7 @@ func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []La
 
 	modulesBaseDir := resolvedSelfModulesBase(paths, discovered)
 	workspaceRoot := filepath.Dir(modulesBaseDir)
-	home, err := os.UserHomeDir()
+	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return nil, fmt.Errorf("user home dir: %w", err)
 	}

@@ -27,15 +27,7 @@ func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) { return &D
 type Driver struct{}
 
 func (d *Driver) GetHomeDir(ctx context.Context) (string, error) {
-	home := os.Getenv("HOME")
-	if home == "" || home == "/home" {
-		prefix := os.Getenv("PREFIX")
-		if prefix == "" {
-			prefix = "/data/data/com.termux/files/usr"
-		}
-		home = filepath.Join(filepath.Dir(prefix), "home")
-	}
-	return home, nil
+	return envdriver.ResolveHomeDir()
 }
 
 func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
