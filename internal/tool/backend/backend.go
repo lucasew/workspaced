@@ -134,8 +134,9 @@ func ContainsAnyOf(haystack string, needles ...string) bool {
 // android→linux fallback, or a .deb/.rpm package). Eligible artifacts always
 // receive a positive score.
 //
-// Higher scores are better. SelectArtifact (and custom selection logic) can
-// use this to filter (score > 0) and to rank.
+// Exact OS matches score higher than fallback OSes (android prefers its own
+// builds over linux when both exist). Higher scores are better. SelectArtifact
+// (and custom selection logic) can use this to filter (score > 0) and to rank.
 func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 	// Acceptable OSes (android falls back to linux for many projects).
 	oses := []string{osName}
@@ -165,6 +166,13 @@ func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 
 	score := 0
 
+	// Exact OS match always beats a fallback OS (e.g. android over linux).
+	// Without this, equal name/archive scores fall through to the shorter-URL
+	// tiebreaker and can pick Linux when an Android asset is present.
+	if a.OS == osName {
+		score += 500
+	}
+
 	if hint != "" {
 		// Strong tokenized match (e.g. "resvg-linux", "foo_resvg_bar", "x.resvg.")
 		for _, sep := range []string{"-", "_", "."} {
@@ -180,7 +188,7 @@ func ScoreArtifact(a Artifact, osName, arch, binaryHint string) int {
 	} else {
 		// No hint provided: reserve 0 strictly for ineligibility by giving
 		// eligible artifacts a minimal positive baseline.
-		score = 1
+		score += 1
 	}
 
 	// Mild preference for common CLI archive formats.

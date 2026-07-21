@@ -54,6 +54,40 @@ func TestSelectCodexCLIAsset(t *testing.T) {
 	}
 }
 
+func TestSelectArtifactPrefersAndroidOverLinux(t *testing.T) {
+	// Mirrors workspaced release asset names: Android and Linux both arm64.
+	// Before the exact-OS bonus, equal scores + shorter-URL tiebreaker picked Linux.
+	arts := []Artifact{
+		{OS: "linux", Arch: "arm64", URL: "https://example.com/workspaced_Linux_arm64.tar.gz"},
+		{OS: "android", Arch: "arm64", URL: "https://example.com/workspaced_Android_arm64.tar.gz"},
+		{OS: "darwin", Arch: "arm64", URL: "https://example.com/workspaced_Darwin_arm64.tar.gz"},
+	}
+	got := SelectArtifact(arts, "android", "arm64", "workspaced")
+	if got == nil {
+		t.Fatal("no artifact selected")
+	}
+	if got.OS != "android" {
+		t.Fatalf("SelectArtifact() OS = %s, want android (URL %s)", got.OS, got.URL)
+	}
+	if base := filepath.Base(got.URL); base != "workspaced_Android_arm64.tar.gz" {
+		t.Fatalf("SelectArtifact() = %s, want workspaced_Android_arm64.tar.gz", base)
+	}
+}
+
+func TestSelectArtifactAndroidFallsBackToLinux(t *testing.T) {
+	arts := []Artifact{
+		{OS: "linux", Arch: "arm64", URL: "https://example.com/tool_Linux_arm64.tar.gz"},
+		{OS: "darwin", Arch: "arm64", URL: "https://example.com/tool_Darwin_arm64.tar.gz"},
+	}
+	got := SelectArtifact(arts, "android", "arm64", "tool")
+	if got == nil {
+		t.Fatal("no artifact selected")
+	}
+	if got.OS != "linux" {
+		t.Fatalf("SelectArtifact() OS = %s, want linux fallback", got.OS)
+	}
+}
+
 func TestScoreArtifact(t *testing.T) {
 	const (
 		osName = "linux"
@@ -70,31 +104,31 @@ func TestScoreArtifact(t *testing.T) {
 			name: "empty hint (eligible archive gets positive baseline)",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/foo.tar.gz"},
 			hint: "",
-			want: 11, // baseline 1 + 10 for archive
+			want: 511, // exact OS 500 + baseline 1 + 10 for archive
 		},
 		{
 			name: "exact token match",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/resvg-linux.tar.gz"},
 			hint: "resvg",
-			want: 190,
+			want: 690, // exact OS 500 + token 120 + substring 60 + archive 10
 		},
 		{
 			name: "substring match",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/myresvgtool.tar.gz"},
 			hint: "resvg",
-			want: 70,
+			want: 570, // exact OS 500 + substring 60 + archive 10
 		},
 		{
 			name: "no name match but good archive",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/other.tar.gz"},
 			hint: "resvg",
-			want: 10,
+			want: 510, // exact OS 500 + archive 10
 		},
 		{
 			name: "token match + debug penalty",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/resvg-debug.tar.gz"},
 			hint: "resvg",
-			want: 170,
+			want: 670, // exact OS 500 + token 120 + substring 60 + archive 10 - debug 20
 		},
 
 		// Ineligibility cases (must return 0)
@@ -132,13 +166,13 @@ func TestScoreArtifact(t *testing.T) {
 			name: "codex primary archive beats npm tarball",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/codex-x86_64-unknown-linux-musl.tar.gz"},
 			hint: "codex",
-			want: 230, // token 120 + substring 60 + archive 10 + arch-token 40
+			want: 730, // exact OS 500 + token 120 + substring 60 + archive 10 + arch-token 40
 		},
 		{
 			name: "codex npm package is penalized",
 			art:  Artifact{OS: osName, Arch: arch, URL: "https://example.com/codex-npm-linux-x64-0.1.0.tgz"},
 			hint: "codex",
-			want: 140, // token 120 + substring 60 + archive 10 - npm 50
+			want: 640, // exact OS 500 + token 120 + substring 60 + archive 10 - npm 50
 		},
 	}
 
@@ -150,5 +184,22 @@ func TestScoreArtifact(t *testing.T) {
 					tt.art, osName, arch, tt.hint, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestScoreArtifactAndroidPrefersExactOverLinuxFallback(t *testing.T) {
+	androidArt := Artifact{OS: "android", Arch: "arm64", URL: "https://example.com/workspaced_Android_arm64.tar.gz"}
+	linuxArt := Artifact{OS: "linux", Arch: "arm64", URL: "https://example.com/workspaced_Linux_arm64.tar.gz"}
+
+	androidScore := ScoreArtifact(androidArt, "android", "arm64", "workspaced")
+	linuxScore := ScoreArtifact(linuxArt, "android", "arm64", "workspaced")
+	if androidScore <= 0 {
+		t.Fatalf("android artifact score = %d, want > 0", androidScore)
+	}
+	if linuxScore <= 0 {
+		t.Fatalf("linux fallback score = %d, want > 0 (still eligible)", linuxScore)
+	}
+	if androidScore <= linuxScore {
+		t.Fatalf("android score %d <= linux fallback %d; exact OS should win", androidScore, linuxScore)
 	}
 }
