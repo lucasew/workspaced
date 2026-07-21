@@ -1,6 +1,6 @@
 # Warning: Do not unify this file with others. Keep tool definitions localized.
 [tools]
-go = "1.26.4"
+go = "1.26.5"
 "go:golang.org/x/tools/gopls" = "0.22.0"
 "go:github.com/golangci/golangci-lint/v2/cmd/golangci-lint" = "2.12.2"
 goreleaser = "2.17.0"
