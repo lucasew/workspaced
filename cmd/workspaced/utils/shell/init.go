@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/shellgen"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -70,7 +71,8 @@ Uses caching for performance - regenerates only when source files change.`,
 			buildID := version.GetBuildID()
 			cacheFile := filepath.Join(cacheDir, fmt.Sprintf("shell-init-%s-%s-%s.bash", shell, buildID, preludeFingerprint))
 
-			if !force {
+			// Local --force is shell-cache only; global --no-cache is the full cascade.
+			if !force && !cmdctx.IsNoCache(ctx) {
 				if content, err := os.ReadFile(cacheFile); err == nil {
 					if profile {
 						logger.Info("shell init cache hit", "cache_file", cacheFile)
@@ -78,6 +80,9 @@ Uses caching for performance - regenerates only when source files change.`,
 					fmt.Print(string(content))
 					return nil
 				}
+			}
+			if cmdctx.IsNoCache(ctx) {
+				logger.Debug("no-cache: regenerating shell init", "cache_file", cacheFile)
 			}
 			if profile {
 				logger.Info("shell init cache miss, generating")
@@ -193,9 +198,13 @@ Uses caching for performance - regenerates only when source files change.`,
 
 			result := output.String()
 
-			if err := os.WriteFile(cacheFile, []byte(result), 0644); err != nil {
-				// Non-fatal, continue
-				logger.Warn("failed to write shell init cache", "cache_file", cacheFile, "error", err)
+			// Atomic repopulate: write temp then rename over the cache file.
+			tmpCache := cacheFile + ".tmp"
+			if err := os.WriteFile(tmpCache, []byte(result), 0644); err != nil {
+				logger.Warn("failed to write shell init cache", "cache_file", tmpCache, "error", err)
+			} else if err := os.Rename(tmpCache, cacheFile); err != nil {
+				_ = os.Remove(tmpCache)
+				logger.Warn("failed to finalize shell init cache", "cache_file", cacheFile, "error", err)
 			}
 
 			fmt.Print(result)
@@ -203,7 +212,7 @@ Uses caching for performance - regenerates only when source files change.`,
 		},
 	}
 
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force regeneration, ignore cache")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force regeneration, ignore shell-init cache only (see also global --no-cache)")
 	cmd.Flags().BoolVarP(&profile, "profile", "p", false, "Show timing information for each step")
 
 	return cmd

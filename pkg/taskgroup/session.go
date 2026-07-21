@@ -38,6 +38,10 @@ type Session struct {
 	mu    sync.Mutex
 	after []func() error
 
+	// overlay holds context values merged into every task ctx (Value only).
+	// Used when a subcommand sets flags after Enter (e.g. plan forces dry-run).
+	overlay context.Context
+
 	closeOnce sync.Once
 	err       error
 }
@@ -53,6 +57,7 @@ func Enter(ctx context.Context, limits Limits) (*Session, context.Context) {
 	// Notify on any Go in this tree (root and SubGroups share the same session
 	// lookup via SessionFrom on the group context).
 	g.onSchedule = s.ensureUI
+	g.session = s
 	ctx = context.WithValue(ctx, sessionKey{}, s)
 	return s, ctx
 }
@@ -78,6 +83,28 @@ func (s *Session) Group() *Group {
 		return nil
 	}
 	return s.group
+}
+
+// Overlay records ctx values to merge into every subsequent task context.
+// Call after Enter when a subcommand needs flags visible inside tasks
+// (e.g. home/codebase plan forces dry-run after the root session started).
+// Only context.Value lookups are overlaid; cancellation still follows the group.
+func (s *Session) Overlay(ctx context.Context) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.overlay = ctx
+	s.mu.Unlock()
+}
+
+func (s *Session) overlayContext() context.Context {
+	if s == nil {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.overlay
 }
 
 // AfterWait registers fn to run after all tasks complete and the UI/output

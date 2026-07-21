@@ -65,6 +65,7 @@ func main() {
 
 	var verbose bool
 	var dryRun bool
+	var noCache bool
 	var cpuProfilePath string
 	var memProfilePath string
 	var stopProfiling func() error
@@ -98,6 +99,11 @@ func main() {
 
 			c.SetContext(cmdctx.WithVerbose(c.Context(), verbose))
 			c.SetContext(cmdctx.WithDryRun(c.Context(), dryRun))
+			armedNoCache := noCache || cmdctx.EnvNoCache()
+			c.SetContext(cmdctx.WithNoCache(c.Context(), armedNoCache))
+			if armedNoCache {
+				logging.GetLogger(c.Context()).Info("no-cache enabled (flag or WORKSPACED_NO_CACHE)")
+			}
 
 			// One session per invocation: root group + optional TUI observer.
 			// Commands only schedule tasks; Close in PostRun waits and tears down.
@@ -163,6 +169,7 @@ func main() {
 	// Global flags
 	cmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug logging")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "d", false, "Only show what would be done")
+	cmd.PersistentFlags().BoolVar(&noCache, "no-cache", false, "Ignore install/module/source/shell caches; re-fetch locked tools; treat deploy noops as updates (also WORKSPACED_NO_CACHE)")
 	cmd.PersistentFlags().StringVar(&cpuProfilePath, "cpuprofile", "", "Write CPU profile to file (or set WORKSPACED_CPUPROFILE)")
 	cmd.PersistentFlags().StringVar(&memProfilePath, "memprofile", "", "Write heap profile to file at end (or set WORKSPACED_MEMPROFILE)")
 	Registry.FillCommands(cmd)

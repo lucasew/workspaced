@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -71,7 +72,8 @@ func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
 		tt, _ = p.Tool(spec.Package)
 	}
 
-	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+	noCache := cmdctx.IsNoCache(ctx)
+	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 && !noCache {
 		if tt != nil {
 			if err := fixAndCheck(ctx, tt, versionDir); err == nil {
 				return nil
@@ -81,10 +83,19 @@ func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
 			return nil
 		}
 	}
+	if noCache && cmdctx.IsDryRun(ctx) {
+		if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+			logging.GetLogger(ctx).Debug("no-cache: would reinstall tool (dry-run)", "spec", toolSpecStr)
+			return nil
+		}
+	}
+	if noCache {
+		logging.GetLogger(ctx).Debug("no-cache: reinstalling tool", "spec", toolSpecStr)
+	}
 
-	// Missing, empty, or failed checks: let Install perform the work. If we resolved
-	// a concrete version for a "latest" input, pass it pinned so Install skips its
-	// own re-resolution.
+	// Missing, empty, failed checks, or no-cache: let Install perform the work.
+	// If we resolved a concrete version for a "latest" input, pass it pinned so
+	// Install skips its own re-resolution.
 	if actualVersion != spec.Version {
 		pinned := fmt.Sprintf("%s:%s@%s", spec.Provider, spec.Package, actualVersion)
 		return m.Install(ctx, pinned)
@@ -133,11 +144,21 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	normalizedVersion := normalizeVersion(version)
 	logger.Debug("normalized version", "original", version, "normalized", normalizedVersion)
 
-	destPath := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
-
-	if err := os.MkdirAll(destPath, 0755); err != nil {
+	finalPath := filepath.Join(m.toolsDir, spec.Dir(), normalizedVersion)
+	// Always materialize into a sibling temp dir, then atomic-swap into place.
+	workPath := finalPath + ".tmp"
+	if err := os.RemoveAll(workPath); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(workPath, 0755); err != nil {
+		return err
+	}
+	cleanupWork := true
+	defer func() {
+		if cleanupWork {
+			_ = os.RemoveAll(workPath)
+		}
+	}()
 
 	// The actual installation work (network + extract) can be long-running.
 	// When a taskgroup.Group is present in the context we schedule it as a
@@ -152,7 +173,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 					if chosen := backend.SelectArtifact(artifacts, runtime.GOOS, runtime.GOARCH, binaryHint); chosen != nil {
 						logger := logging.GetLogger(ctx)
 						logger.Debug("installing with artifact hint", "url", chosen.URL, "hint", binaryHint)
-						return at.InstallArtifact(ctx, *chosen, destPath)
+						return at.InstallArtifact(ctx, *chosen, workPath)
 					}
 				}
 			}
@@ -160,8 +181,8 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 
 		// Normal path: let the Tool do the install (it will select a suitable artifact for the platform).
 		logger := logging.GetLogger(ctx)
-		logger.Debug("installing tool via Tool.Install", "dest", destPath)
-		return t.Install(ctx, version, destPath)
+		logger.Debug("installing tool via Tool.Install", "dest", workPath)
+		return t.Install(ctx, version, workPath)
 	}
 
 	if err := taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
@@ -172,11 +193,38 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
-	if err := fixAndCheck(ctx, t, destPath); err != nil {
+	if err := fixAndCheck(ctx, t, workPath); err != nil {
 		return err
 	}
 
-	logger.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", destPath)
+	if err := atomicReplaceDir(finalPath, workPath); err != nil {
+		return fmt.Errorf("install swap %s: %w", finalPath, err)
+	}
+	cleanupWork = false
+
+	logger.Info("tool installed successfully", "spec", spec, "normalized_version", normalizedVersion, "path", finalPath)
+	return nil
+}
+
+// atomicReplaceDir moves tmpDir into place at dest, replacing any existing dest.
+func atomicReplaceDir(dest, tmpDir string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
+	old := dest + ".old"
+	_ = os.RemoveAll(old)
+	if _, err := os.Stat(dest); err == nil {
+		if err := os.Rename(dest, old); err != nil {
+			if err := os.RemoveAll(dest); err != nil {
+				return err
+			}
+		}
+	}
+	if err := os.Rename(tmpDir, dest); err != nil {
+		_ = os.Rename(old, dest)
+		return err
+	}
+	_ = os.RemoveAll(old)
 	return nil
 }
 

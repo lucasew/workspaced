@@ -32,8 +32,11 @@ answers "what would codebase lint apply do?"
 4. `… apply` — only when writes are intended.
 5. Re-plan if something still looks wrong.
 
-Dry-run / verbose global flags may exist on the root command (`--help` on
-`workspaced`); use them when you want more signal without guessing.
+Dry-run / verbose / **no-cache** global flags live on the root command
+(`workspaced --help`). `--no-cache` (or `WORKSPACED_NO_CACHE`) cold-starts
+install/module/source/shell caches and turns deploy noops into updates; under
+plan/dry-run it only **widens the plan** (no downloads/swaps). Full contract:
+`docs/specs/no-cache.md`.
 
 ## Home extras (not the same as apply)
 

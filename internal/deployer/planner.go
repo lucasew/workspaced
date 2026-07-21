@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/source"
-	"github.com/lucasew/workspaced/pkg/logging"
-	"github.com/lucasew/workspaced/pkg/taskgroup"
 	"io"
 	"os"
 	"strings"
+
+	"github.com/lucasew/workspaced/internal/cmdctx"
+	"github.com/lucasew/workspaced/internal/source"
+	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // Planner compares current state with desired state and generates actions.
@@ -34,6 +36,12 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 
 	if !exists {
 		return Action{Type: ActionCreate, Target: target, Desired: d}, nil
+	}
+
+	// --no-cache: force rewrite of every existing target (noops become updates).
+	if cmdctx.IsNoCache(ctx) {
+		logging.GetLogger(ctx).Debug("no-cache: forcing update", "target", target)
+		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
 	}
 
 	// Bundle fast-path: if managed source fingerprint is identical, skip per-file hashing.

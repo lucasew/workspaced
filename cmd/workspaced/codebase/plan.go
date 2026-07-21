@@ -17,13 +17,15 @@ func init() {
 				ctx := cmd.Context()
 				showNoop, _ := cmd.Flags().GetBool("show-noop")
 
-				// Force dry-run
+				// Force dry-run on apply options and task contexts (Overlay).
 				ctx = cmdctx.WithDryRun(ctx, true)
 				cmd.SetContext(ctx)
+				sess := taskgroup.MustSessionFrom(ctx)
+				sess.Overlay(ctx)
 
 				g := taskgroup.MustFromContext(ctx)
 				printReport := Schedule(g, cmd, true, showNoop)
-				taskgroup.MustSessionFrom(ctx).AfterWait(printReport)
+				sess.AfterWait(printReport)
 				return nil
 			},
 		}

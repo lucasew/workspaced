@@ -324,6 +324,11 @@ type Group struct {
 	// onSchedule is invoked once per Go() (including on SubGroups). Used by
 	// Session to lazily start the progress UI on the first scheduled task.
 	onSchedule func()
+
+	// session is the owning Session for this tree (set by Enter; copied to SubGroups).
+	// Used so task contexts can apply Session.Overlay even though g.ctx itself
+	// does not carry sessionKey.
+	session *Session
 }
 
 // New creates a root Group with the given pool limits.
@@ -616,6 +621,13 @@ func (g *Group) runTask(t *taskEntry) {
 	// Previously the per-task ctx only derived from g.ctx (the internal cancel ctx)
 	// which did not carry the contextKey, only the command-level context did.
 	taskCtx := context.WithValue(g.ctx, contextKey{}, g)
+	// Session.Overlay values (e.g. plan's dry-run set after Enter) must be
+	// visible to materializers that only see this task ctx.
+	if sess := g.session; sess != nil {
+		if o := sess.overlayContext(); o != nil {
+			taskCtx = valueOverlay{Context: taskCtx, overlay: o}
+		}
+	}
 	if base := logging.GetLogger(g.ctx); base != nil {
 		tagged := base.With("task", t.desc)
 		rec := &logRecorder{
@@ -816,6 +828,7 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 		onLog:          onLogCopy,
 		usingBubbleTea: usingCopy,
 		onSchedule:     g.onSchedule, // lazy session UI on first Go anywhere in the tree
+		session:        g.session,
 	}
 
 	// Register the child so SetLogHandler / setUsingBubbleTea on ancestors
@@ -834,4 +847,19 @@ func (g *Group) SubGroup(ctx context.Context) (*Group, context.Context) {
 		childCtx = context.WithValue(childCtx, sessionKey{}, sess)
 	}
 	return child, childCtx
+}
+
+// valueOverlay prefers overlay.Value for lookups while keeping base deadline/cancel.
+type valueOverlay struct {
+	context.Context
+	overlay context.Context
+}
+
+func (v valueOverlay) Value(key any) any {
+	if v.overlay != nil {
+		if val := v.overlay.Value(key); val != nil {
+			return val
+		}
+	}
+	return v.Context.Value(key)
 }

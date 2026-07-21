@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -66,7 +67,9 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	// If a version directory exists and has contents, validate it (Fix + checks).
 	// Failed checks remove the tree so we fall through to reinstall.
 	// FindBinary is only used to locate the requested cmd inside a valid tree.
-	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 {
+	// --no-cache ignores a warm install and re-fetches the pin.
+	noCache := cmdctx.IsNoCache(ctx)
+	if entries, err := os.ReadDir(versionDir); err == nil && len(entries) > 0 && !noCache {
 		if err := fixAndCheck(ctx, t, versionDir); err != nil {
 			logger.Info("existing install failed checks; reinstalling", "spec", spec, "err", err)
 		} else if binPath := FindBinary(versionDir, cmdName); binPath != "" {
@@ -75,26 +78,49 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			return "", fmt.Errorf("%w: %q in %s", ErrBinaryNotFound, cmdName, versionDir)
 		}
 	}
+	if noCache && cmdctx.IsDryRun(ctx) {
+		if binPath := FindBinary(versionDir, cmdName); binPath != "" {
+			logger.Debug("no-cache: would reinstall tool (dry-run)", "spec", spec, "bin", cmdName)
+			return binPath, nil
+		}
+	}
+	if noCache {
+		logger.Debug("no-cache: reinstalling tool", "spec", spec, "bin", cmdName)
+	}
 
-	// Folder missing or empty: perform the install.
+	// Folder missing, empty, or no-cache: perform the install.
 	logger.Info("installing tool", "spec", spec, "backend", spec.Provider, "version", actualVersion, "bin", cmdName)
 
 	if bt, ok := t.(backend.BinaryTool); ok {
+		workPath := versionDir + ".tmp"
+		_ = os.RemoveAll(workPath)
+		if err := os.MkdirAll(workPath, 0755); err != nil {
+			return "", err
+		}
 		var binPath string
 		var installErr error
 		installErr = taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 			s.Update("installing " + normalizedVersion)
 			var err error
-			binPath, err = bt.EnsureBinary(ctx, actualVersion, cmdName, versionDir)
+			binPath, err = bt.EnsureBinary(ctx, actualVersion, cmdName, workPath)
 			return err
 		})
 		if installErr != nil {
+			_ = os.RemoveAll(workPath)
 			return "", fmt.Errorf("failed to install tool: %w", installErr)
 		}
-		if err := fixAndCheck(ctx, t, versionDir); err != nil {
+		if err := fixAndCheck(ctx, t, workPath); err != nil {
+			_ = os.RemoveAll(workPath)
 			return "", err
 		}
+		if err := atomicReplaceDir(versionDir, workPath); err != nil {
+			_ = os.RemoveAll(workPath)
+			return "", fmt.Errorf("install swap %s: %w", versionDir, err)
+		}
 		if binPath == "" {
+			binPath = FindBinary(versionDir, cmdName)
+		} else {
+			// EnsureBinary may have returned a path under workPath; re-resolve after swap.
 			binPath = FindBinary(versionDir, cmdName)
 		}
 		if binPath == "" {

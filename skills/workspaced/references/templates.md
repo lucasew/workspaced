@@ -327,5 +327,7 @@ second flag list here.
   `isPhone`, enable flags, etc. in cue/runtime.
 - Generator module slow every apply: missing/unstable `bundle:` fingerprint in
   `SourceInfo`; see deep generator section above.
+- Engine/code changed but outputs look frozen: warm module/tool caches; use
+  root `--no-cache` / `WORKSPACED_NO_CACHE` for a full cascade (`docs/specs/no-cache.md`).
 - Confusing plan empty with engine bug: usually enablement, kind, `skip`, or
   wrong workspace (`config-and-roots.md`).

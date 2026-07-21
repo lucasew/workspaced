@@ -5,6 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/tool"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -12,11 +19,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/driver/shim/bash"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"io"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 const installerURL = "https://mise.run"
@@ -51,12 +53,22 @@ func Ensure(ctx context.Context) (string, error) {
 		return "", ErrMiseInstallPathUnknown
 	}
 
-	if _, err := os.Stat(misePath); err == nil {
+	logger := logging.GetLogger(ctx)
+	noCache := cmdctx.IsNoCache(ctx)
+	if _, err := os.Stat(misePath); err == nil && !noCache {
 		return misePath, nil
 	}
-
-	logger := logging.GetLogger(ctx)
-	logger.Info("mise not found, installing", "path", misePath)
+	if noCache && cmdctx.IsDryRun(ctx) {
+		if _, err := os.Stat(misePath); err == nil {
+			logger.Debug("no-cache: would reinstall mise (dry-run)", "path", misePath)
+			return misePath, nil
+		}
+	}
+	if noCache {
+		logger.Debug("no-cache: reinstalling mise", "path", misePath)
+	} else {
+		logger.Info("mise not found, installing", "path", misePath)
+	}
 	if err := Install(ctx, misePath); err != nil {
 		return "", err
 	}
@@ -121,6 +133,7 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 }
 
 // Install downloads the official mise installer and runs it so the binary lands at misePath.
+// Installs to a sibling temp path then renames into place (atomic replace).
 func Install(ctx context.Context, misePath string) error {
 	if err := os.MkdirAll(filepath.Dir(misePath), 0755); err != nil {
 		return fmt.Errorf("create mise directory: %w", err)
@@ -153,6 +166,10 @@ func Install(ctx context.Context, misePath string) error {
 		return fmt.Errorf("read installer script: %w", err)
 	}
 
+	tmpPath := misePath + ".tmp"
+	_ = os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
+
 	installCmd, err := execdriver.Run(ctx, bash.GetShell(ctx), "-s")
 	if err != nil {
 		return fmt.Errorf("create install command: %w", err)
@@ -161,14 +178,22 @@ func Install(ctx context.Context, misePath string) error {
 	installCmd.Stdin = io.NopCloser(bytes.NewReader(scriptBytes))
 	installCmd.Stdout = os.Stderr
 	installCmd.Stderr = os.Stderr
-	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", misePath))
+	installCmd.Env = append(os.Environ(), fmt.Sprintf("MISE_INSTALL_PATH=%s", tmpPath))
 
 	if err := installCmd.Run(); err != nil {
 		return fmt.Errorf("run mise installer: %w", err)
 	}
 
-	if _, err := os.Stat(misePath); err != nil {
-		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, misePath)
+	if _, err := os.Stat(tmpPath); err != nil {
+		return fmt.Errorf("%w: binary not found at %s", ErrMiseInstallFailed, tmpPath)
+	}
+
+	// Atomic replace of the live binary.
+	if err := os.Rename(tmpPath, misePath); err != nil {
+		_ = os.Remove(misePath)
+		if err := os.Rename(tmpPath, misePath); err != nil {
+			return fmt.Errorf("install swap %s: %w", misePath, err)
+		}
 	}
 
 	logger.Info("mise installed successfully", "path", misePath)

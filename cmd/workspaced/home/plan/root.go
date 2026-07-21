@@ -19,12 +19,16 @@ func GetCommand() *cobra.Command {
 
 			// Force dry-run so that any code using cmdctx.IsDryRun(ctx) (or
 			// the ApplyOptions inside the scheduled work) behaves as a plan.
+			// Overlay so task contexts (built from the Enter-time group ctx)
+			// see dry-run too — needed for --no-cache materializer skips.
 			ctx = cmdctx.WithDryRun(ctx, true)
 			cmd.SetContext(ctx)
+			sess := taskgroup.MustSessionFrom(ctx)
+			sess.Overlay(ctx)
 
 			g := taskgroup.MustFromContext(ctx)
 			printReport := apply.Schedule(g, cmd, true, showNoop)
-			taskgroup.MustSessionFrom(ctx).AfterWait(printReport)
+			sess.AfterWait(printReport)
 			return nil
 		},
 	}

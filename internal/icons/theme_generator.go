@@ -11,7 +11,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var ErrIconSourceDirNotFound = errors.New("icon source directory not found")
@@ -85,12 +87,22 @@ func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 		}
 		statePath := filepath.Join(outputDir, ".workspaced-icons-state")
 		indexPath := filepath.Join(outputDir, "index.theme")
-		if oldSig, err := os.ReadFile(statePath); err == nil {
-			if strings.TrimSpace(string(oldSig)) == sig {
-				if _, err := os.Stat(indexPath); err == nil {
-					return nil
+		noCache := cmdctx.IsNoCache(ctx)
+		if !noCache {
+			if oldSig, err := os.ReadFile(statePath); err == nil {
+				if strings.TrimSpace(string(oldSig)) == sig {
+					if _, err := os.Stat(indexPath); err == nil {
+						return nil
+					}
 				}
 			}
+		} else if cmdctx.IsDryRun(ctx) {
+			if _, err := os.Stat(indexPath); err == nil {
+				logging.GetLogger(ctx).Debug("no-cache: would regenerate icons (dry-run)", "output", outputDir)
+				return nil
+			}
+		} else {
+			logging.GetLogger(ctx).Debug("no-cache: regenerating icons", "output", outputDir)
 		}
 		if err := runThemeGenerateEngine(ctx, opts, inputDir, outputDir); err != nil {
 			return err

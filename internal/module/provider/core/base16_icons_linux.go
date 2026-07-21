@@ -13,9 +13,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/icons"
 	"github.com/lucasew/workspaced/internal/module"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {
@@ -108,13 +110,26 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 
 	cacheRoot := envdriver.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
 	cacheDir := filepath.Join(cacheRoot, fp)
-	if _, err := os.Stat(filepath.Join(cacheDir, "index.theme")); errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(cacheDir, 0755); err != nil {
+	indexPath := filepath.Join(cacheDir, "index.theme")
+	_, indexErr := os.Stat(indexPath)
+	warm := indexErr == nil
+	noCache := cmdctx.IsNoCache(ctx)
+	if warm && !noCache {
+		// cache hit
+	} else if noCache && cmdctx.IsDryRun(ctx) && warm {
+		logging.GetLogger(ctx).Debug("no-cache: would regenerate icons (dry-run)", "cache_dir", cacheDir)
+	} else {
+		if noCache {
+			logging.GetLogger(ctx).Debug("no-cache: regenerating icons", "cache_dir", cacheDir)
+		}
+		workDir := cacheDir + ".tmp"
+		_ = os.RemoveAll(workDir)
+		if err := os.MkdirAll(workDir, 0755); err != nil {
 			return nil, err
 		}
 		err := icons.RunThemeGenerate(ctx, icons.ThemeGenerateOptions{
 			InputDir:       cfg.InputDir,
-			OutputDir:      cacheDir,
+			OutputDir:      workDir,
 			ThemeName:      cfg.ThemeName,
 			Jobs:           cfg.Jobs,
 			Sizes:          cfg.Sizes,
@@ -129,6 +144,11 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 			UseCache:       false,
 		})
 		if err != nil {
+			_ = os.RemoveAll(workDir)
+			return nil, err
+		}
+		if err := atomicReplaceDir(cacheDir, workDir); err != nil {
+			_ = os.RemoveAll(workDir)
 			return nil, err
 		}
 	}
@@ -204,6 +224,28 @@ func moduleFingerprint(cfg base16IconsConfig, palette map[string]any) (string, e
 	}
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:]), nil
+}
+
+// atomicReplaceDir moves tmpDir into place at dest, replacing any existing dest.
+func atomicReplaceDir(dest, tmpDir string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return err
+	}
+	old := dest + ".old"
+	_ = os.RemoveAll(old)
+	if _, err := os.Stat(dest); err == nil {
+		if err := os.Rename(dest, old); err != nil {
+			if err := os.RemoveAll(dest); err != nil {
+				return err
+			}
+		}
+	}
+	if err := os.Rename(tmpDir, dest); err != nil {
+		_ = os.Rename(old, dest)
+		return err
+	}
+	_ = os.RemoveAll(old)
+	return nil
 }
 
 func sourceStats(dir string) (map[string]any, error) {
