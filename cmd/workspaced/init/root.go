@@ -133,15 +133,25 @@ func generateConfig(ctx context.Context, configPath string) error {
 		return fmt.Errorf("failed to parse template: %w", err)
 	}
 
-	// Create config file
-	f, err := os.Create(configPath)
+	// Write via temp + rename so a failed Execute cannot leave a partial
+	// workspaced.cue (and, with --force, cannot destroy an existing good config).
+	tmpPath := configPath + ".tmp"
+	f, err := os.Create(tmpPath)
 	if err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
+		return fmt.Errorf("create config temp file: %w", err)
 	}
-	defer logging.Close(ctx, f)
-
 	if err := tmpl.Execute(f, data); err != nil {
-		return fmt.Errorf("failed to execute template: %w", err)
+		logging.Close(ctx, f)
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("execute template: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close config temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, configPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("replace config file: %w", err)
 	}
 
 	return nil
