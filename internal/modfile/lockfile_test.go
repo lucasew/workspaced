@@ -1,6 +1,8 @@
 package modfile
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -42,6 +44,30 @@ func TestWriteSumFile(t *testing.T) {
 	tool, ok := got.FindTool("github:sharkdp/fd")
 	if !ok || tool.Version != "v10.4.0" {
 		t.Fatalf("missing tool version in content: %#v", got.Dependencies)
+	}
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temp file should be gone after successful write, err=%v", err)
+	}
+}
+
+func TestWriteSumFileRemovesTempOnRenameFailure(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// Destination is a directory so rename(tmp → path) fails with EISDIR.
+	path := filepath.Join(dir, "workspaced.lock.json")
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	sum := &SumFile{}
+	sum.EnsureTool("fd", LockedTool{Ref: "github:sharkdp/fd", Version: "v10.4.0"})
+	err := writeSumFile(t.Context(), path, sum)
+	if err == nil {
+		t.Fatal("expected rename error when destination is a directory")
+	}
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temp file should be cleaned up after rename failure, err=%v", err)
 	}
 }
 
