@@ -141,9 +141,14 @@ func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, targe
 		}
 		if _, err := io.Copy(f, tr); err != nil {
 			logging.Close(ctx, f)
+			_ = os.Remove(target)
 			return err
 		}
-		return f.Close()
+		if err := f.Close(); err != nil {
+			_ = os.Remove(target)
+			return err
+		}
+		return nil
 	case tar.TypeSymlink:
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
