@@ -82,6 +82,7 @@ func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.S
 	// behave like a plain command but with all its chatter on stderr).
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
+	cmd.DontRestrict = true
 
 	_, err := cmd.Run(ctx)
 	return err

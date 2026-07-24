@@ -1,9 +1,11 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -45,7 +47,9 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 		if err := a.clone(ctx); err != nil {
 			return err
 		}
-	} else if !a.hasHEAD(ctx) {
+	} else if hasHEAD, err := a.hasHEAD(ctx); err != nil {
+		return err
+	} else if !hasHEAD {
 		if !a.dirOnlyDotGit() {
 			return fmt.Errorf("repo path has .git but no commits and is not empty enough to re-clone: %s", a.Src)
 		}
@@ -58,7 +62,9 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 	}
 
 	// Broken remote HEAD (e.g. master advertised, only main exists) leaves clone without checkout.
-	if !a.hasHEAD(ctx) {
+	if hasHEAD, err := a.hasHEAD(ctx); err != nil {
+		return err
+	} else if !hasHEAD {
 		if err := a.checkoutRemoteDefaultBranch(ctx); err != nil {
 			return fmt.Errorf("repo at %s has no HEAD and fallback checkout failed: %w", a.Src, err)
 		}
@@ -109,8 +115,19 @@ func (a GitRepoSyncAction) hasGitDir() bool {
 	return err == nil
 }
 
-func (a GitRepoSyncAction) hasHEAD(ctx context.Context) bool {
-	return a.run(ctx, "rev-parse", "--verify", "HEAD") == nil
+func (a GitRepoSyncAction) hasHEAD(ctx context.Context) (bool, error) {
+	cmd := a.cmd(ctx, "rev-parse", "--verify", "HEAD")
+	cmd.Stdout = os.Stderr
+	var stderr bytes.Buffer
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && strings.Contains(stderr.String(), "Needed a single revision") {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to verify HEAD for %s: %w: %s", a.Src, err, strings.TrimSpace(stderr.String()))
+	}
+	return true, nil
 }
 
 // dirOnlyDotGit is true when Src has no local work beyond git metadata (safe to wipe for re-clone).
@@ -180,7 +197,11 @@ func (a GitRepoSyncAction) commitIfDirty(ctx context.Context) error {
 		return fmt.Errorf("git add failed for %s: %w", a.Src, err)
 	}
 	// Unborn HEAD: only commit when the index has staged paths.
-	if !a.hasHEAD(ctx) {
+	hasHEAD, err := a.hasHEAD(ctx)
+	if err != nil {
+		return err
+	}
+	if !hasHEAD {
 		if a.run(ctx, "diff", "--cached", "--quiet") == nil {
 			return nil
 		}
