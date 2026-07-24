@@ -331,9 +331,14 @@ func installBinary(ctx context.Context, src, dest string) error {
 	if err != nil {
 		return err
 	}
-	defer logging.Close(ctx, out)
 
 	if _, err := io.Copy(out, in); err != nil {
+		logging.Close(ctx, out)
+		_ = os.Remove(outPath)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(outPath)
 		return err
 	}
 	return os.Chmod(outPath, 0o755)
@@ -425,6 +430,7 @@ func unzip(ctx context.Context, src, dest string) error {
 		rc, err := file.Open()
 		if err != nil {
 			logging.Close(ctx, outFile)
+			_ = os.Remove(target)
 			return err
 		}
 
@@ -432,12 +438,15 @@ func unzip(ctx context.Context, src, dest string) error {
 		closeOutErr := outFile.Close()
 		closeRcErr := rc.Close()
 		if copyErr != nil {
+			_ = os.Remove(target)
 			return copyErr
 		}
 		if closeOutErr != nil {
+			_ = os.Remove(target)
 			return closeOutErr
 		}
 		if closeRcErr != nil {
+			_ = os.Remove(target)
 			return closeRcErr
 		}
 		if file.Mode()&0o111 != 0 {
@@ -496,9 +505,11 @@ func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 			_, copyErr := io.Copy(outFile, reader)
 			closeErr := outFile.Close()
 			if copyErr != nil {
+				_ = os.Remove(target)
 				return copyErr
 			}
 			if closeErr != nil {
+				_ = os.Remove(target)
 				return closeErr
 			}
 			if header.Mode&0o111 != 0 {
