@@ -133,19 +133,36 @@ func SetAPOD(ctx context.Context) error {
 		return fmt.Errorf("GET %s: %s", url, imgResp.Status)
 	}
 
-	out, err := os.Create(outPath)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, imgResp.Body); err != nil {
-		logging.Close(ctx, out)
-		_ = os.Remove(outPath)
-		return err
-	}
-	if err := out.Close(); err != nil {
-		_ = os.Remove(outPath)
+	// Temp + rename so a mid-download failure cannot truncate a previous good
+	// apod.jpg (wallpaper still points at that path after a failed refresh).
+	if err := writeReaderToFileAtomic(ctx, imgResp.Body, outPath); err != nil {
 		return err
 	}
 
 	return SetStatic(ctx, outPath)
+}
+
+// writeReaderToFileAtomic streams r into path via a sibling .tmp then rename.
+// On any failure after create, the temp is removed and an existing final path
+// is left untouched.
+func writeReaderToFileAtomic(ctx context.Context, r io.Reader, path string) error {
+	tmpPath := path + ".tmp"
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, r); err != nil {
+		logging.Close(ctx, out)
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
