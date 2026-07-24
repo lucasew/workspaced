@@ -50,6 +50,8 @@ github.com/fetchurl/fetchurl v0.0.0-20260624181900-ecd306491e44 h1:6sEbN792MmMN2
 github.com/fetchurl/fetchurl v0.0.0-20260624181900-ecd306491e44/go.mod h1:rjsF6Jf1ueMEuMyRSGU9kaBLNdGcJBNZXxxCfbIoxgg=
 github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b h1:dx7DXonAznC51yya+/6GR08U1c45hV8ovZqgRD2gG4Y=
 github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b/go.mod h1:DPetlyhaswp5gzjSxJ11ouPp40CCY7TeC1I3yIGNdA4=
+github.com/fetchurl/fetchurl v0.0.0-20260723234300-d2eb1991584d h1:VNoF0F3JLPtgPSH1iD8+YJOIIPlygnLt3mQzyV2Jh2I=
+github.com/fetchurl/fetchurl v0.0.0-20260723234300-d2eb1991584d/go.mod h1:+4lDJG/idFLKctgMQXUwPc+m9IQUuJ+DyGrJ1i11THg=
 github.com/gdamore/encoding v1.0.0/go.mod h1:alR0ol34c49FCSBLjhosxzcPHQbf2trDkoo5dl+VrEg=
 github.com/gdamore/encoding v1.0.1 h1:YzKZckdBL6jVt2Gc+5p82qhrGiqMdG/eNs6Wy0u3Uhw=
 github.com/gdamore/encoding v1.0.1/go.mod h1:0Z0cMFinngz9kS1QfMjCP8TY7em3bZYeeklsSDPivEo=
