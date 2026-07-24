@@ -3,6 +3,7 @@ package install
 import (
 	"archive/tar"
 	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"os"
 	"path/filepath"
@@ -140,5 +141,53 @@ func TestNormalizeBinaryName(t *testing.T) {
 		if got := NormalizeBinaryName(tt.in); got != tt.want {
 			t.Errorf("NormalizeBinaryName(%q) = %q, want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+func TestInstallBinaryRemovesPartialOnReadError(t *testing.T) {
+	// Opening a directory succeeds on Unix; reading it fails (EISDIR).
+	// installBinary must not leave the truncated/empty target behind.
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	err := Extract(t.Context(), src, dest)
+	if err == nil {
+		t.Fatal("expected read error when source is a directory")
+	}
+
+	outPath := filepath.Join(dest, NormalizeBinaryName(filepath.Base(src)))
+	if _, statErr := os.Stat(outPath); !os.IsNotExist(statErr) {
+		t.Fatalf("partial binary still present after error: stat=%v extract=%v", statErr, err)
+	}
+}
+
+func TestUntarRemovesPartialOnCopyError(t *testing.T) {
+	var full bytes.Buffer
+	tw := tar.NewWriter(&full)
+	content := bytes.Repeat([]byte("x"), 2048)
+	if err := tw.WriteHeader(&tar.Header{
+		Name: "file.txt",
+		Mode: 0o644,
+		Size: int64(len(content)),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Full 512-byte header plus a short body so io.Copy hits UnexpectedEOF.
+	partial := full.Bytes()[:512+64]
+	dest := t.TempDir()
+	err := untar(t.Context(), tar.NewReader(bytes.NewReader(partial)), dest)
+	if err == nil {
+		t.Fatal("expected copy error from truncated tar body")
+	}
+	target := filepath.Join(dest, "file.txt")
+	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+		t.Fatalf("partial file still present after error: stat=%v extract=%v", statErr, err)
 	}
 }
