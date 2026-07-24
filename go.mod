@@ -17,7 +17,7 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/image v0.42.0
-	modernc.org/sqlite v1.52.0
+	modernc.org/sqlite v1.54.0
 )
 
 require github.com/shogo82148/go-sfv v0.3.3 // indirect
@@ -68,7 +68,7 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.70 // indirect
-	modernc.org/libc v1.72.3 // indirect
+	modernc.org/libc v1.74.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
