@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"os"
 	"path/filepath"
 	"strings"
+
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (
@@ -36,10 +38,40 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 	if action.Format != "tar" {
 		return fmt.Errorf("%w: %s", ErrUnsupportedArchiveFormat, action.Format)
 	}
+
+	outDir := filepath.Dir(action.Output)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("create archive output dir: %w", err)
+	}
+
+	// Write to a sibling temp file, then rename into place so a failed tar does
+	// not leave a truncated final archive (and does not clobber an existing one).
+	tmp, err := os.CreateTemp(outDir, filepath.Base(action.Output)+".tmp-*")
+	if err != nil {
+		return fmt.Errorf("create archive temp: %w", err)
+	}
+	tmpPath := tmp.Name()
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close archive temp: %w", err)
+	}
+	defer logging.RunCleanup(ctx, "remove", func() error {
+		if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}, "path", tmpPath)
+
 	parent := filepath.Dir(action.InputDir)
 	base := filepath.Base(action.InputDir)
-	cmd := execdriver.MustRun(ctx, "tar", "-cvf", action.Output, "-C", parent, base)
+	cmd := execdriver.MustRun(ctx, "tar", "-cvf", tmpPath, "-C", parent, base)
 	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, action.Output); err != nil {
+		return fmt.Errorf("install archive: %w", err)
+	}
+	return nil
 }
