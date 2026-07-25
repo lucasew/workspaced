@@ -80,13 +80,13 @@ func (d *Driver) Generate(ctx context.Context, path string, command []string) er
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		return fmt.Errorf("create directory %s: %w", dir, err)
 	}
 
 	// Write via temp + rename so a crash mid-write cannot leave a truncated
 	// PATH executable that subsequent execs treat as the live shim.
 	if err := atomicfile.WriteString(path, content, 0o755); err != nil {
-		return fmt.Errorf("failed to write shim to %s: %w", path, err)
+		return fmt.Errorf("write shim to %s: %w", path, err)
 	}
 	return nil
 }
