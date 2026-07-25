@@ -60,12 +60,33 @@ func ApplyHomeDconf(ctx context.Context) error {
 		return nil
 	}
 
-	tmpIni := filepath.Join(os.TempDir(), "workspaced-dconf.ini")
-	if err := os.WriteFile(tmpIni, []byte(dconfContent), 0600); err != nil {
+	// Unique temp path per call so concurrent home apply / overlapping runs
+	// cannot clobber each other's ini mid-`dconf load` (fixed name was a race).
+	tmpIni, err := writeTempDconfIni(dconfContent)
+	if err != nil {
 		return err
 	}
 	defer logging.RunCleanup(ctx, "remove", func() error { return os.Remove(tmpIni) })
 	return applyDconf(ctx, tmpIni)
+}
+
+// writeTempDconfIni writes content to a unique temp file (0600). Caller removes it.
+func writeTempDconfIni(content string) (string, error) {
+	f, err := os.CreateTemp("", "workspaced-dconf-*.ini")
+	if err != nil {
+		return "", err
+	}
+	path := f.Name()
+	if _, err := f.WriteString(content); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
 }
 
 func buildHomeDconfContent(ctx context.Context) (string, error) {
