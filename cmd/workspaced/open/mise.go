@@ -53,8 +53,16 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 		return fmt.Errorf("create wrapper directory: %w", err)
 	}
 
-	if err := os.WriteFile(wrapperPath, []byte(expectedContent), 0755); err != nil {
-		return fmt.Errorf("write wrapper: %w", err)
+	// Write via temp + rename so a crash mid-write cannot leave a truncated
+	// PATH executable that subsequent shells treat as the live mise wrapper.
+	tmpPath := wrapperPath + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(expectedContent), 0755); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("write wrapper temp: %w", err)
+	}
+	if err := os.Rename(tmpPath, wrapperPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("replace wrapper: %w", err)
 	}
 
 	logger.Info("created mise wrapper", "path", wrapperPath)
