@@ -317,7 +317,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 	}
 
 	if err := os.MkdirAll(sslDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create ssl certs directory %s: %w", sslDir, err)
+		return "", fmt.Errorf("create ssl certs directory %s: %w", sslDir, err)
 	}
 
 	if info, err := os.Stat(sslDir); err != nil {
@@ -329,7 +329,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 	// Try to symlink first (saves space)
 	// Remove existing symlink/file if it exists (broken symlink check)
 	if err := os.Remove(targetCert); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("failed to remove existing cert link %s: %w", targetCert, err)
+		return "", fmt.Errorf("remove existing cert link %s: %w", targetCert, err)
 	}
 
 	relPath := filepath.Join("..", "..", "tls", "cert.pem")
@@ -338,10 +338,10 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 		logger.Debug("symlink failed, copying certificate file", "error", err)
 		certData, err := os.ReadFile(sourceCert)
 		if err != nil {
-			return "", fmt.Errorf("failed to read source cert %s: %w", sourceCert, err)
+			return "", fmt.Errorf("read source cert %s: %w", sourceCert, err)
 		}
 		if err := atomicfile.WriteBytes(targetCert, certData, 0o644); err != nil {
-			return "", fmt.Errorf("failed to write cert to %s: %w", targetCert, err)
+			return "", fmt.Errorf("write cert to %s: %w", targetCert, err)
 		}
 		logger.Info("copied SSL certificates", "from", sourceCert, "to", targetCert, "size", len(certData))
 	} else {
