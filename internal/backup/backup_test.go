@@ -2,7 +2,10 @@ package backup_test
 
 import (
 	"errors"
-	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/backup"
@@ -12,7 +15,7 @@ import (
 func TestArchiveAction_RunValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	ctx := logging.NewWriterContext(t.Output())
 
 	tests := []struct {
 		name    string
@@ -49,12 +52,89 @@ func TestArchiveAction_RunValidation(t *testing.T) {
 	}
 }
 
+func TestArchiveAction_WritesFinalOnlyOnSuccess(t *testing.T) {
+	if _, err := exec.LookPath("tar"); err != nil {
+		t.Skip("tar not available")
+	}
+
+	ctx := logging.NewWriterContext(t.Output())
+	inDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(inDir, "note.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	outDir := t.TempDir()
+	outPath := filepath.Join(outDir, "backup.tar")
+	action := backup.ArchiveAction{
+		InputDir: inDir,
+		Output:   outPath,
+		Format:   "tar",
+	}
+	if err := action.Run(ctx, nil); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+
+	st, err := os.Stat(outPath)
+	if err != nil {
+		t.Fatalf("final archive missing: %v", err)
+	}
+	if st.Size() == 0 {
+		t.Fatal("final archive is empty")
+	}
+	assertNoArchiveTemps(t, outDir)
+}
+
+func TestArchiveAction_FailureKeepsExistingOutput(t *testing.T) {
+	if _, err := exec.LookPath("tar"); err != nil {
+		t.Skip("tar not available")
+	}
+
+	ctx := logging.NewWriterContext(t.Output())
+	outDir := t.TempDir()
+	outPath := filepath.Join(outDir, "backup.tar")
+	sentinel := []byte("previous-good-archive")
+	if err := os.WriteFile(outPath, sentinel, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	action := backup.ArchiveAction{
+		InputDir: filepath.Join(outDir, "does-not-exist"),
+		Output:   outPath,
+		Format:   "tar",
+	}
+	if err := action.Run(ctx, nil); err == nil {
+		t.Fatal("expected archive of missing input to fail")
+	}
+
+	got, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("existing output should remain: %v", err)
+	}
+	if string(got) != string(sentinel) {
+		t.Fatalf("existing output changed: got %q want %q", got, sentinel)
+	}
+	assertNoArchiveTemps(t, outDir)
+}
+
 func TestRsyncAction_RunValidation(t *testing.T) {
 	t.Parallel()
 
-	ctx := logging.ContextWithLogger(t.Context(), slog.Default())
+	ctx := logging.NewWriterContext(t.Output())
 	err := backup.RsyncAction{}.Run(ctx, nil)
 	if !errors.Is(err, backup.ErrRsyncNeedsSrcAndDst) {
 		t.Fatalf("got %v, want %v", err, backup.ErrRsyncNeedsSrcAndDst)
+	}
+}
+
+func assertNoArchiveTemps(t *testing.T, dir string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".tmp-") {
+			t.Fatalf("leftover archive temp: %s", e.Name())
+		}
 	}
 }
