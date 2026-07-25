@@ -115,7 +115,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			logger.Info("pruning orphaned file", "target", PrettyPath(action.Target))
 			if _, err := os.Lstat(action.Target); err == nil {
 				if err := os.Remove(action.Target); err != nil {
-					return statePatch{}, fmt.Errorf("failed to remove orphaned file %s: %w", action.Target, err)
+					return statePatch{}, fmt.Errorf("remove orphaned file %s: %w", action.Target, err)
 				}
 			}
 			return statePatch{delete: true, target: action.Target}, nil
@@ -128,22 +128,22 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			}
 
 			if err := os.MkdirAll(filepath.Dir(action.Target), 0755); err != nil {
-				return statePatch{}, fmt.Errorf("failed to create parent directory for %s: %w", action.Target, err)
+				return statePatch{}, fmt.Errorf("create parent directory for %s: %w", action.Target, err)
 			}
 
 			info := ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
 			if action.Desired.File.Type() == source.TypeSymlink {
 				if _, err := os.Lstat(action.Target); err == nil {
 					if err := os.RemoveAll(action.Target); err != nil {
-						return statePatch{}, fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
+						return statePatch{}, fmt.Errorf("remove existing target %s: %w", action.Target, err)
 					}
 				}
 				linkTarget, err := action.Desired.File.LinkTarget()
 				if err != nil {
-					return statePatch{}, fmt.Errorf("failed to get link target for %s: %w", action.Desired.File.SourceInfo(), err)
+					return statePatch{}, fmt.Errorf("get link target for %s: %w", action.Desired.File.SourceInfo(), err)
 				}
 				if err := os.Symlink(linkTarget, action.Target); err != nil {
-					return statePatch{}, fmt.Errorf("failed to create symlink %s -> %s: %w", action.Target, linkTarget, err)
+					return statePatch{}, fmt.Errorf("create symlink %s -> %s: %w", action.Target, linkTarget, err)
 				}
 				return statePatch{target: action.Target, info: info}, nil
 			}
@@ -153,18 +153,18 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			// a full successful write, preserving the prior content on failure.
 			if fi, err := os.Lstat(action.Target); err == nil && !fi.Mode().IsRegular() {
 				if err := os.RemoveAll(action.Target); err != nil {
-					return statePatch{}, fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
+					return statePatch{}, fmt.Errorf("remove existing target %s: %w", action.Target, err)
 				}
 			}
 
 			reader, err := action.Desired.File.Reader()
 			if err != nil {
-				return statePatch{}, fmt.Errorf("failed to get reader for %s: %w", action.Desired.File.SourceInfo(), err)
+				return statePatch{}, fmt.Errorf("get reader for %s: %w", action.Desired.File.SourceInfo(), err)
 			}
 			writeErr := atomicfile.Write(action.Target, reader, action.Desired.File.Mode())
 			logging.Close(ctx, reader)
 			if writeErr != nil {
-				return statePatch{}, fmt.Errorf("failed to write content to %s: %w", action.Target, writeErr)
+				return statePatch{}, fmt.Errorf("write content to %s: %w", action.Target, writeErr)
 			}
 			return statePatch{target: action.Target, info: info}, nil
 		}
