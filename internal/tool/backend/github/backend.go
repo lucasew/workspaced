@@ -200,11 +200,10 @@ func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, v
 		// Extract hash from digest (format: "sha256:HASH")
 		hash := ""
 		if a.Digest != "" {
-			parts := strings.SplitN(a.Digest, ":", 2)
-			if len(parts) == 2 {
+			if algo, h, ok := strings.Cut(a.Digest, ":"); ok {
 				// Store as "algo:hash" format for fetchurl compatibility
 				hash = a.Digest
-				logger.Debug("found checksum", "asset", a.Name, "algo", parts[0], "hash", parts[1][:16]+"...")
+				logger.Debug("found checksum", "asset", a.Name, "algo", algo, "hash", h[:16]+"...")
 			}
 		}
 

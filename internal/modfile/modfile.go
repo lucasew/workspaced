@@ -87,12 +87,12 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		spec = "self:modules/" + moduleName
 	}
 
-	parts := strings.SplitN(spec, ":", 2)
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+	left, right, ok := strings.Cut(spec, ":")
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	if !ok || left == "" || right == "" {
 		return ResolvedModuleSource{}, fmt.Errorf("invalid module source %q (expected <source-or-provider>:<path>[@version])", spec)
 	}
-	left := strings.TrimSpace(parts[0])
-	right := strings.TrimSpace(parts[1])
 
 	// Direct provider specs (no alias entry required): builtins + registered providers.
 	if isDirectModuleSourcePrefix(left) {

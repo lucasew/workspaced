@@ -43,12 +43,10 @@ func ParseMultiFile(rendered []byte) ([]MultiFile, bool) {
 		rest := after
 
 		// Split header
-		headerParts := strings.SplitN(header, ":", 2)
-		if len(headerParts) != 2 {
+		filename, modeStr, ok := strings.Cut(header, ":")
+		if !ok {
 			continue
 		}
-		filename := headerParts[0]
-		modeStr := headerParts[1]
 
 		// Find end marker
 		endIdx := strings.Index(rest, markerFileEnd)

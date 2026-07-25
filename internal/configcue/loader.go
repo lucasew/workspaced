@@ -917,12 +917,12 @@ func resolvedSelfModulesBase(paths []string, discovered []Layer) string {
 }
 
 func parseInputSpec(spec string) (string, string, bool) {
-	parts := strings.SplitN(strings.TrimSpace(spec), ":", 2)
-	if len(parts) != 2 {
+	provider, target, ok := strings.Cut(strings.TrimSpace(spec), ":")
+	if !ok {
 		return "", "", false
 	}
-	provider := strings.TrimSpace(parts[0])
-	target := strings.TrimSpace(parts[1])
+	provider = strings.TrimSpace(provider)
+	target = strings.TrimSpace(target)
 	if provider == "" || target == "" {
 		return "", "", false
 	}

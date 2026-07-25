@@ -335,12 +335,12 @@ func loadBase16Colors(ctx context.Context) (map[string]string, error) {
 func parseColorReplacements(rules []string) (map[string]string, error) {
 	out := map[string]string{}
 	for _, r := range rules {
-		pair := strings.SplitN(r, "=", 2)
-		if len(pair) != 2 {
+		left, right, ok := strings.Cut(r, "=")
+		if !ok {
 			return nil, fmt.Errorf("%w: %q (expected old=new)", ErrInvalidReplaceRule, r)
 		}
-		oldC := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(pair[0]), "#"))
-		newC := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(pair[1]), "#"))
+		oldC := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(left), "#"))
+		newC := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(right), "#"))
 		if len(oldC) != 6 || len(newC) != 6 {
 			return nil, fmt.Errorf("%w: %q (expected 6-digit hex)", ErrInvalidReplaceRule, r)
 		}
@@ -567,8 +567,8 @@ func writeIndexTheme(outputDir string, themeName string, dirsUsed map[string]boo
 			fmt.Fprintf(&b, "MaxSize=512\n")
 			fmt.Fprintf(&b, "Type=Scalable\n")
 		} else {
-			sizePart := strings.SplitN(d, "/", 2)[0]
-			sizePart = strings.SplitN(sizePart, "x", 2)[0]
+			sizePart, _, _ := strings.Cut(d, "/")
+			sizePart, _, _ = strings.Cut(sizePart, "x")
 			if n, err := strconv.Atoi(sizePart); err == nil {
 				fmt.Fprintf(&b, "Size=%d\n", n)
 			}

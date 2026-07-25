@@ -64,11 +64,10 @@ func getHungryPID(ctx context.Context) (string, string, error) {
 
 	// First line is header, second line is top process
 	line := strings.TrimSpace(lines[1])
-	parts := strings.SplitN(line, " ", 2)
-	pid := parts[0]
+	pid, rest, ok := strings.Cut(line, " ")
 	cmdline := ""
-	if len(parts) > 1 {
-		cmdline = strings.TrimSpace(parts[1])
+	if ok {
+		cmdline = strings.TrimSpace(rest)
 	}
 	return pid, cmdline, nil
 }
