@@ -176,13 +176,22 @@ func copyEmbeddedModules(modulesDir string) error {
 			return os.MkdirAll(targetPath, 0755)
 		}
 
-		// Copy file
+		// Copy file via temp + rename so a crash mid-write cannot leave a
+		// truncated module file that subsequent applies treat as complete.
 		content, err := templatesFS.ReadFile(path)
 		if err != nil {
 			return err
 		}
-
-		return os.WriteFile(targetPath, content, 0644)
+		tmpPath := targetPath + ".tmp"
+		if err := os.WriteFile(tmpPath, content, 0644); err != nil {
+			_ = os.Remove(tmpPath)
+			return fmt.Errorf("write module temp %s: %w", targetPath, err)
+		}
+		if err := os.Rename(tmpPath, targetPath); err != nil {
+			_ = os.Remove(tmpPath)
+			return fmt.Errorf("replace module %s: %w", targetPath, err)
+		}
+		return nil
 	})
 }
 
