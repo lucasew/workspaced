@@ -54,7 +54,7 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 			return fmt.Errorf("repo path has .git but no commits and is not empty enough to re-clone: %s", a.Src)
 		}
 		if err := os.RemoveAll(a.Src); err != nil {
-			return fmt.Errorf("failed to remove empty init at %s before clone: %w", a.Src, err)
+			return fmt.Errorf("remove empty init at %s before clone: %w", a.Src, err)
 		}
 		if err := a.clone(ctx); err != nil {
 			return err
@@ -74,7 +74,7 @@ func (a GitRepoSyncAction) Run(ctx context.Context, _ *notification.Notification
 		return err
 	}
 	if err := a.ensureRemoteURL(ctx, BackupGitRemoteName, a.Dst); err != nil {
-		return fmt.Errorf("failed to ensure remote %s for %s: %w", BackupGitRemoteName, a.Src, err)
+		return fmt.Errorf("ensure remote %s for %s: %w", BackupGitRemoteName, a.Src, err)
 	}
 
 	branch, err := a.currentBranch(ctx)
@@ -125,7 +125,7 @@ func (a GitRepoSyncAction) hasHEAD(ctx context.Context) (bool, error) {
 		if errors.As(err, &exitErr) && strings.Contains(stderr.String(), "Needed a single revision") {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to verify HEAD for %s: %w: %s", a.Src, err, strings.TrimSpace(stderr.String()))
+		return false, fmt.Errorf("verify HEAD for %s: %w: %s", a.Src, err, strings.TrimSpace(stderr.String()))
 	}
 	return true, nil
 }
@@ -144,28 +144,28 @@ func (a GitRepoSyncAction) dirOnlyDotGit() bool {
 
 func (a GitRepoSyncAction) prepareEmptyPathForClone() error {
 	if err := os.MkdirAll(filepath.Dir(a.Src), 0755); err != nil {
-		return fmt.Errorf("failed to create parent dir for %s: %w", a.Src, err)
+		return fmt.Errorf("create parent dir for %s: %w", a.Src, err)
 	}
 	info, err := os.Stat(a.Src)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("failed to inspect repo path %s: %w", a.Src, err)
+		return fmt.Errorf("inspect repo path %s: %w", a.Src, err)
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("repo path exists and is not a directory: %s", a.Src)
 	}
 	entries, err := os.ReadDir(a.Src)
 	if err != nil {
-		return fmt.Errorf("failed to inspect repo path %s: %w", a.Src, err)
+		return fmt.Errorf("inspect repo path %s: %w", a.Src, err)
 	}
 	if len(entries) > 0 {
 		return fmt.Errorf("repo path exists but is not a git repo and is not empty: %s", a.Src)
 	}
 	// Empty dir: remove so `git clone remote path` can create it.
 	if err := os.Remove(a.Src); err != nil {
-		return fmt.Errorf("failed to remove empty dir %s before clone: %w", a.Src, err)
+		return fmt.Errorf("remove empty dir %s before clone: %w", a.Src, err)
 	}
 	return nil
 }
@@ -183,7 +183,7 @@ func (a GitRepoSyncAction) clone(ctx context.Context) error {
 func (a GitRepoSyncAction) currentBranch(ctx context.Context) (string, error) {
 	out, err := a.output(ctx, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil {
-		return "", fmt.Errorf("failed to detect current branch for %s: %w", a.Src, err)
+		return "", fmt.Errorf("detect current branch for %s: %w", a.Src, err)
 	}
 	branch := strings.TrimSpace(string(out))
 	if branch == "" {
