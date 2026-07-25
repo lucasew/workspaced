@@ -3,9 +3,11 @@ package screenshot
 import (
 	"context"
 	"fmt"
+	"image"
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/lucasew/workspaced/internal/configcue"
@@ -63,7 +65,10 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 		return "", err
 	}
 
-	dir := screenshot.Dir
+	dir := strings.TrimSpace(screenshot.Dir)
+	if dir == "" {
+		return "", fmt.Errorf("screenshot dir not configured")
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("create screenshot dir: %w", err)
 	}
@@ -72,18 +77,8 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 	filename := fmt.Sprintf("Screenshot_%s.png", timestamp)
 	path := filepath.Join(dir, filename)
 
-	f, err := os.Create(path)
-	if err != nil {
-		return "", fmt.Errorf("create screenshot file: %w", err)
-	}
-	if err := png.Encode(f, img); err != nil {
-		logging.Close(ctx, f)
-		_ = os.Remove(path)
-		return "", fmt.Errorf("encode screenshot: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(path)
-		return "", fmt.Errorf("close screenshot file: %w", err)
+	if err := writePNGAtomic(ctx, path, img); err != nil {
+		return "", err
 	}
 
 	// Post-processing: Clipboard
@@ -120,4 +115,27 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 	if err := notification.Notify(ctx, &n); err != nil {
 		logging.ReportError(ctx, err)
 	}
+}
+
+// writePNGAtomic encodes img to path via sibling .tmp + rename.
+func writePNGAtomic(ctx context.Context, path string, img image.Image) error {
+	tmpPath := path + ".tmp"
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return fmt.Errorf("create screenshot temp: %w", err)
+	}
+	if err := png.Encode(f, img); err != nil {
+		logging.Close(ctx, f)
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("encode screenshot: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close screenshot temp: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("replace screenshot: %w", err)
+	}
+	return nil
 }
