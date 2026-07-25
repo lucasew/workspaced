@@ -1,6 +1,7 @@
 package camera
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -75,20 +76,33 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
-	out, err := os.Create(outPath)
+	if err := writePNGAtomic(cmd.Context(), outPath, img); err != nil {
+		return err
+	}
+	cmd.Println(outPath)
+	return nil
+}
+
+// writePNGAtomic encodes img to path via a sibling .tmp file and rename.
+func writePNGAtomic(ctx context.Context, outPath string, img image.Image) error {
+	tmpPath := outPath + ".tmp"
+	out, err := os.Create(tmpPath)
 	if err != nil {
 		return err
 	}
 	if err := png.Encode(out, img); err != nil {
-		logging.Close(cmd.Context(), out, "path", outPath)
-		_ = os.Remove(outPath)
+		logging.Close(ctx, out, "path", tmpPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
 	if err := out.Close(); err != nil {
-		_ = os.Remove(outPath)
+		_ = os.Remove(tmpPath)
 		return err
 	}
-	cmd.Println(outPath)
+	if err := os.Rename(tmpPath, outPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("replace camera capture: %w", err)
+	}
 	return nil
 }
 
