@@ -82,8 +82,16 @@ func (d *Driver) Generate(ctx context.Context, path string, command []string) er
 		return fmt.Errorf("failed to create directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0755); err != nil {
-		return fmt.Errorf("failed to write shim to %s: %w", path, err)
+	// Write via temp + rename so a crash mid-write cannot leave a truncated
+	// PATH executable that subsequent execs treat as the live shim.
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(content), 0755); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to write shim temp to %s: %w", path, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to replace shim at %s: %w", path, err)
 	}
 
 	return nil
