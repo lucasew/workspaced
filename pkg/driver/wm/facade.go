@@ -76,11 +76,25 @@ func NextWorkspace(ctx context.Context, move bool) error {
 	}
 
 	nextWS := strconv.Itoa(lastWS + 1)
-	if err := os.WriteFile(wsFile, []byte(nextWS), 0600); err != nil {
+	if err := writeLastWSFile(wsFile, nextWS); err != nil {
 		logging.ReportError(ctx, err)
 	}
 
 	return switchToWorkspace(ctx, nextWS, move)
+}
+
+// writeLastWSFile writes workspace id via temp + rename (mode 0600).
+func writeLastWSFile(wsFile, nextWS string) error {
+	tmpPath := wsFile + ".tmp"
+	if err := os.WriteFile(tmpPath, []byte(nextWS), 0o600); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, wsFile); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 // RotateWorkspaces rotates the visible workspaces across all connected outputs.
