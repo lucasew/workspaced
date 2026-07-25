@@ -2,6 +2,7 @@ package selfinstall
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"

@@ -3,6 +3,7 @@ package dbus
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"image"
 
 	"github.com/godbus/dbus/v5"
