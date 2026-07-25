@@ -158,17 +158,38 @@ func isPathWithinDest(dest, target string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
+// resolveTargetPath ensures target's parent directory resolves within destDir.
+// It evaluates symlinks in the parent path to prevent writes escaping destDir.
+func resolveTargetPath(destDir, target string) (string, error) {
+	parent := filepath.Dir(target)
+	realParent, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		return "", err
+	}
+	if !isPathWithinDest(destDir, realParent) {
+		return "", fmt.Errorf("illegal file path: %s", target)
+	}
+	return filepath.Join(realParent, filepath.Base(target)), nil
+}
+
 // symlinkTargetWithinDest ensures a symlink's linkname resolves under destDir
-// when evaluated from the link's parent directory (blocks absolute or ../ escapes).
+// when evaluated from the link's parent directory, including existing symlinks.
 func symlinkTargetWithinDest(destDir, linkPath, linkname string) bool {
 	if linkname == "" {
+		return false
+	}
+	realParent, err := filepath.EvalSymlinks(filepath.Dir(linkPath))
+	if err != nil {
+		return false
+	}
+	if !isPathWithinDest(destDir, realParent) {
 		return false
 	}
 	var resolved string
 	if filepath.IsAbs(linkname) {
 		resolved = filepath.Clean(linkname)
 	} else {
-		resolved = filepath.Join(filepath.Dir(linkPath), linkname)
+		resolved = filepath.Join(realParent, linkname)
 	}
 	return isPathWithinDest(destDir, resolved)
 }
@@ -181,17 +202,21 @@ func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destD
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
-		f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
+		resolvedTarget, err := resolveTargetPath(destDir, target)
+		if err != nil {
+			return err
+		}
+		f, err := os.OpenFile(resolvedTarget, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
 		if err != nil {
 			return err
 		}
 		if _, err := io.Copy(f, tr); err != nil {
 			logging.Close(ctx, f)
-			_ = os.Remove(target)
+			_ = os.Remove(resolvedTarget)
 			return err
 		}
 		if err := f.Close(); err != nil {
-			_ = os.Remove(target)
+			_ = os.Remove(resolvedTarget)
 			return err
 		}
 		return nil
@@ -202,7 +227,11 @@ func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destD
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
-		if err := os.Symlink(hdr.Linkname, target); err != nil && !os.IsExist(err) {
+		resolvedTarget, err := resolveTargetPath(destDir, target)
+		if err != nil {
+			return err
+		}
+		if err := os.Symlink(hdr.Linkname, resolvedTarget); err != nil && !os.IsExist(err) {
 			return err
 		}
 	}
