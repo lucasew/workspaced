@@ -87,17 +87,9 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 		img = makeBackgroundTransparent(img)
 		img = cropToContentSquare(img)
 
-		out, err := os.Create(path)
-		if err != nil {
-			return err
-		}
-		if err := png.Encode(out, img); err != nil {
-			logging.Close(ctx, out)
-			_ = os.Remove(path)
-			return err
-		}
-		if err := out.Close(); err != nil {
-			_ = os.Remove(path)
+		// Temp + rename so a mid-encode failure (or crash) cannot leave a
+		// truncated content-addressed cache entry that later Stat hits treat as good.
+		if err := writePNGFileAtomic(ctx, path, img); err != nil {
 			return err
 		}
 
@@ -111,6 +103,31 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// writePNGFileAtomic encodes img as PNG into path via a sibling .tmp then rename.
+// On any failure after create, the temp is removed and an existing final path
+// is left untouched.
+func writePNGFileAtomic(ctx context.Context, path string, img image.Image) error {
+	tmpPath := path + ".tmp"
+	out, err := os.Create(tmpPath)
+	if err != nil {
+		return err
+	}
+	if err := png.Encode(out, img); err != nil {
+		logging.Close(ctx, out)
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := out.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 func makeBackgroundTransparent(img image.Image) image.Image {
