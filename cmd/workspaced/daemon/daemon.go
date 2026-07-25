@@ -216,6 +216,11 @@ func RunDaemon(ctx context.Context) error {
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			handleWS(w, r, database)
 		}),
+		// Bound stalled clients even on the unix socket (header read / idle keep-alive).
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       0, // long-lived WebSocket frames
+		WriteTimeout:      0, // long-lived WebSocket frames
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {
@@ -229,7 +234,13 @@ func RunDaemon(ctx context.Context) error {
 }
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	// Local unix-socket clients typically omit Origin or send "null".
+	// Reject other Origins so a browser tab on a hostile site cannot
+	// open a WS to a user-forwarded socket without an explicit Origin policy.
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		return origin == "" || origin == "null"
+	},
 }
 
 func handleWS(w http.ResponseWriter, r *http.Request, database *db.DB) {
