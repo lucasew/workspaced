@@ -157,14 +157,18 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			reader, err := action.Desired.File.Reader()
 			if err != nil {
 				logging.Close(ctx, f)
+				_ = os.Remove(action.Target)
 				return statePatch{}, fmt.Errorf("failed to get reader for %s: %w", action.Desired.File.SourceInfo(), err)
 			}
 
-			_, err = io.Copy(f, reader)
+			_, copyErr := io.Copy(f, reader)
 			logging.Close(ctx, reader)
-			logging.Close(ctx, f)
-			if err != nil {
-				return statePatch{}, fmt.Errorf("failed to write content to %s: %w", action.Target, err)
+			if closeErr := f.Close(); closeErr != nil && copyErr == nil {
+				copyErr = closeErr
+			}
+			if copyErr != nil {
+				_ = os.Remove(action.Target)
+				return statePatch{}, fmt.Errorf("failed to write content to %s: %w", action.Target, copyErr)
 			}
 			return statePatch{target: action.Target, info: info}, nil
 		}
