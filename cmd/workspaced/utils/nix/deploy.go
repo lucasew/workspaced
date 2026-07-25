@@ -89,13 +89,13 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 	toplevelPath := fmt.Sprintf("nixosConfigurations.%s.config.system.build.toplevel", node)
 	toplevel, err := nix.GetFlakeOutput(ctx, flake, toplevelPath)
 	if err != nil {
-		return fmt.Errorf("failed to build toplevel for %s: %w", node, err)
+		return fmt.Errorf("build toplevel for %s: %w", node, err)
 	}
 
 	// 2. Copy closures
 	logger.Info("Copying closures to node")
 	if err := nix.CopyClosure(ctx, node, toplevel, nix.To); err != nil {
-		return fmt.Errorf("failed to copy toplevel to %s: %w", node, err)
+		return fmt.Errorf("copy toplevel to %s: %w", node, err)
 	}
 
 	// 3. Auto-detect action if not specified
@@ -129,7 +129,7 @@ func deployNode(ctx context.Context, flake, node, action string) error {
 	cmdSwitch := execdriver.MustRun(ctx, switchCmdArgs[0], switchCmdArgs[1:]...)
 	executil.InheritContextWriters(ctx, cmdSwitch)
 	if err := cmdSwitch.Run(); err != nil {
-		return fmt.Errorf("failed to switch configuration on %s: %w", node, err)
+		return fmt.Errorf("switch configuration on %s: %w", node, err)
 	}
 
 	return nil
