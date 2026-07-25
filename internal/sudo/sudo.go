@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 func getQueueDir() (string, error) {
@@ -18,11 +20,38 @@ func getQueueDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// Owner-only: queue files carry full process env (secrets).
 	dir := filepath.Join(home, ".cache/workspaced/sudo_queue")
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}
 	return dir, nil
+}
+
+// queuePath resolves slug to a file under the queue dir. Rejects empty,
+// path separators, ".." components, and any cleaned result that would escape.
+func queuePath(dir, slug string) (string, error) {
+	if slug == "" {
+		return "", fmt.Errorf("sudo queue slug is empty")
+	}
+	if strings.Contains(slug, string(os.PathSeparator)) || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		return "", fmt.Errorf("sudo queue slug must be a single path element: %q", slug)
+	}
+	if slug == "." || slug == ".." || strings.Contains(slug, "..") {
+		return "", fmt.Errorf("sudo queue slug must be a single path element: %q", slug)
+	}
+	// filepath.Base rejects multi-segment after Clean; still join carefully.
+	base := filepath.Base(slug)
+	if base != slug || base == "." || base == ".." {
+		return "", fmt.Errorf("sudo queue slug must be a single path element: %q", slug)
+	}
+	path := filepath.Join(dir, base+".json")
+	// Ensure the result stays under dir even if Base were to misbehave.
+	rel, err := filepath.Rel(dir, path)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("sudo queue slug escapes queue dir: %q", slug)
+	}
+	return path, nil
 }
 
 func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
@@ -55,15 +84,42 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 		return err
 	}
 
-	path := filepath.Join(dir, cmd.Slug+".json")
+	path, err := queuePath(dir, cmd.Slug)
+	if err != nil {
+		return err
+	}
 	data, err := json.MarshalIndent(cmd, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	// Atomic owner-only write: env may include tokens/passwords.
+	tmp, err := os.CreateTemp(dir, ".sudo-queue-*.tmp")
+	if err != nil {
 		return err
 	}
+	tmpName := tmp.Name()
+	ok := false
+	defer func() {
+		if !ok {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	ok = true
 
 	n := &notification.Notification{
 		Title:   "Sudo Required",
@@ -111,7 +167,10 @@ func Get(slug string) (*types.SudoCommand, error) {
 		return nil, err
 	}
 
-	path := filepath.Join(dir, slug+".json")
+	path, err := queuePath(dir, slug)
+	if err != nil {
+		return nil, err
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -129,6 +188,9 @@ func Remove(slug string) error {
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(dir, slug+".json")
+	path, err := queuePath(dir, slug)
+	if err != nil {
+		return err
+	}
 	return os.Remove(path)
 }
