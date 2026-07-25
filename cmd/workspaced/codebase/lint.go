@@ -87,19 +87,8 @@ func saveSarifToCI(ctx context.Context, report *sarif.Report) {
 			}
 
 			sarifPath := filepath.Join(outputDir, "lint.sarif")
-			file, err := os.Create(sarifPath)
-			if err != nil {
-				logger.Warn("failed to create SARIF report file", "sarif_path", sarifPath, "error", err)
-				continue
-			}
-
-			encoder := json.NewEncoder(file)
-			encoder.SetIndent("", "  ")
-			if err := encoder.Encode(report); err != nil {
+			if err := writeSarifAtomic(sarifPath, report); err != nil {
 				logger.Warn("failed to write SARIF report", "sarif_path", sarifPath, "error", err)
-			}
-			if err := file.Close(); err != nil {
-				logger.Warn("failed to close SARIF report file", "sarif_path", sarifPath, "error", err)
 			}
 		}
 	}
@@ -170,4 +159,30 @@ func printTable(report *sarif.Report) error {
 		}
 	}
 	return w.Flush()
+}
+
+// writeSarifAtomic encodes report to path via temp + rename so CI never
+// consumes a truncated SARIF file after a crash mid-write.
+func writeSarifAtomic(path string, report *sarif.Report) error {
+	tmp := path + ".tmp"
+	file, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(report); err != nil {
+		_ = file.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := file.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
 }
