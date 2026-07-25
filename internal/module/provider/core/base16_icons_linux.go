@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/cmdctx"
 	"github.com/lucasew/workspaced/internal/icons"
 	"github.com/lucasew/workspaced/internal/module"
@@ -226,26 +227,8 @@ func moduleFingerprint(cfg base16IconsConfig, palette map[string]any) (string, e
 	return hex.EncodeToString(h[:]), nil
 }
 
-// atomicReplaceDir moves tmpDir into place at dest, replacing any existing dest.
 func atomicReplaceDir(dest, tmpDir string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-		return err
-	}
-	old := dest + ".old"
-	_ = os.RemoveAll(old)
-	if _, err := os.Stat(dest); err == nil {
-		if err := os.Rename(dest, old); err != nil {
-			if err := os.RemoveAll(dest); err != nil {
-				return err
-			}
-		}
-	}
-	if err := os.Rename(tmpDir, dest); err != nil {
-		_ = os.Rename(old, dest)
-		return err
-	}
-	_ = os.RemoveAll(old)
-	return nil
+	return atomicfile.ReplaceDir(dest, tmpDir)
 }
 
 func sourceStats(dir string) (map[string]any, error) {

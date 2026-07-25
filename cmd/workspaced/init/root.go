@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/constants"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -176,20 +177,12 @@ func copyEmbeddedModules(modulesDir string) error {
 			return os.MkdirAll(targetPath, 0755)
 		}
 
-		// Copy file via temp + rename so a crash mid-write cannot leave a
-		// truncated module file that subsequent applies treat as complete.
 		content, err := templatesFS.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		tmpPath := targetPath + ".tmp"
-		if err := os.WriteFile(tmpPath, content, 0644); err != nil {
-			_ = os.Remove(tmpPath)
-			return fmt.Errorf("write module temp %s: %w", targetPath, err)
-		}
-		if err := os.Rename(tmpPath, targetPath); err != nil {
-			_ = os.Remove(tmpPath)
-			return fmt.Errorf("replace module %s: %w", targetPath, err)
+		if err := atomicfile.WriteBytes(targetPath, content, 0o644); err != nil {
+			return fmt.Errorf("write module %s: %w", targetPath, err)
 		}
 		return nil
 	})

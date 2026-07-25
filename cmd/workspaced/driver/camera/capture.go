@@ -1,7 +1,6 @@
 package camera
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"image"
@@ -12,9 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	cameraapi "github.com/lucasew/workspaced/pkg/driver/camera"
-	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -76,31 +75,23 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 		return fmt.Errorf("create output directory: %w", err)
 	}
-	if err := writePNGAtomic(cmd.Context(), outPath, img); err != nil {
+	if err := writePNGAtomic(outPath, img); err != nil {
 		return err
 	}
 	cmd.Println(outPath)
 	return nil
 }
 
-// writePNGAtomic encodes img to path via a sibling .tmp file and rename.
-func writePNGAtomic(ctx context.Context, outPath string, img image.Image) error {
-	tmpPath := outPath + ".tmp"
-	out, err := os.Create(tmpPath)
+func writePNGAtomic(outPath string, img image.Image) error {
+	f, err := atomicfile.Create(outPath, 0)
 	if err != nil {
 		return err
 	}
-	if err := png.Encode(out, img); err != nil {
-		logging.Close(ctx, out, "path", tmpPath)
-		_ = os.Remove(tmpPath)
+	defer f.Abort()
+	if err := png.Encode(f, img); err != nil {
 		return err
 	}
-	if err := out.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, outPath); err != nil {
-		_ = os.Remove(tmpPath)
+	if err := f.Commit(); err != nil {
 		return fmt.Errorf("replace camera capture: %w", err)
 	}
 	return nil

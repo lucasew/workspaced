@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/internal/atomicfile"
 )
 
 func IsLockableProvider(provider string) bool {
@@ -62,30 +62,15 @@ func writeSumFile(ctx context.Context, path string, sum *SumFile) error {
 		return err
 	}
 
-	// Write via temp + rename so a crash mid-write cannot leave a truncated
-	// workspaced.lock.json. On any post-create failure, remove the temp so it
-	// does not linger next to the live lockfile.
-	tmpPath := path + ".tmp"
-	f, err := os.Create(tmpPath)
+	f, err := atomicfile.Create(path, 0)
 	if err != nil {
 		return err
 	}
-
+	defer f.Abort()
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(onDisk); err != nil {
-		logging.Close(ctx, f)
-		_ = os.Remove(tmpPath)
 		return err
 	}
-
-	if err := f.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
+	return f.Commit()
 }

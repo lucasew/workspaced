@@ -8,15 +8,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/githubutil"
-	"github.com/lucasew/workspaced/pkg/driver"
-	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"github.com/lucasew/workspaced/internal/archive"
+	"github.com/lucasew/workspaced/internal/githubutil"
+	"github.com/lucasew/workspaced/pkg/driver"
+	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {
@@ -122,12 +123,8 @@ func mapTarEntryTarget(name string, destDir string) (target string, skip bool, e
 	if rel == "" {
 		return "", true, nil
 	}
-	// filepath.Join discards prior segments after an absolute element on some OSes.
-	if filepath.IsAbs(rel) {
-		return "", false, fmt.Errorf("illegal file path: %s", name)
-	}
-	target = filepath.Join(destDir, rel)
-	if !isPathWithinDest(destDir, target) {
+	target, err = archive.JoinWithin(destDir, rel)
+	if err != nil {
 		return "", false, fmt.Errorf("illegal file path: %s", name)
 	}
 	return target, false, nil
@@ -142,92 +139,27 @@ func splitFirst(s string, sep byte) []string {
 	return []string{s}
 }
 
-// isPathWithinDest reports whether target is dest or a path under dest after Clean.
-// Same rule as internal/tool/backend/install (kept local so this package stays free of that import).
-func isPathWithinDest(dest, target string) bool {
-	cleanDest := filepath.Clean(dest)
-	cleanTarget := filepath.Clean(target)
-
-	rel, err := filepath.Rel(cleanDest, cleanTarget)
-	if err != nil {
-		return false
-	}
-	if rel == "." {
-		return true
-	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
-}
-
-// resolveTargetPath ensures target's parent directory resolves within destDir.
-// It evaluates symlinks in the parent path to prevent writes escaping destDir.
-func resolveTargetPath(destDir, target string) (string, error) {
-	parent := filepath.Dir(target)
-	realParent, err := filepath.EvalSymlinks(parent)
-	if err != nil {
-		return "", err
-	}
-	if !isPathWithinDest(destDir, realParent) {
-		return "", fmt.Errorf("illegal file path: %s", target)
-	}
-	return filepath.Join(realParent, filepath.Base(target)), nil
-}
-
-// symlinkTargetWithinDest ensures a symlink's linkname resolves under destDir
-// when evaluated from the link's parent directory, including existing symlinks.
-func symlinkTargetWithinDest(destDir, linkPath, linkname string) bool {
-	if linkname == "" {
-		return false
-	}
-	realParent, err := filepath.EvalSymlinks(filepath.Dir(linkPath))
-	if err != nil {
-		return false
-	}
-	if !isPathWithinDest(destDir, realParent) {
-		return false
-	}
-	var resolved string
-	if filepath.IsAbs(linkname) {
-		resolved = filepath.Clean(linkname)
-	} else {
-		resolved = filepath.Join(realParent, linkname)
-	}
-	return isPathWithinDest(destDir, resolved)
-}
-
 func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destDir, target string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
-		return os.MkdirAll(target, 0755)
+		return os.MkdirAll(target, 0o755)
 	case tar.TypeReg:
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		resolvedTarget, err := resolveTargetPath(destDir, target)
+		resolvedTarget, err := archive.ResolveWithin(destDir, target)
 		if err != nil {
 			return err
 		}
-		f, err := os.OpenFile(resolvedTarget, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
-		if err != nil {
-			return err
-		}
-		if _, err := io.Copy(f, tr); err != nil {
-			logging.Close(ctx, f)
-			_ = os.Remove(resolvedTarget)
-			return err
-		}
-		if err := f.Close(); err != nil {
-			_ = os.Remove(resolvedTarget)
-			return err
-		}
-		return nil
+		return archive.WriteMember(resolvedTarget, os.FileMode(hdr.Mode), tr)
 	case tar.TypeSymlink:
-		if !symlinkTargetWithinDest(destDir, target, hdr.Linkname) {
+		if !archive.SymlinkTargetWithin(destDir, target, hdr.Linkname) {
 			return fmt.Errorf("illegal symlink target: %s -> %s", hdr.Name, hdr.Linkname)
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		resolvedTarget, err := resolveTargetPath(destDir, target)
+		resolvedTarget, err := archive.ResolveWithin(destDir, target)
 		if err != nil {
 			return err
 		}

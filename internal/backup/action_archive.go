@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -44,8 +45,6 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 		return fmt.Errorf("create archive output dir: %w", err)
 	}
 
-	// Write to a sibling temp file, then rename into place so a failed tar does
-	// not leave a truncated final archive (and does not clobber an existing one).
 	tmp, err := os.CreateTemp(outDir, filepath.Base(action.Output)+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("create archive temp: %w", err)
@@ -70,7 +69,7 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	if err := os.Rename(tmpPath, action.Output); err != nil {
+	if err := atomicfile.Install(tmpPath, action.Output, 0); err != nil {
 		return fmt.Errorf("install archive: %w", err)
 	}
 	return nil

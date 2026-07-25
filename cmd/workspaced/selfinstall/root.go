@@ -2,12 +2,12 @@ package selfinstall
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/driver/shim"
@@ -162,37 +162,13 @@ func copyFile(ctx context.Context, src, dst string) error {
 	}
 	defer logging.Close(ctx, source, "path", src)
 
-	dir := filepath.Dir(dst)
-	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp-*")
+	f, err := atomicfile.Create(dst, 0o755)
 	if err != nil {
 		return err
 	}
-	tmpPath := tmp.Name()
-	defer func() {
-		if tmp != nil {
-			logging.Close(ctx, tmp, "path", tmpPath)
-		}
-		logging.RunCleanup(ctx, "remove", func() error {
-			if err := os.Remove(tmpPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
-			return nil
-		}, "path", tmpPath)
-	}()
-
-	if _, err := io.Copy(tmp, source); err != nil {
+	defer f.Abort()
+	if _, err := io.Copy(f, source); err != nil {
 		return err
 	}
-
-	if err := tmp.Sync(); err != nil {
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	tmp = nil
-	if err := os.Chmod(tmpPath, 0755); err != nil {
-		return err
-	}
-	return os.Rename(tmpPath, dst)
+	return f.CommitMode(0o755)
 }

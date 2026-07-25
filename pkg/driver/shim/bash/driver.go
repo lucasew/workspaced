@@ -3,6 +3,7 @@ package bash
 import (
 	"context"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	shimdriver "github.com/lucasew/workspaced/pkg/driver/shim"
@@ -84,16 +85,9 @@ func (d *Driver) Generate(ctx context.Context, path string, command []string) er
 
 	// Write via temp + rename so a crash mid-write cannot leave a truncated
 	// PATH executable that subsequent execs treat as the live shim.
-	tmpPath := path + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(content), 0755); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("failed to write shim temp to %s: %w", path, err)
+	if err := atomicfile.WriteString(path, content, 0o755); err != nil {
+		return fmt.Errorf("failed to write shim to %s: %w", path, err)
 	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("failed to replace shim at %s: %w", path, err)
-	}
-
 	return nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/media"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -76,25 +77,11 @@ func NextWorkspace(ctx context.Context, move bool) error {
 	}
 
 	nextWS := strconv.Itoa(lastWS + 1)
-	if err := writeLastWSFile(wsFile, nextWS); err != nil {
+	if err := atomicfile.WriteString(wsFile, nextWS, 0o600); err != nil {
 		logging.ReportError(ctx, err)
 	}
 
 	return switchToWorkspace(ctx, nextWS, move)
-}
-
-// writeLastWSFile writes workspace id via temp + rename (mode 0600).
-func writeLastWSFile(wsFile, nextWS string) error {
-	tmpPath := wsFile + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(nextWS), 0o600); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, wsFile); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
 }
 
 // RotateWorkspaces rotates the visible workspaces across all connected outputs.

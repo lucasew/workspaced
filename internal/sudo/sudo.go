@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -94,32 +95,17 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 	}
 
 	// Atomic owner-only write: env may include tokens/passwords.
-	tmp, err := os.CreateTemp(dir, ".sudo-queue-*.tmp")
+	f, err := atomicfile.Create(path, 0o600)
 	if err != nil {
 		return err
 	}
-	tmpName := tmp.Name()
-	ok := false
-	defer func() {
-		if !ok {
-			_ = os.Remove(tmpName)
-		}
-	}()
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
+	defer f.Abort()
+	if _, err := f.Write(data); err != nil {
 		return err
 	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
+	if err := f.Commit(); err != nil {
 		return err
 	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	if err := os.Rename(tmpName, path); err != nil {
-		return err
-	}
-	ok = true
 
 	n := &notification.Notification{
 		Title:   "Sudo Required",

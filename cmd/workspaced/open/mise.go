@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/miseutil"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -53,16 +54,8 @@ func ensureMiseWrapper(ctx context.Context, misePath string) error {
 		return fmt.Errorf("create wrapper directory: %w", err)
 	}
 
-	// Write via temp + rename so a crash mid-write cannot leave a truncated
-	// PATH executable that subsequent shells treat as the live mise wrapper.
-	tmpPath := wrapperPath + ".tmp"
-	if err := os.WriteFile(tmpPath, []byte(expectedContent), 0755); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("write wrapper temp: %w", err)
-	}
-	if err := os.Rename(tmpPath, wrapperPath); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("replace wrapper: %w", err)
+	if err := atomicfile.WriteString(wrapperPath, expectedContent, 0o755); err != nil {
+		return fmt.Errorf("write mise wrapper: %w", err)
 	}
 
 	logger.Info("created mise wrapper", "path", wrapperPath)

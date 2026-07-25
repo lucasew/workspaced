@@ -3,11 +3,11 @@ package deployer
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/source"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -131,14 +131,13 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 				return statePatch{}, fmt.Errorf("failed to create parent directory for %s: %w", action.Target, err)
 			}
 
-			if _, err := os.Lstat(action.Target); err == nil {
-				if err := os.RemoveAll(action.Target); err != nil {
-					return statePatch{}, fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
-				}
-			}
-
 			info := ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
 			if action.Desired.File.Type() == source.TypeSymlink {
+				if _, err := os.Lstat(action.Target); err == nil {
+					if err := os.RemoveAll(action.Target); err != nil {
+						return statePatch{}, fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
+					}
+				}
 				linkTarget, err := action.Desired.File.LinkTarget()
 				if err != nil {
 					return statePatch{}, fmt.Errorf("failed to get link target for %s: %w", action.Desired.File.SourceInfo(), err)
@@ -149,26 +148,23 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 				return statePatch{target: action.Target, info: info}, nil
 			}
 
-			f, err := os.OpenFile(action.Target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, action.Desired.File.Mode())
-			if err != nil {
-				return statePatch{}, fmt.Errorf("failed to open target file %s: %w", action.Target, err)
+			// Replace non-regular targets (dirs/symlinks) so rename can install a file.
+			// Leave a regular file in place: atomicfile.Write renames over it only after
+			// a full successful write, preserving the prior content on failure.
+			if fi, err := os.Lstat(action.Target); err == nil && !fi.Mode().IsRegular() {
+				if err := os.RemoveAll(action.Target); err != nil {
+					return statePatch{}, fmt.Errorf("failed to remove existing target %s: %w", action.Target, err)
+				}
 			}
 
 			reader, err := action.Desired.File.Reader()
 			if err != nil {
-				logging.Close(ctx, f)
-				_ = os.Remove(action.Target)
 				return statePatch{}, fmt.Errorf("failed to get reader for %s: %w", action.Desired.File.SourceInfo(), err)
 			}
-
-			_, copyErr := io.Copy(f, reader)
+			writeErr := atomicfile.Write(action.Target, reader, action.Desired.File.Mode())
 			logging.Close(ctx, reader)
-			if closeErr := f.Close(); closeErr != nil && copyErr == nil {
-				copyErr = closeErr
-			}
-			if copyErr != nil {
-				_ = os.Remove(action.Target)
-				return statePatch{}, fmt.Errorf("failed to write content to %s: %w", action.Target, copyErr)
+			if writeErr != nil {
+				return statePatch{}, fmt.Errorf("failed to write content to %s: %w", action.Target, writeErr)
 			}
 			return statePatch{target: action.Target, info: info}, nil
 		}

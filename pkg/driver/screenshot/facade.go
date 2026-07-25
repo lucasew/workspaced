@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/clipboard"
@@ -77,7 +78,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 	filename := fmt.Sprintf("Screenshot_%s.png", timestamp)
 	path := filepath.Join(dir, filename)
 
-	if err := writePNGAtomic(ctx, path, img); err != nil {
+	if err := writePNGAtomic(path, img); err != nil {
 		return "", err
 	}
 
@@ -117,24 +118,16 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 	}
 }
 
-// writePNGAtomic encodes img to path via sibling .tmp + rename.
-func writePNGAtomic(ctx context.Context, path string, img image.Image) error {
-	tmpPath := path + ".tmp"
-	f, err := os.Create(tmpPath)
+func writePNGAtomic(path string, img image.Image) error {
+	f, err := atomicfile.Create(path, 0)
 	if err != nil {
 		return fmt.Errorf("create screenshot temp: %w", err)
 	}
+	defer f.Abort()
 	if err := png.Encode(f, img); err != nil {
-		logging.Close(ctx, f)
-		_ = os.Remove(tmpPath)
 		return fmt.Errorf("encode screenshot: %w", err)
 	}
-	if err := f.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return fmt.Errorf("close screenshot temp: %w", err)
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
+	if err := f.Commit(); err != nil {
 		return fmt.Errorf("replace screenshot: %w", err)
 	}
 	return nil

@@ -1,7 +1,6 @@
 package screenshot
 
 import (
-	"context"
 	"image"
 	"image/color"
 	"os"
@@ -17,17 +16,14 @@ func TestWritePNGAtomic(t *testing.T) {
 	}
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.RGBA{G: 255, A: 255})
-	if err := writePNGAtomic(context.Background(), path, img); err != nil {
+	if err := writePNGAtomic(path, img); err != nil {
 		t.Fatal(err)
-	}
-	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
-		t.Fatalf("tmp left: %v", err)
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(raw) < 8 || string(raw[:8]) != "\x89PNG\r\n\x1a\n" {
-		t.Fatalf("bad png header %q", raw[:min(12, len(raw))])
+		t.Fatalf("not a PNG header: %q", raw[:min(16, len(raw))])
 	}
 }

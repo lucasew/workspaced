@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
@@ -274,7 +275,7 @@ nameserver 1.1.1.1
 		return "", fmt.Errorf("failed to create etc directory: %w", err)
 	}
 
-	if err := writeFileAtomic(resolvConfPath, []byte(dnsConfig), 0o644); err != nil {
+	if err := atomicfile.WriteBytes(resolvConfPath, []byte(dnsConfig), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write resolv.conf: %w", err)
 	}
 
@@ -340,7 +341,7 @@ func ensureSSLCerts(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("failed to read source cert %s: %w", sourceCert, err)
 		}
-		if err := writeFileAtomic(targetCert, certData, 0o644); err != nil {
+		if err := atomicfile.WriteBytes(targetCert, certData, 0o644); err != nil {
 			return "", fmt.Errorf("failed to write cert to %s: %w", targetCert, err)
 		}
 		logger.Info("copied SSL certificates", "from", sourceCert, "to", targetCert, "size", len(certData))
@@ -389,18 +390,4 @@ func (d *Driver) Which(ctx context.Context, name string) (string, error) {
 
 func init() {
 	driver.Register[execdriver.Driver](&Factory{})
-}
-
-// writeFileAtomic writes data to path via sibling .tmp + rename.
-func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, perm); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
 }

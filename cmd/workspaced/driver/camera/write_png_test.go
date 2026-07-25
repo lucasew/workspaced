@@ -1,7 +1,6 @@
 package camera
 
 import (
-	"context"
 	"image"
 	"image/color"
 	"os"
@@ -12,17 +11,13 @@ import (
 func TestWritePNGAtomic(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "shot.png")
-	// Seed truncated prior
 	if err := os.WriteFile(path, []byte("not-a-png"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	img.Set(0, 0, color.RGBA{R: 255, A: 255})
-	if err := writePNGAtomic(context.Background(), path, img); err != nil {
+	if err := writePNGAtomic(path, img); err != nil {
 		t.Fatal(err)
-	}
-	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
-		t.Fatalf("tmp left behind: %v", err)
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {

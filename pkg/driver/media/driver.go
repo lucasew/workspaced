@@ -4,10 +4,10 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -84,34 +84,9 @@ func GetArtCachePath(ctx context.Context, url string) (string, error) {
 
 	// Temp + rename so a mid-download failure (or crash) cannot leave a
 	// truncated content-addressed cache entry that later Stat hits treat as good.
-	if err := writeReaderToFileAtomic(ctx, resp.Body, path); err != nil {
+	if err := atomicfile.Write(path, resp.Body, 0); err != nil {
 		return "", err
 	}
 
 	return path, nil
-}
-
-// writeReaderToFileAtomic streams r into path via a sibling .tmp then rename.
-// On any failure after create, the temp is removed and an existing final path
-// is left untouched.
-func writeReaderToFileAtomic(ctx context.Context, r io.Reader, path string) error {
-	tmpPath := path + ".tmp"
-	out, err := os.Create(tmpPath)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, r); err != nil {
-		logging.Close(ctx, out)
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := out.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
 }

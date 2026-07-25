@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"github.com/lucasew/workspaced/internal/archive"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,7 +124,7 @@ func TestMapTarEntryTargetAllowsSafeNested(t *testing.T) {
 	if target != want {
 		t.Fatalf("target=%q want=%q", target, want)
 	}
-	if !isPathWithinDest(dest, target) {
+	if !archive.PathWithinDest(dest, target) {
 		t.Fatalf("mapped target not within dest: %q", target)
 	}
 }

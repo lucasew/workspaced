@@ -32,13 +32,13 @@ func (f *failingReaderFile) Reader() (io.ReadCloser, error) {
 	return errReadCloser{err: f.readErr}, nil
 }
 
-func TestExecuteRemovesPartialOnCopyError(t *testing.T) {
+func TestExecuteKeepsExistingOnCopyError(t *testing.T) {
 	t.Parallel()
 
 	dir := t.TempDir()
 	target := filepath.Join(dir, "managed.txt")
-	// Pre-existing good file is removed before write; a failed copy must not
-	// leave a truncated replacement behind.
+	// atomicfile.Write leaves the prior regular file in place when the new
+	// write fails before commit.
 	if err := os.WriteFile(target, []byte("good"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -69,8 +69,12 @@ func TestExecuteRemovesPartialOnCopyError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected copy error")
 	}
-	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
-		t.Fatalf("partial file still present after error: stat=%v execute=%v", statErr, err)
+	got, statErr := os.ReadFile(target)
+	if statErr != nil {
+		t.Fatalf("expected prior file kept: %v (execute=%v)", statErr, err)
+	}
+	if string(got) != "good" {
+		t.Fatalf("prior content lost: %q", got)
 	}
 	if _, ok := state.Files[target]; !ok {
 		t.Fatal("state should not drop managed entry when apply fails")

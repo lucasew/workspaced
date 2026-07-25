@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/checks/lint"
 	"github.com/lucasew/workspaced/internal/checks/review"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -161,28 +162,16 @@ func printTable(report *sarif.Report) error {
 	return w.Flush()
 }
 
-// writeSarifAtomic encodes report to path via temp + rename so CI never
-// consumes a truncated SARIF file after a crash mid-write.
 func writeSarifAtomic(path string, report *sarif.Report) error {
-	tmp := path + ".tmp"
-	file, err := os.Create(tmp)
+	f, err := atomicfile.Create(path, 0)
 	if err != nil {
 		return err
 	}
-	encoder := json.NewEncoder(file)
+	defer f.Abort()
+	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(report); err != nil {
-		_ = file.Close()
-		_ = os.Remove(tmp)
 		return err
 	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	return nil
+	return f.Commit()
 }

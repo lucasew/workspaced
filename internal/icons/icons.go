@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -89,7 +90,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 
 		// Temp + rename so a mid-encode failure (or crash) cannot leave a
 		// truncated content-addressed cache entry that later Stat hits treat as good.
-		if err := writePNGFileAtomic(ctx, path, img); err != nil {
+		if err := writePNGFileAtomic(path, img); err != nil {
 			return err
 		}
 
@@ -105,29 +106,16 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 	return path, nil
 }
 
-// writePNGFileAtomic encodes img as PNG into path via a sibling .tmp then rename.
-// On any failure after create, the temp is removed and an existing final path
-// is left untouched.
-func writePNGFileAtomic(ctx context.Context, path string, img image.Image) error {
-	tmpPath := path + ".tmp"
-	out, err := os.Create(tmpPath)
+func writePNGFileAtomic(path string, img image.Image) error {
+	f, err := atomicfile.Create(path, 0)
 	if err != nil {
 		return err
 	}
-	if err := png.Encode(out, img); err != nil {
-		logging.Close(ctx, out)
-		_ = os.Remove(tmpPath)
+	defer f.Abort()
+	if err := png.Encode(f, img); err != nil {
 		return err
 	}
-	if err := out.Close(); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	if err := os.Rename(tmpPath, path); err != nil {
-		_ = os.Remove(tmpPath)
-		return err
-	}
-	return nil
+	return f.Commit()
 }
 
 func makeBackgroundTransparent(img image.Image) image.Image {

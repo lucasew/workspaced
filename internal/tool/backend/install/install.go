@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/archive"
+	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/constants"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/pkg/driver"
@@ -88,7 +90,7 @@ func DownloadFile(ctx context.Context, url, dest string, opts DownloadOptions) e
 		}
 		logger := logging.GetLogger(ctx)
 		logger.Warn("fetchurl verified download failed, falling back to direct http download", "url", url, "err", fetchErr)
-		_ = os.Remove(dest + ".tmp")
+		_ = os.Remove(atomicfile.SiblingTemp(dest))
 	}
 
 	if err := downloadDirect(ctx, url, dest, opts); err != nil {
@@ -193,11 +195,11 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 		return err
 	}
 
-	tmp := dest + ".tmp"
-	outFile, err := os.Create(tmp)
+	out, err := atomicfile.Create(dest, 0)
 	if err != nil {
 		return err
 	}
+	defer out.Abort()
 
 	// HTTP progress is owned by httpclient.WithProgress (one fetch bar).
 	// Isolate so a failing verified fetchurl attempt does not cancel the parent
@@ -208,24 +210,18 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 			URLs: []string{url},
 			Algo: algo,
 			Hash: hash,
-			Out:  outFile,
+			Out:  out,
 			Size: opts.Size,
 		})
 	})
-
-	if closeErr := outFile.Close(); closeErr != nil {
-		_ = os.Remove(tmp)
-		return closeErr
-	}
 	if fetchErr != nil {
-		_ = os.Remove(tmp)
 		return fetchErr
 	}
-	return finishDownload(tmp, dest, opts.Mode)
+	return out.CommitMode(opts.Mode)
 }
 
 func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions) error {
-	// Perform the actual GET + write-to-tmp + finishDownload.
+	// Perform the actual GET + atomicfile.Create/Commit.
 	// If the ctx carries a taskgroup (normal case under tool install / apply),
 	// the httpclient driver's WithProgress transport will see the request and
 	// promote *this* HTTP to exactly one "fetch:<basename>" Internet task,
@@ -238,23 +234,19 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	// from a failing verified attempt from recording errors on the parent group,
 	// so the fallback here can still succeed cleanly.
 
-	tmp := dest + ".tmp"
-	outFile, err := os.Create(tmp)
+	out, err := atomicfile.Create(dest, 0)
 	if err != nil {
 		return err
 	}
+	defer out.Abort()
 
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
 		return fmt.Errorf("failed to get http client: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
 		return err
 	}
 	if opts.ConfigureRequest != nil {
@@ -263,15 +255,11 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 
 	resp, err := httpClient.Client().Do(req)
 	if err != nil {
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
 		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		logging.Close(ctx, resp.Body)
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
 		err := fmt.Errorf("GET %s: %s", url, resp.Status)
 		if resp.StatusCode == http.StatusForbidden {
 			err = fmt.Errorf("%w (if this is a GitHub release asset, set GITHUB_TOKEN or run 'gh auth login' to increase rate limits)", err)
@@ -282,29 +270,12 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	// resp.Body is the original (no group) or a progressReadCloser (group present
 	// at the time of this Do). io.Copy will drive the single transport-created
 	// task's progress when applicable.
-	if _, err := io.Copy(outFile, resp.Body); err != nil {
-		logging.Close(ctx, resp.Body)
-		logging.Close(ctx, outFile)
-		_ = os.Remove(tmp)
-		return err
-	}
+	_, copyErr := io.Copy(out, resp.Body)
 	logging.Close(ctx, resp.Body)
-	if err := outFile.Close(); err != nil {
-		_ = os.Remove(tmp)
-		return err
+	if copyErr != nil {
+		return copyErr
 	}
-	return finishDownload(tmp, dest, opts.Mode)
-}
-
-func finishDownload(tmp, dest string, mode os.FileMode) error {
-	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if mode != 0 {
-		return os.Chmod(dest, mode)
-	}
-	return nil
+	return out.CommitMode(opts.Mode)
 }
 
 func parseHash(raw string) (algo, hash string) {
@@ -327,21 +298,7 @@ func installBinary(ctx context.Context, src, dest string) error {
 	defer logging.Close(ctx, in)
 
 	outPath := filepath.Join(dest, NormalizeBinaryName(filepath.Base(src)))
-	out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o755)
-	if err != nil {
-		return err
-	}
-
-	if _, err := io.Copy(out, in); err != nil {
-		logging.Close(ctx, out)
-		_ = os.Remove(outPath)
-		return err
-	}
-	if err := out.Close(); err != nil {
-		_ = os.Remove(outPath)
-		return err
-	}
-	return os.Chmod(outPath, 0o755)
+	return atomicfile.Write(outPath, in, 0o755)
 }
 
 var versionPattern = regexp.MustCompile(constants.BinaryVersionPattern)
@@ -406,53 +363,30 @@ func unzip(ctx context.Context, src, dest string) error {
 	defer logging.Close(ctx, reader)
 
 	for _, file := range reader.File {
-		target := filepath.Join(dest, file.Name)
-		if !isPathWithinDest(dest, target) {
-			return fmt.Errorf("illegal file path: %s", target)
+		target, err := archive.JoinWithin(dest, file.Name)
+		if err != nil {
+			return err
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(target, os.ModePerm); err != nil {
+			if err := os.MkdirAll(target, 0o755); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
-			return err
-		}
-
-		outFile, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-		if err != nil {
-			return err
-		}
-
 		rc, err := file.Open()
 		if err != nil {
-			logging.Close(ctx, outFile)
-			_ = os.Remove(target)
 			return err
 		}
-
-		_, copyErr := io.Copy(outFile, rc)
-		closeOutErr := outFile.Close()
-		closeRcErr := rc.Close()
-		if copyErr != nil {
-			_ = os.Remove(target)
-			return copyErr
+		writeErr := archive.WriteMember(target, file.Mode(), rc)
+		closeErr := rc.Close()
+		if writeErr != nil {
+			return writeErr
 		}
-		if closeOutErr != nil {
+		if closeErr != nil {
 			_ = os.Remove(target)
-			return closeOutErr
-		}
-		if closeRcErr != nil {
-			_ = os.Remove(target)
-			return closeRcErr
-		}
-		if file.Mode()&0o111 != 0 {
-			if err := os.Chmod(target, file.Mode()); err != nil {
-				return fmt.Errorf("failed to set permissions: %w", err)
-			}
+			return closeErr
 		}
 	}
 	return nil
@@ -484,9 +418,9 @@ func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 			return err
 		}
 
-		target := filepath.Join(dest, header.Name)
-		if !isPathWithinDest(dest, target) {
-			return fmt.Errorf("illegal file path: %s", target)
+		target, err := archive.JoinWithin(dest, header.Name)
+		if err != nil {
+			return err
 		}
 
 		switch header.Typeflag {
@@ -495,27 +429,18 @@ func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 				return err
 			}
 		case tar.TypeReg:
+			if err := archive.WriteMember(target, os.FileMode(header.Mode), reader); err != nil {
+				return err
+			}
+		case tar.TypeSymlink:
+			if !archive.SymlinkTargetWithin(dest, target, header.Linkname) {
+				return fmt.Errorf("illegal symlink target: %s -> %s", header.Name, header.Linkname)
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			outFile, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR|os.O_TRUNC, os.FileMode(header.Mode))
-			if err != nil {
+			if err := os.Symlink(header.Linkname, target); err != nil && !os.IsExist(err) {
 				return err
-			}
-			_, copyErr := io.Copy(outFile, reader)
-			closeErr := outFile.Close()
-			if copyErr != nil {
-				_ = os.Remove(target)
-				return copyErr
-			}
-			if closeErr != nil {
-				_ = os.Remove(target)
-				return closeErr
-			}
-			if header.Mode&0o111 != 0 {
-				if err := os.Chmod(target, os.FileMode(header.Mode)); err != nil {
-					return fmt.Errorf("failed to set permissions: %w", err)
-				}
 			}
 		}
 	}
@@ -531,18 +456,4 @@ func untarxz(ctx context.Context, src, dest string) error {
 		return fmt.Errorf("tar xf failed: %w", err)
 	}
 	return nil
-}
-
-func isPathWithinDest(dest, target string) bool {
-	cleanDest := filepath.Clean(dest)
-	cleanTarget := filepath.Clean(target)
-
-	rel, err := filepath.Rel(cleanDest, cleanTarget)
-	if err != nil {
-		return false
-	}
-	if rel == "." {
-		return true
-	}
-	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
