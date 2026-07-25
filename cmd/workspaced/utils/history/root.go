@@ -31,7 +31,7 @@ func GetCommand() *cobra.Command {
 func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		return nil, fmt.Errorf("get home directory: %w", err)
 	}
 	path := filepath.Join(home, ".bash_history")
 	file, err := os.Open(path)
@@ -69,20 +69,20 @@ func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {
 func ingestAtuin(ctx context.Context) ([]types.HistoryEvent, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		return nil, fmt.Errorf("get home directory: %w", err)
 	}
 	dbPath := filepath.Join(home, ".local/share/atuin/history.db")
 
 	// Open atuin database using the registered sqlite driver
 	dbConn, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open atuin database: %w", err)
+		return nil, fmt.Errorf("open atuin database: %w", err)
 	}
 	defer logging.Close(ctx, dbConn, "path", dbPath)
 
 	rows, err := dbConn.Query("SELECT command, cwd, timestamp, exit, duration FROM history")
 	if err != nil {
-		return nil, fmt.Errorf("failed to query atuin database: %w", err)
+		return nil, fmt.Errorf("query atuin database: %w", err)
 	}
 	defer logging.Close(ctx, rows)
 

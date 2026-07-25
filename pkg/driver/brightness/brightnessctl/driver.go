@@ -33,7 +33,7 @@ type Driver struct{}
 func (d *Driver) Status(ctx context.Context) (*brightness.Device, error) {
 	out, err := execdriver.MustRun(ctx, "brightnessctl", "-m").Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get brightness status: %w", err)
+		return nil, fmt.Errorf("get brightness status: %w", err)
 	}
 
 	lines := strings.SplitSeq(strings.TrimSpace(string(out)), "\n")
@@ -61,7 +61,7 @@ func (d *Driver) Status(ctx context.Context) (*brightness.Device, error) {
 func (d *Driver) SetBrightness(ctx context.Context, level float64) error {
 
 	if err := execdriver.MustRun(ctx, "brightnessctl", "s", fmt.Sprintf("%d%%", int(level*100))).Run(); err != nil {
-		return fmt.Errorf("failed to set brightness: %w", err)
+		return fmt.Errorf("set brightness: %w", err)
 	}
 
 	return nil

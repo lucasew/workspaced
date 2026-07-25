@@ -89,7 +89,7 @@ func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) (
 	// Use httpclient driver
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get http client: %w", err)
+		return nil, fmt.Errorf("get http client: %w", err)
 	}
 
 	resp, err := httpClient.Client().Do(req)
@@ -172,7 +172,7 @@ func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, v
 	// Use httpclient driver
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get http client: %w", err)
+		return nil, fmt.Errorf("get http client: %w", err)
 	}
 
 	resp, err := httpClient.Client().Do(req)

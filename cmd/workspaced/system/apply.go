@@ -21,14 +21,14 @@ func RunApply(ctx context.Context, action string) error {
 
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get dotfiles root: %w", err)
+		return fmt.Errorf("get dotfiles root: %w", err)
 	}
 	cfg, err := configcue.LoadHome(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		return fmt.Errorf("load config: %w", err)
 	}
 	if _, err := tool.RefreshWorkspaceLocks(ctx, modfile.NewWorkspace(dotfilesRoot), cfg); err != nil {
-		return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
+		return fmt.Errorf("refresh workspace lockfile: %w", err)
 	}
 
 	if !envdriver.IsNixOS(ctx) {

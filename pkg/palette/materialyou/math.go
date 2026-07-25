@@ -8,10 +8,7 @@ func clampInt(lo, hi, x int) int {
 	if x < lo {
 		return lo
 	}
-	if x > hi {
-		return hi
-	}
-	return x
+	return min(x, hi)
 }
 
 func round(x float64) float64 {

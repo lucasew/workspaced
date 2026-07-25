@@ -36,7 +36,7 @@ func resolveResvg(ctx context.Context) (string, error) {
 	resvgOnce.Do(func() {
 		m, err := tool.NewManager()
 		if err != nil {
-			resvgErr = fmt.Errorf("failed to create tool manager: %w", err)
+			resvgErr = fmt.Errorf("create tool manager: %w", err)
 			return
 		}
 		bin, err := m.EnsureInstalled(ctx, defaultResvgSpec, "resvg")
@@ -49,7 +49,7 @@ func resolveResvg(ctx context.Context) (string, error) {
 		// exec.Run pre-sets Stderr (for Output/Run); do not use CombinedOutput.
 		c, err := exec.Run(ctx, bin, "--version")
 		if err != nil {
-			resvgErr = fmt.Errorf("failed to prepare resvg command: %w", err)
+			resvgErr = fmt.Errorf("prepare resvg command: %w", err)
 			return
 		}
 		if err := c.Run(); err != nil {
@@ -96,7 +96,7 @@ func (d *Driver) RasterizeSVG(ctx context.Context, svg string, width int, height
 		outPNG,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to prepare resvg command: %w", err)
+		return nil, fmt.Errorf("prepare resvg command: %w", err)
 	}
 	// Capture diagnostics without CombinedOutput (Stderr already attached).
 	var stderr bytes.Buffer

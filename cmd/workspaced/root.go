@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -214,11 +213,11 @@ func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) 
 	if cpuProfilePath != "" {
 		f, err := os.Create(cpuProfilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create cpuprofile file: %w", err)
+			return nil, fmt.Errorf("create cpuprofile file: %w", err)
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
 			logging.Close(ctx, f, "path", cpuProfilePath)
-			return nil, fmt.Errorf("failed to start CPU profile: %w", err)
+			return nil, fmt.Errorf("start CPU profile: %w", err)
 		}
 		cpuFile = f
 	}
@@ -236,12 +235,12 @@ func startProfiling(ctx context.Context, cpuProfilePath, memProfilePath string) 
 		if memProfilePath != "" {
 			f, err := os.Create(memProfilePath)
 			if err != nil {
-				return fmt.Errorf("failed to create memprofile file: %w", err)
+				return fmt.Errorf("create memprofile file: %w", err)
 			}
 			runtime.GC()
 			if err := pprof.WriteHeapProfile(f); err != nil {
 				logging.Close(ctx, f, "path", memProfilePath)
-				return fmt.Errorf("failed to write heap profile: %w", err)
+				return fmt.Errorf("write heap profile: %w", err)
 			}
 			if err := f.Close(); err != nil {
 				return err

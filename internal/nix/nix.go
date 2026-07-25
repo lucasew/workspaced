@@ -92,7 +92,7 @@ func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
 		Path string `json:"path"`
 	}
 	if err := json.Unmarshal(out, &meta); err != nil {
-		return "", fmt.Errorf("failed to parse flake archive output: %w", err)
+		return "", fmt.Errorf("parse flake archive output: %w", err)
 	}
 
 	return meta.Path, nil
@@ -162,12 +162,12 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	updateProgress("Building on remote server...", 0.6)
 	remoteCache, err := GetRemoteCacheDir(ctx, target)
 	if err != nil {
-		return "", fmt.Errorf("failed to get remote cache dir: %w", err)
+		return "", fmt.Errorf("get remote cache dir: %w", err)
 	}
 
 	buildID := make([]byte, 8)
 	if _, err := rand.Read(buildID); err != nil {
-		return "", fmt.Errorf("failed to generate build ID: %w", err)
+		return "", fmt.Errorf("generate build ID: %w", err)
 	}
 	uuid := fmt.Sprintf("%x", buildID)
 	outLink := fmt.Sprintf("%s/%s", remoteCache, uuid)
@@ -184,7 +184,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 
 	out, err := nixOutput(ctx, "ssh", target, "realpath", outLink)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve result path: %w", err)
+		return "", fmt.Errorf("resolve result path: %w", err)
 	}
 	resultPath := strings.TrimSpace(string(out))
 

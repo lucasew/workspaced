@@ -3,7 +3,6 @@ package dbus
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"image"
 
 	"github.com/godbus/dbus/v5"
@@ -56,19 +55,19 @@ func imageToSNIPixmap(img image.Image) ([]SNIPixmap, error) {
 			var err error
 			err = binary.Write(data, binary.BigEndian, uint8(a>>8))
 			if err != nil {
-				return nil, fmt.Errorf("failed to write pixmap data: %w", err)
+				return nil, fmt.Errorf("write pixmap data: %w", err)
 			}
 			err = binary.Write(data, binary.BigEndian, uint8(r>>8))
 			if err != nil {
-				return nil, fmt.Errorf("failed to write pixmap data: %w", err)
+				return nil, fmt.Errorf("write pixmap data: %w", err)
 			}
 			err = binary.Write(data, binary.BigEndian, uint8(g>>8))
 			if err != nil {
-				return nil, fmt.Errorf("failed to write pixmap data: %w", err)
+				return nil, fmt.Errorf("write pixmap data: %w", err)
 			}
 			err = binary.Write(data, binary.BigEndian, uint8(b>>8))
 			if err != nil {
-				return nil, fmt.Errorf("failed to write pixmap data: %w", err)
+				return nil, fmt.Errorf("write pixmap data: %w", err)
 			}
 		}
 	}

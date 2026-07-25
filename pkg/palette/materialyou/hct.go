@@ -7,10 +7,7 @@ import (
 )
 
 func max0(x float64) float64 {
-	if x > 0.0 {
-		return x
-	}
-	return 0.0
+	return max(x, 0.0)
 }
 
 func matmul(row [3]float64, mat *[3][3]float64) [3]float64 {

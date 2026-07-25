@@ -49,7 +49,7 @@ Before running this, install the binary with:
 func runInit(ctx context.Context, force bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return fmt.Errorf("get home directory: %w", err)
 	}
 
 	// 1. Detect dotfiles root
@@ -62,7 +62,7 @@ func runInit(ctx context.Context, force bool) error {
 		}
 		fmt.Printf("📁 Creating dotfiles directory: %s\n", dotfilesRoot)
 		if err := os.MkdirAll(dotfilesRoot, 0755); err != nil {
-			return fmt.Errorf("failed to create dotfiles directory: %w", err)
+			return fmt.Errorf("create dotfiles directory: %w", err)
 		}
 	} else {
 		fmt.Printf("📁 Using dotfiles directory: %s\n", dotfilesRoot)
@@ -78,7 +78,7 @@ func runInit(ctx context.Context, force bool) error {
 
 	fmt.Printf("\n📝 Generating config from template...\n")
 	if err := generateConfig(ctx, configPath); err != nil {
-		return fmt.Errorf("failed to generate config: %w", err)
+		return fmt.Errorf("generate config: %w", err)
 	}
 	fmt.Printf("   ✓ Config created: %s\n", configPath)
 
@@ -86,7 +86,7 @@ func runInit(ctx context.Context, force bool) error {
 	fmt.Printf("\n📦 Installing example module...\n")
 	modulesDir := filepath.Join(dotfilesRoot, "modules")
 	if err := copyEmbeddedModules(modulesDir); err != nil {
-		return fmt.Errorf("failed to copy modules: %w", err)
+		return fmt.Errorf("copy modules: %w", err)
 	}
 	fmt.Printf("   ✓ Modules installed: %s\n", modulesDir)
 
@@ -104,7 +104,7 @@ func generateConfig(ctx context.Context, configPath string) error {
 	// Read embedded template
 	tmplContent, err := templatesFS.ReadFile("templates/init/workspaced.cue.tmpl")
 	if err != nil {
-		return fmt.Errorf("failed to read template: %w", err)
+		return fmt.Errorf("read template: %w", err)
 	}
 
 	// Prepare template data
@@ -131,7 +131,7 @@ func generateConfig(ctx context.Context, configPath string) error {
 		},
 	}).Parse(string(tmplContent))
 	if err != nil {
-		return fmt.Errorf("failed to parse template: %w", err)
+		return fmt.Errorf("parse template: %w", err)
 	}
 
 	// Write via temp + rename so a failed Execute cannot leave a partial

@@ -65,7 +65,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	d.ctx, d.cancel = context.WithCancel(ctx)
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
-		return fmt.Errorf("failed to connect to session bus: %w", err)
+		return fmt.Errorf("connect to session bus: %w", err)
 	}
 	d.conn = conn
 
@@ -74,18 +74,18 @@ func (d *Driver) Run(ctx context.Context) error {
 
 	// Export objects
 	if err := d.sni.Export(d.conn, "/StatusNotifierItem"); err != nil {
-		return fmt.Errorf("failed to export SNI: %w", err)
+		return fmt.Errorf("export SNI: %w", err)
 	}
 
 	if err := d.menu.Export(d.conn, "/MenuBar"); err != nil {
-		return fmt.Errorf("failed to export DBusMenu: %w", err)
+		return fmt.Errorf("export DBusMenu: %w", err)
 	}
 
 	// Register name
 	serviceName := fmt.Sprintf("org.kde.StatusNotifierItem-%d-1", os.Getpid())
 	reply, err := d.conn.RequestName(serviceName, dbus.NameFlagDoNotQueue)
 	if err != nil {
-		return fmt.Errorf("failed to request name: %w", err)
+		return fmt.Errorf("request name: %w", err)
 	}
 	if reply != dbus.RequestNameReplyPrimaryOwner {
 		return tray.ErrNameTaken

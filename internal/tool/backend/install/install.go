@@ -242,7 +242,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get http client: %w", err)
+		return fmt.Errorf("get http client: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

@@ -24,10 +24,7 @@ func clamp(lo, hi, x float64) float64 {
 	if x < lo {
 		return lo
 	}
-	if x > hi {
-		return hi
-	}
-	return x
+	return min(x, hi)
 }
 
 func lighter(tone, ratio float64) float64 {
@@ -76,10 +73,7 @@ func lighterUnsafe(tone, ratio float64) float64 {
 
 func darkerUnsafe(tone, ratio float64) float64 {
 	x := darker(tone, ratio)
-	if x < 0.0 {
-		return 0.0
-	}
-	return x
+	return max(x, 0.0)
 }
 
 func tonePrefersLight(tone float64) bool {
@@ -738,10 +732,7 @@ func getTone(role *Role, s *Scheme) float64 {
 	if len(availables) == 1 {
 		return availables[0]
 	}
-	if darkOption < 0.0 {
-		return 0.0
-	}
-	return darkOption
+	return max(darkOption, 0.0)
 }
 
 func colorOf(roleName string, s *Scheme) string {

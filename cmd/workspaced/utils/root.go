@@ -71,7 +71,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 
 	payload, err := json.Marshal(req)
 	if err != nil {
-		return "", true, fmt.Errorf("failed to marshal daemon request: %w", err)
+		return "", true, fmt.Errorf("marshal daemon request: %w", err)
 	}
 	packet := types.StreamPacket{
 		Type:    "request",
@@ -79,7 +79,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 	}
 
 	if err := conn.WriteJSON(packet); err != nil {
-		return "", true, fmt.Errorf("failed to send request: %w", err)
+		return "", true, fmt.Errorf("send request: %w", err)
 	}
 
 	for {
@@ -88,7 +88,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 			if !websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				logger.Debug("ws read error", "error", err)
 			}
-			return "", true, fmt.Errorf("failed to read response: %w", err)
+			return "", true, fmt.Errorf("read response: %w", err)
 		}
 
 		switch packet.Type {
@@ -124,7 +124,7 @@ func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, b
 		case "result":
 			var resp types.Response
 			if err := json.Unmarshal(packet.Payload, &resp); err != nil {
-				return "", true, fmt.Errorf("failed to parse result: %w", err)
+				return "", true, fmt.Errorf("parse result: %w", err)
 			}
 			if resp.Error != "" {
 				// Check if daemon is restarting itself

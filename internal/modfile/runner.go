@@ -21,14 +21,14 @@ type LockResult struct {
 func GenerateLock(ctx context.Context, ws *Workspace) (LockResult, error) {
 	cfg, err := configcue.LoadForWorkspace(ctx, ws.Root)
 	if err != nil {
-		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
+		return LockResult{}, fmt.Errorf("load config: %w", err)
 	}
 	return GenerateLockWithConfig(ctx, ws, cfg, true)
 }
 
 func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.Config, force bool) (LockResult, error) {
 	if cfg == nil {
-		return LockResult{}, fmt.Errorf("failed to load config: %w", ErrNilConfig)
+		return LockResult{}, fmt.Errorf("load config: %w", ErrNilConfig)
 	}
 
 	if err := ws.EnsureFiles(ctx); err != nil {
@@ -37,7 +37,7 @@ func GenerateLockWithConfig(ctx context.Context, ws *Workspace, cfg *configcue.C
 
 	mod, err := ModFileFromConfig(cfg)
 	if err != nil {
-		return LockResult{}, fmt.Errorf("failed to load config: %w", err)
+		return LockResult{}, fmt.Errorf("load config: %w", err)
 	}
 	sourceEntries := BuildSourceLockEntries(mod)
 

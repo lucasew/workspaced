@@ -67,21 +67,21 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 		cfg, err := configcue.LoadHome(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			return fmt.Errorf("load config: %w", err)
 		}
 
 		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get dotfiles root: %w", err)
+			return fmt.Errorf("get dotfiles root: %w", err)
 		}
 		ws := modfile.NewWorkspace(dotfilesRoot)
 		if _, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg); err != nil {
-			return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
+			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
+			return fmt.Errorf("get home directory: %w", err)
 		}
 
 		// 1. dconf marker plugin (home-specific)
@@ -114,7 +114,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		// StateStore — paths on disk are relative to $HOME (~).
 		stateStore, err := deployer.NewFileStateStore("~/.config/workspaced/state.json", home)
 		if err != nil {
-			return fmt.Errorf("failed to create state store: %w", err)
+			return fmt.Errorf("create state store: %w", err)
 		}
 
 		// Hooks
@@ -191,7 +191,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			Hooks:      hooks,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create manager: %w", err)
+			return fmt.Errorf("create manager: %w", err)
 		}
 
 		result, err := mgr.Apply(ctx, dotfiles.ApplyOptions{

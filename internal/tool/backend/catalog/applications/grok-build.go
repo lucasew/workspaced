@@ -2,7 +2,6 @@ package apps
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,7 +21,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-var ErrGrokBuildProbeFailure = errors.New("failed to probe grok-build latest from x.ai channels")
+var ErrGrokBuildProbeFailure = errors.New("probe grok-build latest from x.ai channels")
 
 func init() {
 	catalog.RegisterTool("grok-build", newGrokBuild)

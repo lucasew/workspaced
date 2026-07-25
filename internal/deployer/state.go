@@ -40,7 +40,7 @@ func NewFileStateStore(path, root string) (*FileStateStore, error) {
 
 	dir := filepath.Dir(expanded)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create state directory: %w", err)
+		return nil, fmt.Errorf("create state directory: %w", err)
 	}
 
 	root = filepath.Clean(envdriver.ExpandPath(root))
@@ -57,12 +57,12 @@ func (s *FileStateStore) Load() (*State, error) {
 
 	data, err := os.ReadFile(s.path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read state file: %w", err)
+		return nil, fmt.Errorf("read state file: %w", err)
 	}
 
 	var disk State
 	if err := json.Unmarshal(data, &disk); err != nil {
-		return nil, fmt.Errorf("failed to parse state file: %w", err)
+		return nil, fmt.Errorf("parse state file: %w", err)
 	}
 
 	if disk.Files == nil {
@@ -95,7 +95,7 @@ func (s *FileStateStore) Save(state *State) error {
 
 	data, err := json.MarshalIndent(disk, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal state: %w", err)
+		return fmt.Errorf("marshal state: %w", err)
 	}
 
 	if err := atomicfile.WriteBytes(s.path, data, 0o644); err != nil {

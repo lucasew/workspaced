@@ -83,7 +83,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	files, err := m.pipeline.Run(ctx, []source.File{})
 	if err != nil {
 		result.Error = err
-		return result, fmt.Errorf("failed to run pipeline: %w", err)
+		return result, fmt.Errorf("run pipeline: %w", err)
 	}
 
 	logger.Info("pipeline completed", "files", len(files))
@@ -101,7 +101,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	state, err := m.stateStore.Load()
 	if err != nil {
 		result.Error = err
-		return result, fmt.Errorf("failed to load state: %w", err)
+		return result, fmt.Errorf("load state: %w", err)
 	}
 
 	// 4. Plan actions
@@ -110,7 +110,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	actions, err := m.planner.Plan(ctx, desired, state)
 	if err != nil {
 		result.Error = err
-		return result, fmt.Errorf("failed to plan: %w", err)
+		return result, fmt.Errorf("plan: %w", err)
 	}
 	logger.Info("plan calculated", "duration", time.Since(planStart).String(), "actions", len(actions))
 
@@ -171,14 +171,14 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	if execErr != nil {
 		result.Error = execErr
-		return result, fmt.Errorf("failed to execute: %w", execErr)
+		return result, fmt.Errorf("execute: %w", execErr)
 	}
 
 	// 8. Save state
 	logger.Info("saving state")
 	if err := m.stateStore.Save(state); err != nil {
 		result.Error = err
-		return result, fmt.Errorf("failed to save state: %w", err)
+		return result, fmt.Errorf("save state: %w", err)
 	}
 
 	logger.Info("apply completed successfully")

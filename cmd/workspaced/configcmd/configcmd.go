@@ -64,12 +64,12 @@ Outputs the result as JSON format.`,
 		RunE: func(c *cobra.Command, args []string) error {
 			result, err := configcue.Evaluate(c.Context(), opts.discover())
 			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
+				return fmt.Errorf("load config: %w", err)
 			}
 
 			var raw any
 			if err := json.Unmarshal(result.JSON, &raw); err != nil {
-				return fmt.Errorf("failed to decode evaluated config: %w", err)
+				return fmt.Errorf("decode evaluated config: %w", err)
 			}
 			enc := json.NewEncoder(c.OutOrStdout())
 			enc.SetIndent("", "  ")
@@ -98,7 +98,7 @@ Outputs the value as JSON for easy parsing.`, scope, scope, scope),
 		RunE: func(c *cobra.Command, args []string) error {
 			cfg, err := opts.load(c.Context())
 			if err != nil {
-				return fmt.Errorf("failed to load config: %w", err)
+				return fmt.Errorf("load config: %w", err)
 			}
 
 			result, err := lookupConfigValue(cfg, args[0])
@@ -108,7 +108,7 @@ Outputs the value as JSON for easy parsing.`, scope, scope, scope),
 
 			jsonBytes, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
-				return fmt.Errorf("failed to encode JSON: %w", err)
+				return fmt.Errorf("encode JSON: %w", err)
 			}
 
 			c.Println(string(jsonBytes))
@@ -168,7 +168,7 @@ func newLayersCommand(opts Options) *cobra.Command {
 		RunE: func(c *cobra.Command, args []string) error {
 			result, err := configcue.Evaluate(c.Context(), opts.discover())
 			if err != nil {
-				return fmt.Errorf("failed to discover config layers: %w", err)
+				return fmt.Errorf("discover config layers: %w", err)
 			}
 
 			if format == "table" {

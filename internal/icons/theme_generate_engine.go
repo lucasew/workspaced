@@ -54,11 +54,11 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 
 	if opts.Clean {
 		if err := os.RemoveAll(outputDir); err != nil {
-			return fmt.Errorf("failed to clean output dir: %w", err)
+			return fmt.Errorf("clean output dir: %w", err)
 		}
 	}
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return fmt.Errorf("failed to create output dir: %w", err)
+		return fmt.Errorf("create output dir: %w", err)
 	}
 
 	colors, err := loadBase16Colors(ctx)
@@ -94,7 +94,7 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 	// *before* the "icon-theme:..." processing starts.
 	if !opts.NoRaster {
 		if err := svgraster.Ensure(ctx); err != nil {
-			return fmt.Errorf("failed to ensure resvg (needed for icon rasterization): %w", err)
+			return fmt.Errorf("ensure resvg (needed for icon rasterization): %w", err)
 		}
 	}
 

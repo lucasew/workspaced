@@ -153,10 +153,10 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 		return fmt.Errorf("build failed: %w", err)
 	}
 	if err := os.Chmod(tmpPath, 0755); err != nil {
-		return fmt.Errorf("failed to set permissions on built binary: %w", err)
+		return fmt.Errorf("set permissions on built binary: %w", err)
 	}
 	if err := os.Rename(tmpPath, installPath); err != nil {
-		return fmt.Errorf("failed to install built binary: %w", err)
+		return fmt.Errorf("install built binary: %w", err)
 	}
 
 	logger.Info("build completed", "path", installPath)
@@ -262,11 +262,11 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	}
 
 	if err := os.Rename(workspacedBin, installPath); err != nil {
-		return fmt.Errorf("failed to install binary: %w", err)
+		return fmt.Errorf("install binary: %w", err)
 	}
 
 	if err := os.Chmod(installPath, 0755); err != nil {
-		return fmt.Errorf("failed to set permissions: %w", err)
+		return fmt.Errorf("set permissions: %w", err)
 	}
 
 	logger.Info("download completed", "path", installPath)
@@ -364,11 +364,11 @@ func workspacedInstallPaths(ctx context.Context) (installDir, installPath string
 	if err != nil {
 		home, homeErr := envdriver.ResolveHomeDir()
 		if homeErr != nil {
-			return "", "", fmt.Errorf("failed to get home directory: %w", err)
+			return "", "", fmt.Errorf("get home directory: %w", err)
 		}
 		dataDir = filepath.Join(home, ".local", "share", "workspaced")
 		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
-			return "", "", fmt.Errorf("failed to create user data dir: %w", mkErr)
+			return "", "", fmt.Errorf("create user data dir: %w", mkErr)
 		}
 	}
 	installDir = filepath.Join(dataDir, "bin")

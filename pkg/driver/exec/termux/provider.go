@@ -272,11 +272,11 @@ nameserver 1.1.1.1
 
 	etcDir := filepath.Join(prefix, "etc")
 	if err := os.MkdirAll(etcDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create etc directory: %w", err)
+		return "", fmt.Errorf("create etc directory: %w", err)
 	}
 
 	if err := atomicfile.WriteBytes(resolvConfPath, []byte(dnsConfig), 0o644); err != nil {
-		return "", fmt.Errorf("failed to write resolv.conf: %w", err)
+		return "", fmt.Errorf("write resolv.conf: %w", err)
 	}
 
 	logger.Info("created resolv.conf for Termux DNS", "path", resolvConfPath)

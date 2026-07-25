@@ -240,7 +240,7 @@ func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) 
 	if homeMode {
 		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get dotfiles root: %w", err)
+			return nil, fmt.Errorf("get dotfiles root: %w", err)
 		}
 		return modfile.NewWorkspace(dotfilesRoot), nil
 	}
@@ -277,7 +277,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 
 	cfg, err := configcue.LoadForWorkspace(ctx, ws.Root)
 	if err != nil {
-		return "", fmt.Errorf("failed to load workspace config: %w", err)
+		return "", fmt.Errorf("load workspace config: %w", err)
 	}
 	if err := ws.EnsureFiles(ctx); err != nil {
 		return "", err
@@ -352,7 +352,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		}
 		return changed, nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to update tool lock: %w", err)
+		return "", fmt.Errorf("update tool lock: %w", err)
 	} else if changed {
 		logger.Debug("updating lazy tool lock entry", "tool", toolName, "workspace", ws.Root, "ref", lockRef, "version", spec.Version)
 	} else {

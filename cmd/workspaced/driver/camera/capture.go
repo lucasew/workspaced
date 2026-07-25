@@ -21,7 +21,7 @@ import (
 var (
 	ErrNoCamerasFound   = errors.New("no cameras found")
 	ErrCameraNotFound   = errors.New("camera not found")
-	ErrCaptureAllFailed = errors.New("failed to capture from any camera")
+	ErrCaptureAllFailed = errors.New("capture from any camera")
 )
 
 func init() {

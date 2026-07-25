@@ -44,7 +44,7 @@ func (p Provider) LockHash(ctx context.Context, alias string, src modfile.Source
 
 	meta, err := normalized.ReadMeta(root)
 	if err != nil {
-		return "", src, fmt.Errorf("failed to read source metadata: %w", err)
+		return "", src, fmt.Errorf("read source metadata: %w", err)
 	}
 	if strings.TrimSpace(meta.Hash) == "" {
 		return "", src, ErrMissingCachedHash
@@ -58,7 +58,7 @@ func (p Provider) LockHash(ctx context.Context, alias string, src modfile.Source
 	if trackRef == "" || strings.EqualFold(trackRef, "HEAD") || shaRefRe.MatchString(trackRef) {
 		branch, berr := normalized.resolveDefaultBranch(ctx, normalized.Repo())
 		if berr != nil {
-			return "", src, fmt.Errorf("failed to resolve default branch for renovate tracking: %w", berr)
+			return "", src, fmt.Errorf("resolve default branch for renovate tracking: %w", berr)
 		}
 		trackRef = branch
 	}
@@ -138,7 +138,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 			return fmt.Errorf("failed to fetch source %q: %w", alias, err)
 		}
 		if err := s.WriteMeta(tmpDir, meta); err != nil {
-			return fmt.Errorf("failed to write source metadata: %w", err)
+			return fmt.Errorf("write source metadata: %w", err)
 		}
 		logger.Info("fetched github source", "alias", s.Alias, "url", meta.URL, "sha256", meta.Hash)
 		return nil

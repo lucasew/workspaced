@@ -45,7 +45,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	if spec.Version == "latest" {
 		resolved, err := m.ResolveLatestVersion(ctx, spec)
 		if err != nil {
-			return "", fmt.Errorf("failed to resolve latest version: %w", err)
+			return "", fmt.Errorf("resolve latest version: %w", err)
 		}
 		actualVersion = resolved
 		spec.Version = actualVersion
@@ -107,7 +107,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		})
 		if installErr != nil {
 			_ = os.RemoveAll(workPath)
-			return "", fmt.Errorf("failed to install tool: %w", installErr)
+			return "", fmt.Errorf("install tool: %w", installErr)
 		}
 		if err := fixAndCheck(ctx, t, workPath); err != nil {
 			_ = os.RemoveAll(workPath)
@@ -131,7 +131,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 	}
 
 	if err := m.installWithHint(ctx, spec.String(), cmdName); err != nil {
-		return "", fmt.Errorf("failed to install tool: %w", err)
+		return "", fmt.Errorf("install tool: %w", err)
 	}
 
 	// installWithHint already ran fixAndCheck; locate the binary.
@@ -194,12 +194,12 @@ func (m *Manager) ResolveLatestVersion(ctx context.Context, spec parsespec.Spec)
 func EnsureAndRun(ctx context.Context, toolSpecStr, cmdName string, args ...string) (*exec.Cmd, error) {
 	m, err := NewManager()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create tool manager: %w", err)
+		return nil, fmt.Errorf("create tool manager: %w", err)
 	}
 
 	binPath, err := m.EnsureInstalled(ctx, toolSpecStr, cmdName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to ensure tool installed: %w", err)
+		return nil, fmt.Errorf("ensure tool installed: %w", err)
 	}
 
 	return execdriver.Run(ctx, binPath, args...)

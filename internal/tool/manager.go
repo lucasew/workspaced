@@ -59,7 +59,7 @@ func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
 	if spec.Version == "latest" {
 		resolved, err := m.ResolveLatestVersion(ctx, spec)
 		if err != nil {
-			return fmt.Errorf("failed to resolve latest version: %w", err)
+			return fmt.Errorf("resolve latest version: %w", err)
 		}
 		actualVersion = resolved
 	}
@@ -133,7 +133,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		logger.Debug("resolving latest version", "pkg", spec.Package)
 		versions, err := t.ListVersions(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to list versions: %w", err)
+			return fmt.Errorf("list versions: %w", err)
 		}
 		if len(versions) == 0 {
 			return fmt.Errorf("no versions found for package %s", spec.Package)

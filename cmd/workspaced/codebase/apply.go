@@ -2,7 +2,6 @@ package codebase
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -82,19 +81,19 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			// Fallback to git root (or dotfiles root as last resort)
 			ws, err := modfile.DetectWorkspace(ctx, "")
 			if err != nil {
-				return fmt.Errorf("failed to detect workspace: %w", err)
+				return fmt.Errorf("detect workspace: %w", err)
 			}
 			workspaceRoot = ws.Root
 		}
 
 		cfg, err := configcue.LoadForWorkspace(ctx, workspaceRoot)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			return fmt.Errorf("load config: %w", err)
 		}
 
 		ws := modfile.NewWorkspace(workspaceRoot)
 		if _, err := tool.RefreshWorkspaceLocks(ctx, ws, cfg); err != nil {
-			return fmt.Errorf("failed to refresh workspace lockfile: %w", err)
+			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
 		pipeline := source.NewPipeline()
@@ -130,7 +129,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		statePath := filepath.Join(workspaceRoot, ".workspaced", "state.json")
 		stateStore, err := deployer.NewFileStateStore(statePath, workspaceRoot)
 		if err != nil {
-			return fmt.Errorf("failed to create state store: %w", err)
+			return fmt.Errorf("create state store: %w", err)
 		}
 
 		mgr, err := dotfiles.NewManager(dotfiles.Config{
@@ -139,7 +138,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			// No home-specific hooks (dconf, gtk, etc.)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create manager: %w", err)
+			return fmt.Errorf("create manager: %w", err)
 		}
 
 		result, err := mgr.Apply(ctx, dotfiles.ApplyOptions{

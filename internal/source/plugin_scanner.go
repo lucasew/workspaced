@@ -48,7 +48,7 @@ func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 	if strings.HasPrefix(baseDir, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
+			return nil, fmt.Errorf("get home directory: %w", err)
 		}
 		baseDir = filepath.Join(home, baseDir[2:])
 	}
@@ -62,7 +62,7 @@ func NewScannerPlugin(cfg ScannerConfig) (*ScannerPlugin, error) {
 	if targetBase == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
+			return nil, fmt.Errorf("get home directory: %w", err)
 		}
 		targetBase = home
 	}
@@ -116,7 +116,7 @@ func (p *ScannerPlugin) Process(ctx context.Context, files []File) ([]File, erro
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan directory: %w", err)
+		return nil, fmt.Errorf("scan directory: %w", err)
 	}
 
 	return append(files, discovered...), nil

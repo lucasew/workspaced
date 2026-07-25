@@ -2,7 +2,6 @@ package selfinstall
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -56,7 +55,7 @@ A shim is created in:
 func runSelfInstall(ctx context.Context, force bool) error {
 	currentBinary, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("failed to get current binary: %w", err)
+		return fmt.Errorf("get current binary: %w", err)
 	}
 
 	// Fixed install location under real home (not Termux proot /home view).
@@ -65,11 +64,11 @@ func runSelfInstall(ctx context.Context, force bool) error {
 		// Bootstrap before drivers/weights: fall back to ResolveHomeDir.
 		home, homeErr := envdriver.ResolveHomeDir()
 		if homeErr != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
+			return fmt.Errorf("get home directory: %w", err)
 		}
 		dataDir = filepath.Join(home, ".local", "share", "workspaced")
 		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
-			return fmt.Errorf("failed to create user data dir: %w", mkErr)
+			return fmt.Errorf("create user data dir: %w", mkErr)
 		}
 	}
 
@@ -93,15 +92,15 @@ func runSelfInstall(ctx context.Context, force bool) error {
 		logger.Info("installing workspaced", "version", currentVersion, "path", installPath, "force", force)
 
 		if err := os.MkdirAll(installDir, 0755); err != nil {
-			return fmt.Errorf("failed to create install directory: %w", err)
+			return fmt.Errorf("create install directory: %w", err)
 		}
 
 		if err := copyFile(ctx, currentBinary, installPath); err != nil {
-			return fmt.Errorf("failed to copy binary: %w", err)
+			return fmt.Errorf("copy binary: %w", err)
 		}
 
 		if err := os.Chmod(installPath, 0755); err != nil {
-			return fmt.Errorf("failed to set permissions: %w", err)
+			return fmt.Errorf("set permissions: %w", err)
 		}
 
 		logger.Info("binary installed", "path", installPath)
@@ -112,7 +111,7 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	logger.Info("regenerating shims")
 
 	if err := createWorkspacedShim(ctx, installPath); err != nil {
-		return fmt.Errorf("failed to create shim: %w", err)
+		return fmt.Errorf("create shim: %w", err)
 	}
 	if err := createMiseShim(ctx); err != nil {
 		logger.Warn("failed to create mise shim", "error", err)

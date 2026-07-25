@@ -127,10 +127,7 @@ func clamp(v, lo, hi float64) float64 {
 	if v < lo {
 		return lo
 	}
-	if v > hi {
-		return hi
-	}
-	return v
+	return min(v, hi)
 }
 
 // DeltaE calculates perceptual color distance (CIE76).

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -121,7 +120,7 @@ func RunDaemon(ctx context.Context) error {
 
 	database, err := db.Open(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
+		return fmt.Errorf("open database: %w", err)
 	}
 	defer logging.Close(ctx, database)
 
@@ -203,7 +202,7 @@ func RunDaemon(ctx context.Context) error {
 		logging.RunCleanup(ctx, "remove", func() error { return os.Remove(socketPath) }, "path", socketPath)
 		l, err := net.Listen("unix", socketPath)
 		if err != nil {
-			return fmt.Errorf("failed to listen on socket: %w", err)
+			return fmt.Errorf("listen on socket: %w", err)
 		}
 		listener = l
 	}
