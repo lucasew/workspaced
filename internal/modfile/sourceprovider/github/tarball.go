@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func downloadAndExtractTarball(ctx context.Context, source Source, destDir string, expectedHash string) (sourceMeta, error) {
@@ -92,30 +93,44 @@ func extractTarGz(ctx context.Context, r io.Reader, destDir string) error {
 			return err
 		}
 
-		target, ok := mapTarEntryTarget(hdr.Name, destDir)
-		if !ok {
+		target, skip, err := mapTarEntryTarget(hdr.Name, destDir)
+		if err != nil {
+			return err
+		}
+		if skip {
 			continue
 		}
-		if err := extractTarEntry(ctx, tr, hdr, target); err != nil {
+		if err := extractTarEntry(ctx, tr, hdr, destDir, target); err != nil {
 			return err
 		}
 	}
 }
 
-func mapTarEntryTarget(name string, destDir string) (string, bool) {
+// mapTarEntryTarget strips the GitHub archive top-level prefix (repo-sha/) and
+// joins the remainder under destDir. Entries that would escape destDir (zip/tar
+// slip) return an error; prefix-only or malformed names are skipped.
+func mapTarEntryTarget(name string, destDir string) (target string, skip bool, err error) {
 	cleanName := name
 	if len(cleanName) >= 2 && cleanName[:2] == "./" {
 		cleanName = cleanName[2:]
 	}
 	parts := splitFirst(cleanName, '/')
 	if len(parts) < 2 {
-		return "", false
+		return "", true, nil
 	}
 	rel := parts[1]
 	if rel == "" {
-		return "", false
+		return "", true, nil
 	}
-	return filepath.Join(destDir, rel), true
+	// filepath.Join discards prior segments after an absolute element on some OSes.
+	if filepath.IsAbs(rel) {
+		return "", false, fmt.Errorf("illegal file path: %s", name)
+	}
+	target = filepath.Join(destDir, rel)
+	if !isPathWithinDest(destDir, target) {
+		return "", false, fmt.Errorf("illegal file path: %s", name)
+	}
+	return target, false, nil
 }
 
 func splitFirst(s string, sep byte) []string {
@@ -127,7 +142,38 @@ func splitFirst(s string, sep byte) []string {
 	return []string{s}
 }
 
-func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, target string) error {
+// isPathWithinDest reports whether target is dest or a path under dest after Clean.
+// Same rule as internal/tool/backend/install (kept local so this package stays free of that import).
+func isPathWithinDest(dest, target string) bool {
+	cleanDest := filepath.Clean(dest)
+	cleanTarget := filepath.Clean(target)
+
+	rel, err := filepath.Rel(cleanDest, cleanTarget)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
+// symlinkTargetWithinDest ensures a symlink's linkname resolves under destDir
+// when evaluated from the link's parent directory (blocks absolute or ../ escapes).
+func symlinkTargetWithinDest(destDir, linkPath, linkname string) bool {
+	if linkname == "" {
+		return false
+	}
+	var resolved string
+	if filepath.IsAbs(linkname) {
+		resolved = filepath.Clean(linkname)
+	} else {
+		resolved = filepath.Join(filepath.Dir(linkPath), linkname)
+	}
+	return isPathWithinDest(destDir, resolved)
+}
+
+func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destDir, target string) error {
 	switch hdr.Typeflag {
 	case tar.TypeDir:
 		return os.MkdirAll(target, 0755)
@@ -150,6 +196,9 @@ func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, targe
 		}
 		return nil
 	case tar.TypeSymlink:
+		if !symlinkTargetWithinDest(destDir, target, hdr.Linkname) {
+			return fmt.Errorf("illegal symlink target: %s -> %s", hdr.Name, hdr.Linkname)
+		}
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}

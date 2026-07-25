@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -39,7 +40,7 @@ func TestExtractTarEntryRemovesPartialOnCopyError(t *testing.T) {
 
 	dir := t.TempDir()
 	target := filepath.Join(dir, "file.txt")
-	err = extractTarEntry(context.Background(), tr, hdr, target)
+	err = extractTarEntry(context.Background(), tr, hdr, dir, target)
 	if err == nil {
 		t.Fatal("expected copy error from truncated tar body")
 	}
@@ -75,7 +76,7 @@ func TestExtractTarEntryWritesRegularFile(t *testing.T) {
 	}
 	dir := t.TempDir()
 	target := filepath.Join(dir, "file.txt")
-	if err := extractTarEntry(context.Background(), tr, hdr, target); err != nil {
+	if err := extractTarEntry(context.Background(), tr, hdr, dir, target); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(target)
@@ -84,5 +85,101 @@ func TestExtractTarEntryWritesRegularFile(t *testing.T) {
 	}
 	if !bytes.Equal(got, content) {
 		t.Fatalf("got %q, want %q", got, content)
+	}
+}
+
+func TestMapTarEntryTargetRejectsPathTraversal(t *testing.T) {
+	t.Parallel()
+
+	dest := t.TempDir()
+	cases := []string{
+		"repo-sha/../../outside.txt",
+		"repo-sha/foo/../../../outside.txt",
+		"./repo-sha/../escape",
+	}
+	for _, name := range cases {
+		_, skip, err := mapTarEntryTarget(name, dest)
+		if err == nil {
+			t.Fatalf("name %q: expected illegal path error, skip=%v", name, skip)
+		}
+		if !strings.Contains(err.Error(), "illegal file path") {
+			t.Fatalf("name %q: got %v, want illegal file path", name, err)
+		}
+	}
+}
+
+func TestMapTarEntryTargetAllowsSafeNested(t *testing.T) {
+	t.Parallel()
+
+	dest := t.TempDir()
+	target, skip, err := mapTarEntryTarget("repo-sha/subdir/file.txt", dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if skip {
+		t.Fatal("expected map, not skip")
+	}
+	want := filepath.Join(dest, "subdir", "file.txt")
+	if target != want {
+		t.Fatalf("target=%q want=%q", target, want)
+	}
+	if !isPathWithinDest(dest, target) {
+		t.Fatalf("mapped target not within dest: %q", target)
+	}
+}
+
+func TestMapTarEntryTargetSkipsPrefixOnly(t *testing.T) {
+	t.Parallel()
+
+	_, skip, err := mapTarEntryTarget("repo-sha", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !skip {
+		t.Fatal("expected skip for prefix-only entry")
+	}
+}
+
+func TestExtractTarEntryRejectsEscapingSymlink(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "link")
+	hdr := &tar.Header{
+		Typeflag: tar.TypeSymlink,
+		Name:     "repo-sha/link",
+		Linkname: "../../outside",
+	}
+	err := extractTarEntry(context.Background(), nil, hdr, dir, target)
+	if err == nil {
+		t.Fatal("expected illegal symlink target error")
+	}
+	if !strings.Contains(err.Error(), "illegal symlink") {
+		t.Fatalf("got %v, want illegal symlink", err)
+	}
+	if _, statErr := os.Lstat(target); !os.IsNotExist(statErr) {
+		t.Fatalf("symlink should not exist: %v", statErr)
+	}
+}
+
+func TestExtractTarEntryAllowsInDestSymlink(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "link")
+	hdr := &tar.Header{
+		Typeflag: tar.TypeSymlink,
+		Name:     "repo-sha/link",
+		Linkname: "sibling.txt",
+	}
+	if err := extractTarEntry(context.Background(), nil, hdr, dir, target); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.Readlink(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "sibling.txt" {
+		t.Fatalf("linkname=%q", got)
 	}
 }
