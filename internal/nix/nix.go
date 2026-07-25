@@ -81,7 +81,7 @@ func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
 
 	out, err := nixOutput(ctx, "nix", "flake", "archive", repo, "--json")
 	if err != nil {
-		return "", fmt.Errorf("failed to archive flake %s to store: %w", repo, err)
+		return "", fmt.Errorf("archive flake %s to store: %w", repo, err)
 	}
 
 	var meta struct {
@@ -152,7 +152,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 
 	updateProgress(fmt.Sprintf("Syncing sources to %s...", target), 0.3)
 	if err := CopyClosure(ctx, target, sourcePath, To); err != nil {
-		return "", fmt.Errorf("failed to copy source to %s: %w", target, err)
+		return "", fmt.Errorf("copy source to %s: %w", target, err)
 	}
 
 	updateProgress("Building on remote server...", 0.6)
@@ -187,7 +187,7 @@ func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) 
 	if copyBack {
 		updateProgress("Syncing result back...", 0.9)
 		if err := CopyClosure(ctx, target, resultPath, From); err != nil {
-			return "", fmt.Errorf("failed to copy result from %s: %w", target, err)
+			return "", fmt.Errorf("copy result from %s: %w", target, err)
 		}
 	}
 
