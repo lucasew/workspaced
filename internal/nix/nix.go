@@ -35,11 +35,7 @@ const (
 )
 
 func parseFlakeRef(ref string) (repo string, item string) {
-	parts := strings.SplitN(ref, "#", 2)
-	repo = parts[0]
-	if len(parts) > 1 {
-		item = parts[1]
-	}
+	repo, item, _ = strings.Cut(ref, "#")
 	return
 }
 

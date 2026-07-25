@@ -42,21 +42,16 @@ func Parse(input string) (Spec, error) {
 	const defaultProvider = "registry"
 	const defaultVersion = "latest"
 
-	var providerID, rest string
-	if strings.Contains(input, ":") {
-		parts := strings.SplitN(input, ":", 2)
-		providerID = parts[0]
-		rest = parts[1]
-	} else {
+	providerID, rest, ok := strings.Cut(input, ":")
+	if !ok {
 		providerID = defaultProvider
 		rest = input
 	}
 
-	parts := strings.SplitN(rest, "@", 2)
-	pkg := parts[0]
+	pkg, versionPart, ok := strings.Cut(rest, "@")
 	version := defaultVersion
-	if len(parts) == 2 {
-		version = parts[1]
+	if ok {
+		version = versionPart
 	}
 
 	return Spec{

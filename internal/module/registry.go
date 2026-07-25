@@ -39,12 +39,12 @@ func ResolveProviderAndRef(from string, moduleName string) (string, string, erro
 		// "local" kept as a compatibility alias for the pre-rename provider id.
 		return "self", moduleName, nil
 	}
-	parts := strings.SplitN(f, ":", 2)
-	if len(parts) != 2 {
+	provider, ref, ok := strings.Cut(f, ":")
+	if !ok {
 		return "", "", fmt.Errorf("%w: %q", ErrInvalidModuleRef, from)
 	}
-	provider := strings.TrimSpace(parts[0])
-	ref := strings.TrimSpace(parts[1])
+	provider = strings.TrimSpace(provider)
+	ref = strings.TrimSpace(ref)
 	if provider == "" || ref == "" {
 		return "", "", fmt.Errorf("%w: %q", ErrInvalidModuleRef, from)
 	}

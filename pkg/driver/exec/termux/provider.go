@@ -196,9 +196,8 @@ func setupTermuxEnv(ctx context.Context, prefix string) []string {
 	envMap := make(map[string]string)
 
 	for _, e := range env {
-		parts := strings.SplitN(e, "=", 2)
-		if len(parts) == 2 {
-			envMap[parts[0]] = parts[1]
+		if k, v, ok := strings.Cut(e, "="); ok {
+			envMap[k] = v
 		}
 	}
 

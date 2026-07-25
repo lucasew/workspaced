@@ -280,8 +280,8 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 
 func parseHash(raw string) (algo, hash string) {
 	algo, hash = "sha256", raw
-	if parts := strings.SplitN(raw, ":", 2); len(parts) == 2 {
-		algo, hash = parts[0], parts[1]
+	if a, h, ok := strings.Cut(raw, ":"); ok {
+		algo, hash = a, h
 	}
 	return algo, hash
 }

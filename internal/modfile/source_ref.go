@@ -11,13 +11,10 @@ import (
 // It returns (resolvedPath, true, nil) when the spec is a resolvable source ref.
 // It returns (spec, false, nil) when the input should be treated as a regular path.
 func (m *ModFile) TryResolveSourceRefToPath(ctx context.Context, spec string, modulesBaseDir string) (string, bool, error) {
-	parts := strings.SplitN(strings.TrimSpace(spec), ":", 2)
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
-		return spec, false, nil
-	}
-	alias := strings.TrimSpace(parts[0])
-	rel := strings.Trim(strings.TrimSpace(parts[1]), "/")
-	if rel == "" {
+	alias, relPart, ok := strings.Cut(strings.TrimSpace(spec), ":")
+	alias = strings.TrimSpace(alias)
+	rel := strings.Trim(strings.TrimSpace(relPart), "/")
+	if !ok || alias == "" || rel == "" {
 		return spec, false, nil
 	}
 
