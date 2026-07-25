@@ -58,11 +58,11 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 		// Eagerly render to check if it's multi-file
 		reader, err := f.Reader()
 		if err != nil {
-			return nil, fmt.Errorf("failed to read template source %s: %w", f.SourceInfo(), err)
+			return nil, fmt.Errorf("read template source %s: %w", f.SourceInfo(), err)
 		}
 		srcContent, err := io.ReadAll(reader)
 		if closeErr := reader.Close(); closeErr != nil {
-			return nil, fmt.Errorf("failed to close template source %s: %w", f.SourceInfo(), closeErr)
+			return nil, fmt.Errorf("close template source %s: %w", f.SourceInfo(), closeErr)
 		}
 		if err != nil {
 			return nil, err
@@ -78,7 +78,7 @@ func (p *TemplateExpanderPlugin) Process(ctx context.Context, files []File) ([]F
 			if errors.Is(err, template.ErrFileSkipped) {
 				continue
 			}
-			return nil, fmt.Errorf("failed to render template %s: %w", f.SourceInfo(), err)
+			return nil, fmt.Errorf("render template %s: %w", f.SourceInfo(), err)
 		}
 
 		multiFiles, isMulti := template.ParseMultiFile(rendered)
