@@ -25,6 +25,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
+	"io/fs"
 )
 
 var (
@@ -439,7 +440,7 @@ func untar(ctx context.Context, reader *tar.Reader, dest string) error {
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
-			if err := os.Symlink(header.Linkname, target); err != nil && !os.IsExist(err) {
+			if err := os.Symlink(header.Linkname, target); err != nil && !errors.Is(err, fs.ErrExist) {
 				return err
 			}
 		}

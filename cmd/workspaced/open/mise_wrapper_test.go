@@ -8,6 +8,8 @@ import (
 
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"errors"
+	"io/fs"
 )
 
 func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
@@ -29,7 +31,7 @@ func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
 		t.Fatalf("ensureMiseWrapper: %v", err)
 	}
 
-	if _, err := os.Stat(wrapperPath + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(wrapperPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("temp wrapper still present: %v", err)
 	}
 	content, err := os.ReadFile(wrapperPath)

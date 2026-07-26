@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/owenrumney/go-sarif/v2/sarif"
+	"errors"
+	"io/fs"
 )
 
 func TestWriteSarifAtomic(t *testing.T) {
@@ -18,7 +20,7 @@ func TestWriteSarifAtomic(t *testing.T) {
 	if err := writeSarifAtomic(path, report); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("tmp left: %v", err)
 	}
 	raw, err := os.ReadFile(path)

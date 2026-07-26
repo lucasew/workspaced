@@ -1,7 +1,9 @@
 package checks
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,7 +58,7 @@ func ruleMatches(root string, rule DetectRule) (bool, error) {
 	if path != "" {
 		full := filepath.Join(root, filepath.FromSlash(path))
 		if _, err := os.Stat(full); err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, fs.ErrNotExist) {
 				// path miss: if only path, no match; if also glob, try glob
 				if glob == "" {
 					return false, nil

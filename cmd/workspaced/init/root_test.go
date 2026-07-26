@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
+	"errors"
+	"io/fs"
 )
 
 func TestGenerateConfigAtomicWrite(t *testing.T) {
@@ -36,7 +38,7 @@ func TestGenerateConfigAtomicWrite(t *testing.T) {
 		t.Fatalf("unexpected template output: %q", got)
 	}
 	// Temp must not linger after success.
-	if _, err := os.Stat(configPath + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(configPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("temp file still present, err=%v", err)
 	}
 }
@@ -56,7 +58,7 @@ func TestGenerateConfigRemovesTempOnSuccess(t *testing.T) {
 	if info.Size() == 0 {
 		t.Fatal("config is empty")
 	}
-	if _, err := os.Stat(configPath + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(configPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("temp file still present after success, err=%v", err)
 	}
 }

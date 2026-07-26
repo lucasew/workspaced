@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"errors"
+	"io/fs"
 )
 
 func TestWritePNGFileAtomic_Success(t *testing.T) {
@@ -77,7 +79,7 @@ func TestWritePNGFileAtomic_FailureLeavesNoFinal(t *testing.T) {
 	if err := os.Chmod(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("final path should not exist after failed first write, err=%v", err)
 	}
 }

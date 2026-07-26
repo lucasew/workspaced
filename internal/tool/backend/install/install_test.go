@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"errors"
+	"io/fs"
 )
 
 func TestStripTopLevelDir(t *testing.T) {
@@ -27,7 +29,7 @@ func TestStripTopLevelDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "bin", "tool")); err != nil {
 		t.Fatalf("expected stripped file: %v", err)
 	}
-	if _, err := os.Stat(top); !os.IsNotExist(err) {
+	if _, err := os.Stat(top); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("expected top-level directory to be removed, got %v", err)
 	}
 }
@@ -60,7 +62,7 @@ func TestExtractZipRejectsPathTraversal(t *testing.T) {
 	if err := Extract(t.Context(), archive, dest); err == nil {
 		t.Fatal("expected path traversal error")
 	}
-	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+	if _, err := os.Stat(outside); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("path traversal wrote outside destination: %v", err)
 	}
 }
@@ -100,7 +102,7 @@ func TestExtractTarGzRejectsPathTraversal(t *testing.T) {
 	if err := Extract(t.Context(), archive, dest); err == nil {
 		t.Fatal("expected path traversal error")
 	}
-	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+	if _, err := os.Stat(outside); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("path traversal wrote outside destination: %v", err)
 	}
 }
@@ -117,7 +119,7 @@ func TestNormalizeInstalledBinaries(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "codex")); err != nil {
 		t.Fatalf("expected renamed codex binary: %v", err)
 	}
-	if _, err := os.Stat(src); !os.IsNotExist(err) {
+	if _, err := os.Stat(src); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatal("expected old triple-named binary to be gone")
 	}
 }

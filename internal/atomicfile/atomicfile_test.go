@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"io/fs"
 )
 
 func TestWriteBytesSuccess(t *testing.T) {
@@ -83,7 +84,7 @@ func TestWriteFailureLeavesNoFinal(t *testing.T) {
 	if err := Write(path, errReader{errors.New("boom")}, 0o644); err == nil {
 		t.Fatal("expected error")
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("final path should not exist: %v", err)
 	}
 	assertNoTmpLeft(t, dir, filepath.Base(path))
@@ -138,7 +139,7 @@ func TestCreateSibling(t *testing.T) {
 	if err := f.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(SiblingTemp(path)); !os.IsNotExist(err) {
+	if _, err := os.Stat(SiblingTemp(path)); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("sibling tmp left: %v", err)
 	}
 }
@@ -209,7 +210,7 @@ func TestReplaceDir(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dest, "new")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(dest, "old")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dest, "old")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatal("old content still present")
 	}
 }

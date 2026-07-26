@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -163,7 +164,7 @@ func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destD
 		if err != nil {
 			return err
 		}
-		if err := os.Symlink(hdr.Linkname, resolvedTarget); err != nil && !os.IsExist(err) {
+		if err := os.Symlink(hdr.Linkname, resolvedTarget); err != nil && !errors.Is(err, fs.ErrExist) {
 			return err
 		}
 	}

@@ -10,6 +10,8 @@ import (
 	"github.com/lucasew/workspaced/internal/types"
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"errors"
+	"io/fs"
 )
 
 func TestQueuePathRejectsTraversal(t *testing.T) {
@@ -98,7 +100,7 @@ func TestEnqueueJailsSlugAndMode(t *testing.T) {
 	if err := Remove("safe1"); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("file still present after Remove: %v", err)
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"errors"
+	"io/fs"
 )
 
 func TestFileStateStoreRelativeToRoot(t *testing.T) {
@@ -88,7 +90,7 @@ func TestFileStateStoreSaveIsAtomic(t *testing.T) {
 		t.Fatalf("Save: %v", err)
 	}
 
-	if _, err := os.Stat(statePath + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(statePath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("temp file should be gone after successful Save, err=%v", err)
 	}
 

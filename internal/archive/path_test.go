@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"io/fs"
 )
 
 func TestPathWithinDest(t *testing.T) {
@@ -55,7 +56,7 @@ func TestWriteMemberRemovesPartial(t *testing.T) {
 	if err := WriteMember(path, 0o644, r); err == nil {
 		t.Fatal("expected error")
 	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("partial still present: %v", err)
 	}
 }

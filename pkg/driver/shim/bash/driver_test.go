@@ -9,6 +9,8 @@ import (
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"errors"
+	"io/fs"
 )
 
 func TestGenerateWritesViaTempRename(t *testing.T) {
@@ -26,7 +28,7 @@ func TestGenerateWritesViaTempRename(t *testing.T) {
 		t.Fatalf("Generate: %v", err)
 	}
 
-	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("temp path still present after success: %v", err)
 	}
 
@@ -88,7 +90,7 @@ func TestGeneratePreservesExistingOnTempWriteFailure(t *testing.T) {
 	if string(content) != prior {
 		t.Fatalf("existing shim was modified on failed write:\ngot %q\nwant %q", content, prior)
 	}
-	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+	if _, err := os.Stat(path + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("temp path left behind after failure: %v", err)
 	}
 }
