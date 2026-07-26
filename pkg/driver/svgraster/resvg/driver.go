@@ -41,7 +41,7 @@ func resolveResvg(ctx context.Context) (string, error) {
 		}
 		bin, err := m.EnsureInstalled(ctx, defaultResvgSpec, "resvg")
 		if err != nil {
-			resvgErr = fmt.Errorf("failed to resolve resvg via tool (%s): %w", defaultResvgSpec, err)
+			resvgErr = fmt.Errorf("resolve resvg via tool (%s): %w", defaultResvgSpec, err)
 			return
 		}
 		// Verify on first resolution (cheap --version) so Ensure and first

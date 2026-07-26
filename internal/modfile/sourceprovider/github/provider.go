@@ -135,7 +135,7 @@ func ensureGithubSource(ctx context.Context, alias string, src modfile.SourceCon
 	return sourcecache.EnsureCachedDir(ctx, "github", s.CacheKey(), func(tmpDir string) error {
 		meta, err := downloadAndExtractTarball(ctx, s, tmpDir, "")
 		if err != nil {
-			return fmt.Errorf("failed to fetch source %q: %w", alias, err)
+			return fmt.Errorf("fetch source %q: %w", alias, err)
 		}
 		if err := s.WriteMeta(tmpDir, meta); err != nil {
 			return fmt.Errorf("write source metadata: %w", err)
