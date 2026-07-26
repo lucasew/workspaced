@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/owenrumney/go-sarif/v2/sarif"
 	"errors"
+	"github.com/owenrumney/go-sarif/v2/sarif"
 	"io/fs"
 )
 
