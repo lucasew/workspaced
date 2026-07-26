@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"errors"
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"errors"
 	"io/fs"
 )
 

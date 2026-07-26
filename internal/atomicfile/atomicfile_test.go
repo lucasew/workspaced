@@ -7,11 +7,11 @@ import (
 	"image/color"
 	"image/png"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"io/fs"
 )
 
 func TestWriteBytesSuccess(t *testing.T) {

@@ -5,11 +5,11 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
-	"errors"
-	"io/fs"
 )
 
 func TestStripTopLevelDir(t *testing.T) {

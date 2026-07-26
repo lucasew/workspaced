@@ -2,11 +2,11 @@ package deployer
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
-	"errors"
-	"io/fs"
 )
 
 func TestFileStateStoreRelativeToRoot(t *testing.T) {
