@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,9 @@ import (
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
+
+// ErrEmptyCmd is returned when an LSP server config has no cmd argv.
+var ErrEmptyCmd = errors.New("empty cmd")
 
 // Backend is one running language server process.
 type Backend struct {
@@ -40,7 +44,7 @@ type Backend struct {
 func StartBackend(ctx context.Context, root string, serverID string, srv Server, onNotification func(serverID string, msg *Message)) (*Backend, error) {
 	logger := logging.GetLogger(ctx)
 	if len(srv.Cmd) == 0 {
-		return nil, fmt.Errorf("server %q: empty cmd", serverID)
+		return nil, fmt.Errorf("%w: server %q", ErrEmptyCmd, serverID)
 	}
 
 	argv, envExtra, err := resolveServerCmd(ctx, root, srv)
