@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"io/fs"
 )
 
 func TestPathWithinDest(t *testing.T) {

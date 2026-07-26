@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lucasew/workspaced/pkg/logging"
 	"errors"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"io/fs"
 )
 

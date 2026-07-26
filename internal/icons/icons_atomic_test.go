@@ -1,14 +1,14 @@
 package icons
 
 import (
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
-	"errors"
-	"io/fs"
 )
 
 func TestWritePNGFileAtomic_Success(t *testing.T) {
