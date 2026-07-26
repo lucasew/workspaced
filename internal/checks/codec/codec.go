@@ -2,11 +2,16 @@
 package codec
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/lucasew/workspaced/internal/checks"
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
+
+// ErrUnknownCodec is returned when Decode is given a codec name outside the
+// closed set of supported stdout codecs.
+var ErrUnknownCodec = errors.New("unknown lint output codec")
 
 // Name identifies a closed set of stdout codecs.
 type Name string
@@ -30,6 +35,6 @@ func Decode(name string, toolName string, data []byte) (*sarif.Run, error) {
 	case ESLintJSON:
 		return decodeESLint(data)
 	default:
-		return nil, fmt.Errorf("unknown lint output codec %q", name)
+		return nil, fmt.Errorf("%w: %q", ErrUnknownCodec, name)
 	}
 }
