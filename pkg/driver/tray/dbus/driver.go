@@ -105,7 +105,7 @@ func (d *Driver) Run(ctx context.Context) error {
 	watcher := d.conn.Object("org.kde.StatusNotifierWatcher", "/StatusNotifierWatcher")
 	call := watcher.Call("org.kde.StatusNotifierWatcher.RegisterStatusNotifierItem", 0, serviceName)
 	if call.Err != nil {
-		logging.ReportError(ctx, fmt.Errorf("failed to register with watcher: %w", call.Err))
+		logging.ReportError(ctx, fmt.Errorf("register with watcher: %w", call.Err))
 	}
 
 	<-ctx.Done()
