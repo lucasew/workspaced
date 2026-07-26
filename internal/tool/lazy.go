@@ -328,7 +328,7 @@ func resolveLazyToolInWorkspace(ctx context.Context, ws *modfile.Workspace, tool
 		// versions, to keep home tools reproducible via the lockfile).
 		version, err := mgr.ResolveLatestVersion(ctx, spec)
 		if err != nil {
-			return "", fmt.Errorf("failed to resolve version for %q: %w", toolName, err)
+			return "", fmt.Errorf("resolve version for %q: %w", toolName, err)
 		}
 		spec.Version = version
 	}

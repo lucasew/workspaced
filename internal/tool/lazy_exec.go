@@ -13,7 +13,7 @@ import (
 func EnsureAndRunLazy(ctx context.Context, lazyName, binName string, args ...string) (*exec.Cmd, error) {
 	binPath, err := ResolveLazyTool(ctx, lazyName, binName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve lazy tool %q (%s): %w", lazyName, binName, err)
+		return nil, fmt.Errorf("resolve lazy tool %q (%s): %w", lazyName, binName, err)
 	}
 	return execdriver.Run(ctx, binPath, args...)
 }
@@ -23,7 +23,7 @@ func EnsureAndRunLazy(ctx context.Context, lazyName, binName string, args ...str
 func EnsureAndRunLazyAt(ctx context.Context, wd, lazyName, binName string, args ...string) (*exec.Cmd, error) {
 	binPath, err := ResolveLazyToolAt(ctx, wd, lazyName, binName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve lazy tool %q (%s): %w", lazyName, binName, err)
+		return nil, fmt.Errorf("resolve lazy tool %q (%s): %w", lazyName, binName, err)
 	}
 	return execdriver.Run(ctx, binPath, args...)
 }
