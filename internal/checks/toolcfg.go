@@ -9,6 +9,9 @@ import (
 	"github.com/lucasew/workspaced/internal/configcue"
 )
 
+// ErrEmptyCmd is returned when a CUE-declared linter or formatter has no cmd argv.
+var ErrEmptyCmd = errors.New("empty cmd")
+
 // Tool is one CUE-declared linter or formatter.
 type Tool struct {
 	Name          string
@@ -70,7 +73,7 @@ func LoadTools(cfg *configcue.Config, section string) ([]Tool, error) {
 			enable = *j.Enable
 		}
 		if len(j.Cmd) == 0 {
-			return nil, fmt.Errorf("%s.tools.%s: empty cmd", section, name)
+			return nil, fmt.Errorf("%w: %s.tools.%s", ErrEmptyCmd, section, name)
 		}
 		out = append(out, Tool{
 			Name:          name,
