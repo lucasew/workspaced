@@ -3,12 +3,17 @@
 package archive
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// ErrIllegalPath is returned when a member name or resolved path would escape
+// the destination directory (zip/tar slip) or is otherwise not jail-safe.
+var ErrIllegalPath = errors.New("illegal file path")
 
 // PathWithinDest reports whether target is dest or a path under dest after Clean.
 func PathWithinDest(dest, target string) bool {
@@ -29,15 +34,15 @@ func PathWithinDest(dest, target string) bool {
 // escape destDir (zip/tar slip). Absolute name segments are rejected.
 func JoinWithin(destDir, name string) (string, error) {
 	if name == "" {
-		return "", fmt.Errorf("illegal file path: empty name")
+		return "", fmt.Errorf("%w: empty name", ErrIllegalPath)
 	}
 	// filepath.Join discards prior segments after an absolute element on some OSes.
 	if filepath.IsAbs(name) {
-		return "", fmt.Errorf("illegal file path: %s", name)
+		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}
 	target := filepath.Join(destDir, name)
 	if !PathWithinDest(destDir, target) {
-		return "", fmt.Errorf("illegal file path: %s", name)
+		return "", fmt.Errorf("%w: %s", ErrIllegalPath, name)
 	}
 	return target, nil
 }
@@ -51,7 +56,7 @@ func ResolveWithin(destDir, target string) (string, error) {
 		return "", err
 	}
 	if !PathWithinDest(destDir, realParent) {
-		return "", fmt.Errorf("illegal file path: %s", target)
+		return "", fmt.Errorf("%w: %s", ErrIllegalPath, target)
 	}
 	return filepath.Join(realParent, filepath.Base(target)), nil
 }
