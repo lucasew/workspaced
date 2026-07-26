@@ -3,11 +3,14 @@ package github
 import (
 	"archive/tar"
 	"bytes"
-	"github.com/lucasew/workspaced/internal/archive"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/lucasew/workspaced/internal/archive"
 )
 
 func TestExtractTarEntryRemovesPartialOnCopyError(t *testing.T) {
@@ -44,7 +47,7 @@ func TestExtractTarEntryRemovesPartialOnCopyError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected copy error from truncated tar body")
 	}
-	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(target); !errors.Is(statErr, fs.ErrNotExist) {
 		t.Fatalf("partial file still present after error: stat=%v extract=%v", statErr, err)
 	}
 }
@@ -157,7 +160,7 @@ func TestExtractTarEntryRejectsEscapingSymlink(t *testing.T) {
 	if !strings.Contains(err.Error(), "illegal symlink") {
 		t.Fatalf("got %v, want illegal symlink", err)
 	}
-	if _, statErr := os.Lstat(target); !os.IsNotExist(statErr) {
+	if _, statErr := os.Lstat(target); !errors.Is(statErr, fs.ErrNotExist) {
 		t.Fatalf("symlink should not exist: %v", statErr)
 	}
 }
