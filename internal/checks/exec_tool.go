@@ -17,7 +17,7 @@ import (
 func ResolveCmd(ctx context.Context, root string, t Tool) (argv []string, envExtra []string, err error) {
 	argv = append([]string(nil), t.Cmd...)
 	if len(argv) == 0 {
-		return nil, nil, fmt.Errorf("tool %q: empty cmd", t.Name)
+		return nil, nil, fmt.Errorf("%w: tool %q", ErrEmptyCmd, t.Name)
 	}
 
 	var pathDirs []string
