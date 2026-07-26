@@ -52,14 +52,14 @@ func (p *Proxy) loop(ctx context.Context) error {
 		msg, err := p.client.ReadMessage()
 		if err != nil {
 			if err == io.EOF {
-				p.closeAll()
+				p.closeAll(ctx)
 				return nil
 			}
 			return err
 		}
 		if err := p.handleClient(ctx, msg); err != nil {
 			if err == io.EOF {
-				p.closeAll()
+				p.closeAll(ctx)
 				return nil
 			}
 			logger.Error("lsp handle client", "method", msg.Method, "error", err)
@@ -86,10 +86,10 @@ func (p *Proxy) handleRequest(ctx context.Context, msg *Message) error {
 	case "initialize":
 		return p.onInitialize(ctx, msg)
 	case "shutdown":
-		p.closeAll()
+		p.closeAll(ctx)
 		return p.client.WriteResult(msg.ID, nil)
 	case "exit":
-		p.closeAll()
+		p.closeAll(ctx)
 		return io.EOF
 	default:
 		return p.forwardRequest(ctx, msg)
@@ -101,7 +101,7 @@ func (p *Proxy) handleNotification(ctx context.Context, msg *Message) error {
 	case "initialized":
 		return nil
 	case "exit":
-		p.closeAll()
+		p.closeAll(ctx)
 		return io.EOF
 	case "textDocument/didOpen":
 		return p.onDidOpen(ctx, msg)
@@ -606,12 +606,14 @@ func (p *Proxy) getBackend(serverID string) *Backend {
 	return p.backends[serverID]
 }
 
-func (p *Proxy) closeAll() {
+func (p *Proxy) closeAll(ctx context.Context) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	// Detach cancellation so best-effort backend shutdown still runs after client EOF.
+	shutdownCtx := context.WithoutCancel(ctx)
 	for id, b := range p.backends {
 		// best-effort shutdown
-		_, _ = b.Request(context.Background(), "shutdown", nil)
+		_, _ = b.Request(shutdownCtx, "shutdown", nil)
 		_ = b.Notify("exit", nil)
 		b.Close()
 		delete(p.backends, id)
