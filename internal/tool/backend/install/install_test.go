@@ -158,7 +158,7 @@ func TestInstallBinaryRemovesPartialOnReadError(t *testing.T) {
 	}
 
 	outPath := filepath.Join(dest, NormalizeBinaryName(filepath.Base(src)))
-	if _, statErr := os.Stat(outPath); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(outPath); !errors.Is(statErr, fs.ErrNotExist) {
 		t.Fatalf("partial binary still present after error: stat=%v extract=%v", statErr, err)
 	}
 }
@@ -189,7 +189,7 @@ func TestUntarRemovesPartialOnCopyError(t *testing.T) {
 		t.Fatal("expected copy error from truncated tar body")
 	}
 	target := filepath.Join(dest, "file.txt")
-	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(target); !errors.Is(statErr, fs.ErrNotExist) {
 		t.Fatalf("partial file still present after error: stat=%v extract=%v", statErr, err)
 	}
 }

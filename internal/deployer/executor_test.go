@@ -111,7 +111,7 @@ func TestExecuteRemovesEmptyFileOnReaderError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected reader error")
 	}
-	if _, statErr := os.Stat(target); !os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(target); !errors.Is(statErr, os.ErrNotExist) {
 		t.Fatalf("empty file still present after reader error: stat=%v execute=%v", statErr, err)
 	}
 }
