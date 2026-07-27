@@ -116,12 +116,17 @@ func RunThemeGenerate(ctx context.Context, opts ThemeGenerateOptions) error {
 	return runThemeGenerateEngine(ctx, opts, inputDir, outputDir)
 }
 
-func iconSourceSignature(inputDir, themeName, jobs string) (string, error) {
-	var count int64
-	var sizeSum int64
-	var maxMtime int64
+// SVGSourceStats aggregates .svg / .svg.tmpl files under a directory.
+type SVGSourceStats struct {
+	Count    int64
+	Size     int64
+	MaxMtime int64
+}
 
-	err := filepath.WalkDir(inputDir, func(path string, d fs.DirEntry, walkErr error) error {
+// CollectSVGSourceStats walks dir for icon SVG sources and returns count, size sum, and max mtime.
+func CollectSVGSourceStats(dir string) (SVGSourceStats, error) {
+	var s SVGSourceStats
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -136,14 +141,22 @@ func iconSourceSignature(inputDir, themeName, jobs string) (string, error) {
 		if err != nil {
 			return err
 		}
-		count++
-		sizeSum += info.Size()
+		s.Count++
+		s.Size += info.Size()
 		mt := info.ModTime().Unix()
-		if mt > maxMtime {
-			maxMtime = mt
+		if mt > s.MaxMtime {
+			s.MaxMtime = mt
 		}
 		return nil
 	})
+	if err != nil {
+		return SVGSourceStats{}, err
+	}
+	return s, nil
+}
+
+func iconSourceSignature(inputDir, themeName, jobs string) (string, error) {
+	s, err := CollectSVGSourceStats(inputDir)
 	if err != nil {
 		return "", err
 	}
@@ -153,8 +166,8 @@ func iconSourceSignature(inputDir, themeName, jobs string) (string, error) {
 		filepath.Clean(inputDir),
 		themeName,
 		jobs,
-		strconv.FormatInt(count, 10),
-		strconv.FormatInt(sizeSum, 10),
-		strconv.FormatInt(maxMtime, 10),
+		strconv.FormatInt(s.Count, 10),
+		strconv.FormatInt(s.Size, 10),
+		strconv.FormatInt(s.MaxMtime, 10),
 	}, "|"), nil
 }

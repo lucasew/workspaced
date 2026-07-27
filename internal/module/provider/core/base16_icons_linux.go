@@ -232,34 +232,9 @@ func atomicReplaceDir(dest, tmpDir string) error {
 }
 
 func sourceStats(dir string) (map[string]any, error) {
-	var count int64
-	var size int64
-	var maxMtime int64
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			return nil
-		}
-		name := d.Name()
-		if !strings.HasSuffix(name, ".svg") && !strings.HasSuffix(name, ".svg.tmpl") {
-			return nil
-		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		count++
-		size += info.Size()
-		mt := info.ModTime().Unix()
-		if mt > maxMtime {
-			maxMtime = mt
-		}
-		return nil
-	})
+	s, err := icons.CollectSVGSourceStats(dir)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"count": count, "size": size, "max_mtime": maxMtime}, nil
+	return map[string]any{"count": s.Count, "size": s.Size, "max_mtime": s.MaxMtime}, nil
 }

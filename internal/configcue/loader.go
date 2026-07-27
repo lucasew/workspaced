@@ -19,10 +19,10 @@ import (
 	"github.com/pbnjay/memory"
 
 	"cuelang.org/go/cue/ast"
+	"github.com/lucasew/workspaced/internal/git"
 	"github.com/lucasew/workspaced/internal/modulecue"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"cuelang.org/go/cue"
@@ -718,7 +718,7 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 	// Determine the git root of the starting point (if any). We will not
 	// walk above it when looking for workspaced.cue. This ensures nested
 	// git repos don't see outer workspaced.cue files.
-	gitRoot, gitErr := getGitRoot(ctx, dir)
+	gitRoot, gitErr := git.GetRoot(ctx, dir)
 	hasGitBoundary := gitErr == nil && gitRoot != ""
 	var absGit string
 	if hasGitBoundary {
@@ -761,18 +761,6 @@ func ResolveWorkspaceCuePath(ctx context.Context, start string) (string, error) 
 	// (cues deeper in the tree) inside a git repo, while ensuring that a git repo
 	// nested inside another git repo does not inherit the parent's workspaced.cue.
 	return findUp(ctx, start, "workspaced.cue")
-}
-
-func getGitRoot(ctx context.Context, path string) (string, error) {
-	if _, err := os.Stat(path); err != nil {
-		return "", err
-	}
-	cmd := execdriver.MustRun(ctx, "git", "-C", path, "rev-parse", "--show-toplevel")
-	out, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 func fileExists(path string) bool {

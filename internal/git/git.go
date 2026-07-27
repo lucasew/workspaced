@@ -3,29 +3,20 @@ package git
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/configcue"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/notification"
-	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"path/filepath"
 	"strings"
+
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func QuickSync(ctx context.Context) error {
-	cfg, err := configcue.LoadForWorkspace(ctx, "")
-	if err != nil {
-		return err
-	}
-	var quicksync struct {
-		RepoDir string `json:"repo_dir"`
-	}
-	if err := cfg.Decode("quicksync", &quicksync); err != nil {
-		return err
-	}
-
+// QuickSync walks repoDir for git checkouts and SyncRepo's each one.
+// Callers load workspaced quicksync.repo_dir (or pass any directory of repos).
+// Does not import configcue so lower packages can use GetRoot without a cycle.
+func QuickSync(ctx context.Context, repoDir string) error {
 	logger := logging.GetLogger(ctx)
-	repoDir := quicksync.RepoDir
 	entries, err := os.ReadDir(repoDir)
 	if err != nil {
 		return fmt.Errorf("read repo dir %s: %w", repoDir, err)
