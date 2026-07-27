@@ -126,7 +126,7 @@ func mapTarEntryTarget(name string, destDir string) (target string, skip bool, e
 	}
 	target, err = archive.JoinWithin(destDir, rel)
 	if err != nil {
-		return "", false, fmt.Errorf("illegal file path: %s", name)
+		return "", false, err
 	}
 	return target, false, nil
 }
@@ -155,7 +155,7 @@ func extractTarEntry(ctx context.Context, tr *tar.Reader, hdr *tar.Header, destD
 		return archive.WriteMember(resolvedTarget, os.FileMode(hdr.Mode), tr)
 	case tar.TypeSymlink:
 		if !archive.SymlinkTargetWithin(destDir, target, hdr.Linkname) {
-			return fmt.Errorf("illegal symlink target: %s -> %s", hdr.Name, hdr.Linkname)
+			return fmt.Errorf("%w: %s -> %s", archive.ErrIllegalPath, hdr.Name, hdr.Linkname)
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err

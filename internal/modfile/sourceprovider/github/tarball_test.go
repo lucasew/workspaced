@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/archive"
@@ -105,8 +104,8 @@ func TestMapTarEntryTargetRejectsPathTraversal(t *testing.T) {
 		if err == nil {
 			t.Fatalf("name %q: expected illegal path error, skip=%v", name, skip)
 		}
-		if !strings.Contains(err.Error(), "illegal file path") {
-			t.Fatalf("name %q: got %v, want illegal file path", name, err)
+		if !errors.Is(err, archive.ErrIllegalPath) {
+			t.Fatalf("name %q: got %v, want archive.ErrIllegalPath", name, err)
 		}
 	}
 }
@@ -157,8 +156,8 @@ func TestExtractTarEntryRejectsEscapingSymlink(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected illegal symlink target error")
 	}
-	if !strings.Contains(err.Error(), "illegal symlink") {
-		t.Fatalf("got %v, want illegal symlink", err)
+	if !errors.Is(err, archive.ErrIllegalPath) {
+		t.Fatalf("got %v, want archive.ErrIllegalPath", err)
 	}
 	if _, statErr := os.Lstat(target); !errors.Is(statErr, fs.ErrNotExist) {
 		t.Fatalf("symlink should not exist: %v", statErr)

@@ -1,9 +1,9 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/lucasew/workspaced/internal/module"
@@ -36,7 +36,7 @@ func TestPlaceResolveIgnoreMissing(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for missing source")
 		}
-		if !strings.Contains(err.Error(), "place source") {
+		if !errors.Is(err, os.ErrNotExist) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})

@@ -1,6 +1,7 @@
 package configcue
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -49,8 +50,8 @@ func TestResolveRuntimeInputs_decodeError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for non-object input")
 	}
-	if !strings.Contains(err.Error(), "decode inputs for resolution") {
-		t.Fatalf("error = %v, want decode inputs for resolution", err)
+	if !errors.Is(err, ErrDecodeInputs) {
+		t.Fatalf("error = %v, want ErrDecodeInputs", err)
 	}
 }
 

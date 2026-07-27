@@ -26,6 +26,7 @@ var (
 	ErrEmptyGitHubRef   = errors.New("github ref cannot be empty (expected owner/repo)")
 	ErrInvalidGitHubRef = errors.New("invalid github ref (expected owner/repo)")
 	ErrAPIError         = errors.New("github api error")
+	ErrAPIRateLimit     = errors.New("github api rate limit exceeded")
 	ErrNoArtifact       = errors.New("no suitable artifact")
 )
 
@@ -140,11 +141,11 @@ func releaseTags(releases []release, includePrerelease bool) []string {
 func apiErrorFromResponse(requestURL string, resp *http.Response) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("github api error for %s: %s (reading body: %v): %w", requestURL, resp.Status, err, ErrAPIError)
+		return fmt.Errorf("github api error for %s: %s (reading body): %w: %w", requestURL, resp.Status, err, ErrAPIError)
 	}
 	msg := strings.TrimSpace(string(body))
 	if resp.StatusCode == http.StatusForbidden && strings.Contains(msg, "rate limit") {
-		return fmt.Errorf("github api rate limit exceeded for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", requestURL, resp.Status, ErrAPIError)
+		return fmt.Errorf("%w for %s (consider setting GITHUB_TOKEN or logging in with 'gh auth login'): %s: %w", ErrAPIRateLimit, requestURL, resp.Status, ErrAPIError)
 	}
 	if msg != "" {
 		return fmt.Errorf("github api error for %s: %s: %s: %w", requestURL, resp.Status, msg, ErrAPIError)

@@ -1,6 +1,8 @@
 package resolution
 
 import (
+	"bufio"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,8 +62,8 @@ func TestReadToolVersion_tokenTooLong(t *testing.T) {
 	if got != "" {
 		t.Fatalf("got %q, want empty", got)
 	}
-	if !strings.Contains(err.Error(), "scan") {
-		t.Fatalf("error = %v, want scan context", err)
+	if !errors.Is(err, bufio.ErrTooLong) {
+		t.Fatalf("error = %v, want bufio.ErrTooLong", err)
 	}
 }
 

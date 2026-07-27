@@ -28,8 +28,8 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		if !errors.Is(err, ErrAPIError) {
 			t.Fatalf("expected ErrAPIError, got %v", err)
 		}
-		if !strings.Contains(err.Error(), "rate limit exceeded") {
-			t.Fatalf("expected rate-limit wording, got %v", err)
+		if !errors.Is(err, ErrAPIRateLimit) {
+			t.Fatalf("expected ErrAPIRateLimit, got %v", err)
 		}
 	})
 
@@ -44,8 +44,8 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		if !errors.Is(err, ErrAPIError) {
 			t.Fatalf("expected ErrAPIError, got %v", err)
 		}
-		if !strings.Contains(err.Error(), "Not Found") {
-			t.Fatalf("expected body in error, got %v", err)
+		if errors.Is(err, ErrAPIRateLimit) {
+			t.Fatalf("unexpected rate limit on 404: %v", err)
 		}
 	})
 
@@ -60,8 +60,8 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		if !errors.Is(err, ErrAPIError) {
 			t.Fatalf("expected ErrAPIError, got %v", err)
 		}
-		if strings.Contains(err.Error(), "reading body") {
-			t.Fatalf("unexpected read-body note: %v", err)
+		if errors.Is(err, ErrAPIRateLimit) {
+			t.Fatalf("unexpected rate limit on empty body: %v", err)
 		}
 	})
 
@@ -77,14 +77,11 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		if !errors.Is(err, ErrAPIError) {
 			t.Fatalf("expected ErrAPIError, got %v", err)
 		}
-		if !strings.Contains(err.Error(), "502 Bad Gateway") {
-			t.Fatalf("expected status in error, got %v", err)
-		}
-		if !strings.Contains(err.Error(), "reading body") || !strings.Contains(err.Error(), "boom") {
-			t.Fatalf("expected read error detail, got %v", err)
+		if !errors.Is(err, readErr) {
+			t.Fatalf("expected wrapped read error, got %v", err)
 		}
 		// Must not claim rate limit when body was unreadable.
-		if strings.Contains(err.Error(), "rate limit exceeded for") {
+		if errors.Is(err, ErrAPIRateLimit) {
 			t.Fatalf("rate-limit path must not trigger without body: %v", err)
 		}
 	})

@@ -33,7 +33,10 @@ import (
 	"cuelang.org/go/cue/token"
 )
 
-var ErrInvalidInputSpec = errors.New("invalid input spec")
+var (
+	ErrInvalidInputSpec = errors.New("invalid input spec")
+	ErrDecodeInputs     = errors.New("decode inputs for resolution")
+)
 
 //go:embed schema.cue prelude_common.cue prelude_home.cue prelude_codebase.cue
 var schemaFS embed.FS
@@ -846,7 +849,7 @@ func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []La
 		return nil, fmt.Errorf("marshal inputs for resolution: %w", err)
 	}
 	if err := json.Unmarshal(tmp, &cfgInputs); err != nil {
-		return nil, fmt.Errorf("decode inputs for resolution: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrDecodeInputs, err)
 	}
 
 	modulesBaseDir := resolvedSelfModulesBase(paths, discovered)

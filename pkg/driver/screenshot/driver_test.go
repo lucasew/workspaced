@@ -1,7 +1,8 @@
 package screenshot
 
 import (
-	"strings"
+	"errors"
+	"strconv"
 	"testing"
 )
 
@@ -32,8 +33,9 @@ func TestParseRectParts(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for non-integer field")
 		}
-		if !strings.Contains(err.Error(), "abc") {
-			t.Fatalf("error should mention bad field: %v", err)
+		var ne *strconv.NumError
+		if !errors.As(err, &ne) || ne.Num != "abc" {
+			t.Fatalf("error should wrap NumError for abc: %v", err)
 		}
 	})
 }

@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -118,8 +117,8 @@ func TestResolveWithin(t *testing.T) {
 	bad := filepath.Join(escape, "x")
 	if _, err := ResolveWithin(dir, bad); err == nil {
 		t.Fatal("expected escape via symlink parent")
-	} else if !strings.Contains(err.Error(), "illegal") {
-		// may be EvalSymlinks or illegal
+	} else if !errors.Is(err, ErrIllegalPath) {
+		// EvalSymlinks may fail first; still require a non-nil error above.
 		t.Logf("got err %v (ok if non-nil)", err)
 	}
 }
