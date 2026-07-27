@@ -2,8 +2,6 @@ package sway
 
 import (
 	"context"
-	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
@@ -22,13 +20,10 @@ func (f *Factory) ID() string   { return "screen_sway" }
 func (f *Factory) Name() string { return "Wayland (sway)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "swaymsg") {
-		return fmt.Errorf("%w: swaymsg not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "swaymsg")
 }
 
 func (f *Factory) New(ctx context.Context) (screen.Driver, error) {

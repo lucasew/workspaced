@@ -2,10 +2,8 @@ package wlcopy
 
 import (
 	"context"
-	"fmt"
 	"image"
 
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/clipboard"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -21,13 +19,10 @@ func (f *Factory) ID() string   { return "clipboard_wlcopy" }
 func (f *Factory) Name() string { return "Wayland (wl-copy)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "wl-copy") {
-		return fmt.Errorf("%w: wl-copy not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "wl-copy")
 }
 
 func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {

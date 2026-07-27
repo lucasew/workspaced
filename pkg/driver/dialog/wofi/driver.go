@@ -2,8 +2,6 @@ package wofi
 
 import (
 	"context"
-	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -30,13 +28,10 @@ func (f *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { re
 func (f *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
 
 func checkWofi(ctx context.Context) error {
-	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "wofi") {
-		return fmt.Errorf("%w: wofi not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "wofi")
 }
 
 type Driver struct{}

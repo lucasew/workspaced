@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -21,13 +20,10 @@ type SwayFactory struct{}
 func (f *SwayFactory) ID() string   { return "screen_wayland_sway" }
 func (f *SwayFactory) Name() string { return "Sway" }
 func (f *SwayFactory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "swaymsg") {
-		return fmt.Errorf("%w: swaymsg not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "swaymsg")
 }
 
 func (f *SwayFactory) New(ctx context.Context) (api.Driver, error) {
@@ -39,13 +35,10 @@ type I3Factory struct{}
 func (f *I3Factory) ID() string   { return "screen_x11_i3" }
 func (f *I3Factory) Name() string { return "i3" }
 func (f *I3Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "DISPLAY") == "" {
-		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "i3-msg") {
-		return fmt.Errorf("%w: i3-msg not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "i3-msg")
 }
 
 func (f *I3Factory) New(ctx context.Context) (api.Driver, error) {

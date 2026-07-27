@@ -15,8 +15,5 @@ func RequireDisplayBinary(ctx context.Context, name string) error {
 	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
 		return fmt.Errorf("%w: neither DISPLAY nor WAYLAND_DISPLAY set", driver.ErrIncompatible)
 	}
-	if !execdriver.IsBinaryAvailable(ctx, name) {
-		return fmt.Errorf("%w: %s not found", driver.ErrIncompatible, name)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, name)
 }
