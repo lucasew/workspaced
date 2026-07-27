@@ -3,16 +3,12 @@ package wlcopy
 import (
 	"context"
 	"fmt"
+	"image"
+
 	"github.com/lucasew/workspaced/internal/executil"
-	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/clipboard"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/logging"
-	"image"
-	"image/png"
-	"io"
-	"strings"
 )
 
 func init() {
@@ -41,27 +37,9 @@ func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) WriteImage(ctx context.Context, img image.Image) error {
-	if !execdriver.IsBinaryAvailable(ctx, "wl-copy") {
-		return fmt.Errorf("%w: wl-copy", dapi.ErrBinaryNotFound)
-	}
-	pr, pw := io.Pipe()
-	go func() {
-		if err := png.Encode(pw, img); err != nil {
-			logging.ReportError(ctx, err)
-		}
-		logging.Close(ctx, pw)
-	}()
-
-	cmd := execdriver.MustRun(ctx, "wl-copy", "-t", "image/png")
-	cmd.Stdin = pr
-	return cmd.Run()
+	return clipboard.WriteImageViaCmd(ctx, img, "wl-copy", "-t", "image/png")
 }
 
 func (d *Driver) WriteText(ctx context.Context, text string) error {
-	if !execdriver.IsBinaryAvailable(ctx, "wl-copy") {
-		return fmt.Errorf("%w: wl-copy", dapi.ErrBinaryNotFound)
-	}
-	cmd := execdriver.MustRun(ctx, "wl-copy")
-	cmd.Stdin = strings.NewReader(text)
-	return cmd.Run()
+	return clipboard.WriteTextViaCmd(ctx, text, "wl-copy")
 }
