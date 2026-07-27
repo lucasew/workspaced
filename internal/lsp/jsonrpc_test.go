@@ -3,6 +3,7 @@ package lsp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -62,5 +63,16 @@ func TestMergeResultsFirstNonNull(t *testing.T) {
 	})
 	if string(out) != `{"contents":"hi"}` {
 		t.Fatalf("got %s", out)
+	}
+}
+
+func TestReadMessageMissingContentLength(t *testing.T) {
+	t.Parallel()
+	// Header block ends without Content-Length.
+	raw := "Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n"
+	c := NewConn(strings.NewReader(raw), &bytes.Buffer{})
+	_, err := c.ReadMessage()
+	if !errors.Is(err, ErrMissingContentLength) {
+		t.Fatalf("err=%v want errors.Is(..., ErrMissingContentLength)", err)
 	}
 }
