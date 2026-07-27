@@ -18,39 +18,7 @@ func (f *Factory) CheckCompatibility(ctx context.Context) error { return nil }
 
 func (f *Factory) New(ctx context.Context) (envdriver.Driver, error) { return &Driver{}, nil }
 
-type Driver struct{}
-
-func (d *Driver) GetHomeDir(ctx context.Context) (string, error) {
-	return envdriver.ResolveHomeDir()
-}
-
-func (d *Driver) GetDotfilesRoot(ctx context.Context) (string, error) {
-	home, err := d.GetHomeDir(ctx)
-	if err != nil {
-		return "", err
-	}
-	return envdriver.FindDotfilesRoot(home)
-}
-
-func (d *Driver) GetHostname(ctx context.Context) (string, error) {
-	return envdriver.Hostname(ctx)
-}
-
-func (d *Driver) GetUserDataDir(ctx context.Context) (string, error) {
-	home, err := d.GetHomeDir(ctx)
-	if err != nil {
-		return "", err
-	}
-	return envdriver.EnsureUnderHome(home, ".local/share/workspaced")
-}
-
-func (d *Driver) GetConfigDir(ctx context.Context) (string, error) {
-	home, err := d.GetHomeDir(ctx)
-	if err != nil {
-		return "", err
-	}
-	return envdriver.EnsureUnderHome(home, ".config/workspaced")
-}
+type Driver struct{ envdriver.Base }
 
 func (d *Driver) IsPhone(ctx context.Context) bool { return driver.IsTermux() }
 
