@@ -1,37 +1,14 @@
 package api
 
 import (
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
-	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/lucasew/workspaced/pkg/palette/palettetest"
 )
-
-// paletteTestdata lives at pkg/palette/testdata (shared by api/genetic/materialyou).
-func paletteTestdata(t testing.TB, name string) string {
-	t.Helper()
-	return filepath.Join("..", "testdata", name)
-}
-
-func loadPaletteImage(t testing.TB, name string) image.Image {
-	t.Helper()
-	f, err := os.Open(paletteTestdata(t, name))
-	if err != nil {
-		t.Fatalf("open testdata %s: %v", name, err)
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
-	if err != nil {
-		t.Fatalf("decode testdata %s: %v", name, err)
-	}
-	return img
-}
 
 func TestSampleImageBlocks64(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "blocks_64.png")
+	img := palettetest.LoadImage(t, "blocks_64.png")
 	// One transparent pixel at (0,0); four opaque quadrant colors.
 	colors := SampleImage(img, 0)
 	if len(colors) != 4 {
@@ -58,7 +35,7 @@ func TestSampleImageBlocks64(t *testing.T) {
 
 func TestSampleImageSolid(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "solid_4285f4.png")
+	img := palettetest.LoadImage(t, "solid_4285f4.png")
 	colors := SampleImage(img, 0)
 	if len(colors) != 1 {
 		t.Fatalf("solid unique colors = %d, want 1", len(colors))
@@ -71,7 +48,7 @@ func TestSampleImageSolid(t *testing.T) {
 
 func TestSampleImageMaxSamplesCapsVisits(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "gradient_256.png")
+	img := palettetest.LoadImage(t, "gradient_256.png")
 	// Full unique set is huge; striding must return fewer or equal uniques and never panic.
 	limited := SampleImage(img, 256)
 	full := SampleImage(img, 0)
@@ -86,7 +63,7 @@ func TestSampleImageMaxSamplesCapsVisits(t *testing.T) {
 // bliss.jpg is the real wallpaper from ~/.dotfiles/assets/wallpapers (4510x3627).
 func TestSampleImageBliss(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "bliss.jpg")
+	img := palettetest.LoadImage(t, "bliss.jpg")
 	b := img.Bounds()
 	if b.Dx() < 1000 || b.Dy() < 1000 {
 		t.Fatalf("unexpected bliss size %dx%d", b.Dx(), b.Dy())
@@ -103,28 +80,28 @@ func TestSampleImageBliss(t *testing.T) {
 
 func BenchmarkSampleImage(b *testing.B) {
 	b.Run("gradient_256/full", func(b *testing.B) {
-		img := loadPaletteImage(b, "gradient_256.png")
+		img := palettetest.LoadImage(b, "gradient_256.png")
 		b.ReportAllocs()
 		for b.Loop() {
 			_ = SampleImage(img, 0)
 		}
 	})
 	b.Run("gradient_256/max_10000", func(b *testing.B) {
-		img := loadPaletteImage(b, "gradient_256.png")
+		img := palettetest.LoadImage(b, "gradient_256.png")
 		b.ReportAllocs()
 		for b.Loop() {
 			_ = SampleImage(img, 10000)
 		}
 	})
 	b.Run("bliss/max_10000", func(b *testing.B) {
-		img := loadPaletteImage(b, "bliss.jpg")
+		img := palettetest.LoadImage(b, "bliss.jpg")
 		b.ReportAllocs()
 		for b.Loop() {
 			_ = SampleImage(img, 10000)
 		}
 	})
 	b.Run("bliss/max_1000", func(b *testing.B) {
-		img := loadPaletteImage(b, "bliss.jpg")
+		img := palettetest.LoadImage(b, "bliss.jpg")
 		b.ReportAllocs()
 		for b.Loop() {
 			_ = SampleImage(img, 1000)

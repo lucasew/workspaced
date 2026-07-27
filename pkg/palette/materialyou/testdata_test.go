@@ -2,39 +2,17 @@ package materialyou
 
 import (
 	"encoding/json"
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette/palettetest"
 )
-
-func paletteTestdata(t testing.TB, name string) string {
-	t.Helper()
-	return filepath.Join("..", "testdata", name)
-}
-
-func loadPaletteImage(t testing.TB, name string) image.Image {
-	t.Helper()
-	f, err := os.Open(paletteTestdata(t, name))
-	if err != nil {
-		t.Fatalf("open testdata %s: %v", name, err)
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
-	if err != nil {
-		t.Fatalf("decode testdata %s: %v", name, err)
-	}
-	return img
-}
 
 func loadGoldenPalette(t testing.TB, name string) *api.Palette {
 	t.Helper()
-	b, err := os.ReadFile(paletteTestdata(t, name))
+	b, err := os.ReadFile(palettetest.Path(t, name))
 	if err != nil {
 		t.Fatalf("read golden %s: %v", name, err)
 	}
@@ -47,7 +25,7 @@ func loadGoldenPalette(t testing.TB, name string) *api.Palette {
 
 func TestMaterialYouFromTestdataSolid(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "solid_4285f4.png")
+	img := palettetest.LoadImage(t, "solid_4285f4.png")
 	ctx := logging.NewWriterContext(t.Output())
 	d := &Driver{}
 
@@ -96,7 +74,7 @@ func TestGenerateColorschemeSourceHex(t *testing.T) {
 // MaxSamples must match the golden generator (CLI default 10000).
 func TestMaterialYouFromTestdataBliss(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "bliss.jpg")
+	img := palettetest.LoadImage(t, "bliss.jpg")
 	ctx := logging.NewWriterContext(t.Output())
 	d := &Driver{}
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
@@ -126,7 +104,7 @@ func BenchmarkMaterialYouExtract(b *testing.B) {
 	opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 
 	b.Run("gradient_256", func(b *testing.B) {
-		img := loadPaletteImage(b, "gradient_256.png")
+		img := palettetest.LoadImage(b, "gradient_256.png")
 		b.ReportAllocs()
 		for b.Loop() {
 			if _, err := d.Extract(ctx, img, opts); err != nil {
@@ -135,7 +113,7 @@ func BenchmarkMaterialYouExtract(b *testing.B) {
 		}
 	})
 	b.Run("bliss", func(b *testing.B) {
-		img := loadPaletteImage(b, "bliss.jpg")
+		img := palettetest.LoadImage(b, "bliss.jpg")
 		b.ReportAllocs()
 		for b.Loop() {
 			if _, err := d.Extract(ctx, img, opts); err != nil {

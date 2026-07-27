@@ -1,42 +1,20 @@
 package genetic
 
 import (
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/palette/api"
+	"github.com/lucasew/workspaced/pkg/palette/palettetest"
 )
-
-func paletteTestdata(t testing.TB, name string) string {
-	t.Helper()
-	return filepath.Join("..", "testdata", name)
-}
-
-func loadPaletteImage(t testing.TB, name string) image.Image {
-	t.Helper()
-	f, err := os.Open(paletteTestdata(t, name))
-	if err != nil {
-		t.Fatalf("open testdata %s: %v", name, err)
-	}
-	defer f.Close()
-	img, _, err := image.Decode(f)
-	if err != nil {
-		t.Fatalf("decode testdata %s: %v", name, err)
-	}
-	return img
-}
 
 func TestGeneticScoreFromBlocksTestdata(t *testing.T) {
 	t.Parallel()
 	// Cheap match path: sample fixture colors and score a tiny population.
 	// Full Extract is opt-in (WORKSPACED_TEST_GENETIC_EXTRACT=1) / benchmarks only.
-	img := loadPaletteImage(t, "blocks_64.png")
+	img := palettetest.LoadImage(t, "blocks_64.png")
 	colors := api.SampleImage(img, 0)
 	if len(colors) != 4 {
 		t.Fatalf("blocks_64 unique colors = %d, want 4", len(colors))
@@ -61,7 +39,7 @@ func TestGeneticScoreFromBlocksTestdata(t *testing.T) {
 
 func TestGeneticScoreFromBlissTestdata(t *testing.T) {
 	t.Parallel()
-	img := loadPaletteImage(t, "bliss.jpg")
+	img := palettetest.LoadImage(t, "bliss.jpg")
 	colors := api.SampleImage(img, 10000)
 	if len(colors) == 0 {
 		t.Fatal("bliss sample empty")
@@ -87,7 +65,7 @@ func TestGeneticExtractFromTestdata(t *testing.T) {
 		t.Skip("set WORKSPACED_TEST_GENETIC_EXTRACT=1 (and not -short) for full evolution")
 	}
 	// Prefer real wallpaper when available; MaxSamples matches CLI default.
-	img := loadPaletteImage(t, "bliss.jpg")
+	img := palettetest.LoadImage(t, "bliss.jpg")
 	ctx := logging.NewWriterContext(t.Output())
 	d := &Driver{}
 	pal, err := d.Extract(ctx, img, api.Options{
@@ -114,7 +92,7 @@ func BenchmarkGeneticExtract(b *testing.B) {
 	d := &Driver{}
 
 	b.Run("blocks_64", func(b *testing.B) {
-		img := loadPaletteImage(b, "blocks_64.png")
+		img := palettetest.LoadImage(b, "blocks_64.png")
 		opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 0}
 		b.ReportAllocs()
 		for b.Loop() {
@@ -124,7 +102,7 @@ func BenchmarkGeneticExtract(b *testing.B) {
 		}
 	})
 	b.Run("bliss", func(b *testing.B) {
-		img := loadPaletteImage(b, "bliss.jpg")
+		img := palettetest.LoadImage(b, "bliss.jpg")
 		opts := api.Options{Polarity: api.PolarityDark, ColorCount: 16, MaxSamples: 10000}
 		b.ReportAllocs()
 		for b.Loop() {
@@ -137,7 +115,7 @@ func BenchmarkGeneticExtract(b *testing.B) {
 
 func BenchmarkGeneticScorePopFromTestdata(b *testing.B) {
 	b.Run("blocks_64", func(b *testing.B) {
-		img := loadPaletteImage(b, "blocks_64.png")
+		img := palettetest.LoadImage(b, "blocks_64.png")
 		colors := api.SampleImage(img, 0)
 		lab := make([]api.LAB, len(colors))
 		for i, c := range colors {
@@ -150,7 +128,7 @@ func BenchmarkGeneticScorePopFromTestdata(b *testing.B) {
 		}
 	})
 	b.Run("bliss_max_10000", func(b *testing.B) {
-		img := loadPaletteImage(b, "bliss.jpg")
+		img := palettetest.LoadImage(b, "bliss.jpg")
 		colors := api.SampleImage(img, 10000)
 		lab := make([]api.LAB, len(colors))
 		for i, c := range colors {

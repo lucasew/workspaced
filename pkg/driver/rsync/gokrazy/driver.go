@@ -35,20 +35,12 @@ func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Options) error {
-	if err := rsyncdriver.ValidatePaths(src, dst); err != nil {
-		return err
-	}
 	logger := logging.GetLogger(ctx)
-
-	// gokrazy/rsync uses a limited popt-style parser: avoid -P/--partial (not
-	// implemented). Use long --progress instead; excludes/no-perms via BuildCLIArgs.
-	args := rsyncdriver.BuildCLIArgs(opts, []string{"-av", "--progress"}, src, dst)
-
-	perform := func(ctx context.Context, st *taskgroup.Status, extraOut io.Writer) error {
-		return d.runRsyncCmd(ctx, args, st, extraOut, logger)
-	}
-
-	return rsyncdriver.RunWithTaskGroup(ctx, src, dst, opts, perform)
+	// gokrazy/rsync: avoid -P/--partial (not implemented); use long --progress.
+	return rsyncdriver.SyncWith(ctx, src, dst, opts, []string{"-av", "--progress"},
+		func(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer) error {
+			return d.runRsyncCmd(ctx, args, st, extraOut, logger)
+		})
 }
 
 func (d *Driver) runRsyncCmd(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer, logger *slog.Logger) error {

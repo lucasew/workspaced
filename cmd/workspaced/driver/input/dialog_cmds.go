@@ -10,6 +10,17 @@ import (
 func init() {
 	Registry.Register(func(parent *cobra.Command) {
 		parent.AddCommand(&cobra.Command{
+			Use:   "launch",
+			Short: "Application launcher",
+			RunE: func(c *cobra.Command, args []string) error {
+				d, err := driver.Get[dialog.Driver](c.Context())
+				if err != nil {
+					return err
+				}
+				return d.RunApp(c.Context())
+			},
+		})
+		parent.AddCommand(&cobra.Command{
 			Use:   "window",
 			Short: "Window switcher",
 			RunE: func(c *cobra.Command, args []string) error {
