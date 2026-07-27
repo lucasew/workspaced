@@ -20,4 +20,5 @@ func init() {
 	catalog.RegisterGitHub("docker-compose", "docker/compose", checks.Binary("docker-compose"))
 	catalog.RegisterGitHub("refactree", "lucasew/refactree", checks.Binary("rft"))
 	catalog.RegisterGitHub("ripgrep", "burntsushi/ripgrep", checks.Binary("rg"))
+	catalog.RegisterGitHub("mise", "jdx/mise", checks.Binary("mise"))
 }

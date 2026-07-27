@@ -2,6 +2,13 @@ package workspaced
 
 // Home-only prelude layer.
 workspaced: {
+	// Infrastructure: pin/install via the home/dotfiles lock, not per-codebase.
+	lazy_tools: {
+		mise: {
+			ref:  *"registry:mise" | string
+			bins: *["mise"] | [...string]
+		}
+	}
 	workspaces: {
 		www:  *1 | int
 		meet: *2 | int

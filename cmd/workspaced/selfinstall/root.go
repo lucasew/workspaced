@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/lucasew/workspaced/internal/atomicfile"
+	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/driver/shim"
@@ -137,7 +138,8 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 }
 
 func createMiseShim(ctx context.Context) error {
-	// Always create shim, even if mise not installed yet.
+	// PATH wrapper re-enters `workspaced open mise`, which resolves mise as a
+	// lazy tool (registry:mise). Do not point at a fixed data-dir binary path.
 	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		home, homeErr := envdriver.ResolveHomeDir()
@@ -146,12 +148,11 @@ func createMiseShim(ctx context.Context) error {
 		}
 		dataDir = filepath.Join(home, ".local", "share", "workspaced")
 	}
-	misePath := filepath.Join(dataDir, "bin", "mise")
-	shimPath, err := shim.GenerateInLocalBin(ctx, "mise", []string{misePath})
-	if err != nil {
+	workspacedBin := filepath.Join(dataDir, "bin", "workspaced")
+	if err := miseutil.EnsureLocalBinWrapper(ctx, workspacedBin); err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("created mise shim", "path", shimPath, "target", misePath)
+	logging.GetLogger(ctx).Info("created mise wrapper", "target", "open mise")
 	return nil
 }
 

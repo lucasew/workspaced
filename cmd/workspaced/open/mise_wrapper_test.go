@@ -1,15 +1,16 @@
 package open
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"errors"
+	"github.com/lucasew/workspaced/internal/miseutil"
 	_ "github.com/lucasew/workspaced/pkg/driver/prelude"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"io/fs"
 )
 
 func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
@@ -27,8 +28,8 @@ func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := ensureMiseWrapper(ctx, "unused"); err != nil {
-		t.Fatalf("ensureMiseWrapper: %v", err)
+	if err := miseutil.EnsureLocalBinWrapper(ctx, "/fake/workspaced"); err != nil {
+		t.Fatalf("EnsureLocalBinWrapper: %v", err)
 	}
 
 	if _, err := os.Stat(wrapperPath + ".tmp"); !errors.Is(err, fs.ErrNotExist) {
@@ -44,6 +45,9 @@ func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
 	}
 	if !strings.Contains(got, "open mise") {
 		t.Fatalf("wrapper missing open mise:\n%s", got)
+	}
+	if !strings.Contains(got, "/fake/workspaced") {
+		t.Fatalf("wrapper missing workspaced path:\n%s", got)
 	}
 	info, err := os.Stat(wrapperPath)
 	if err != nil {
