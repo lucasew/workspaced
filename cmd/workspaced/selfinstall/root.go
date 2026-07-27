@@ -138,8 +138,8 @@ func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
 }
 
 func createMiseShim(ctx context.Context) error {
-	// PATH wrapper re-enters `workspaced open mise`, which resolves mise as a
-	// lazy tool (registry:mise). Do not point at a fixed data-dir binary path.
+	// Integration shim only: re-enters the standard home lazy route for mise.
+	// Does not install mise; open lazy --home resolves registry:mise.
 	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		home, homeErr := envdriver.ResolveHomeDir()
@@ -152,7 +152,7 @@ func createMiseShim(ctx context.Context) error {
 	if err := miseutil.EnsureLocalBinWrapper(ctx, workspacedBin); err != nil {
 		return err
 	}
-	logging.GetLogger(ctx).Info("created mise wrapper", "target", "open mise")
+	logging.GetLogger(ctx).Info("created mise wrapper", "target", "open lazy --home mise")
 	return nil
 }
 

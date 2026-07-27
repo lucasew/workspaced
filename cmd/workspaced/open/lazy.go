@@ -31,40 +31,7 @@ func lazyCommand() *cobra.Command {
 			if binName == "" {
 				binName = toolName
 			}
-
-			resolver := tool.ResolveLazyTool
-			if homeMode {
-				resolver = tool.ResolveHomeLazyTool
-			}
-
-			ctx := cmd.Context()
-			g := taskgroup.MustFromContext(ctx)
-			var theCmd *exec.Cmd
-			g.Go("open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-				s.Update("resolving " + toolName)
-				binPath, err := resolver(ctx, toolName, binName)
-				if err != nil {
-					return err
-				}
-				// Detach so session teardown does not cancel the child.
-				execCtx := context.WithoutCancel(ctx)
-				c, err := execdriver.Run(execCtx, binPath, toolArgs...)
-				if err != nil {
-					return fmt.Errorf("create command: %w", err)
-				}
-				theCmd = c
-				return nil
-			})
-			taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
-				if theCmd == nil {
-					return nil
-				}
-				theCmd.Stdin = os.Stdin
-				theCmd.Stdout = os.Stdout
-				theCmd.Stderr = os.Stderr
-				return theCmd.Run()
-			})
-			return nil
+			return runLazyTool(cmd.Context(), homeMode, toolName, binName, toolArgs)
 		},
 	}
 
@@ -73,4 +40,40 @@ func lazyCommand() *cobra.Command {
 	cmd.Flags().SetInterspersed(false)
 
 	return cmd
+}
+
+// runLazyTool is the standard open path for any lazy tool (including mise).
+func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, toolArgs []string) error {
+	resolver := tool.ResolveLazyTool
+	if homeMode {
+		resolver = tool.ResolveHomeLazyTool
+	}
+
+	g := taskgroup.MustFromContext(ctx)
+	var theCmd *exec.Cmd
+	g.Go("open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("resolving " + toolName)
+		binPath, err := resolver(ctx, toolName, binName)
+		if err != nil {
+			return err
+		}
+		// Detach so session teardown does not cancel the child.
+		execCtx := context.WithoutCancel(ctx)
+		c, err := execdriver.Run(execCtx, binPath, toolArgs...)
+		if err != nil {
+			return fmt.Errorf("create command: %w", err)
+		}
+		theCmd = c
+		return nil
+	})
+	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+		if theCmd == nil {
+			return nil
+		}
+		theCmd.Stdin = os.Stdin
+		theCmd.Stdout = os.Stdout
+		theCmd.Stderr = os.Stderr
+		return theCmd.Run()
+	})
+	return nil
 }

@@ -17,15 +17,14 @@ import (
 )
 
 var (
-	// ErrBinaryNotFound is returned when a binary is not found in the mise install tree.
+	// ErrBinaryNotFound is returned when a binary is not found in a mise tool install tree.
 	ErrBinaryNotFound = errors.New("binary not found")
 )
 
-// Ensure returns the path to a usable mise binary, installing it through the
-// home lazy tool "mise" (registry:mise) when needed.
+// Ensure returns a path to the mise CLI via the standard home lazy tool route
+// (lazy_tools.mise → registry:mise). Not a separate install system: same path
+// as `workspaced open lazy --home mise`.
 //
-// Always resolves against the home/dotfiles workspace so the pin lives in the
-// home lockfile — not in every codebase that happens to use a mise:* package.
 // Falls back to a direct registry:mise ensure when home config/lock cannot be
 // used (bootstrap, missing dotfiles root, read-only lock).
 func Ensure(ctx context.Context) (string, error) {
@@ -41,7 +40,8 @@ func Ensure(ctx context.Context) (string, error) {
 	return mgr.EnsureInstalled(ctx, "registry:mise", "mise")
 }
 
-// Output runs mise with args and returns combined stdout.
+// Output runs the mise CLI with args and returns combined stdout.
+// Used by the mise: package backend (not for installing mise itself).
 func Output(ctx context.Context, args ...string) ([]byte, error) {
 	misePath, err := Ensure(ctx)
 	if err != nil {
@@ -54,7 +54,7 @@ func Output(ctx context.Context, args ...string) ([]byte, error) {
 	return cmd.Output()
 }
 
-// Run runs mise with args, wiring stdio to the process.
+// Run runs the mise CLI with args, wiring stdio to the process.
 func Run(ctx context.Context, args ...string) error {
 	misePath, err := Ensure(ctx)
 	if err != nil {
@@ -70,7 +70,7 @@ func Run(ctx context.Context, args ...string) error {
 	return cmd.Run()
 }
 
-// Latest resolves the latest version of a mise tool spec (e.g. "node").
+// Latest resolves the latest version of a mise package spec (e.g. "node").
 func Latest(ctx context.Context, spec string) (string, error) {
 	out, err := Output(ctx, "latest", spec)
 	if err != nil {
@@ -79,7 +79,7 @@ func Latest(ctx context.Context, spec string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// Where returns the install root for a mise tool spec.
+// Where returns the install root for a mise package spec.
 func Where(ctx context.Context, toolSpec string) (string, error) {
 	out, err := Output(ctx, "where", toolSpec)
 	if err != nil {
@@ -88,7 +88,7 @@ func Where(ctx context.Context, toolSpec string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// ResolveBinPath finds binName under the install root of toolSpec.
+// ResolveBinPath finds binName under the install root of a mise package spec.
 func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, error) {
 	root, err := Where(ctx, toolSpec)
 	if err != nil {
@@ -102,10 +102,12 @@ func ResolveBinPath(ctx context.Context, binName, toolSpec string) (string, erro
 	return "", fmt.Errorf("%w: %q under %s", ErrBinaryNotFound, binName, root)
 }
 
-// EnsureLocalBinWrapper writes ~/.local/bin/mise so PATH users re-enter
-// workspaced open mise (which resolves/installs mise as a lazy tool).
+// EnsureLocalBinWrapper writes ~/.local/bin/mise so PATH users re-enter the
+// standard lazy route (open lazy --home mise). Integration only — not a
+// separate install path for the binary.
+//
 // workspacedBin is the absolute path to the workspaced binary; when empty,
-// the default install location under the user data dir is used.
+// the default under the user data dir is used.
 func EnsureLocalBinWrapper(ctx context.Context, workspacedBin string) error {
 	logger := logging.GetLogger(ctx)
 	home, err := envdriver.ResolveHomeDir()
@@ -124,7 +126,11 @@ func EnsureLocalBinWrapper(ctx context.Context, workspacedBin string) error {
 	wrapperDir := filepath.Join(home, ".local", "bin")
 	wrapperPath := filepath.Join(wrapperDir, "mise")
 	shell := bash.GetShell(ctx)
-	expectedContent := fmt.Sprintf("#!%s\nexec -a \"$0\" %s open mise \"$@\"\n", shell, workspacedBin)
+	// Same argv shape as modules/mise and open lazy --home.
+	expectedContent := fmt.Sprintf(
+		"#!%s\nexec -a \"$0\" %s open lazy --home --bin mise mise -- \"$@\"\n",
+		shell, workspacedBin,
+	)
 
 	if content, err := os.ReadFile(wrapperPath); err == nil && string(content) == expectedContent {
 		return nil

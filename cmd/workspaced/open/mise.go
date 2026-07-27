@@ -1,69 +1,33 @@
 package open
 
 import (
-	"context"
-	"fmt"
-	"os"
-
-	"github.com/lucasew/workspaced/internal/miseutil"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/logging"
-
 	"github.com/spf13/cobra"
 )
 
-// ensureMise resolves mise through the home lazy tool path and refreshes
-// the ~/.local/bin wrapper that re-enters this command.
-func ensureMise(ctx context.Context) (string, error) {
-	logger := logging.GetLogger(ctx)
-	misePath, err := miseutil.Ensure(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	if err := miseutil.EnsureLocalBinWrapper(ctx, ""); err != nil {
-		logger.Warn("failed to create mise wrapper", "error", err)
-	}
-
-	return misePath, nil
-}
-
+// miseCommand is a short alias for `open lazy --home mise`.
+// Mise itself is not special-cased for install: it is a normal home lazy tool
+// (registry:mise). This subcommand only keeps a convenient argv shape for
+// shell scripts and the PATH shim (DisableFlagParsing for mise's own flags).
 func miseCommand() *cobra.Command {
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:                "mise [args...]",
-		Short:              "Run mise (installs as a lazy tool if needed)",
+		Short:              "Alias for: open lazy --home mise -- …",
 		DisableFlagParsing: true,
-		Long: `Run mise resolved through workspaced's standard tool path.
+		Long: `Convenience alias for the standard home lazy tool path:
 
-mise is a catalog tool (registry:mise / github:jdx/mise) and a home lazy tool
-named "mise". The first invocation installs it into the tool store and pins the
-version in the home/dotfiles workspaced.lock.json (not in codebase locks).
+  workspaced open lazy --home --bin mise mise -- [args...]
+
+mise is declared in the home prelude as lazy_tools.mise (registry:mise) and
+installed into the tool store like any other catalog tool. Package installs
+via the mise: backend still shell out to that binary.
 
 Examples:
   workspaced open mise version
   workspaced open mise install node@20
-  workspaced open mise use -g python@3.11
   workspaced open lazy --home mise -- version`,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-
-			misePath, err := ensureMise(ctx)
-			if err != nil {
-				return err
-			}
-
-			miseCmd, err := execdriver.Run(ctx, misePath, args...)
-			if err != nil {
-				return fmt.Errorf("create command: %w", err)
-			}
-
-			miseCmd.Stdin = os.Stdin
-			miseCmd.Stdout = os.Stdout
-			miseCmd.Stderr = os.Stderr
-
-			return miseCmd.Run()
+			return runLazyTool(cmd.Context(), true, "mise", "mise", args)
 		},
 	}
-	return cmd
 }

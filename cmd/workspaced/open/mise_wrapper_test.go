@@ -43,8 +43,8 @@ func TestEnsureMiseWrapperAtomicWrite(t *testing.T) {
 	if strings.Contains(got, "prior") {
 		t.Fatalf("prior content still present:\n%s", got)
 	}
-	if !strings.Contains(got, "open mise") {
-		t.Fatalf("wrapper missing open mise:\n%s", got)
+	if !strings.Contains(got, "open lazy --home") {
+		t.Fatalf("wrapper missing open lazy --home:\n%s", got)
 	}
 	if !strings.Contains(got, "/fake/workspaced") {
 		t.Fatalf("wrapper missing workspaced path:\n%s", got)
