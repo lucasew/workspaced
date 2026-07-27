@@ -6,7 +6,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/wallpaper"
-	"os"
 )
 
 func init() {
@@ -19,16 +18,10 @@ func (f *Factory) ID() string   { return "x11_feh" }
 func (f *Factory) Name() string { return "X11 (feh)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if os.Getenv("DISPLAY") == "" {
-		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "DISPLAY"); err != nil {
+		return err
 	}
-	if _, err := execdriver.Which(ctx, "systemd-run"); err != nil {
-		return fmt.Errorf("%w: systemd-run not found", driver.ErrIncompatible)
-	}
-	if _, err := execdriver.Which(ctx, "feh"); err != nil {
-		return fmt.Errorf("%w: feh not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinaries(ctx, "systemd-run", "feh")
 }
 
 func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {

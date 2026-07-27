@@ -18,10 +18,7 @@ func (f *Factory) ID() string   { return "notification_termux" }
 func (f *Factory) Name() string { return "Termux" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "termux-notification") {
-		return fmt.Errorf("%w: termux-notification not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "termux-notification")
 }
 
 func (f *Factory) New(ctx context.Context) (notification.Driver, error) {

@@ -2,7 +2,6 @@ package systemd
 
 import (
 	"context"
-	"fmt"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/power"
@@ -18,13 +17,7 @@ func (f *Factory) ID() string   { return "power_systemd" }
 func (f *Factory) Name() string { return "Systemd" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "loginctl") {
-		return fmt.Errorf("%w: loginctl not found", driver.ErrIncompatible)
-	}
-	if !execdriver.IsBinaryAvailable(ctx, "systemctl") {
-		return fmt.Errorf("%w: systemctl not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinaries(ctx, "loginctl", "systemctl")
 }
 
 func (f *Factory) New(ctx context.Context) (power.Driver, error) {

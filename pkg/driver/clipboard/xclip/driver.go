@@ -2,12 +2,10 @@ package xclip
 
 import (
 	"context"
-	"fmt"
-	"image"
-
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/clipboard"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"image"
 )
 
 func init() {
@@ -20,11 +18,8 @@ func (f *Factory) ID() string   { return "clipboard_xclip" }
 func (f *Factory) Name() string { return "X11 (xclip)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if !execdriver.IsBinaryAvailable(ctx, "xclip") {
-		return fmt.Errorf("%w: xclip", driver.ErrIncompatible)
-	}
 	// Fallback driver, usually always valid if binary exists
-	return nil
+	return execdriver.RequireBinary(ctx, "xclip")
 }
 
 func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {

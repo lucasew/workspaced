@@ -3,7 +3,6 @@ package swaybg
 import (
 	"context"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/wallpaper"
@@ -19,16 +18,10 @@ func (f *Factory) ID() string   { return "wayland_swaybg" }
 func (f *Factory) Name() string { return "Wayland (swaybg)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: WAYLAND_DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
+		return err
 	}
-	if _, err := execdriver.Which(ctx, "systemd-run"); err != nil {
-		return fmt.Errorf("%w: systemd-run not found", driver.ErrIncompatible)
-	}
-	if _, err := execdriver.Which(ctx, "swaybg"); err != nil {
-		return fmt.Errorf("%w: swaybg not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinaries(ctx, "systemd-run", "swaybg")
 }
 
 func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {

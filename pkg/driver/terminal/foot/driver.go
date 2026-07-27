@@ -2,8 +2,6 @@ package foot
 
 import (
 	"context"
-	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/terminal"
@@ -19,13 +17,10 @@ func (f *Factory) ID() string   { return "terminal_foot" }
 func (f *Factory) Name() string { return "Foot" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: foot requires WAYLAND_DISPLAY", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "foot") {
-		return fmt.Errorf("%w: foot not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "foot")
 }
 
 func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {

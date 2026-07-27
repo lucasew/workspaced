@@ -4,15 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"image"
-	_ "image/png"
-	"strings"
-
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/screenshot"
 	api "github.com/lucasew/workspaced/pkg/driver/wm"
+	"image"
+	_ "image/png"
+	"strings"
 )
 
 func init() {
@@ -25,13 +23,10 @@ func (f *Factory) ID() string   { return "screenshot_maim" }
 func (f *Factory) Name() string { return "Maim (X11)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "DISPLAY") == "" {
-		return fmt.Errorf("%w: DISPLAY not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "DISPLAY"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "maim") {
-		return fmt.Errorf("%w: maim not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "maim")
 }
 
 func (f *Factory) New(ctx context.Context) (screenshot.Driver, error) {

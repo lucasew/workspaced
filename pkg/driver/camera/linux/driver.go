@@ -31,10 +31,7 @@ func (f *Factory) CheckCompatibility(ctx context.Context) error {
 	if runtime.GOOS != "linux" {
 		return fmt.Errorf("%w: linux is required", driver.ErrIncompatible)
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "ffmpeg") {
-		return fmt.Errorf("%w: ffmpeg is required", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "ffmpeg")
 }
 
 func (f *Factory) New(ctx context.Context) (cameraapi.Driver, error) {

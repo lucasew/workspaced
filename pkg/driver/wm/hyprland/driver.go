@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -21,13 +20,10 @@ func (f *Factory) ID() string   { return "wm_hyprland" }
 func (f *Factory) Name() string { return "Hyprland" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "HYPRLAND_INSTANCE_SIGNATURE") == "" {
-		return fmt.Errorf("%w: HYPRLAND_INSTANCE_SIGNATURE not set", driver.ErrIncompatible)
+	if err := driver.RequireEnv(ctx, "HYPRLAND_INSTANCE_SIGNATURE"); err != nil {
+		return err
 	}
-	if !execdriver.IsBinaryAvailable(ctx, "hyprctl") {
-		return fmt.Errorf("%w: hyprctl not found", driver.ErrIncompatible)
-	}
-	return nil
+	return execdriver.RequireBinary(ctx, "hyprctl")
 }
 
 func (f *Factory) New(ctx context.Context) (api.Driver, error) {
