@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image"
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,16 +118,8 @@ func notifySaved(ctx context.Context, path string, target TargetType) {
 }
 
 func writePNGAtomic(path string, img image.Image) error {
-	f, err := atomicfile.Create(path, 0)
-	if err != nil {
-		return fmt.Errorf("create screenshot temp: %w", err)
-	}
-	defer f.Abort()
-	if err := png.Encode(f, img); err != nil {
-		return fmt.Errorf("encode screenshot: %w", err)
-	}
-	if err := f.Commit(); err != nil {
-		return fmt.Errorf("replace screenshot: %w", err)
+	if err := atomicfile.WritePNG(path, img); err != nil {
+		return fmt.Errorf("write screenshot: %w", err)
 	}
 	return nil
 }

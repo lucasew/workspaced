@@ -11,7 +11,6 @@ import (
 	"image/draw"
 	_ "image/gif"
 	_ "image/jpeg"
-	"image/png"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -107,15 +106,7 @@ func GetIconPath(ctx context.Context, url string) (string, error) {
 }
 
 func writePNGFileAtomic(path string, img image.Image) error {
-	f, err := atomicfile.Create(path, 0)
-	if err != nil {
-		return err
-	}
-	defer f.Abort()
-	if err := png.Encode(f, img); err != nil {
-		return err
-	}
-	return f.Commit()
+	return atomicfile.WritePNG(path, img)
 }
 
 func makeBackgroundTransparent(img image.Image) image.Image {

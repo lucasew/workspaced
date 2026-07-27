@@ -83,16 +83,8 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 }
 
 func writePNGAtomic(outPath string, img image.Image) error {
-	f, err := atomicfile.Create(outPath, 0)
-	if err != nil {
-		return err
-	}
-	defer f.Abort()
-	if err := png.Encode(f, img); err != nil {
-		return err
-	}
-	if err := f.Commit(); err != nil {
-		return fmt.Errorf("replace camera capture: %w", err)
+	if err := atomicfile.WritePNG(outPath, img); err != nil {
+		return fmt.Errorf("write camera capture: %w", err)
 	}
 	return nil
 }

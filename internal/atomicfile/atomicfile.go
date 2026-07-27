@@ -18,6 +18,8 @@ package atomicfile
 
 import (
 	"bytes"
+	"image"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -194,6 +196,19 @@ func WriteBytes(path string, b []byte, perm os.FileMode) error {
 // WriteString writes s to path via temp + rename.
 func WriteString(path string, s string, perm os.FileMode) error {
 	return Write(path, strings.NewReader(s), perm)
+}
+
+// WritePNG PNG-encodes img to path via Create + Commit.
+func WritePNG(path string, img image.Image) error {
+	f, err := Create(path, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Abort()
+	if err := png.Encode(f, img); err != nil {
+		return err
+	}
+	return f.Commit()
 }
 
 // ReplaceDir moves tmpDir into place at dest, replacing any existing dest.
