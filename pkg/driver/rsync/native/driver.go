@@ -2,7 +2,7 @@ package native
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -14,6 +14,9 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
+
+// ErrBinaryNotAvailable is returned when execRsync runs without an rsync binary on PATH.
+var ErrBinaryNotAvailable = errors.New("rsync binary not available")
 
 func init() {
 	driver.Register[rsyncdriver.Driver](&Factory{})
@@ -59,7 +62,7 @@ func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Opt
 
 func (d *Driver) execRsync(ctx context.Context, args []string, st *taskgroup.Status, extraOut io.Writer, logger *slog.Logger) error {
 	if !execdriver.IsBinaryAvailable(ctx, "rsync") {
-		return fmt.Errorf("rsync binary not available")
+		return ErrBinaryNotAvailable
 	}
 
 	cmd := execdriver.MustRun(ctx, "rsync", args...)
