@@ -16,17 +16,25 @@ import (
 
 func TestQueuePathRejectsTraversal(t *testing.T) {
 	dir := t.TempDir()
-	for _, slug := range []string{
-		"../escape",
-		"..",
-		"foo/bar",
-		"foo\\bar",
-		"",
-		".",
-		"a/../../etc/passwd",
-	} {
-		if _, err := queuePath(dir, slug); err == nil {
-			t.Fatalf("queuePath(%q) accepted traversal/invalid slug", slug)
+	cases := []struct {
+		slug string
+		want error
+	}{
+		{slug: "../escape", want: ErrInvalidQueueSlug},
+		{slug: "..", want: ErrInvalidQueueSlug},
+		{slug: "foo/bar", want: ErrInvalidQueueSlug},
+		{slug: "foo\\bar", want: ErrInvalidQueueSlug},
+		{slug: "", want: ErrEmptyQueueSlug},
+		{slug: ".", want: ErrInvalidQueueSlug},
+		{slug: "a/../../etc/passwd", want: ErrInvalidQueueSlug},
+	}
+	for _, tc := range cases {
+		_, err := queuePath(dir, tc.slug)
+		if err == nil {
+			t.Fatalf("queuePath(%q) accepted traversal/invalid slug", tc.slug)
+		}
+		if !errors.Is(err, tc.want) {
+			t.Fatalf("queuePath(%q): err=%v want errors.Is %v", tc.slug, err, tc.want)
 		}
 	}
 }
