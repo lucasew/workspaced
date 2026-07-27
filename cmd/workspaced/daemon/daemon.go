@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -12,6 +13,10 @@ import (
 	"slices"
 	"syscall"
 	"time"
+
+	"image"
+	_ "image/png"
+	"io"
 
 	"github.com/lucasew/workspaced/cmd/workspaced/utils"
 	"github.com/lucasew/workspaced/internal/configcue"
@@ -22,9 +27,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/media"
 	"github.com/lucasew/workspaced/pkg/driver/tray"
 	"github.com/lucasew/workspaced/pkg/logging"
-	"image"
-	_ "image/png"
-	"io"
 
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/gorilla/websocket"
