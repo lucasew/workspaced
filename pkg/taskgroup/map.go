@@ -88,7 +88,10 @@ func (m Map[T, U]) Run(ctx context.Context) ([]U, error) {
 		s.Update(fmt.Sprintf("0/%d", total))
 		s.Progress(0, total)
 
-		childGroup, _ := parent.SubGroup(ctx)
+		childGroup, childCtx := parent.SubGroup(ctx)
+		if err := childCtx.Err(); err != nil {
+			return err
+		}
 		results = make([]U, len(m.Items))
 		var completed atomic.Int64
 		var prevID string

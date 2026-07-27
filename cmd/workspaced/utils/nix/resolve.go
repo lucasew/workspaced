@@ -39,7 +39,10 @@ func runFromResultPath(ctx context.Context, resultPath, binary string, runArgs [
 
 	binPath := filepath.Join(binDir, binary)
 	if _, err := os.Stat(binPath); err != nil {
-		entries, _ := os.ReadDir(binDir)
+		entries, rerr := os.ReadDir(binDir)
+		if rerr != nil {
+			return rerr
+		}
 		for _, entry := range entries {
 			if strings.Contains(entry.Name(), binary) {
 				binPath = filepath.Join(binDir, entry.Name())

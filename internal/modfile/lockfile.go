@@ -3,6 +3,7 @@ package modfile
 import (
 	"context"
 	"encoding/json"
+	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,7 +67,7 @@ func writeSumFile(ctx context.Context, path string, sum *SumFile) error {
 	if err != nil {
 		return err
 	}
-	defer f.Abort()
+	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(onDisk); err != nil {

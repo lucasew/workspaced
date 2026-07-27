@@ -725,7 +725,11 @@ func findUp(ctx context.Context, start string, name string) (string, error) {
 	hasGitBoundary := gitErr == nil && gitRoot != ""
 	var absGit string
 	if hasGitBoundary {
-		absGit, _ = filepath.Abs(gitRoot)
+		var absErr error
+		absGit, absErr = filepath.Abs(gitRoot)
+		if absErr != nil {
+			return "", absErr
+		}
 		absGit = filepath.Clean(absGit)
 	}
 

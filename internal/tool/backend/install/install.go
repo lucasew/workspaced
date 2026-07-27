@@ -200,7 +200,7 @@ func downloadWithFetchurl(ctx context.Context, url, dest string, opts DownloadOp
 	if err != nil {
 		return err
 	}
-	defer out.Abort()
+	defer logging.RunCleanup(ctx, "atomicfile.Abort", out.Abort)
 
 	// HTTP progress is owned by httpclient.WithProgress (one fetch bar).
 	// Isolate so a failing verified fetchurl attempt does not cancel the parent
@@ -239,7 +239,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	if err != nil {
 		return err
 	}
-	defer out.Abort()
+	defer logging.RunCleanup(ctx, "atomicfile.Abort", out.Abort)
 
 	httpClient, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {

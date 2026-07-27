@@ -30,8 +30,14 @@ func init() {
 			Use:   "capture",
 			Short: "Capture a still frame",
 			RunE: func(cmd *cobra.Command, args []string) error {
-				id, _ := cmd.Flags().GetString("id")
-				outPath, _ := cmd.Flags().GetString("output")
+				id, err := cmd.Flags().GetString("id")
+				if err != nil {
+					return err
+				}
+				outPath, err := cmd.Flags().GetString("output")
+				if err != nil {
+					return err
+				}
 				return capture(cmd, id, outPath)
 			},
 		}

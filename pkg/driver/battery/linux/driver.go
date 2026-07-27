@@ -21,7 +21,10 @@ func (f *Factory) Name() string { return "linux" }
 
 // CheckCompatibility implements [driver.DriverFactory].
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	matches, _ := filepath.Glob("/sys/class/power_supply/BAT*/status")
+	matches, err := filepath.Glob("/sys/class/power_supply/BAT*/status")
+	if err != nil {
+		return err
+	}
 	if len(matches) == 0 {
 		return fmt.Errorf("%w: /sys/class/power_supply/BAT*/status", driver.ErrIncompatible)
 	}
@@ -39,7 +42,10 @@ type Driver struct{}
 // It scans /sys/class/power_supply/BAT*/status to find the first available battery
 // and reads its status.
 func (d *Driver) BatteryStatus(ctx context.Context) (battery.Status, error) {
-	matches, _ := filepath.Glob("/sys/class/power_supply/BAT*/status")
+	matches, err := filepath.Glob("/sys/class/power_supply/BAT*/status")
+	if err != nil {
+		return battery.Unknown, err
+	}
 	if len(matches) == 0 {
 		return battery.Unknown, battery.ErrNoBattery
 	}

@@ -18,6 +18,7 @@ package atomicfile
 
 import (
 	"bytes"
+	"errors"
 	"image"
 	"image/png"
 	"io"
@@ -59,9 +60,7 @@ func Create(path string, perm os.FileMode) (*File, error) {
 	}
 	tmp := f.Name()
 	if err := f.Chmod(perm); err != nil {
-		_ = f.Close()
-		_ = os.Remove(tmp)
-		return nil, err
+		return nil, errors.Join(err, f.Close(), os.Remove(tmp))
 	}
 	return &File{Final: path, tmp: tmp, f: f}, nil
 }
@@ -107,18 +106,26 @@ func (f *File) ReadFrom(r io.Reader) (int64, error) {
 }
 
 // Abort closes and removes the temp. Safe after Commit (no-op).
-func (f *File) Abort() {
+// Returns joined close/remove errors when cleanup fails.
+func (f *File) Abort() error {
 	if f == nil || f.done {
-		return
+		return nil
 	}
 	f.done = true
+	var errs []error
 	if f.f != nil {
-		_ = f.f.Close()
+		if err := f.f.Close(); err != nil {
+			errs = append(errs, err)
+		}
 		f.f = nil
 	}
 	if f.tmp != "" {
-		_ = os.Remove(f.tmp)
+		if err := os.Remove(f.tmp); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, err)
+		}
+		f.tmp = ""
 	}
+	return errors.Join(errs...)
 }
 
 // Commit closes the temp and renames it onto Final.
@@ -144,8 +151,7 @@ func (f *File) commit(mode os.FileMode) error {
 		err := f.f.Close()
 		f.f = nil
 		if err != nil {
-			f.Abort()
-			return err
+			return errors.Join(err, f.Abort())
 		}
 	}
 	// Install owns tmp removal on rename failure.
@@ -159,8 +165,7 @@ func (f *File) commit(mode os.FileMode) error {
 // If mode is non-zero, dest is chmod'd after a successful rename.
 func Install(tmp, dest string, mode os.FileMode) error {
 	if err := os.Rename(tmp, dest); err != nil {
-		_ = os.Remove(tmp)
-		return err
+		return errors.Join(err, os.Remove(tmp))
 	}
 	if mode != 0 {
 		if err := os.Chmod(dest, mode); err != nil {
@@ -173,13 +178,13 @@ func Install(tmp, dest string, mode os.FileMode) error {
 // Write streams r into path via Create + Commit.
 // If perm is 0, 0o666 is used. After rename, perm is re-applied when non-zero
 // so executable bits survive umask.
-func Write(path string, r io.Reader, perm os.FileMode) error {
+func Write(path string, r io.Reader, perm os.FileMode) (err error) {
 	f, err := Create(path, perm)
 	if err != nil {
 		return err
 	}
-	defer f.Abort()
-	if _, err := io.Copy(f, r); err != nil {
+	defer func() { err = errors.Join(err, f.Abort()) }()
+	if _, err = io.Copy(f, r); err != nil {
 		return err
 	}
 	if perm != 0 {
@@ -199,13 +204,13 @@ func WriteString(path string, s string, perm os.FileMode) error {
 }
 
 // WritePNG PNG-encodes img to path via Create + Commit.
-func WritePNG(path string, img image.Image) error {
+func WritePNG(path string, img image.Image) (err error) {
 	f, err := Create(path, 0)
 	if err != nil {
 		return err
 	}
-	defer f.Abort()
-	if err := png.Encode(f, img); err != nil {
+	defer func() { err = errors.Join(err, f.Abort()) }()
+	if err = png.Encode(f, img); err != nil {
 		return err
 	}
 	return f.Commit()
@@ -219,18 +224,26 @@ func ReplaceDir(dest, tmpDir string) error {
 		return err
 	}
 	old := dest + ".old"
-	_ = os.RemoveAll(old)
+	if err := os.RemoveAll(old); err != nil {
+		return err
+	}
 	if _, err := os.Stat(dest); err == nil {
 		if err := os.Rename(dest, old); err != nil {
 			if err := os.RemoveAll(dest); err != nil {
 				return err
 			}
 		}
-	}
-	if err := os.Rename(tmpDir, dest); err != nil {
-		_ = os.Rename(old, dest)
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	_ = os.RemoveAll(old)
+	if err := os.Rename(tmpDir, dest); err != nil {
+		if rerr := os.Rename(old, dest); rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
+			return errors.Join(err, rerr)
+		}
+		return err
+	}
+	if err := os.RemoveAll(old); err != nil {
+		return err
+	}
 	return nil
 }

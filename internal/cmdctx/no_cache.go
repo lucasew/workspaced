@@ -15,8 +15,8 @@ func WithNoCache(ctx context.Context, enabled bool) context.Context {
 
 // IsNoCache reports whether --no-cache / WORKSPACED_NO_CACHE is armed on ctx.
 func IsNoCache(ctx context.Context) bool {
-	v, _ := ctx.Value(noCacheKey{}).(bool)
-	return v
+	v, ok := ctx.Value(noCacheKey{}).(bool)
+	return ok && v
 }
 
 // EnvNoCache reports whether WORKSPACED_NO_CACHE is set to a truthy value.

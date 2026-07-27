@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/logging"
 	"os"
 	"reflect"
 	"strings"
@@ -17,14 +16,16 @@ func GetCommand() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check status of all registered drivers",
-		Run: func(cmd *cobra.Command, args []string) {
-			verbose, _ := cmd.Flags().GetBool("verbose")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			verbose, err := cmd.Flags().GetBool("verbose")
+			if err != nil {
+				return err
+			}
 			report := driver.Doctor(cmd.Context())
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 			if _, err := fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE"); err != nil {
-				logging.ReportError(cmd.Context(), err)
-				return
+				return err
 			}
 
 			for _, iface := range report {
@@ -72,14 +73,11 @@ func GetCommand() *cobra.Command {
 					}
 
 					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg); err != nil {
-						logging.ReportError(cmd.Context(), err)
-						return
+						return err
 					}
 				}
 			}
-			if err := w.Flush(); err != nil {
-				logging.ReportError(cmd.Context(), err)
-			}
+			return w.Flush()
 		},
 	}
 	c.Flags().BoolP("verbose", "v", false, "Show full interface and driver names")

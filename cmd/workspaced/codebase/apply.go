@@ -67,7 +67,10 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		//     instead of the force=true mod lock path.
 		// This makes ref/hash filling, skipping of already-locked HEAD inputs,
 		// and tool lock enrichment behave consistently.
-		cuePath, _ := configcue.ResolveWorkspaceCuePath(ctx, "")
+		cuePath, err := configcue.ResolveWorkspaceCuePath(ctx, "")
+		if err != nil {
+			return fmt.Errorf("resolve workspaced.cue: %w", err)
+		}
 		workspaceRoot := ""
 		if cuePath != "" {
 			workspaceRoot = filepath.Dir(cuePath)

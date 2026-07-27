@@ -123,7 +123,11 @@ func TestCreateCommitEncode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Abort()
+	defer func() {
+		if err := f.Abort(); err != nil {
+			t.Errorf("abort: %v", err)
+		}
+	}()
 	if f.Name() == SiblingTemp(path) {
 		t.Fatal("Create should use a unique temp name, not SiblingTemp")
 	}
@@ -149,7 +153,11 @@ func TestCreateSibling(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Abort()
+	defer func() {
+		if err := f.Abort(); err != nil {
+			t.Errorf("abort: %v", err)
+		}
+	}()
 	if f.Name() != SiblingTemp(path) {
 		t.Fatalf("temp=%q want %q", f.Name(), SiblingTemp(path))
 	}
@@ -171,7 +179,11 @@ func TestCreateMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Abort()
+	defer func() {
+		if err := f.Abort(); err != nil {
+			t.Errorf("abort: %v", err)
+		}
+	}()
 	if _, err := io.WriteString(f, `{"a":1}`); err != nil {
 		t.Fatal(err)
 	}

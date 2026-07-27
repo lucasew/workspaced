@@ -105,7 +105,11 @@ func IsInStore(ctx context.Context) bool {
 // ExpandPath expands ~ via ResolveHomeDir and $VAR via os.ExpandEnv.
 // Callers that know a driver-specific home should use ExpandPathIn instead.
 func ExpandPath(path string) string {
-	home, _ := ResolveHomeDir()
+	home, err := ResolveHomeDir()
+	if err != nil {
+		// No home available: still expand $VAR, leave ~ literal.
+		return os.ExpandEnv(path)
+	}
 	return ExpandPathIn(path, home)
 }
 

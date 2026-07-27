@@ -34,7 +34,11 @@ func PaletteFromHexes(hexes []string) *Palette {
 // RGBToLAB converts RGB color to LAB for perceptual distance calculations.
 // Based on Stylix Data/Colour.hs rgb2lab.
 func RGBToLAB(c color.Color) LAB {
-	r, g, b, _ := c.RGBA()
+	r, g, b, a := c.RGBA()
+	// Alpha is unused for LAB (opaque perceptual space); force opaque RGB.
+	if a == 0 {
+		r, g, b = 0, 0, 0
+	}
 
 	rf := float64(r) / 65535.0
 	gf := float64(g) / 65535.0
@@ -159,7 +163,10 @@ var hexLUT = [256]string{
 
 // ToHex converts color.Color to lowercase RRGGBB without '#'.
 func ToHex(c color.Color) string {
-	r, g, b, _ := c.RGBA()
+	r, g, b, a := c.RGBA()
+	if a == 0 {
+		// Fully transparent: still encode RGB channels (callers use RGB-only hex).
+	}
 	return hexLUT[uint8(r>>8)] + hexLUT[uint8(g>>8)] + hexLUT[uint8(b>>8)]
 }
 

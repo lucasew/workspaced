@@ -35,7 +35,11 @@ const (
 )
 
 func parseFlakeRef(ref string) (repo string, item string) {
-	repo, item, _ = strings.Cut(ref, "#")
+	var found bool
+	repo, item, found = strings.Cut(ref, "#")
+	if !found {
+		item = ""
+	}
 	return
 }
 

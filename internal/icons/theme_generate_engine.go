@@ -182,11 +182,15 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 					}
 					if err := fastPNGEncoder.Encode(f, final); err != nil {
 						logging.Close(ctx, f)
-						_ = os.Remove(targetPNG)
+						if rerr := os.Remove(targetPNG); rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
+							return nil, errors.Join(err, rerr)
+						}
 						return nil, err
 					}
 					if err := f.Close(); err != nil {
-						_ = os.Remove(targetPNG)
+						if rerr := os.Remove(targetPNG); rerr != nil && !errors.Is(rerr, os.ErrNotExist) {
+							return nil, errors.Join(err, rerr)
+						}
 						return nil, err
 					}
 					localDirs = append(localDirs, filepath.ToSlash(sizeDir))
@@ -221,7 +225,9 @@ func runThemeGenerateEngine(ctx context.Context, opts ThemeGenerateOptions, inpu
 		}
 	}
 
-	_, _ = fmt.Fprintf(opts.Stdout, "generated icon theme %q in %s (%d SVG files, deduped %d/%d)\n", opts.ThemeName, outputDir, len(perIconDirs), dedupedCount, originalCount)
+	if _, err := fmt.Fprintf(opts.Stdout, "generated icon theme %q in %s (%d SVG files, deduped %d/%d)\n", opts.ThemeName, outputDir, len(perIconDirs), dedupedCount, originalCount); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -469,26 +475,35 @@ func parseHexRGB(hex string) (int, int, int) {
 	if len(hex) != 6 {
 		return 0, 0, 0
 	}
-	r, _ := strconv.ParseInt(hex[0:2], 16, 64)
-	g, _ := strconv.ParseInt(hex[2:4], 16, 64)
-	b, _ := strconv.ParseInt(hex[4:6], 16, 64)
+	r, err := strconv.ParseInt(hex[0:2], 16, 64)
+	if err != nil {
+		return 0, 0, 0
+	}
+	g, err := strconv.ParseInt(hex[2:4], 16, 64)
+	if err != nil {
+		return 0, 0, 0
+	}
+	b, err := strconv.ParseInt(hex[4:6], 16, 64)
+	if err != nil {
+		return 0, 0, 0
+	}
 	return int(r), int(g), int(b)
 }
 
 func extractSVGAspectRatio(svg string) float64 {
 	if m := svgViewBoxRe.FindStringSubmatch(svg); len(m) == 3 {
-		w, _ := strconv.ParseFloat(m[1], 64)
-		h, _ := strconv.ParseFloat(m[2], 64)
-		if w > 0 && h > 0 {
+		w, err1 := strconv.ParseFloat(m[1], 64)
+		h, err2 := strconv.ParseFloat(m[2], 64)
+		if err1 == nil && err2 == nil && w > 0 && h > 0 {
 			return w / h
 		}
 	}
 	wm := svgWidthRe.FindStringSubmatch(svg)
 	hm := svgHeightRe.FindStringSubmatch(svg)
 	if len(wm) >= 2 && len(hm) >= 2 {
-		w, _ := strconv.ParseFloat(wm[1], 64)
-		h, _ := strconv.ParseFloat(hm[1], 64)
-		if w > 0 && h > 0 {
+		w, err1 := strconv.ParseFloat(wm[1], 64)
+		h, err2 := strconv.ParseFloat(hm[1], 64)
+		if err1 == nil && err2 == nil && w > 0 && h > 0 {
 			return w / h
 		}
 	}
@@ -567,8 +582,14 @@ func writeIndexTheme(outputDir string, themeName string, dirsUsed map[string]boo
 			fmt.Fprintf(&b, "MaxSize=512\n")
 			fmt.Fprintf(&b, "Type=Scalable\n")
 		} else {
-			sizePart, _, _ := strings.Cut(d, "/")
-			sizePart, _, _ = strings.Cut(sizePart, "x")
+			sizePart, _, hasDir := strings.Cut(d, "/")
+			if !hasDir {
+				sizePart = d
+			}
+			sizePart, _, hasX := strings.Cut(sizePart, "x")
+			if !hasX {
+				// sizePart stays as-is when no "x" separator
+			}
 			if n, err := strconv.Atoi(sizePart); err == nil {
 				fmt.Fprintf(&b, "Size=%d\n", n)
 			}

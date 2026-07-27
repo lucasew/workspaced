@@ -65,7 +65,10 @@ func Enter(ctx context.Context, limits Limits) (*Session, context.Context) {
 
 // SessionFrom returns the Session attached to ctx, or nil.
 func SessionFrom(ctx context.Context) *Session {
-	s, _ := ctx.Value(sessionKey{}).(*Session)
+	s, ok := ctx.Value(sessionKey{}).(*Session)
+	if !ok {
+		return nil
+	}
 	return s
 }
 
@@ -166,7 +169,9 @@ func (s *Session) Close() error {
 			logger.Debug("session: group finished", "remaining_tasks", len(snap), "err", s.err)
 		}
 
-		s.teardownUI()
+		if err := s.teardownUI(); err != nil && s.err == nil {
+			s.err = err
+		}
 
 		s.mu.Lock()
 		hooks := make([]func() error, len(s.after))
@@ -208,14 +213,15 @@ func (s *Session) startUI() {
 
 // teardownUI restores globals first (so drains never block on tea), then quits
 // the program and joins the UI goroutine. No-op if UI never started.
-func (s *Session) teardownUI() {
+func (s *Session) teardownUI() error {
 	if s.prog == nil {
-		return
+		return nil
 	}
 	// Restore real stderr/slog before touching tea — avoids pipe drain sitting
 	// on prog.Printf while the event loop is stopping.
+	var restoreErr error
 	if s.out != nil {
-		s.out.restore()
+		restoreErr = s.out.restore()
 		s.out = nil
 	}
 	s.group.SetLogHandler(nil)
@@ -224,6 +230,7 @@ func (s *Session) teardownUI() {
 	s.prog.Quit()
 	<-s.uiDone
 	s.prog = nil
+	return restoreErr
 }
 
 // sessionForGroup finds a Session whose root group is g (pointer equality),

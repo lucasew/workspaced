@@ -26,7 +26,10 @@ func init() {
 			Use:   "next",
 			Short: "Go to the next available workspace",
 			RunE: func(c *cobra.Command, args []string) error {
-				move, _ := c.Flags().GetBool("move")
+				move, err := c.Flags().GetBool("move")
+				if err != nil {
+					return err
+				}
 				return wm.NextWorkspace(c.Context(), move)
 			},
 		})

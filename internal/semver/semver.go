@@ -37,8 +37,12 @@ func Parse(v string) SemVer {
 		if numPart == "" {
 			nums = append(nums, 0)
 		} else {
-			n, _ := strconv.Atoi(numPart)
-			nums = append(nums, n)
+			n, err := strconv.Atoi(numPart)
+			if err != nil {
+				nums = append(nums, 0)
+			} else {
+				nums = append(nums, n)
+			}
 		}
 	}
 
@@ -130,7 +134,10 @@ func ParseNumericPrefix(s string) int {
 	if numPart == "" {
 		return 0
 	}
-	n, _ := strconv.Atoi(numPart)
+	n, err := strconv.Atoi(numPart)
+	if err != nil {
+		return 0
+	}
 	return n
 }
 

@@ -16,8 +16,14 @@ func init() {
 			Use:   "list",
 			Short: "List history entries (internal use)",
 			RunE: func(c *cobra.Command, args []string) error {
-				limit, _ := c.Flags().GetInt32("limit")
-				asJSON, _ := c.Flags().GetBool("json")
+				limit, err := c.Flags().GetInt32("limit")
+				if err != nil {
+					return err
+				}
+				asJSON, err := c.Flags().GetBool("json")
+				if err != nil {
+					return err
+				}
 
 				database, ok := db.FromContext(c.Context())
 				if !ok {

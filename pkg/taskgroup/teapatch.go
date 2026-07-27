@@ -2,6 +2,7 @@ package taskgroup
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"sync"
@@ -24,6 +25,7 @@ type teaWriter struct {
 	// Pipe backing File(); nil until File() succeeds.
 	pipeR, pipeW *os.File
 	copyDone     chan struct{}
+	copyErr      error
 }
 
 func (w *teaWriter) Write(p []byte) (int, error) {
@@ -65,7 +67,11 @@ func (w *teaWriter) File() (*os.File, error) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_, _ = io.Copy(w, pr)
+		if _, err := io.Copy(w, pr); err != nil {
+			w.mu.Lock()
+			w.copyErr = err
+			w.mu.Unlock()
+		}
 	}()
 
 	w.mu.Lock()
@@ -73,9 +79,22 @@ func (w *teaWriter) File() (*os.File, error) {
 		// Lost a race; keep the winner and discard this pipe.
 		f := w.pipeW
 		w.mu.Unlock()
-		_ = pw.Close()
-		_ = pr.Close()
+		var errs []error
+		if err := pw.Close(); err != nil {
+			errs = append(errs, err)
+		}
+		if err := pr.Close(); err != nil {
+			errs = append(errs, err)
+		}
 		<-done
+		if len(errs) > 0 {
+			// Prefer the winning pipe; report race cleanup via copyErr for close().
+			w.mu.Lock()
+			for _, e := range errs {
+				w.copyErr = e
+			}
+			w.mu.Unlock()
+		}
 		return f, nil
 	}
 	w.pipeR, w.pipeW, w.copyDone = pr, pw, done
@@ -91,7 +110,7 @@ func (w *teaWriter) File() (*os.File, error) {
 // Program.Printf here deadlocks ("all goroutines are asleep") under
 // WORKSPACED_FORCE_TUI or short-lived sessions. Transcript loss of a partial
 // final line is preferable to hanging the process.
-func (w *teaWriter) close() {
+func (w *teaWriter) close() error {
 	w.mu.Lock()
 	// Stop accepting print callbacks before unblocking the pipe copy so a
 	// concurrent Write from io.Copy cannot re-enter Program.Printf.
@@ -101,14 +120,26 @@ func (w *teaWriter) close() {
 	w.pipeW, w.pipeR, w.copyDone = nil, nil, nil
 	w.mu.Unlock()
 
+	var errs []error
 	if pw != nil {
-		_ = pw.Close()
+		if err := pw.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if pr != nil {
 		// Unblock Copy if stuck in a slow Write, then wait for it.
-		_ = pr.Close()
+		if err := pr.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if done != nil {
 		<-done
 	}
+	w.mu.Lock()
+	if w.copyErr != nil {
+		errs = append(errs, w.copyErr)
+		w.copyErr = nil
+	}
+	w.mu.Unlock()
+	return errors.Join(errs...)
 }

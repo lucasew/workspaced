@@ -15,7 +15,10 @@ type ScheduleFunc func(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop 
 // force dry-run (plan), schedule work, print the report after session wait.
 func RunAfterWait(cmd *cobra.Command, forceDryRun bool, schedule ScheduleFunc) error {
 	ctx := cmd.Context()
-	showNoop, _ := cmd.Flags().GetBool("show-noop")
+	showNoop, err := cmd.Flags().GetBool("show-noop")
+	if err != nil {
+		return err
+	}
 	dryRun := forceDryRun || cmdctx.IsDryRun(ctx)
 
 	if forceDryRun {

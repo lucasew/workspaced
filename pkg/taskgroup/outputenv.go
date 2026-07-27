@@ -52,17 +52,19 @@ func newOutputEnv(prog *tea.Program) *outputEnv {
 	return e
 }
 
-func (e *outputEnv) restore() {
+func (e *outputEnv) restore() error {
 	if e == nil {
-		return
+		return nil
 	}
+	var restoreErr error
 	e.restoreOnce.Do(func() {
 		slog.SetDefault(e.oldSlog)
 		log.SetOutput(e.oldLogOut)
 		os.Stderr = e.oldStderr
 		if e.tw != nil {
-			e.tw.close()
+			restoreErr = e.tw.close()
 			e.tw = nil
 		}
 	})
+	return restoreErr
 }

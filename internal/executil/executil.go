@@ -23,7 +23,10 @@ func WithStdout(ctx context.Context, w io.Writer) context.Context {
 
 // Stdout retrieves the stdout writer from the context, or nil if not set.
 func Stdout(ctx context.Context) io.Writer {
-	w, _ := ctx.Value(stdoutKey{}).(io.Writer)
+	w, ok := ctx.Value(stdoutKey{}).(io.Writer)
+	if !ok {
+		return nil
+	}
 	return w
 }
 
@@ -34,7 +37,10 @@ func WithStderr(ctx context.Context, w io.Writer) context.Context {
 
 // Stderr retrieves the stderr writer from the context, or nil if not set.
 func Stderr(ctx context.Context) io.Writer {
-	w, _ := ctx.Value(stderrKey{}).(io.Writer)
+	w, ok := ctx.Value(stderrKey{}).(io.Writer)
+	if !ok {
+		return nil
+	}
 	return w
 }
 
@@ -45,7 +51,10 @@ func WithEnv(ctx context.Context, env []string) context.Context {
 
 // Env retrieves the environment variable slice from the context, or nil if not set.
 func Env(ctx context.Context) []string {
-	env, _ := ctx.Value(envKey{}).([]string)
+	env, ok := ctx.Value(envKey{}).([]string)
+	if !ok {
+		return nil
+	}
 	return env
 }
 

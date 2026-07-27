@@ -3,6 +3,7 @@ package codebase
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -162,15 +163,15 @@ func printTable(report *sarif.Report) error {
 	return w.Flush()
 }
 
-func writeSarifAtomic(path string, report *sarif.Report) error {
+func writeSarifAtomic(path string, report *sarif.Report) (err error) {
 	f, err := atomicfile.Create(path, 0)
 	if err != nil {
 		return err
 	}
-	defer f.Abort()
+	defer func() { err = errors.Join(err, f.Abort()) }()
 	encoder := json.NewEncoder(f)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(report); err != nil {
+	if err = encoder.Encode(report); err != nil {
 		return err
 	}
 	return f.Commit()

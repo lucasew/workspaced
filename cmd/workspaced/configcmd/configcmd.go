@@ -24,9 +24,12 @@ type Options struct {
 	Scope string
 }
 
-func (o Options) discover() configcue.DiscoverOptions {
-	cwd, _ := os.Getwd()
-	return configcue.DiscoverOptions{Cwd: cwd, HomeMode: o.HomeMode}
+func (o Options) discover() (configcue.DiscoverOptions, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return configcue.DiscoverOptions{}, err
+	}
+	return configcue.DiscoverOptions{Cwd: cwd, HomeMode: o.HomeMode}, nil
 }
 
 func (o Options) load(ctx context.Context) (*configcue.Config, error) {
@@ -62,7 +65,11 @@ func newDumpCommand(opts Options) *cobra.Command {
 
 Outputs the result as JSON format.`,
 		RunE: func(c *cobra.Command, args []string) error {
-			result, err := configcue.Evaluate(c.Context(), opts.discover())
+			disc, err := opts.discover()
+			if err != nil {
+				return err
+			}
+			result, err := configcue.Evaluate(c.Context(), disc)
 			if err != nil {
 				return fmt.Errorf("load config: %w", err)
 			}
@@ -133,7 +140,11 @@ func newEvalCommand(opts Options) *cobra.Command {
 Prints the full merged config without filtering.`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
-			out, err := configcue.ExportCUE(c.Context(), opts.discover())
+			disc, err := opts.discover()
+			if err != nil {
+				return err
+			}
+			out, err := configcue.ExportCUE(c.Context(), disc)
 			if err != nil {
 				return err
 			}
@@ -149,7 +160,11 @@ func newDefCommand(opts Options) *cobra.Command {
 		Short: "Show merged config definitions/types (cue def-like)",
 		Args:  cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
-			out, err := configcue.ExportDef(c.Context(), opts.discover())
+			disc, err := opts.discover()
+			if err != nil {
+				return err
+			}
+			out, err := configcue.ExportDef(c.Context(), disc)
 			if err != nil {
 				return err
 			}
@@ -166,7 +181,11 @@ func newLayersCommand(opts Options) *cobra.Command {
 		Use:   "layers",
 		Short: "List discovered workspaced.cue layers",
 		RunE: func(c *cobra.Command, args []string) error {
-			result, err := configcue.Evaluate(c.Context(), opts.discover())
+			disc, err := opts.discover()
+			if err != nil {
+				return err
+			}
+			result, err := configcue.Evaluate(c.Context(), disc)
 			if err != nil {
 				return fmt.Errorf("discover config layers: %w", err)
 			}

@@ -19,7 +19,10 @@ func init() {
 			Use:   "workspace",
 			Short: "Workspace switcher",
 			RunE: func(c *cobra.Command, args []string) error {
-				move, _ := c.Flags().GetBool("move")
+				move, err := c.Flags().GetBool("move")
+				if err != nil {
+					return err
+				}
 				result, err := configcue.Evaluate(c.Context(), configcue.DiscoverOptions{
 					HomeMode: true,
 				})

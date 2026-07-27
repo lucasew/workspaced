@@ -109,7 +109,7 @@ func Enqueue(ctx context.Context, cmd *types.SudoCommand) error {
 	if err != nil {
 		return err
 	}
-	defer f.Abort()
+	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
 	if _, err := f.Write(data); err != nil {
 		return err
 	}

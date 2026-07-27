@@ -28,7 +28,10 @@ func init() {
 					nodes = []string{"riverwood", "whiterun"}
 				}
 
-				flake, _ := cmd.Flags().GetString("flake")
+				flake, err := cmd.Flags().GetString("flake")
+				if err != nil {
+					return err
+				}
 				if flake == "" {
 					root, err := envdriver.GetDotfilesRoot(ctx)
 					if err != nil {
@@ -37,10 +40,13 @@ func init() {
 					flake = root
 				}
 
-				action, _ := cmd.Flags().GetString("action")
+				action, err := cmd.Flags().GetString("action")
+				if err != nil {
+					return err
+				}
 
 				// Each owns the aggregate bar; deployNode may spawn nested fetch/build work.
-				err := taskgroup.Each[string]{
+				err = taskgroup.Each[string]{
 					Name:     "nix-deploy",
 					Items:    nodes,
 					PoolKind: taskgroup.Internet,

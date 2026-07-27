@@ -9,6 +9,6 @@ func WithDryRun(ctx context.Context, enabled bool) context.Context {
 }
 
 func IsDryRun(ctx context.Context) bool {
-	v, _ := ctx.Value(dryRunKey{}).(bool)
-	return v
+	v, ok := ctx.Value(dryRunKey{}).(bool)
+	return ok && v
 }

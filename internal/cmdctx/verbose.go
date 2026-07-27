@@ -9,6 +9,6 @@ func WithVerbose(ctx context.Context, enabled bool) context.Context {
 }
 
 func IsVerbose(ctx context.Context) bool {
-	v, _ := ctx.Value(verboseKey{}).(bool)
-	return v
+	v, ok := ctx.Value(verboseKey{}).(bool)
+	return ok && v
 }

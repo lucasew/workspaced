@@ -77,9 +77,18 @@ var (
 
 // cachedCheck runs check at most once per driver ID for the lifetime of the process.
 func cachedCheck(id string, check func(context.Context) error, ctx context.Context) error {
-	val, _ := validationCache.LoadOrStore(id, &validationResult{})
-	vr := val.(*validationResult)
+	val, alreadyPresent := validationCache.LoadOrStore(id, &validationResult{})
+	vr, ok := val.(*validationResult)
+	if !ok {
+		return fmt.Errorf("validation cache type corruption for driver %q", id)
+	}
+	// once.Do is the barrier whether we inserted or share a concurrent holder.
+	shared := alreadyPresent
 	vr.once.Do(func() { vr.err = check(ctx) })
+	if shared && vr.err != nil {
+		// Concurrent waiter: same cached failure as the first check.
+		return vr.err
+	}
 	return vr.err
 }
 

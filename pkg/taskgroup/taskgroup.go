@@ -347,7 +347,10 @@ func New(ctx context.Context, limits Limits) (*Group, context.Context) {
 
 // FromContext retrieves the Group from context. Returns nil if none.
 func FromContext(ctx context.Context) *Group {
-	g, _ := ctx.Value(contextKey{}).(*Group)
+	g, ok := ctx.Value(contextKey{}).(*Group)
+	if !ok {
+		return nil
+	}
 	return g
 }
 

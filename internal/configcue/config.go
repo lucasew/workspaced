@@ -140,7 +140,10 @@ func (c *Config) ModuleEntry(name string) (ModuleEntry, error) {
 }
 
 func Load(ctx context.Context) (*Config, error) {
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
 	return loadConfig(ctx, DiscoverOptions{Cwd: cwd})
 }
 

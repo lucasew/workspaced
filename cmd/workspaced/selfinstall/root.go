@@ -147,7 +147,7 @@ func copyFile(ctx context.Context, src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Abort()
+	defer logging.RunCleanup(ctx, "atomicfile.Abort", f.Abort)
 	if _, err := io.Copy(f, source); err != nil {
 		return err
 	}

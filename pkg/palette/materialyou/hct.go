@@ -231,9 +231,18 @@ func hexToRgb(hex string) RGB {
 	if len(hex) != 6 {
 		return RGB{}
 	}
-	r, _ := strconv.ParseInt(hex[0:2], 16, 64)
-	g, _ := strconv.ParseInt(hex[2:4], 16, 64)
-	b, _ := strconv.ParseInt(hex[4:6], 16, 64)
+	r, err := strconv.ParseInt(hex[0:2], 16, 64)
+	if err != nil {
+		return RGB{}
+	}
+	g, err := strconv.ParseInt(hex[2:4], 16, 64)
+	if err != nil {
+		return RGB{}
+	}
+	b, err := strconv.ParseInt(hex[4:6], 16, 64)
+	if err != nil {
+		return RGB{}
+	}
 	return RGB{R: float64(r), G: float64(g), B: float64(b)}
 }
 
