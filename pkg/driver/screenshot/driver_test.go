@@ -4,6 +4,8 @@ import (
 	"errors"
 	"strconv"
 	"testing"
+
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestParseRectParts(t *testing.T) {
@@ -38,4 +40,13 @@ func TestParseRectParts(t *testing.T) {
 			t.Fatalf("error should wrap NumError for abc: %v", err)
 		}
 	})
+}
+
+func TestResolveRectUnknownTarget(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+	_, err := ResolveRect(ctx, TargetType(99))
+	if !errors.Is(err, ErrUnknownTargetType) {
+		t.Fatalf("err=%v want errors.Is(..., ErrUnknownTargetType)", err)
+	}
 }
