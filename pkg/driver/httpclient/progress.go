@@ -45,7 +45,10 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		l := logging.GetLogger(ctx)
 		l.Debug("http request promoted to internet task", "name", name, "url", req.URL.String())
 
-		s.Update(name)
+		// Title is the task name (from Go); subtitle is phase / size detail only.
+		// Never put the name or a percent in the subtitle — the bar already
+		// shows fraction, and the layout is "ICON BAR title: subtitle".
+		s.Update("connecting")
 
 		// Run the actual request inside the task's context (for cancellation etc.).
 		req = req.WithContext(ctx)
@@ -59,24 +62,22 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 		total := resp.ContentLength
 		if total > 0 {
 			s.Progress(0, total)
-			s.Update(fmt.Sprintf("%s (0 / %s)", name, humanBytes(total)))
+			s.Update(byteProgress(0, total))
 			resp.Body = &progressReadCloser{
 				ReadCloser:   resp.Body,
 				s:            s,
 				total:        total,
-				name:         name,
 				completionCh: bodyComplete,
 			}
 		} else {
-			// Unknown size (no Content-Length). Keep the task visible with a
-			// running byte counter. The task will complete when body is closed.
+			// Unknown size (no Content-Length). Keep a unit bar so the row stays
+			// visible; subtitle carries the growing byte count.
 			s.Progress(0, 1)
-			s.Update(name)
+			s.Update("0 B")
 			resp.Body = &progressReadCloser{
 				ReadCloser:   resp.Body,
 				s:            s,
 				total:        0,
-				name:         name,
 				completionCh: bodyComplete,
 			}
 		}
@@ -98,10 +99,9 @@ func (t *progressTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 		if total > 0 {
 			s.Progress(total, total)
-			s.Update(fmt.Sprintf("%s (%s)", name, humanBytes(total)))
+			s.Update(humanBytes(total))
 		} else {
 			s.Progress(1, 1)
-			s.Update(name)
 		}
 		return nil
 	})
@@ -129,7 +129,6 @@ type progressReadCloser struct {
 	s            *taskgroup.Status
 	total        int64
 	written      int64
-	name         string
 	completionCh chan struct{}
 	once         sync.Once
 }
@@ -146,15 +145,12 @@ func (p *progressReadCloser) Read(b []byte) (int, error) {
 
 		if p.total > 0 {
 			p.s.Progress(cur, p.total)
-			// Update the description (the text after the bar) on every data read
-			// so the x/y MiB (and %) live-updates in the progress bars.
-			// The model only snapshots every ~100ms so this is not spammy in UI.
-			pct := int(100 * p.written / p.total)
-			p.s.Update(fmt.Sprintf("fetching %s (%s / %s, %d%%)", p.name, humanBytes(p.written), humanBytes(p.total), pct))
+			// Subtitle is size only (bar already shows fraction). Snapshot is
+			// ~100ms so updating on every Read is fine for the TUI.
+			p.s.Update(byteProgress(p.written, p.total))
 		} else {
-			// Unknown total: at least show increasing bytes so the task stays alive.
-			p.s.Progress(p.written, 0)
-			p.s.Update(fmt.Sprintf("fetching %s (%s)", p.name, humanBytes(p.written)))
+			// Keep unit bar (0/1) visible; do not set total=0 (TUI hides those).
+			p.s.Update(humanBytes(p.written))
 		}
 	}
 
@@ -178,8 +174,13 @@ func (p *progressReadCloser) signalComplete() {
 	})
 }
 
+// byteProgress is the determinate download subtitle: "1.2 MiB / 4.0 MiB".
+// No name, no percent — those live in title and bar.
+func byteProgress(written, total int64) string {
+	return humanBytes(written) + " / " + humanBytes(total)
+}
+
 // humanBytes returns a human readable size using binary units (MiB etc).
-// Used to put x/y size hints into the live task description/message.
 func humanBytes(b int64) string {
 	if b <= 0 {
 		return "0 B"
@@ -208,11 +209,12 @@ func WithTaskLabel(ctx context.Context, label string) context.Context {
 	return context.WithValue(ctx, taskLabelKey{}, strings.TrimSpace(label))
 }
 
-// taskName chooses a friendly name for the internet task.
+// taskName chooses the progress-bar title for an internet task.
 // Prefer WithTaskLabel on the request context. Otherwise:
-//   - real filenames (contain ".") → "fetch:name"
+//   - real filenames (contain ".") → basename only (icon implies download)
 //   - GitHub release asset API paths → "github release"
 //   - UUIDs / bare IDs → host-based label
+// Keep titles short; size/phase detail belongs in the subtitle.
 func taskName(req *http.Request) string {
 	if req != nil {
 		if v, ok := req.Context().Value(taskLabelKey{}).(string); ok && v != "" {
@@ -220,34 +222,34 @@ func taskName(req *http.Request) string {
 		}
 	}
 	if req == nil || req.URL == nil {
-		return "http request"
+		return "http"
 	}
 	path := req.URL.Path
 	host := req.URL.Host
 	// GitHub API release assets: /repos/{owner}/{repo}/releases/assets/{id}
 	if strings.Contains(host, "github") && strings.Contains(path, "/releases/assets/") {
-		return "github release download"
+		return "github release"
 	}
 	// objects.githubusercontent.com hashed paths
 	if strings.Contains(host, "githubusercontent.com") {
-		return "github download"
+		return "github"
 	}
 	if base := filepath.Base(path); base != "" && base != "." && base != "/" {
 		if strings.Contains(base, ".") {
-			return "download " + base
+			return base
 		}
 		if looksLikeUUID(base) || isAllDigits(base) {
 			if host != "" {
-				return "http " + host
+				return host
 			}
-			return "http request"
+			return "http"
 		}
 		return base
 	}
 	if host != "" {
-		return "http " + host
+		return host
 	}
-	return "http request"
+	return "http"
 }
 
 func looksLikeUUID(s string) bool {

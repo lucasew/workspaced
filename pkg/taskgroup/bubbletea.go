@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -55,35 +54,27 @@ func isInteractiveTerminal() bool {
 
 type refreshMsg struct{}
 
+// barEntry is one visible progress row, keyed by the task's internal UUIDv7.
+// Title is the human description from Go(); subtitle is Status.Update text.
+type barEntry struct {
+	title    string
+	subtitle string
+	pool     PoolKind
+	percent  float64
+}
+
 type bubbleModel struct {
-	group    *Group
-	statuses map[string]string   // id (uuid) -> message
-	percents map[string]float64  // id -> pct
-	pools    map[string]PoolKind // id -> pool
-	names    map[string]string   // id -> description (for display)
-	order    []string            // ids in first-seen order (for stable bars)
-
-	// finishedToRemove holds ids of tasks whose final 100% frame
-	// was just rendered; they will be deleted at the start of the
-	// next update so they disappear from the list after showing completion.
-	finishedToRemove map[string]struct{}
-
-	// finalized tracks tasks whose completion (final payload) has already
-	// been displayed for one frame. We stop re-populating them from
-	// future snapshots so they stay removed.
-	finalized map[string]struct{}
+	group *Group
+	// bars is keyed by task ID (UUIDv7 from Group.Go). Descriptions are not
+	// unique, so display state must never use title as a map key.
+	bars  map[string]barEntry
+	order []string // task IDs in first-seen order (stable row layout)
 }
 
 func newBubbleModel(g *Group) bubbleModel {
 	return bubbleModel{
-		group:            g,
-		statuses:         make(map[string]string),
-		percents:         make(map[string]float64),
-		pools:            make(map[string]PoolKind),
-		names:            make(map[string]string),
-		order:            nil,
-		finishedToRemove: make(map[string]struct{}),
-		finalized:        make(map[string]struct{}),
+		group: g,
+		bars:  make(map[string]barEntry),
 	}
 }
 
@@ -102,69 +93,71 @@ func (m bubbleModel) tick() tea.Cmd {
 func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		km := msg
-		if km.String() == "ctrl+c" {
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 	case tickMsg, refreshMsg:
 		if m.group == nil {
 			return m, m.tick()
 		}
-		snap := m.group.snapshotRecursive()
-
-		// Drop anything we marked gone last tick (extra frame for 100% was optional;
-		// we now remove finished tasks immediately below — this clears stragglers).
-		for id := range m.finishedToRemove {
-			m.dropBar(id)
-		}
-		m.finishedToRemove = make(map[string]struct{})
-
-		// Rebuild visible set from live Running tasks with a determinate total.
-		// Completed/failed tasks are not shown (they prune from TaskCollection
-		// quickly; keeping them in the model made bars linger 100ms+ and stack up).
-		seen := make(map[string]struct{}, len(snap))
-		for _, t := range snap {
-			id := t.ID
-			if t.State != Running || t.Total <= 0 {
-				continue
-			}
-			seen[id] = struct{}{}
-			pct := float64(t.Current) / float64(t.Total)
-			m.percents[id] = pct
-			m.statuses[id] = t.Message
-			if _, ok := m.pools[id]; !ok {
-				m.pools[id] = t.Pool
-				m.names[id] = t.Name
-				m.order = append(m.order, id)
-			}
-		}
-		// Remove bars for tasks no longer running (finished, pruned, or no total).
-		for id := range m.percents {
-			if _, ok := seen[id]; !ok {
-				m.dropBar(id)
-			}
-		}
-		// Compact order so it does not grow without bound across 10k map items.
-		if len(m.order) > len(m.percents)+8 {
-			m.compactOrder()
-		}
+		m.syncFromSnapshot(m.group.snapshotRecursive())
 		return m, m.tick()
 	}
 	return m, nil
 }
 
+// syncFromSnapshot rebuilds visible bars from running tasks that report a
+// determinate total. Keys are always TaskState.ID (internal UUID).
+func (m *bubbleModel) syncFromSnapshot(snap []TaskState) {
+	seen := make(map[string]struct{}, len(snap))
+	for _, t := range snap {
+		if t.State != Running || t.Total <= 0 {
+			continue
+		}
+		id := t.ID
+		seen[id] = struct{}{}
+		pct := float64(t.Current) / float64(t.Total)
+		subtitle := t.Message
+		if subtitle == "" {
+			subtitle = "running"
+		}
+		title := t.Name
+		if title == "" {
+			title = id
+		}
+		if prev, ok := m.bars[id]; ok {
+			prev.subtitle = subtitle
+			prev.percent = pct
+			// Title/pool are fixed at Go(); keep them from first insert.
+			m.bars[id] = prev
+			continue
+		}
+		m.bars[id] = barEntry{
+			title:    title,
+			subtitle: subtitle,
+			pool:     t.Pool,
+			percent:  pct,
+		}
+		m.order = append(m.order, id)
+	}
+	for id := range m.bars {
+		if _, ok := seen[id]; !ok {
+			m.dropBar(id)
+		}
+	}
+	if len(m.order) > len(m.bars)+8 {
+		m.compactOrder()
+	}
+}
+
 func (m *bubbleModel) dropBar(id string) {
-	delete(m.statuses, id)
-	delete(m.percents, id)
-	delete(m.pools, id)
-	delete(m.names, id)
-	delete(m.finalized, id)
+	delete(m.bars, id)
 }
 
 func (m *bubbleModel) compactOrder() {
 	out := m.order[:0]
 	for _, id := range m.order {
-		if _, ok := m.percents[id]; ok {
+		if _, ok := m.bars[id]; ok {
 			out = append(out, id)
 		}
 	}
@@ -175,41 +168,39 @@ func (m bubbleModel) View() (view tea.View) {
 	view.KeyboardEnhancements = tea.KeyboardEnhancements{}
 	view.AltScreen = false
 	view.MouseMode = tea.MouseModeNone
-	if len(m.percents) == 0 {
+	if len(m.bars) == 0 {
 		view.SetContent("")
 		return
 	}
 
 	var buf bytes.Buffer
-	tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-
 	for _, id := range m.order {
-		if _, ok := m.percents[id]; !ok {
+		b, ok := m.bars[id]
+		if !ok {
 			continue
 		}
-		pool := m.pools[id]
-		emoji := poolEmoji(pool)
-
-		name := m.names[id]
-		if name == "" {
-			name = id
-		}
-		st := m.statuses[id]
-		if st == "" {
-			st = "running"
-		}
-		bar := plainBar(m.percents[id], 30)
-		fmt.Fprintf(tw, "%s %s:\t%s\t%s\n", emoji, name, bar, st)
+		buf.WriteString(formatBarLine(b, 30))
+		buf.WriteByte('\n')
 	}
-	tw.Flush()
-
 	view.SetContent(buf.String())
 	return
 }
 
-// poolEmoji returns a short emoji prefix based on the task's PoolKind.
-// This lets users quickly distinguish Control / IO / CPU / Internet work
-// in the progress bar view.
+// formatBarLine renders one row: ICON BAR title: subtitle
+// Example: "🌐 [===============---------------] bundle.tar.gz: 5.0 MiB / 10.0 MiB"
+// Subtitle should be detail only (sizes, counts, phase) — not a repeat of title
+// or a percent already implied by the bar.
+func formatBarLine(b barEntry, barWidth int) string {
+	return fmt.Sprintf("%s %s %s: %s",
+		poolEmoji(b.pool),
+		plainBar(b.percent, barWidth),
+		b.title,
+		b.subtitle,
+	)
+}
+
+// poolEmoji returns a short emoji based on the task's PoolKind so users can
+// distinguish Control / IO / CPU / Internet work at a glance.
 func poolEmoji(p PoolKind) string {
 	switch p {
 	case Control:
@@ -225,8 +216,8 @@ func poolEmoji(p PoolKind) string {
 	}
 }
 
-// plainBar renders a dead-simple classic progress bar using only ASCII.
-// No gradients, no unicode blocks, no colors, no library magic.
+// plainBar renders a classic ASCII progress bar. Fixed width so bars column-
+// align when stacked (ICON is one emoji + space, then the bar).
 func plainBar(pct float64, width int) string {
 	if width <= 0 {
 		width = 30

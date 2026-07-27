@@ -59,20 +59,25 @@ func runTasksDemo(cmd *cobra.Command) error {
 	logger.Info("Tasks use IO / CPU / Internet pools, have dependencies, emit logs, and report progress.")
 
 	// Internet task with determinate progress + logs.
-	g.Go("download", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+	// Layout is "ICON BAR title: subtitle" — subtitle is size/phase only, not
+	// a repeated title or a percent (the bar already shows fraction).
+	g.Go("bundle.tar.gz", taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
 		logger.Info("starting download")
 
-		s.Update("resolving")
+		s.Update("connecting")
 		time.Sleep(120 * time.Millisecond)
 		logger.Info("GET", "url", "https://cdn.example.com/bundle.tar.gz")
-		s.Progress(0, 100)
-		for i := 10; i <= 100; i += 10 {
-			s.Progress(int64(i), 100)
-			s.Update(fmt.Sprintf("receiving %d%%", i))
+		const total int64 = 10 * 1024 * 1024 // simulated 10 MiB
+		s.Progress(0, total)
+		s.Update(fmt.Sprintf("0 B / %.0f MiB", float64(total)/(1024*1024)))
+		for i := 1; i <= 10; i++ {
+			cur := total * int64(i) / 10
+			s.Progress(cur, total)
+			s.Update(fmt.Sprintf("%.1f MiB / %.0f MiB", float64(cur)/(1024*1024), float64(total)/(1024*1024)))
 			time.Sleep(70 * time.Millisecond)
-			if i == 50 {
-				logger.Info("50% received, checking partial checksum")
+			if i == 5 {
+				logger.Info("midpoint received, checking partial checksum")
 			}
 		}
 		logger.Info("download complete", "sha256", "verified")
@@ -86,25 +91,25 @@ func runTasksDemo(cmd *cobra.Command) error {
 		time.Sleep(80 * time.Millisecond)
 		for step := 1; step <= 4; step++ {
 			logger.Info("gcc -c", "src", fmt.Sprintf("part%d.c", step), "opt", "-O2")
-			s.Update(fmt.Sprintf("compiling part %d/4", step))
+			s.Update(fmt.Sprintf("part %d/4", step))
 			time.Sleep(140 * time.Millisecond)
 		}
 		s.Update("linking")
 		time.Sleep(160 * time.Millisecond)
 		logger.Info("build finished", "binary", "./bin/app")
 		return nil
-	}, "download")
+	}, "bundle.tar.gz")
 
 	// Another CPU task in parallel with build (after download).
 	g.Go("check", taskgroup.CPU, func(ctx context.Context, s *taskgroup.Status) error {
 		logger := logging.GetLogger(ctx)
-		s.Update("running static analysis")
+		s.Update("static analysis")
 		time.Sleep(90 * time.Millisecond)
 		logger.Info("golangci-lint", "issues", 0)
 		logger.Info("govulncheck", "status", "clean")
 		time.Sleep(220 * time.Millisecond)
 		return nil
-	}, "download")
+	}, "bundle.tar.gz")
 
 	// IO task that depends on build.
 	g.Go("install", taskgroup.IO, func(ctx context.Context, s *taskgroup.Status) error {

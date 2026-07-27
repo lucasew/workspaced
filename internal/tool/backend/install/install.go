@@ -228,7 +228,7 @@ func downloadDirect(ctx context.Context, url, dest string, opts DownloadOptions)
 	// Perform the actual GET + atomicfile.Create/Commit.
 	// If the ctx carries a taskgroup (normal case under tool install / apply),
 	// the httpclient driver's WithProgress transport will see the request and
-	// promote *this* HTTP to exactly one "fetch:<basename>" Internet task,
+	// promote *this* HTTP to exactly one Internet task (title = basename),
 	// driving real progress via progressReadCloser on body reads.
 	// This gives the asset download a single specific task (dispatch point for
 	// either the fetchurl path or this direct path) without an extra wrapper
