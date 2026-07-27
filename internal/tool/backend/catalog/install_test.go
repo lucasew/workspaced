@@ -24,15 +24,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
-// isReleaseCI is true when running under CI on a git tag ref (release builds).
-func isReleaseCI() bool {
-	if os.Getenv("CI") == "" {
-		return false
-	}
-	ref := os.Getenv("GITHUB_REF")
-	return strings.HasPrefix(ref, "refs/tags/")
-}
-
 // stepSummaryMu serializes appends to GITHUB_STEP_SUMMARY (parallel subtests).
 var stepSummaryMu sync.Mutex
 
@@ -101,10 +92,10 @@ func TestRegistryInstallChecksDeclared(t *testing.T) {
 }
 
 func TestRegistryInstall(t *testing.T) {
-	// Opt-in locally via WORKSPACED_TEST_TOOL_INSTALL=1.
-	// On CI, also runs automatically for release tags (refs/tags/*).
-	if os.Getenv("WORKSPACED_TEST_TOOL_INSTALL") != "1" && !isReleaseCI() {
-		t.Skip("set WORKSPACED_TEST_TOOL_INSTALL=1 (or run on a release tag in CI) to run registry install checks")
+	// Opt-in only (mise run test:registry-install, registry-install.yml).
+	// Not a release gate: private or flaky catalog entries must not block tags.
+	if os.Getenv("WORKSPACED_TEST_TOOL_INSTALL") != "1" {
+		t.Skip("set WORKSPACED_TEST_TOOL_INSTALL=1 (or mise run test:registry-install) to run registry install checks")
 	}
 
 	target := os.Getenv("TARGET")

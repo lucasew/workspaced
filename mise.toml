@@ -35,7 +35,7 @@ run = "go test -v ./internal/tool/backend/catalog/ -run '^TestRegistryInstall$' 
 
 [tasks.release]
 description = "Run a release"
-depends = ["codegen", "ci", "test:registry-install"]
+depends = ["codegen", "ci"]
 wait_for = ["codegen"]
 usage = '''
 arg "<version>" help="New version" {
