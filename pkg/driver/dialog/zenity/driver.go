@@ -2,12 +2,11 @@ package zenity
 
 import (
 	"context"
-	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
+	"strings"
+
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"strings"
 )
 
 func init() {
@@ -20,13 +19,7 @@ type baseFactory struct{}
 func (f *baseFactory) ID() string { return "zenity" }
 
 func (f *baseFactory) CheckCompatibility(ctx context.Context) error {
-	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: neither DISPLAY nor WAYLAND_DISPLAY set", driver.ErrIncompatible)
-	}
-	if !execdriver.IsBinaryAvailable(ctx, "zenity") {
-		return fmt.Errorf("%w: zenity not found", driver.ErrIncompatible)
-	}
-	return nil
+	return dialog.RequireDisplayBinary(ctx, "zenity")
 }
 
 type PrompterFactory struct{ baseFactory }

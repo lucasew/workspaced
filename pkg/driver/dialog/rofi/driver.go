@@ -2,12 +2,11 @@ package rofi
 
 import (
 	"context"
-	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
+	"strings"
+
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"strings"
 )
 
 func init() {
@@ -30,13 +29,7 @@ func (f *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { re
 func (f *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
 
 func checkRofi(ctx context.Context) error {
-	if executil.GetEnv(ctx, "DISPLAY") == "" && executil.GetEnv(ctx, "WAYLAND_DISPLAY") == "" {
-		return fmt.Errorf("%w: neither DISPLAY nor WAYLAND_DISPLAY set", driver.ErrIncompatible)
-	}
-	if !execdriver.IsBinaryAvailable(ctx, "rofi") {
-		return fmt.Errorf("%w: rofi not found", driver.ErrIncompatible)
-	}
-	return nil
+	return dialog.RequireDisplayBinary(ctx, "rofi")
 }
 
 type Driver struct{}
