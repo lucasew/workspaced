@@ -3,7 +3,6 @@ package open
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/lucasew/workspaced/internal/tool"
@@ -66,14 +65,6 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 		theCmd = c
 		return nil
 	})
-	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
-		if theCmd == nil {
-			return nil
-		}
-		theCmd.Stdin = os.Stdin
-		theCmd.Stdout = os.Stdout
-		theCmd.Stderr = os.Stderr
-		return theCmd.Run()
-	})
+	taskgroup.MustSessionFrom(ctx).AfterWaitRun(&theCmd)
 	return nil
 }

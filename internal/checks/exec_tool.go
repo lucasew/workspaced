@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -15,37 +13,12 @@ import (
 
 // ResolveCmd ensures lazy tools from needs and returns argv + optional env extras.
 func ResolveCmd(ctx context.Context, root string, t Tool) (argv []string, envExtra []string, err error) {
-	argv = append([]string(nil), t.Cmd...)
-	if len(argv) == 0 {
+	if len(t.Cmd) == 0 {
 		return nil, nil, fmt.Errorf("%w: tool %q", ErrEmptyCmd, t.Name)
 	}
-
-	var pathDirs []string
-	for name, on := range t.Needs {
-		if !on {
-			continue
-		}
-		binName := filepath.Base(argv[0])
-		binPath, rerr := tool.ResolveLazyToolAt(ctx, root, name, binName)
-		if rerr != nil {
-			binPath, rerr = tool.ResolveLazyToolAt(ctx, root, name, name)
-		}
-		if rerr != nil {
-			return nil, nil, fmt.Errorf("tool %q: ensure lazy tool %q: %w", t.Name, name, rerr)
-		}
-		dir := filepath.Dir(binPath)
-		pathDirs = append(pathDirs, dir)
-		if filepath.Base(argv[0]) == filepath.Base(binPath) || argv[0] == name {
-			argv[0] = binPath
-		}
-	}
-
-	if len(pathDirs) > 0 {
-		path := strings.Join(pathDirs, string(os.PathListSeparator))
-		if existing := os.Getenv("PATH"); existing != "" {
-			path = path + string(os.PathListSeparator) + existing
-		}
-		envExtra = append(envExtra, "PATH="+path)
+	argv, envExtra, err = tool.ResolveNeedsCmd(ctx, root, t.Cmd, t.Needs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("tool %q: %w", t.Name, err)
 	}
 	return argv, envExtra, nil
 }

@@ -3,6 +3,7 @@ package taskgroup
 import (
 	"context"
 	"os"
+	"os/exec"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -119,6 +120,24 @@ func (s *Session) AfterWait(fn func() error) {
 	s.mu.Lock()
 	s.after = append(s.after, fn)
 	s.mu.Unlock()
+}
+
+// AfterWaitRun schedules *cmd with process stdio after Wait (when non-nil).
+// The pointer is dereferenced when the hook runs so callers can set it from a task.
+func (s *Session) AfterWaitRun(cmd **exec.Cmd) {
+	if s == nil || cmd == nil {
+		return
+	}
+	s.AfterWait(func() error {
+		c := *cmd
+		if c == nil {
+			return nil
+		}
+		c.Stdin = os.Stdin
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		return c.Run()
+	})
 }
 
 // ensureUI starts the progress UI on first scheduled task (lazy).

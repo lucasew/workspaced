@@ -235,34 +235,34 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 
 	v := ctx.CompileString(string(schemaBytes), cue.Filename("schema.cue"))
 	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue schema:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 
 	preludeCommonLayer := ctx.CompileString(string(preludeCommonBytes), cue.Filename("prelude_common.cue"))
 	if err := preludeCommonLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue prelude_common:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("compile embedded cue prelude_common: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 	v = v.Unify(preludeCommonLayer)
 	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify embedded cue prelude_common:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("unify embedded cue prelude_common: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 
 	preludeVariantLayer := ctx.CompileString(string(preludeVariantBytes), cue.Filename(preludeVariantFile))
 	if err := preludeVariantLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile embedded cue %s:\n%s", preludeVariantFile, cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("compile embedded cue %s: %w\n%s", preludeVariantFile, err, cueerrors.Details(err, nil))
 	}
 	v = v.Unify(preludeVariantLayer)
 	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify embedded cue %s:\n%s", preludeVariantFile, cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("unify embedded cue %s: %w\n%s", preludeVariantFile, err, cueerrors.Details(err, nil))
 	}
 
 	runtimeLayer := ctx.CompileString(runtimePrelude, cue.Filename("runtime_prelude.cue"))
 	if err := runtimeLayer.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile runtime cue prelude:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("compile runtime cue prelude: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 	v = v.Unify(runtimeLayer)
 	if err := v.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("unify runtime cue prelude:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("unify runtime cue prelude: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 
 	driverLayer, err := buildDriverWeightLayer(v)
@@ -272,22 +272,22 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 	if driverLayer != "" {
 		layerValue := ctx.CompileString(driverLayer, cue.Filename("driver_weights.cue"))
 		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s:\n%s", "driver_weights.cue", cueerrors.Details(err, nil))
+			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w\n%s", "driver_weights.cue", err, cueerrors.Details(err, nil))
 		}
 		v = v.Unify(layerValue)
 		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s:\n%s", "driver_weights.cue", cueerrors.Details(err, nil))
+			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w\n%s", "driver_weights.cue", err, cueerrors.Details(err, nil))
 		}
 	}
 
 	for _, layer := range preLayers {
 		layerValue := ctx.CompileString(layer.Source, cue.Filename(layer.Name))
 		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s:\n%s", layer.Name, cueerrors.Details(err, nil))
+			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
 		}
 		v = v.Unify(layerValue)
 		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s:\n%s", layer.Name, cueerrors.Details(err, nil))
+			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
 		}
 	}
 
@@ -295,7 +295,7 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 	wsPath := cue.ParsePath("workspaced")
 	wrapTemplate := ctx.CompileString(`workspaced: {}`)
 	if err := wrapTemplate.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("compile workspaced wrap template:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("compile workspaced wrap template: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 
 	for _, path := range paths {
@@ -328,17 +328,17 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 	for _, layer := range postLayers {
 		layerValue := ctx.CompileString(layer.Source, cue.Filename(layer.Name))
 		if err := layerValue.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("compile cue layer %s:\n%s", layer.Name, cueerrors.Details(err, nil))
+			return cue.Value{}, fmt.Errorf("compile cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
 		}
 		v = v.Unify(layerValue)
 		if err := v.Err(); err != nil {
-			return cue.Value{}, fmt.Errorf("unify cue layer %s:\n%s", layer.Name, cueerrors.Details(err, nil))
+			return cue.Value{}, fmt.Errorf("unify cue layer %s: %w\n%s", layer.Name, err, cueerrors.Details(err, nil))
 		}
 	}
 
 	configValue := v.LookupPath(wsPath)
 	if err := configValue.Err(); err != nil {
-		return cue.Value{}, fmt.Errorf("lookup workspaced value:\n%s", cueerrors.Details(err, nil))
+		return cue.Value{}, fmt.Errorf("lookup workspaced value: %w\n%s", err, cueerrors.Details(err, nil))
 	}
 	return configValue, nil
 }

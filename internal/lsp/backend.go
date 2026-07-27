@@ -9,8 +9,6 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -105,44 +103,7 @@ func StartBackend(ctx context.Context, root string, serverID string, srv Server,
 }
 
 func resolveServerCmd(ctx context.Context, root string, srv Server) (argv []string, envExtra []string, err error) {
-	argv = append([]string(nil), srv.Cmd...)
-	var pathDirs []string
-
-	for name, on := range srv.Needs {
-		if !on {
-			continue
-		}
-		// Prefer resolving the binary named like cmd[0] when it matches; else first bin via empty.
-		binName := filepath.Base(argv[0])
-		binPath, rerr := tool.ResolveLazyToolAt(ctx, root, name, binName)
-		if rerr != nil {
-			// Try resolving with the lazy tool name as bin hint.
-			binPath, rerr = tool.ResolveLazyToolAt(ctx, root, name, name)
-		}
-		if rerr != nil {
-			return nil, nil, fmt.Errorf("ensure lazy tool %q: %w", name, rerr)
-		}
-		dir := filepath.Dir(binPath)
-		pathDirs = append(pathDirs, dir)
-		// Expand cmd[0] when it matches this binary name.
-		if filepath.Base(argv[0]) == filepath.Base(binPath) || argv[0] == name {
-			argv[0] = binPath
-		}
-	}
-
-	if len(pathDirs) > 0 {
-		path := strings.Join(pathDirs, string(os.PathListSeparator))
-		if existing := os.Getenv("PATH"); existing != "" {
-			path = path + string(os.PathListSeparator) + existing
-		}
-		envExtra = append(envExtra, "PATH="+path)
-	}
-
-	// If still not absolute, try which with augmented path in process env for which only.
-	if !filepath.IsAbs(argv[0]) {
-		// which uses process PATH; temporarily not ideal — leave bare and rely on PATH env for the child.
-	}
-	return argv, envExtra, nil
+	return tool.ResolveNeedsCmd(ctx, root, srv.Cmd, srv.Needs)
 }
 
 func (b *Backend) readLoop(ctx context.Context) {
@@ -191,19 +152,7 @@ func (b *Backend) failPending(err error) {
 
 // Notify sends a notification (no response).
 func (b *Backend) Notify(method string, params any) error {
-	var raw json.RawMessage
-	if params != nil {
-		body, err := json.Marshal(params)
-		if err != nil {
-			return err
-		}
-		raw = body
-	}
-	return b.conn.WriteMessage(&Message{
-		JSONRPC: "2.0",
-		Method:  method,
-		Params:  raw,
-	})
+	return b.conn.WriteNotification(method, params)
 }
 
 // Request sends a request and waits for the response (caller applies timeout via ctx).

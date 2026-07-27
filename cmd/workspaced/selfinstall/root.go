@@ -9,9 +9,9 @@ import (
 
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/miseutil"
+	"github.com/lucasew/workspaced/internal/selfbin"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
-	"github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
@@ -61,21 +61,10 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	}
 
 	// Fixed install location under real home (not Termux proot /home view).
-	dataDir, err := envdriver.GetUserDataDir(ctx)
+	installDir, installPath, err := selfbin.InstallPaths(ctx)
 	if err != nil {
-		// Bootstrap before drivers/weights: fall back to ResolveHomeDir.
-		home, homeErr := envdriver.ResolveHomeDir()
-		if homeErr != nil {
-			return fmt.Errorf("get home directory: %w", err)
-		}
-		dataDir = filepath.Join(home, ".local", "share", "workspaced")
-		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
-			return fmt.Errorf("create user data dir: %w", mkErr)
-		}
+		return err
 	}
-
-	installDir := filepath.Join(dataDir, "bin")
-	installPath := filepath.Join(installDir, "workspaced")
 
 	currentVersion := version.Version()
 
@@ -112,7 +101,7 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	logger := logging.GetLogger(ctx)
 	logger.Info("regenerating shims")
 
-	if err := createWorkspacedShim(ctx, installPath); err != nil {
+	if err := selfbin.EnsureWorkspacedShim(ctx, installPath); err != nil {
 		return fmt.Errorf("create shim: %w", err)
 	}
 	if err := createMiseShim(ctx); err != nil {
@@ -125,15 +114,6 @@ func runSelfInstall(ctx context.Context, force bool) error {
 	}
 	logger.Info("add ~/.local/bin to your PATH if not already added")
 
-	return nil
-}
-
-func createWorkspacedShim(ctx context.Context, workspacedPath string) error {
-	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{workspacedPath})
-	if err != nil {
-		return err
-	}
-	logging.GetLogger(ctx).Info("created shim", "path", shimPath, "target", workspacedPath)
 	return nil
 }
 

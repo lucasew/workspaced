@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/miseutil"
+	"github.com/lucasew/workspaced/internal/selfbin"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	githubprov "github.com/lucasew/workspaced/internal/tool/backend/github"
 	"github.com/lucasew/workspaced/internal/version"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/shim"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
@@ -103,7 +103,7 @@ func runSelfUpdate(ctx context.Context, force bool) error {
 
 func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
-	installDir, installPath, err := workspacedInstallPaths(ctx)
+	installDir, installPath, err := selfbin.InstallPaths(ctx)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	}
 
 	logger.Info("build completed", "path", installPath)
-	return updateWorkspacedShim(ctx, installPath)
+	return selfbin.EnsureWorkspacedShim(ctx, installPath)
 }
 
 // ============================================================================
@@ -230,7 +230,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	}
 
 	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
-	installDir, _, err := workspacedInstallPaths(ctx)
+	installDir, _, err := selfbin.InstallPaths(ctx)
 	if err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 	}
 
 	logger.Info("download completed", "path", installPath)
-	return updateWorkspacedShim(ctx, installPath)
+	return selfbin.EnsureWorkspacedShim(ctx, installPath)
 }
 
 func findBinary(dir string) (string, error) {
@@ -346,38 +346,6 @@ func findBinary(dir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("%w: %s", ErrNoBinaryFound, dir)
-}
-
-func updateWorkspacedShim(ctx context.Context, workspacedPath string) error {
-	shimPath, err := shim.GenerateInLocalBin(ctx, "workspaced", []string{workspacedPath})
-	if err != nil {
-		return err
-	}
-	logging.GetLogger(ctx).Info("updated shim", "path", shimPath, "target", workspacedPath)
-	return nil
-}
-
-// workspacedInstallPaths returns the fixed bin dir and workspaced binary path
-// under the env driver's user data dir (ResolveHomeDir on Termux).
-func workspacedInstallPaths(ctx context.Context) (installDir, installPath string, err error) {
-	dataDir, err := envdriver.GetUserDataDir(ctx)
-	if err != nil {
-		home, homeErr := envdriver.ResolveHomeDir()
-		if homeErr != nil {
-			return "", "", fmt.Errorf("get home directory: %w", err)
-		}
-		dataDir = filepath.Join(home, ".local", "share", "workspaced")
-		if mkErr := os.MkdirAll(dataDir, 0o755); mkErr != nil {
-			return "", "", fmt.Errorf("create user data dir: %w", mkErr)
-		}
-	}
-	installDir = filepath.Join(dataDir, "bin")
-	name := "workspaced"
-	if runtime.GOOS == "windows" {
-		name = "workspaced.exe"
-	}
-	installPath = filepath.Join(installDir, name)
-	return installDir, installPath, nil
 }
 
 func findSourcePath(ctx context.Context) (string, error) {

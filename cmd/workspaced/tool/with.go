@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -149,15 +148,7 @@ Examples:
 
 					// Run child after session Close (Wait + UI/stderr restore) so it
 					// inherits real stdio. PostRun Close runs this via AfterWait.
-					taskgroup.MustSessionFrom(cmd.Context()).AfterWait(func() error {
-						if theCmd == nil {
-							return nil
-						}
-						theCmd.Stdin = os.Stdin
-						theCmd.Stdout = os.Stdout
-						theCmd.Stderr = os.Stderr
-						return theCmd.Run()
-					})
+					taskgroup.MustSessionFrom(cmd.Context()).AfterWaitRun(&theCmd)
 					return nil
 				},
 			}
