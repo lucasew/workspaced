@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,15 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/notification"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
+
+// ErrEmptyQueueSlug is returned when queuePath is given an empty slug.
+var ErrEmptyQueueSlug = errors.New("sudo queue slug is empty")
+
+// ErrInvalidQueueSlug is returned when the slug is not a single safe path element.
+var ErrInvalidQueueSlug = errors.New("sudo queue slug must be a single path element")
+
+// ErrQueueSlugEscapes is returned when a slug would resolve outside the queue dir.
+var ErrQueueSlugEscapes = errors.New("sudo queue slug escapes queue dir")
 
 func getQueueDir() (string, error) {
 	home, err := os.UserHomeDir()
@@ -33,24 +43,24 @@ func getQueueDir() (string, error) {
 // path separators, ".." components, and any cleaned result that would escape.
 func queuePath(dir, slug string) (string, error) {
 	if slug == "" {
-		return "", fmt.Errorf("sudo queue slug is empty")
+		return "", ErrEmptyQueueSlug
 	}
 	if strings.Contains(slug, string(os.PathSeparator)) || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
-		return "", fmt.Errorf("sudo queue slug must be a single path element: %q", slug)
+		return "", fmt.Errorf("%w: %q", ErrInvalidQueueSlug, slug)
 	}
 	if slug == "." || slug == ".." || strings.Contains(slug, "..") {
-		return "", fmt.Errorf("sudo queue slug must be a single path element: %q", slug)
+		return "", fmt.Errorf("%w: %q", ErrInvalidQueueSlug, slug)
 	}
 	// filepath.Base rejects multi-segment after Clean; still join carefully.
 	base := filepath.Base(slug)
 	if base != slug || base == "." || base == ".." {
-		return "", fmt.Errorf("sudo queue slug must be a single path element: %q", slug)
+		return "", fmt.Errorf("%w: %q", ErrInvalidQueueSlug, slug)
 	}
 	path := filepath.Join(dir, base+".json")
 	// Ensure the result stays under dir even if Base were to misbehave.
 	rel, err := filepath.Rel(dir, path)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("sudo queue slug escapes queue dir: %q", slug)
+		return "", fmt.Errorf("%w: %q", ErrQueueSlugEscapes, slug)
 	}
 	return path, nil
 }
