@@ -4,12 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 	"sync"
 )
+
+// ErrMissingContentLength is returned when a framed JSON-RPC header block
+// has no Content-Length field.
+var ErrMissingContentLength = errors.New("missing Content-Length")
 
 // Message is a JSON-RPC 2.0 message (request, response, or notification).
 type Message struct {
@@ -88,7 +93,7 @@ func (c *Conn) ReadMessage() (*Message, error) {
 		}
 	}
 	if contentLen < 0 {
-		return nil, fmt.Errorf("missing Content-Length")
+		return nil, ErrMissingContentLength
 	}
 	body := make([]byte, contentLen)
 	if _, err := io.ReadFull(c.in, body); err != nil {
