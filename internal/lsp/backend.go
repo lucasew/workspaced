@@ -72,7 +72,7 @@ func StartBackend(ctx context.Context, root string, serverID string, srv Server,
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
-		_ = stdin.Close()
+		logging.Close(ctx, stdin)
 		return nil, err
 	}
 
@@ -158,7 +158,10 @@ func (b *Backend) Notify(method string, params any) error {
 // Request sends a request and waits for the response (caller applies timeout via ctx).
 func (b *Backend) Request(ctx context.Context, method string, params any) (*Message, error) {
 	idNum := b.nextID.Add(1)
-	idRaw, _ := json.Marshal(idNum)
+	idRaw, marshalErr := json.Marshal(idNum)
+	if marshalErr != nil {
+		return nil, marshalErr
+	}
 
 	var raw json.RawMessage
 	if params != nil {

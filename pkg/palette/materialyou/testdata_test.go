@@ -126,6 +126,8 @@ func BenchmarkMaterialYouExtract(b *testing.B) {
 func BenchmarkGenerateColorscheme(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = GenerateColorscheme("#4285f4", nil)
+		res := GenerateColorscheme("#4285f4", nil)
+		var _ = res
+		// named result (non-error return); var _ = to use without blank on call LHS
 	}
 }

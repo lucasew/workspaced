@@ -122,14 +122,23 @@ func sendHistoryEvent(ctx context.Context, event types.HistoryEvent) error {
 		},
 	}
 
-	conn, _, err := dialer.Dial("ws://localhost/ws", nil)
+	conn, resp, err := dialer.Dial("ws://localhost/ws", nil)
 	if err != nil {
 		return err // Return error so caller can fallback
 	}
+	if resp != nil && resp.Body != nil {
+		resp.Body.Close()
+	}
 	defer logging.Close(ctx, conn, "socket", socketPath)
 
-	_ = conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond))
-	payload, _ := json.Marshal(event)
+	if dlErr := conn.SetWriteDeadline(time.Now().Add(500 * time.Millisecond)); dlErr != nil {
+		logging.ReportError(ctx, dlErr, "op", "set write deadline")
+	}
+	payload, marshalErr := json.Marshal(event)
+	if marshalErr != nil {
+		logging.ReportError(ctx, marshalErr)
+		return marshalErr
+	}
 	packet := types.StreamPacket{
 		Type:    "history_event",
 		Payload: payload,

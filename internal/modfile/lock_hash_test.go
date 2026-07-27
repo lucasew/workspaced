@@ -68,7 +68,11 @@ func registerStubHashProvider(t *testing.T, id string) *stubHashProvider {
 func testGroupCtx(t *testing.T) (*taskgroup.Group, context.Context) {
 	t.Helper()
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
-	t.Cleanup(func() { _ = g.Wait() })
+	t.Cleanup(func() {
+		if err := g.Wait(); err != nil {
+			t.Logf("group wait (may be expected in error tests): %v", err)
+		}
+	})
 	return g, ctx
 }
 

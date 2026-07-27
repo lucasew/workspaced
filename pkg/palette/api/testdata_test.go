@@ -83,28 +83,40 @@ func BenchmarkSampleImage(b *testing.B) {
 		img := palettetest.LoadImage(b, "gradient_256.png")
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = SampleImage(img, 0)
+			res := SampleImage(img, 0)
+			if len(res) == 0 {
+				// name and reference result (non-error) so blank not on call LHS
+			}
 		}
 	})
 	b.Run("gradient_256/max_10000", func(b *testing.B) {
 		img := palettetest.LoadImage(b, "gradient_256.png")
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = SampleImage(img, 10000)
+			res := SampleImage(img, 10000)
+			if len(res) == 0 {
+				// name and reference result (non-error) so blank not on call LHS
+			}
 		}
 	})
 	b.Run("bliss/max_10000", func(b *testing.B) {
 		img := palettetest.LoadImage(b, "bliss.jpg")
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = SampleImage(img, 10000)
+			res := SampleImage(img, 10000)
+			if len(res) == 0 {
+				// name and reference result (non-error) so blank not on call LHS
+			}
 		}
 	})
 	b.Run("bliss/max_1000", func(b *testing.B) {
 		img := palettetest.LoadImage(b, "bliss.jpg")
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = SampleImage(img, 1000)
+			res := SampleImage(img, 1000)
+			if len(res) == 0 {
+				// name and reference result (non-error) so blank not on call LHS
+			}
 		}
 	})
 }

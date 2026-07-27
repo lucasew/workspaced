@@ -46,7 +46,11 @@ func TestWritePNGFileAtomic_FailureKeepsExisting(t *testing.T) {
 	if err := os.Chmod(dir, 0o555); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	t.Cleanup(func() {
+		if err := os.Chmod(dir, 0o755); err != nil {
+			t.Errorf("chmod restore: %v", err)
+		}
+	})
 
 	if err := writePNGFileAtomic(path, solidNRGBA(3, 3, color.NRGBA{B: 0xff, A: 0xff})); err == nil {
 		t.Fatal("expected error when parent dir is not writable")
@@ -71,7 +75,11 @@ func TestWritePNGFileAtomic_FailureLeavesNoFinal(t *testing.T) {
 	if err := os.Chmod(dir, 0o555); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	t.Cleanup(func() {
+		if err := os.Chmod(dir, 0o755); err != nil {
+			t.Errorf("chmod restore: %v", err)
+		}
+	})
 
 	if err := writePNGFileAtomic(path, solidNRGBA(2, 2, color.NRGBA{R: 1, A: 0xff})); err == nil {
 		t.Fatal("expected error when parent dir is not writable")

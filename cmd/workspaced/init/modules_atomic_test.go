@@ -32,12 +32,14 @@ func TestCopyEmbeddedModulesAtomicWrite(t *testing.T) {
 	}
 	// At least one regular file was written
 	var files int
-	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	if walkErr := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err == nil && !info.IsDir() {
 			files++
 		}
 		return nil
-	})
+	}); walkErr != nil {
+		t.Logf("count walk: %v", walkErr)
+	}
 	if files == 0 {
 		t.Fatal("expected embedded module files")
 	}

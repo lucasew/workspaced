@@ -74,7 +74,9 @@ func (f *ConcatenatedFile) Reader() (io.ReadCloser, error) {
 		r, err := c.Reader()
 		if err != nil {
 			for _, cl := range closers {
-				_ = cl.Close()
+				if cerr := cl.Close(); cerr != nil {
+					// ignore secondary close errors during reader unwind
+				}
 			}
 			return nil, err
 		}

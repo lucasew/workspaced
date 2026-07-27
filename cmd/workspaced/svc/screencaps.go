@@ -29,8 +29,8 @@ func monitorCapsLock(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	matches, _ := filepath.Glob("/sys/class/leds/*capslock/brightness")
-	if len(matches) == 0 {
+	matches, err := filepath.Glob("/sys/class/leds/*capslock/brightness")
+	if err != nil || len(matches) == 0 {
 		logger := logging.GetLogger(ctx)
 		logger.Warn("no capslock leds found")
 		return

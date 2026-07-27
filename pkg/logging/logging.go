@@ -101,7 +101,10 @@ func (h *ChannelLogHandler) Handle(ctx context.Context, r slog.Record) error {
 		entry.Attrs[a.Key] = a.Value.Any()
 		return true
 	})
-	payload, _ := json.Marshal(entry)
+	payload, marshalErr := json.Marshal(entry)
+	if marshalErr != nil {
+		payload = []byte(`{"error":"log marshal failed"}`)
+	}
 
 	select {
 	case h.Out <- types.StreamPacket{Type: "log", Payload: payload}:

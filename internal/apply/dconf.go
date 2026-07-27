@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/source"
@@ -62,7 +63,7 @@ func ApplyHomeDconf(ctx context.Context) error {
 
 	// Unique temp path per call so concurrent home apply / overlapping runs
 	// cannot clobber each other's ini mid-`dconf load` (fixed name was a race).
-	tmpIni, err := writeTempDconfIni(dconfContent)
+	tmpIni, err := writeTempDconfIni(ctx, dconfContent)
 	if err != nil {
 		return err
 	}
@@ -71,19 +72,23 @@ func ApplyHomeDconf(ctx context.Context) error {
 }
 
 // writeTempDconfIni writes content to a unique temp file (0600). Caller removes it.
-func writeTempDconfIni(content string) (string, error) {
+func writeTempDconfIni(ctx context.Context, content string) (string, error) {
 	f, err := os.CreateTemp("", "workspaced-dconf-*.ini")
 	if err != nil {
 		return "", err
 	}
 	path := f.Name()
 	if _, err := f.WriteString(content); err != nil {
-		_ = f.Close()
-		_ = os.Remove(path)
+		logging.Close(ctx, f)
+		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			logging.ReportError(ctx, rmErr, "path", path)
+		}
 		return "", err
 	}
 	if err := f.Close(); err != nil {
-		_ = os.Remove(path)
+		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			logging.ReportError(ctx, rmErr, "path", path)
+		}
 		return "", err
 	}
 	return path, nil

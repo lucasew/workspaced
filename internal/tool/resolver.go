@@ -93,7 +93,9 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 
 	if bt, ok := t.(backend.BinaryTool); ok {
 		workPath := versionDir + ".tmp"
-		_ = os.RemoveAll(workPath)
+		if rmErr := os.RemoveAll(workPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			logging.ReportError(ctx, rmErr, "path", workPath)
+		}
 		if err := os.MkdirAll(workPath, 0755); err != nil {
 			return "", err
 		}
@@ -106,15 +108,21 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 			return err
 		})
 		if installErr != nil {
-			_ = os.RemoveAll(workPath)
+			if rmErr := os.RemoveAll(workPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", workPath)
+			}
 			return "", fmt.Errorf("install tool: %w", installErr)
 		}
 		if err := fixAndCheck(ctx, t, workPath); err != nil {
-			_ = os.RemoveAll(workPath)
+			if rmErr := os.RemoveAll(workPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", workPath)
+			}
 			return "", err
 		}
 		if err := atomicReplaceDir(versionDir, workPath); err != nil {
-			_ = os.RemoveAll(workPath)
+			if rmErr := os.RemoveAll(workPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", workPath)
+			}
 			return "", fmt.Errorf("install swap %s: %w", versionDir, err)
 		}
 		if binPath == "" {

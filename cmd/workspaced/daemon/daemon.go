@@ -57,7 +57,10 @@ type StreamPacketWriter struct {
 }
 
 func (w *StreamPacketWriter) Write(p []byte) (n int, err error) {
-	payload, _ := json.Marshal(string(p))
+	payload, marshalErr := json.Marshal(string(p))
+	if marshalErr != nil {
+		payload = []byte(`""`)
+	}
 	w.Out <- types.StreamPacket{
 		Type:    w.Type,
 		Payload: payload,
@@ -69,7 +72,10 @@ var Command = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run the workspaced daemon",
 	Run: func(c *cobra.Command, args []string) {
-		try, _ := c.Flags().GetBool("try")
+		try := false
+		if t, terr := c.Flags().GetBool("try"); terr == nil {
+			try = t
+		}
 		ctx := c.Context()
 		if try {
 			socketPath := types.DaemonSocketPath()
@@ -340,7 +346,11 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 		resp := types.Response{
 			Error: "DAEMON_RESTARTING",
 		}
-		payload, _ := json.Marshal(resp)
+		payload, marshalErr := json.Marshal(resp)
+		if marshalErr != nil {
+			payload = []byte(`{}`)
+			logging.ReportError(ctx, marshalErr)
+		}
 		outCh <- types.StreamPacket{
 			Type:    "result",
 			Payload: payload,
@@ -363,7 +373,11 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 			resp := types.Response{
 				Error: "DAEMON_RESTARTING",
 			}
-			payload, _ := json.Marshal(resp)
+			payload, marshalErr := json.Marshal(resp)
+			if marshalErr != nil {
+				payload = []byte(`{}`)
+				logging.ReportError(ctx, marshalErr)
+			}
 			outCh <- types.StreamPacket{
 				Type:    "result",
 				Payload: payload,
@@ -402,7 +416,11 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 		resp.Error = err.Error()
 	}
 
-	payload, _ := json.Marshal(resp)
+	payload, marshalErr := json.Marshal(resp)
+	if marshalErr != nil {
+		payload = []byte(`{}`)
+		logging.ReportError(ctx, marshalErr)
+	}
 	outCh <- types.StreamPacket{
 		Type:    "result",
 		Payload: payload,

@@ -58,7 +58,11 @@ workspaced: {
 	}
 
 	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
-	t.Cleanup(func() { _ = g.Wait() })
+	t.Cleanup(func() {
+		if err := g.Wait(); err != nil && !t.Failed() {
+			t.Errorf("group wait: %v", err)
+		}
+	})
 	cfg, err := configcue.LoadForWorkspace(ctx, workspaceRoot)
 	if err != nil {
 		t.Fatalf("load config: %v", err)

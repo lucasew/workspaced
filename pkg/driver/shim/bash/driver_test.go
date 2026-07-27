@@ -70,7 +70,9 @@ func TestGeneratePreservesExistingOnTempWriteFailure(t *testing.T) {
 		t.Fatalf("chmod dir read-only: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = os.Chmod(dir, 0o755)
+		if err := os.Chmod(dir, 0o755); err != nil {
+			t.Errorf("chmod restore: %v", err)
+		}
 	})
 
 	err := shim.Generate(ctx, path, []string{"/bin/true"})

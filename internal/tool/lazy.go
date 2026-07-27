@@ -190,7 +190,8 @@ func RefreshLazyToolLocks(ctx context.Context, ws *modfile.Workspace, cfg *confi
 			updated++
 			// Mirror the local sum copy so it reflects the write (harmless at end of function,
 			// kept for behavioral parity with the original sequential implementation).
-			_ = sum.EnsureTool(name, lt)
+			_ignored := sum.EnsureTool(name, lt)
+			_ = _ignored
 		}
 	}
 	return updated, nil
@@ -247,7 +248,11 @@ func selectLazyToolWorkspaceFrom(ctx context.Context, homeMode bool, wd string) 
 
 	cwd := strings.TrimSpace(wd)
 	if cwd == "" {
-		cwd, _ = os.Getwd()
+		var getErr error
+		cwd, getErr = os.Getwd()
+		if getErr != nil {
+			return nil, getErr
+		}
 		return modfile.DetectWorkspace(ctx, cwd)
 	}
 

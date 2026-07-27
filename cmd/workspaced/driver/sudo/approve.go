@@ -27,7 +27,7 @@ func init() {
 				logger.Info("approving command", "command", sc.Command, "args", sc.Args, "slug", slug)
 
 				// Always remove after attempting to run
-				defer func() { _ = sudo.Remove(slug) }()
+				defer logging.RunCleanup(ctx, "sudo-remove", func() error { return sudo.Remove(slug) })
 
 				ec, err := execdriver.Run(ctx, "sudo", append([]string{"-E", sc.Command}, sc.Args...)...)
 				if err != nil {

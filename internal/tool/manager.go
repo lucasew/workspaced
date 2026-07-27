@@ -70,7 +70,9 @@ func (m *Manager) Ensure(ctx context.Context, toolSpecStr string) error {
 	p, perr := Get(spec.Provider)
 	var tt backend.Tool
 	if perr == nil {
-		tt, _ = p.Tool(spec.Package)
+		if t, toolErr := p.Tool(spec.Package); toolErr == nil {
+			tt = t
+		}
 	}
 
 	noCache := cmdctx.IsNoCache(ctx)
@@ -157,7 +159,9 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 	cleanupWork := true
 	defer func() {
 		if cleanupWork {
-			_ = os.RemoveAll(workPath)
+			if rmErr := os.RemoveAll(workPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", workPath)
+			}
 		}
 	}()
 

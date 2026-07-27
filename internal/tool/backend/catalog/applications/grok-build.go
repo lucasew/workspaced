@@ -101,7 +101,9 @@ func (t *grokBuildTool) InstallArtifact(ctx context.Context, art backend.Artifac
 		cmd.Stdout = io.Discard
 		cmd.Stderr = io.Discard
 		if err := cmd.Run(); err != nil {
-			_ = os.Remove(path)
+			if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", path)
+			}
 			return fmt.Errorf("smoke test failed: %w", err)
 		}
 	}
@@ -110,7 +112,9 @@ func (t *grokBuildTool) InstallArtifact(ctx context.Context, art backend.Artifac
 	if runtime.GOOS == "windows" {
 		agent = "agent.exe"
 	}
-	_ = os.Remove(filepath.Join(destDir, agent))
+	if rmErr := os.Remove(filepath.Join(destDir, agent)); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+		// agent symlink target removal is best-effort (may not exist)
+	}
 	if err := os.Symlink(bin, filepath.Join(destDir, agent)); err != nil {
 		return fmt.Errorf("symlink agent: %w", err)
 	}

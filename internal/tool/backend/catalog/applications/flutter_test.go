@@ -89,7 +89,10 @@ func TestFlutterNormalizeAndLatest(t *testing.T) {
 	}
 
 	// v-prefixed should be accepted.
-	versions, _ := tool.ListVersions(ctx)
+	versions, err := tool.ListVersions(ctx)
+	if err != nil {
+		t.Fatalf("ListVersions: %v", err)
+	}
 	if len(versions) > 0 {
 		vpref := "v" + versions[0]
 		arts2, err := tool.ListArtifacts(ctx, vpref)

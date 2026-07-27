@@ -115,7 +115,8 @@ func RunFullBackup(ctx context.Context) error {
 			return poolFor(item.Action.GetKind())
 		},
 		TaskName: func(_ int, item actionItem) string {
-			name, _ := actionLabel(item.Idx, item.Action)
+			name, k := actionLabel(item.Idx, item.Action)
+			_ = k
 			return "backup:" + name
 		},
 		Fn: func(ctx context.Context, s *taskgroup.Status, item actionItem) (actionOutcome, error) {

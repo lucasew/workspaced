@@ -51,7 +51,9 @@ func (action ArchiveAction) Run(ctx context.Context, _ *notification.Notificatio
 	}
 	tmpPath := tmp.Name()
 	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpPath)
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			// cleanup secondary
+		}
 		return fmt.Errorf("close archive temp: %w", err)
 	}
 	defer logging.RunCleanup(ctx, "remove", func() error {

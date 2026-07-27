@@ -156,13 +156,13 @@ func matchGlob(pattern, name string) bool {
 	if strings.HasPrefix(pattern, "**/") {
 		rest := pattern[3:]
 		// match rest against any suffix path segment chain
-		if ok, _ := filepath.Match(rest, name); ok {
+		if matched, matchErr := filepath.Match(rest, name); matchErr == nil && matched {
 			return true
 		}
 		// any directory prefix
 		for i := 0; i < len(name); i++ {
 			if name[i] == '/' {
-				if ok, _ := filepath.Match(rest, name[i+1:]); ok {
+				if matched, matchErr := filepath.Match(rest, name[i+1:]); matchErr == nil && matched {
 					return true
 				}
 			}
@@ -174,6 +174,6 @@ func matchGlob(pattern, name string) bool {
 		// limited: only leading **/ handled above
 		return false
 	}
-	ok, _ := filepath.Match(pattern, name)
-	return ok
+	matched, matchErr := filepath.Match(pattern, name)
+	return matched && matchErr == nil
 }

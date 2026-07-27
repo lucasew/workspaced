@@ -73,7 +73,10 @@ func QuickSync(ctx context.Context, repoDir string) error {
 }
 
 func SyncRepo(ctx context.Context, path string) error {
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
 	logger := logging.GetLogger(ctx)
 
 	logger.Info("git add", "path", path)

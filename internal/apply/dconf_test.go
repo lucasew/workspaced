@@ -6,21 +6,32 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestWriteTempDconfIni_UniqueAndContents(t *testing.T) {
+	ctx := logging.NewWriterContext(t.Output())
 	const body = "[org/gnome/desktop/interface]\ncolor-scheme='prefer-dark'\n\n"
-	p1, err := writeTempDconfIni(body)
+	p1, err := writeTempDconfIni(ctx, body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Remove(p1) })
+	t.Cleanup(func() {
+		if err := os.Remove(p1); err != nil {
+			t.Errorf("remove %s: %v", p1, err)
+		}
+	})
 
-	p2, err := writeTempDconfIni(body)
+	p2, err := writeTempDconfIni(ctx, body)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Remove(p2) })
+	t.Cleanup(func() {
+		if err := os.Remove(p2); err != nil {
+			t.Errorf("remove %s: %v", p2, err)
+		}
+	})
 
 	if p1 == p2 {
 		t.Fatalf("expected unique temp paths, both %q", p1)
@@ -50,6 +61,7 @@ func TestWriteTempDconfIni_UniqueAndContents(t *testing.T) {
 }
 
 func TestWriteTempDconfIni_ConcurrentNoCollision(t *testing.T) {
+	ctx := logging.NewWriterContext(t.Output())
 	const n = 16
 	paths := make([]string, n)
 	var wg sync.WaitGroup
@@ -59,7 +71,7 @@ func TestWriteTempDconfIni_ConcurrentNoCollision(t *testing.T) {
 		i := i
 		go func() {
 			defer wg.Done()
-			p, err := writeTempDconfIni(strings.Repeat("x", i+1))
+			p, err := writeTempDconfIni(ctx, strings.Repeat("x", i+1))
 			if err != nil {
 				errCh <- err
 				return
@@ -75,7 +87,9 @@ func TestWriteTempDconfIni_ConcurrentNoCollision(t *testing.T) {
 	t.Cleanup(func() {
 		for _, p := range paths {
 			if p != "" {
-				_ = os.Remove(p)
+				if err := os.Remove(p); err != nil {
+					t.Errorf("remove %s: %v", p, err)
+				}
 			}
 		}
 	})

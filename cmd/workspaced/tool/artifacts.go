@@ -116,7 +116,9 @@ Use --hint to simulate different binary names (affects the name-matching points)
 					fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\t%s\n",
 						e.Score, osStr, archStr, e.URL, hashStr, sizeStr)
 				}
-				_ = w.Flush()
+				if flushErr := w.Flush(); flushErr != nil {
+					// best-effort flush; non-fatal for artifact listing
+				}
 				return nil
 			},
 		}

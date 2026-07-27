@@ -64,7 +64,9 @@ func (p *Proxy) loop(ctx context.Context) error {
 			}
 			logger.Error("lsp handle client", "method", msg.Method, "error", err)
 			if msg.IsRequest() {
-				_ = p.client.WriteError(msg.ID, CodeInternalError, err.Error())
+				if writeErr := p.client.WriteError(msg.ID, CodeInternalError, err.Error()); writeErr != nil {
+					logging.ReportError(ctx, writeErr)
+				}
 			}
 		}
 	}
@@ -248,7 +250,11 @@ func (p *Proxy) onDidChange(ctx context.Context, msg *Message) error {
 			{"text": doc.Text},
 		},
 	}
-	raw, _ := json.Marshal(fullParams)
+	raw, marshalErr := json.Marshal(fullParams)
+	if marshalErr != nil {
+		logging.ReportError(ctx, marshalErr)
+		return nil
+	}
 	go p.syncNotify(ctx, doc.Language, "textDocument/didChange", raw)
 	return nil
 }
@@ -286,7 +292,10 @@ func (p *Proxy) syncNotify(ctx context.Context, lang, method string, params json
 		go func(backend *Backend) {
 			defer wg.Done()
 			var raw any
-			_ = json.Unmarshal(params, &raw)
+			if unmarshalErr := json.Unmarshal(params, &raw); unmarshalErr != nil {
+				logging.ReportError(ctx, unmarshalErr)
+				raw = nil
+			}
 			if err := backend.Notify(method, raw); err != nil {
 				logging.GetLogger(ctx).Debug("lsp sync notify", "server", backend.ServerID, "method", method, "error", err)
 			}
@@ -320,7 +329,10 @@ func (p *Proxy) fanoutNotifyAll(ctx context.Context, msg *Message) error {
 	}
 	p.mu.Unlock()
 	var raw any
-	_ = json.Unmarshal(msg.Params, &raw)
+	if unmarshalErr := json.Unmarshal(msg.Params, &raw); unmarshalErr != nil {
+		logging.ReportError(ctx, unmarshalErr)
+		raw = nil
+	}
 	for _, b := range backends {
 		backend := b
 		go func() {
@@ -381,7 +393,10 @@ func (p *Proxy) forwardRequest(ctx context.Context, msg *Message) error {
 
 	var rawParams any
 	if len(msg.Params) > 0 {
-		_ = json.Unmarshal(msg.Params, &rawParams)
+		if unmarshalErr := json.Unmarshal(msg.Params, &rawParams); unmarshalErr != nil {
+			logging.ReportError(ctx, unmarshalErr)
+			rawParams = nil
+		}
 	}
 
 	type one struct {
@@ -449,7 +464,8 @@ func (p *Proxy) serverHasCapability(serverID, cap string) bool {
 
 func (p *Proxy) ensureLanguage(ctx context.Context, lang string) error {
 	p.mu.Lock()
-	if _, ok := p.langServers[lang]; ok {
+	if ls, ok := p.langServers[lang]; ok {
+		_ = ls
 		p.mu.Unlock()
 		return nil
 	}
@@ -483,14 +499,16 @@ func (p *Proxy) ensureLanguage(ctx context.Context, lang string) error {
 		}
 		// Replay open docs for this language.
 		for _, doc := range p.docs.ByLanguage(lang) {
-			_ = backend.Notify("textDocument/didOpen", map[string]any{
+			if notifyErr := backend.Notify("textDocument/didOpen", map[string]any{
 				"textDocument": map[string]any{
 					"uri":        doc.URI,
 					"languageId": doc.LanguageID,
 					"version":    doc.Version,
 					"text":       doc.Text,
 				},
-			})
+			}); notifyErr != nil {
+				logging.ReportError(ctx, notifyErr, "server", b.ServerID, "op", "didOpen replay")
+			}
 		}
 		p.mu.Lock()
 		p.backends[b.ServerID] = backend
@@ -507,7 +525,10 @@ func (p *Proxy) initializeBackend(ctx context.Context, backend *Backend) error {
 	// Build initialize params from client, forcing our root.
 	var base map[string]any
 	if len(p.initParams) > 0 {
-		_ = json.Unmarshal(p.initParams, &base)
+		if unmarshalErr := json.Unmarshal(p.initParams, &base); unmarshalErr != nil {
+			logging.ReportError(ctx, unmarshalErr)
+			base = nil
+		}
 	}
 	if base == nil {
 		base = map[string]any{}
@@ -536,7 +557,6 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 	// For requests, we need to reply — v1 only forwards notifications to avoid ID chaos.
 	if msg.IsRequest() {
 		// Respond with method not found so backends don't hang; log.
-		_ = msg
 		go func() {
 			// Soft: ignore server-initiated requests for v1 (configuration etc. may break some servers).
 			// Try to answer workspace/configuration with empty items if we can.
@@ -544,18 +564,26 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 				var params struct {
 					Items []json.RawMessage `json:"items"`
 				}
-				_ = json.Unmarshal(msg.Params, &params)
+				if unmarshalErr := json.Unmarshal(msg.Params, &params); unmarshalErr != nil {
+					logging.ReportError(p.ctx, unmarshalErr)
+				}
 				result := make([]any, len(params.Items))
-				raw, _ := json.Marshal(result)
+				raw, marshalErr := json.Marshal(result)
+				if marshalErr != nil {
+					logging.ReportError(p.ctx, marshalErr)
+					raw = json.RawMessage("null")
+				}
 				p.mu.Lock()
 				b := p.backends[serverID]
 				p.mu.Unlock()
 				if b != nil {
-					_ = b.conn.WriteMessage(&Message{
+					if writeErr := b.conn.WriteMessage(&Message{
 						JSONRPC: "2.0",
 						ID:      msg.ID,
 						Result:  raw,
-					})
+					}); writeErr != nil {
+						logging.ReportError(p.ctx, writeErr, "server", serverID)
+					}
 				}
 				return
 			}
@@ -564,11 +592,13 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 				b := p.backends[serverID]
 				p.mu.Unlock()
 				if b != nil {
-					_ = b.conn.WriteMessage(&Message{
+					if writeErr := b.conn.WriteMessage(&Message{
 						JSONRPC: "2.0",
 						ID:      msg.ID,
 						Result:  json.RawMessage("null"),
-					})
+					}); writeErr != nil {
+						logging.ReportError(p.ctx, writeErr, "server", serverID)
+					}
 				}
 				return
 			}
@@ -578,11 +608,13 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 				b := p.backends[serverID]
 				p.mu.Unlock()
 				if b != nil {
-					_ = b.conn.WriteMessage(&Message{
+					if writeErr := b.conn.WriteMessage(&Message{
 						JSONRPC: "2.0",
 						ID:      msg.ID,
 						Result:  json.RawMessage("null"),
-					})
+					}); writeErr != nil {
+						logging.ReportError(p.ctx, writeErr, "server", serverID)
+					}
 				}
 				return
 			}
@@ -591,7 +623,9 @@ func (p *Proxy) onBackendMessage(serverID string, msg *Message) {
 		return
 	}
 	// Notifications (diagnostics, logMessage, …)
-	_ = p.client.WriteMessage(msg)
+	if writeErr := p.client.WriteMessage(msg); writeErr != nil {
+		logging.ReportError(p.ctx, writeErr)
+	}
 }
 
 func (p *Proxy) bindingsLive(lang string) []LanguageBinding {
@@ -613,8 +647,12 @@ func (p *Proxy) closeAll(ctx context.Context) {
 	shutdownCtx := context.WithoutCancel(ctx)
 	for id, b := range p.backends {
 		// best-effort shutdown
-		_, _ = b.Request(shutdownCtx, "shutdown", nil)
-		_ = b.Notify("exit", nil)
+		if _, reqErr := b.Request(shutdownCtx, "shutdown", nil); reqErr != nil {
+			logging.ReportError(shutdownCtx, reqErr, "server", id, "op", "shutdown")
+		}
+		if notifyErr := b.Notify("exit", nil); notifyErr != nil {
+			logging.ReportError(shutdownCtx, notifyErr, "server", id, "op", "exit")
+		}
 		b.Close()
 		delete(p.backends, id)
 	}

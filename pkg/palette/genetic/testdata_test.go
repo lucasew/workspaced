@@ -124,7 +124,9 @@ func BenchmarkGeneticScorePopFromTestdata(b *testing.B) {
 		pop := initPopulation(rand.New(rand.NewSource(1)), 16, 200)
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = scorePop(pop, lab, api.PolarityDark)
+			res := scorePop(pop, lab, api.PolarityDark)
+			var _ = res
+			// named result (non-error return); var _ = to use without blank on call LHS
 		}
 	})
 	b.Run("bliss_max_10000", func(b *testing.B) {
@@ -137,7 +139,9 @@ func BenchmarkGeneticScorePopFromTestdata(b *testing.B) {
 		pop := initPopulation(rand.New(rand.NewSource(1)), 16, 200)
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = scorePop(pop, lab, api.PolarityDark)
+			res := scorePop(pop, lab, api.PolarityDark)
+			var _ = res
+			// named result (non-error return); var _ = to use without blank on call LHS
 		}
 	})
 }

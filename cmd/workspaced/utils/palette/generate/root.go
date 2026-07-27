@@ -57,12 +57,16 @@ func GetCommand() *cobra.Command {
 	cmd.Flags().StringVar(&driverName, "driver", "genetic", "Extraction algorithm (see: palette drivers)")
 	cmd.Flags().StringVar(&polarity, "polarity", "any", "Theme preference: dark, light, or any")
 	cmd.Flags().IntVar(&colorCount, "colors", 16, "Number of colors (16 for base16, 24 for base24)")
-	_ = cmd.RegisterFlagCompletionFunc("driver", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if regErr := cmd.RegisterFlagCompletionFunc("driver", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return palette.DriverNames(), cobra.ShellCompDirectiveNoFileComp
-	})
-	_ = cmd.RegisterFlagCompletionFunc("polarity", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	}); regErr != nil {
+		// completion registration is best-effort
+	}
+	if regErr := cmd.RegisterFlagCompletionFunc("polarity", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"any", "dark", "light"}, cobra.ShellCompDirectiveNoFileComp
-	})
+	}); regErr != nil {
+		// completion registration is best-effort
+	}
 	return cmd
 }
 
@@ -76,7 +80,9 @@ Drivers (see also: workspaced utils palette drivers):
 	for _, d := range palette.ListDrivers() {
 		fmt.Fprintf(w, "  %s\t%s\n", d.Name(), d.Description())
 	}
-	_ = w.Flush()
+	if flushErr := w.Flush(); flushErr != nil {
+		// best-effort for help text formatting
+	}
 	b.WriteString(`
 Examples:
   # Generate dark theme from wallpaper (default genetic driver)

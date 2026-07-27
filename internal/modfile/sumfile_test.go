@@ -12,11 +12,14 @@ func TestLoadSumFileRequiresSource(t *testing.T) {
 
 	dir := t.TempDir()
 	sumPath := filepath.Join(dir, "workspaced.lock.json")
-	content, _ := json.Marshal(map[string]any{
+	content, err := json.Marshal(map[string]any{
 		"modules": map[string]any{
 			"foo": map[string]any{"version": "v1.0.0"},
 		},
 	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
 	if err := os.WriteFile(sumPath, content, 0644); err != nil {
 		t.Fatalf("write sum: %v", err)
 	}
@@ -35,19 +38,21 @@ func TestLoadSumFileRequiresSourceProvider(t *testing.T) {
 
 	dir := t.TempDir()
 	sumPath := filepath.Join(dir, "workspaced.lock.json")
-	content, _ := json.Marshal(map[string]any{
+	content, err := json.Marshal(map[string]any{
 		"sources": map[string]any{
 			"papirus": map[string]any{"path": "/tmp/papirus"},
 		},
 	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
 	if err := os.WriteFile(sumPath, content, 0644); err != nil {
 		t.Fatalf("write sum: %v", err)
 	}
 
-	_, err := LoadSumFile(sumPath)
-	// sources top-level is no longer processed (leftovers removed); load succeeds with empty deps.
-	if err != nil {
-		t.Fatalf("unexpected error on legacy sources shape: %v", err)
+	if _, loadErr := LoadSumFile(sumPath); loadErr != nil {
+		// sources top-level is no longer processed (leftovers removed); load succeeds with empty deps.
+		t.Fatalf("unexpected error on legacy sources shape: %v", loadErr)
 	}
 }
 
@@ -56,7 +61,7 @@ func TestLoadSumFileRequiresSourceHash(t *testing.T) {
 
 	dir := t.TempDir()
 	sumPath := filepath.Join(dir, "workspaced.lock.json")
-	content, _ := json.Marshal(map[string]any{
+	content, err := json.Marshal(map[string]any{
 		"sources": map[string]any{
 			"papirus": map[string]any{
 				"provider": "github",
@@ -65,14 +70,16 @@ func TestLoadSumFileRequiresSourceHash(t *testing.T) {
 			},
 		},
 	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
 	if err := os.WriteFile(sumPath, content, 0644); err != nil {
 		t.Fatalf("write sum: %v", err)
 	}
 
-	_, err := LoadSumFile(sumPath)
-	// sources top-level is no longer processed (leftovers removed).
-	if err != nil {
-		t.Fatalf("unexpected error on legacy sources shape: %v", err)
+	if _, loadErr := LoadSumFile(sumPath); loadErr != nil {
+		// sources top-level is no longer processed (leftovers removed).
+		t.Fatalf("unexpected error on legacy sources shape: %v", loadErr)
 	}
 }
 

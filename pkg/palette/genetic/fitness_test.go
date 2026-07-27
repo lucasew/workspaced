@@ -116,13 +116,17 @@ func BenchmarkImageSimilarityOldVsNew(b *testing.B) {
 	b.Run("historical_deltae", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = historicalImageSimilarity(palette, image)
+			res := historicalImageSimilarity(palette, image)
+			var _ = res
+			// named result (non-error return); var _ = to use without blank on call LHS
 		}
 	})
 	b.Run("squared_then_sqrt", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = calculateImageSimilarity(palette, image)
+			res := calculateImageSimilarity(palette, image)
+			var _ = res
+			// named result (non-error return); var _ = to use without blank on call LHS
 		}
 	})
 }
@@ -148,7 +152,9 @@ func BenchmarkCalculateFitness(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		_ = calculateFitness(ind, image, api.PolarityDark)
+		res := calculateFitness(ind, image, api.PolarityDark)
+		var _ = res
+		// named result (non-error return); var _ = to use without blank on call LHS
 	}
 }
 
@@ -162,6 +168,8 @@ func BenchmarkScorePopSubset(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		_ = scorePop(pop, image, api.PolarityDark)
+		res := scorePop(pop, image, api.PolarityDark)
+		var _ = res
+		// named result (non-error return); var _ = to use without blank on call LHS
 	}
 }

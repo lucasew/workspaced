@@ -100,17 +100,23 @@ func WriteMember(path string, mode os.FileMode, r io.Reader) error {
 	_, copyErr := io.Copy(f, r)
 	closeErr := f.Close()
 	if copyErr != nil {
-		_ = os.Remove(path)
+		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			// cleanup failure secondary to copy err
+		}
 		return copyErr
 	}
 	if closeErr != nil {
-		_ = os.Remove(path)
+		if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			// cleanup failure secondary to close err
+		}
 		return closeErr
 	}
 	// Re-apply executable bits when OpenFile's mode was masked by umask.
 	if mode&0o111 != 0 {
 		if err := os.Chmod(path, mode); err != nil {
-			_ = os.Remove(path)
+			if rmErr := os.Remove(path); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				// cleanup failure secondary to chmod err
+			}
 			return fmt.Errorf("set permissions: %w", err)
 		}
 	}

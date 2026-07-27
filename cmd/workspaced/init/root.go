@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/internal/constants"
@@ -108,8 +109,8 @@ func generateConfig(ctx context.Context, configPath string) error {
 	}
 
 	// Prepare template data
-	hostname, _ := os.Hostname()
-	if hostname == "" {
+	hostname, hErr := os.Hostname()
+	if hErr != nil || hostname == "" {
 		hostname = "localhost"
 	}
 
@@ -143,15 +144,21 @@ func generateConfig(ctx context.Context, configPath string) error {
 	}
 	if err := tmpl.Execute(f, data); err != nil {
 		logging.Close(ctx, f)
-		_ = os.Remove(tmpPath)
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			err = errors.Join(err, rmErr)
+		}
 		return fmt.Errorf("execute template: %w", err)
 	}
 	if err := f.Close(); err != nil {
-		_ = os.Remove(tmpPath)
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			err = errors.Join(err, rmErr)
+		}
 		return fmt.Errorf("close config temp file: %w", err)
 	}
 	if err := os.Rename(tmpPath, configPath); err != nil {
-		_ = os.Remove(tmpPath)
+		if rmErr := os.Remove(tmpPath); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			err = errors.Join(err, rmErr)
+		}
 		return fmt.Errorf("replace config file: %w", err)
 	}
 

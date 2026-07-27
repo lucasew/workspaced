@@ -91,7 +91,10 @@ func DownloadFile(ctx context.Context, url, dest string, opts DownloadOptions) e
 		}
 		logger := logging.GetLogger(ctx)
 		logger.Warn("fetchurl verified download failed, falling back to direct http download", "url", url, "err", fetchErr)
-		_ = os.Remove(atomicfile.SiblingTemp(dest))
+		tmp := atomicfile.SiblingTemp(dest)
+		if rmErr := os.Remove(tmp); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			logging.ReportError(ctx, rmErr, "path", tmp)
+		}
 	}
 
 	if err := downloadDirect(ctx, url, dest, opts); err != nil {
@@ -386,7 +389,9 @@ func unzip(ctx context.Context, src, dest string) error {
 			return writeErr
 		}
 		if closeErr != nil {
-			_ = os.Remove(target)
+			if rmErr := os.Remove(target); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", target)
+			}
 			return closeErr
 		}
 	}

@@ -112,8 +112,8 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 	cacheRoot := envdriver.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
 	cacheDir := filepath.Join(cacheRoot, fp)
 	indexPath := filepath.Join(cacheDir, "index.theme")
-	_, indexErr := os.Stat(indexPath)
-	warm := indexErr == nil
+	st, indexErr := os.Stat(indexPath)
+	warm := indexErr == nil && st != nil
 	noCache := cmdctx.IsNoCache(ctx)
 	if warm && !noCache {
 		// cache hit
@@ -124,7 +124,9 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 			logging.GetLogger(ctx).Debug("no-cache: regenerating icons", "cache_dir", cacheDir)
 		}
 		workDir := cacheDir + ".tmp"
-		_ = os.RemoveAll(workDir)
+		if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+			logging.ReportError(ctx, rmErr, "path", workDir)
+		}
 		if err := os.MkdirAll(workDir, 0755); err != nil {
 			return nil, err
 		}
@@ -145,11 +147,15 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 			UseCache:       false,
 		})
 		if err != nil {
-			_ = os.RemoveAll(workDir)
+			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", workDir)
+			}
 			return nil, err
 		}
 		if err := atomicReplaceDir(cacheDir, workDir); err != nil {
-			_ = os.RemoveAll(workDir)
+			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+				logging.ReportError(ctx, rmErr, "path", workDir)
+			}
 			return nil, err
 		}
 	}

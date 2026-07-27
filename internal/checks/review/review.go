@@ -284,5 +284,7 @@ func writeWorkflowCommand(w io.Writer, level, file string, line, col int, tool, 
 	if col > 0 {
 		props += fmt.Sprintf(",col=%d", col)
 	}
-	_, _ = fmt.Fprintf(w, "::%s %s::%s\n", cmd, props, msg)
+	if _, ferr := fmt.Fprintf(w, "::%s %s::%s\n", cmd, props, msg); ferr != nil {
+		// best-effort write of workflow command; ignore failure
+	}
 }

@@ -104,8 +104,12 @@ func TestProxyInitializeEmptyConfig(t *testing.T) {
 		t.Fatalf("want MethodNotFound, got %+v result=%s", msg.Error, msg.Result)
 	}
 
-	_ = clientToServer.Close()
-	_ = serverOut.Close()
+	if err := clientToServer.Close(); err != nil {
+		t.Logf("close clientToServer: %v", err)
+	}
+	if err := serverOut.Close(); err != nil {
+		t.Logf("close serverOut: %v", err)
+	}
 	select {
 	case <-errCh:
 	case <-time.After(2 * time.Second):
@@ -121,7 +125,11 @@ func TestProxyMultiRootRejected(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(logging.NewWriterContext(io.Discard))
 	defer cancel()
-	go func() { _ = Run(ctx, serverIn, serverOut) }()
+	go func() {
+		if err := Run(ctx, serverIn, serverOut); err != nil {
+			// expected during test shutdown
+		}
+	}()
 
 	writeLSP(t, clientToServer, map[string]any{
 		"jsonrpc": "2.0",
@@ -143,7 +151,9 @@ func TestProxyMultiRootRejected(t *testing.T) {
 	if msg.Error == nil || !strings.Contains(msg.Error.Message, "single workspace") {
 		t.Fatalf("want multi-root error, got %+v", msg.Error)
 	}
-	_ = clientToServer.Close()
+	if err := clientToServer.Close(); err != nil {
+		t.Logf("close clientToServer: %v", err)
+	}
 	cancel()
 }
 

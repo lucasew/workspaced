@@ -57,27 +57,39 @@ func TestFixRubyShebangs(t *testing.T) {
 	}
 
 	// Check badScript
-	got, _ := os.ReadFile(badScript)
+	got, err := os.ReadFile(badScript)
+	if err != nil {
+		t.Fatalf("read badScript: %v", err)
+	}
 	want := "#!" + goodRuby + "\nputs 'hello'\n"
 	if string(got) != want {
 		t.Errorf("bundle shebang: got %q want %q", string(got), want)
 	}
 
 	// Check with args preserved
-	got, _ = os.ReadFile(badWithArgs)
+	got, err = os.ReadFile(badWithArgs)
+	if err != nil {
+		t.Fatalf("read badWithArgs: %v", err)
+	}
 	want = "#!" + goodRuby + " -w\nputs 'rake'\n"
 	if string(got) != want {
 		t.Errorf("rake shebang: got %q want %q", string(got), want)
 	}
 
 	// good unchanged
-	got, _ = os.ReadFile(good)
+	got, err = os.ReadFile(good)
+	if err != nil {
+		t.Fatalf("read good: %v", err)
+	}
 	if string(got) != goodContent {
 		t.Errorf("good changed: %q", string(got))
 	}
 
 	// other unchanged
-	got, _ = os.ReadFile(other)
+	got, err = os.ReadFile(other)
+	if err != nil {
+		t.Fatalf("read other: %v", err)
+	}
 	if !bytesHasPrefix(got, []byte("#!/bin/sh")) {
 		t.Errorf("other shebang changed unexpectedly")
 	}
@@ -96,15 +108,24 @@ func TestRubyToolImplementsInstallFixer(t *testing.T) {
 	// We just exercise the method we already have.
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "bin")
-	_ = os.MkdirAll(bin, 0o755)
-	_ = os.WriteFile(filepath.Join(bin, "ruby"), []byte("fake"), 0o755)
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "ruby"), []byte("fake"), 0o755); err != nil {
+		t.Fatalf("write ruby: %v", err)
+	}
 	script := filepath.Join(bin, "irb")
-	_ = os.WriteFile(script, []byte("#!/opt/hostedtoolcache/Ruby/4.0.5/x64/bin/ruby\n# gem wrapper\n"), 0o755)
+	if err := os.WriteFile(script, []byte("#!/opt/hostedtoolcache/Ruby/4.0.5/x64/bin/ruby\n# gem wrapper\n"), 0o755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
 
 	if err := tool.Fix(t.Context(), dir); err != nil {
 		t.Fatal(err)
 	}
-	b, _ := os.ReadFile(script)
+	b, err := os.ReadFile(script)
+	if err != nil {
+		t.Fatalf("read script: %v", err)
+	}
 	if !bytesHasPrefix(b, []byte("#!"+filepath.Join(dir, "bin", "ruby"))) {
 		t.Errorf("Fix via interface did not rewrite: %q", string(b[:60]))
 	}

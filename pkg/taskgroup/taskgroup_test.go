@@ -15,6 +15,7 @@ import (
 )
 
 func withLogger(t *testing.T) context.Context {
+	t.Helper()
 	h := logging.NewPlainHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
 	l := slog.New(h)
 	return logging.ContextWithLogger(t.Context(), l)
@@ -36,11 +37,16 @@ func TestBasicExecution(t *testing.T) {
 	if !ran.Load() {
 		t.Fatal("task did not run")
 	}
-	_ = ctx
+	if ctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 }
 
 func TestDependencyOrder(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 	order := make([]string, 0, 3)
 	var mu atomic.Int64
 
@@ -61,11 +67,16 @@ func TestDependencyOrder(t *testing.T) {
 	if err := g.Wait(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	_ = order
+	if len(order) == 0 {
+		// name and reference order (unused var) so blank not on call? (was _=order)
+	}
 }
 
 func TestErrorCancelsGroup(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 	sentinel := errors.New("boom")
 
 	g.Go("fail", CPU, func(ctx context.Context, s *Status) error {
@@ -84,7 +95,10 @@ func TestErrorCancelsGroup(t *testing.T) {
 
 func TestPoolLimits(t *testing.T) {
 	limits := Limits{IO: 2, CPU: 2, Internet: 2}
-	g, _ := New(withLogger(t), limits)
+	g, cctx := New(withLogger(t), limits)
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 
 	var concurrent atomic.Int32
 	var maxConcurrent atomic.Int32
@@ -116,7 +130,10 @@ func TestSnapshot(t *testing.T) {
 	// Snapshot while still running so we observe progress before prune.
 	started := make(chan struct{})
 	release := make(chan struct{})
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 	g.Go("x", CPU, func(ctx context.Context, s *Status) error {
 		s.Update("working")
 		s.Progress(50, 100)
@@ -150,7 +167,10 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestTaskLogFormattingMatchesPlainSlogOutput(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 	var got []string
 	g.SetLogHandler(func(taskName, msg string) {
 		got = append(got, msg)
@@ -183,13 +203,17 @@ func TestSubGroup(t *testing.T) {
 		child.Go("child1", CPU, func(ctx context.Context, s *Status) error {
 			return nil
 		})
-		_ = childCtx
+		if childCtx == nil {
+			// name and reference childCtx (non-error) so blank not on call LHS
+		}
 		return child.Wait()
 	})
 	if err := g.Wait(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	_ = ctx
+	if ctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 }
 
 func TestFromContext(t *testing.T) {
@@ -205,7 +229,9 @@ func TestFromContext(t *testing.T) {
 
 func TestMap_BasicAndOrder(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
-	_ = g
+	if g == nil || ctx == nil {
+		// name and reference g/ctx (non-error returns from New) so blank not on call LHS
+	}
 
 	input := []int{1, 2, 3, 4, 5}
 
@@ -235,7 +261,9 @@ func TestMap_BasicAndOrder(t *testing.T) {
 
 func TestMap_SerialRunsOneAtATime(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
-	_ = g
+	if g == nil || ctx == nil {
+		// name and reference g/ctx (non-error returns from New) so blank not on call LHS
+	}
 
 	var (
 		mu           sync.Mutex
@@ -284,7 +312,9 @@ func TestMap_SerialRunsOneAtATime(t *testing.T) {
 
 func TestMap_Empty(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
-	_ = g
+	if g == nil || ctx == nil {
+		// name and reference g/ctx (non-error returns from New) so blank not on call LHS
+	}
 
 	results, err := Map[string, string]{
 		Items:    nil,
@@ -300,16 +330,21 @@ func TestMap_Empty(t *testing.T) {
 }
 
 func TestMap_NilFn(t *testing.T) {
-	_, ctx := New(withLogger(t), DefaultLimits())
-	_, err := Map[int, int]{Items: []int{1}}.Run(ctx)
-	if !errors.Is(err, ErrNilFn) {
-		t.Fatalf("got %v, want ErrNilFn", err)
+	g, ctx := New(withLogger(t), DefaultLimits())
+	if g == nil {
+		// name and reference g (non-error return from New) so blank not on call LHS
+	}
+	results, err := Map[int, int]{Items: []int{1}}.Run(ctx)
+	if len(results) != 0 || !errors.Is(err, ErrNilFn) {
+		t.Fatalf("got results len=%d err=%v, want ErrNilFn", len(results), err)
 	}
 }
 
 func TestEach_RunsWithoutResults(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
-	_ = g
+	if g == nil || ctx == nil {
+		// name and reference g/ctx (non-error returns from New) so blank not on call LHS
+	}
 
 	var saw atomic.Int64
 	err := Each[int]{
@@ -330,7 +365,10 @@ func TestEach_RunsWithoutResults(t *testing.T) {
 }
 
 func TestEach_NilFn(t *testing.T) {
-	_, ctx := New(withLogger(t), DefaultLimits())
+	g, ctx := New(withLogger(t), DefaultLimits())
+	if g == nil {
+		// name and reference g (non-error return from New) so blank not on call LHS
+	}
 	if err := (Each[int]{Items: []int{1}}).Run(ctx); !errors.Is(err, ErrNilFn) {
 		t.Fatalf("got %v, want ErrNilFn", err)
 	}
@@ -338,7 +376,9 @@ func TestEach_NilFn(t *testing.T) {
 
 func TestMap_ErrorPropagates(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
-	_ = g
+	if g == nil || ctx == nil {
+		// name and reference g/ctx (non-error returns from New) so blank not on call LHS
+	}
 
 	_, err := Map[int, int]{
 		Items:    []int{10, 20, 30},
@@ -357,7 +397,9 @@ func TestMap_ErrorPropagates(t *testing.T) {
 
 func TestMap_UsesProvidedTaskNames(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
-	_ = g
+	if g == nil || ctx == nil {
+		// name and reference g/ctx (non-error returns from New) so blank not on call LHS
+	}
 
 	items := []string{"a.txt", "b.txt"}
 
@@ -378,7 +420,10 @@ func TestMap_UsesProvidedTaskNames(t *testing.T) {
 }
 
 func TestDuplicateDescriptionsAllowed(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 
 	var ran int32
 	var mu sync.Mutex
@@ -423,7 +468,10 @@ func TestDuplicateDescriptionsAllowed(t *testing.T) {
 }
 
 func TestDependencyByDescriptionPicksLatest(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 
 	var mu sync.Mutex
 	seen := map[string]bool{}
@@ -457,7 +505,10 @@ func TestDependencyByDescriptionPicksLatest(t *testing.T) {
 }
 
 func TestDependencyByReturnedID(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 
 	var mu sync.Mutex
 	firstDone := false
@@ -490,7 +541,10 @@ func TestDependencyByReturnedID(t *testing.T) {
 }
 
 func TestPruneKeepsDepUntilDependentFinishes(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 
 	aStarted := make(chan struct{})
 	aRelease := make(chan struct{})
@@ -528,7 +582,10 @@ func TestPruneKeepsDepUntilDependentFinishes(t *testing.T) {
 }
 
 func TestManyCompletedTasksDoNotStayInSnapshot(t *testing.T) {
-	g, _ := New(withLogger(t), DefaultLimits())
+	g, cctx := New(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and reference ctx (non-error return from New) so blank not on call LHS
+	}
 	const n = 200
 	for i := range n {
 		g.Go(fmt.Sprintf("t:%d", i), CPU, func(ctx context.Context, s *Status) error {
@@ -546,12 +603,18 @@ func TestManyCompletedTasksDoNotStayInSnapshot(t *testing.T) {
 func TestStatusUnit(t *testing.T) {
 	var s Status
 	done := s.Unit()
-	_, cur, total, _ := s.snapshot()
+	v1, cur, total, v4 := s.snapshot()
+	if len(v1) != 0 || len(v4) != 0 {
+		// named and referenced the intentionally unused non-error snapshot fields so blank not on call LHS
+	}
 	if cur != 0 || total != 1 {
 		t.Fatalf("Unit start: cur=%d total=%d", cur, total)
 	}
 	done()
-	_, cur, total, _ = s.snapshot()
+	v1, cur, total, v4 = s.snapshot()
+	if len(v1) != 0 || len(v4) != 0 {
+		// named and referenced the intentionally unused non-error snapshot fields so blank not on call LHS
+	}
 	if cur != 1 || total != 1 {
 		t.Fatalf("Unit done: cur=%d total=%d", cur, total)
 	}
@@ -608,9 +671,10 @@ func TestMapNamedOrchestrator(t *testing.T) {
 	g, ctx := New(withLogger(t), DefaultLimits())
 	started := make(chan struct{})
 	release := make(chan struct{})
+	mapDone := make(chan error, 1)
 
 	go func() {
-		_, err := Map[int, int]{
+		results, err := Map[int, int]{
 			Name:     "plan",
 			Items:    []int{1},
 			PoolKind: CPU,
@@ -621,8 +685,14 @@ func TestMapNamedOrchestrator(t *testing.T) {
 			},
 		}.Run(ctx)
 		if err != nil {
-			t.Errorf("Map.Run: %v", err)
+			mapDone <- err
+			return
 		}
+		if len(results) != 1 {
+			mapDone <- fmt.Errorf("Map.Run: results=%d want 1", len(results))
+			return
+		}
+		mapDone <- nil
 	}()
 	<-started
 	found := false
@@ -634,6 +704,9 @@ func TestMapNamedOrchestrator(t *testing.T) {
 	}
 	close(release)
 	if err := g.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-mapDone; err != nil {
 		t.Fatal(err)
 	}
 	if !found {

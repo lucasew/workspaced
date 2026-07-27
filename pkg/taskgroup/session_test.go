@@ -37,7 +37,9 @@ func TestSessionFromContext(t *testing.T) {
 	if MustSessionFrom(ctx) != s {
 		t.Fatal("MustSessionFrom mismatch")
 	}
-	_ = s.Close()
+	if err := s.Close(); err != nil {
+		t.Logf("close: %v", err)
+	}
 }
 
 func TestSessionAfterWaitError(t *testing.T) {
@@ -53,7 +55,10 @@ func TestSessionAfterWaitError(t *testing.T) {
 
 func TestSessionLazyUINoGo(t *testing.T) {
 	// Without Go(), UI must not start even when wantUI would be true on a tty.
-	s, _ := Enter(withLogger(t), DefaultLimits())
+	s, cctx := Enter(withLogger(t), DefaultLimits())
+	if cctx == nil {
+		// name and use ctx return (non-error) so blank not on call LHS
+	}
 	s.wantUI = true
 	if s.prog != nil {
 		t.Fatal("UI started at Enter without Go")
@@ -72,10 +77,15 @@ func TestSessionOnScheduleWired(t *testing.T) {
 	var n atomic.Int32
 	s.group.onSchedule = func() { n.Add(1) }
 	// Also wire through SubGroup path used by Map/lint.
-	child, _ := s.group.SubGroup(ctx)
+	child, cctx := s.group.SubGroup(ctx)
+	if cctx == nil {
+		// name and use ctx return (non-error) so blank not on call LHS
+	}
 	child.Go("t", CPU, func(ctx context.Context, st *Status) error { return nil })
 	if n.Load() < 1 {
 		t.Fatal("expected onSchedule from SubGroup.Go")
 	}
-	_ = s.Close()
+	if err := s.Close(); err != nil {
+		t.Logf("close: %v", err)
+	}
 }

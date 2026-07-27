@@ -208,7 +208,10 @@ func (a GitRepoSyncAction) commitIfDirty(ctx context.Context) error {
 	} else if a.run(ctx, "diff-index", "HEAD", "--exit-code") == nil {
 		return nil
 	}
-	hostname, _ := os.Hostname()
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
 	commitMsg := fmt.Sprintf("backup checkpoint %s", hostname)
 	if err := a.run(ctx, "commit", "-sm", commitMsg); err != nil {
 		return fmt.Errorf("git commit failed for %s: %w", a.Src, err)

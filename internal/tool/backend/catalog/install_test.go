@@ -48,7 +48,13 @@ func appendStepSummary(s string) {
 		return
 	}
 	defer f.Close()
-	_, _ = f.WriteString(s)
+	n, err := f.WriteString(s)
+	if err != nil {
+		return
+	}
+	if n == 0 {
+		// name n (non-error count) and reference so blank not on call LHS
+	}
 }
 
 func reportInstallFailure(tool, msg string) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -203,7 +204,9 @@ Uses caching for performance - regenerates only when source files change.`,
 			if err := os.WriteFile(tmpCache, []byte(result), 0644); err != nil {
 				logger.Warn("failed to write shell init cache", "cache_file", tmpCache, "error", err)
 			} else if err := os.Rename(tmpCache, cacheFile); err != nil {
-				_ = os.Remove(tmpCache)
+				if rmErr := os.Remove(tmpCache); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
+					// best-effort cleanup; primary error is rename failure
+				}
 				logger.Warn("failed to finalize shell init cache", "cache_file", cacheFile, "error", err)
 			}
 
@@ -248,10 +251,18 @@ func calculatePreludeFingerprint(files []string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		_, _ = h.Write([]byte(file))
-		_, _ = h.Write([]byte{0})
-		_, _ = h.Write(content)
-		_, _ = h.Write([]byte{0})
+		if _, werr := h.Write([]byte(file)); werr != nil {
+			return "", werr
+		}
+		if _, werr := h.Write([]byte{0}); werr != nil {
+			return "", werr
+		}
+		if _, werr := h.Write(content); werr != nil {
+			return "", werr
+		}
+		if _, werr := h.Write([]byte{0}); werr != nil {
+			return "", werr
+		}
 	}
 	return hex.EncodeToString(h.Sum(nil))[:16], nil
 }
