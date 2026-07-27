@@ -27,15 +27,6 @@ func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Open(ctx context.Context, opts terminal.Options) error {
-	args := []string{}
-	if opts.Title != "" {
-		args = append(args, "--title", opts.Title)
-	}
-	if opts.Command != "" {
-		args = append(args, opts.Command)
-		args = append(args, opts.Args...)
-	}
-
-	cmd := execdriver.MustRun(ctx, "kitty", args...)
+	cmd := execdriver.MustRun(ctx, "kitty", terminal.BuildOpenArgs(opts, "--title", false)...)
 	return cmd.Start()
 }

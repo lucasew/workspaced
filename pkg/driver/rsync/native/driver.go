@@ -6,7 +6,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -38,20 +37,13 @@ func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Options) error {
-	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" {
-		return rsyncdriver.ErrNeedsSrcAndDst
+	if err := rsyncdriver.ValidatePaths(src, dst); err != nil {
+		return err
 	}
 	logger := logging.GetLogger(ctx)
 
 	// Build args in Sync so the perform closure (passed to RunWithTaskGroup) can capture everything it needs.
-	extraArgs := make([]string, 0, len(opts.Excludes))
-	for _, x := range opts.Excludes {
-		extraArgs = append(extraArgs, "--exclude="+x)
-	}
-	if opts.SkipPermissions {
-		extraArgs = append(extraArgs, "--no-perms")
-	}
-	args := append(extraArgs, "-avP", src, dst)
+	args := rsyncdriver.BuildCLIArgs(opts, []string{"-avP"}, src, dst)
 
 	perform := func(ctx context.Context, st *taskgroup.Status, extraOut io.Writer) error {
 		return d.execRsync(ctx, args, st, extraOut, logger)

@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"strings"
 
 	"github.com/lucasew/workspaced/pkg/driver"
 	rsyncdriver "github.com/lucasew/workspaced/pkg/driver/rsync"
@@ -36,31 +35,14 @@ func (f *Factory) New(ctx context.Context) (rsyncdriver.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) Sync(ctx context.Context, src, dst string, opts rsyncdriver.Options) error {
-	if strings.TrimSpace(src) == "" || strings.TrimSpace(dst) == "" {
-		return rsyncdriver.ErrNeedsSrcAndDst
+	if err := rsyncdriver.ValidatePaths(src, dst); err != nil {
+		return err
 	}
 	logger := logging.GetLogger(ctx)
 
-	// Build args for the gokrazy reimplementation.
-	//
-	// gokrazy/rsync uses a custom limited popt-style parser (internal/rsyncopts).
-	// Only options registered in gokrazyTable() are recognized at runtime.
-	// Several things (including -P and --partial) are commented out as
-	// "not yet implemented".
-	//
-	// Safe currently-active flags we can rely on:
-	//   -a, -v, --progress (long), --exclude, --no-perms
-	//
-	// We avoid -P and --partial here. Progress/partial transfer behavior
-	// is best-effort from the library itself + our own taskgroup status.
-	extraArgs := make([]string, 0, len(opts.Excludes))
-	for _, x := range opts.Excludes {
-		extraArgs = append(extraArgs, "--exclude="+x)
-	}
-	if opts.SkipPermissions {
-		extraArgs = append(extraArgs, "--no-perms")
-	}
-	args := append(extraArgs, "-av", "--progress", src, dst)
+	// gokrazy/rsync uses a limited popt-style parser: avoid -P/--partial (not
+	// implemented). Use long --progress instead; excludes/no-perms via BuildCLIArgs.
+	args := rsyncdriver.BuildCLIArgs(opts, []string{"-av", "--progress"}, src, dst)
 
 	perform := func(ctx context.Context, st *taskgroup.Status, extraOut io.Writer) error {
 		return d.runRsyncCmd(ctx, args, st, extraOut, logger)
