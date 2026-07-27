@@ -54,8 +54,44 @@ func TestFileExists(t *testing.T) {
 	if err := FileExists("bin/missing").Check(ctx, dir); err == nil {
 		t.Fatal("expected error for missing file")
 	}
+	// ../outside cleans to "outside" under destDir, then fails as missing — not ErrPathEscapes.
 	if err := FileExists("../outside").Check(ctx, dir); err == nil {
-		t.Fatal("expected error for path escape")
+		t.Fatal("expected error for path that cleans to a missing in-tree name")
+	}
+	if err := FileExists("").Check(ctx, dir); err == nil {
+		t.Fatal("expected error for empty relative path")
+	} else if !errors.Is(err, ErrEmptyRelPath) {
+		t.Fatalf("empty path error = %v, want ErrEmptyRelPath", err)
+	}
+	if err := FileExists(".").Check(ctx, dir); err == nil {
+		t.Fatal("expected error for . relative path")
+	} else if !errors.Is(err, ErrEmptyRelPath) {
+		t.Fatalf(". path error = %v, want ErrEmptyRelPath", err)
+	}
+}
+
+func TestSafeJoin(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+
+	got, err := safeJoin(dir, "bin/tool")
+	if err != nil {
+		t.Fatalf("safeJoin(bin/tool): %v", err)
+	}
+	want := filepath.Join(dir, "bin", "tool")
+	if got != want {
+		t.Fatalf("safeJoin = %q, want %q", got, want)
+	}
+
+	if _, err := safeJoin(dir, ""); !errors.Is(err, ErrEmptyRelPath) {
+		t.Fatalf("empty: %v, want ErrEmptyRelPath", err)
+	}
+	if _, err := safeJoin(dir, "."); !errors.Is(err, ErrEmptyRelPath) {
+		t.Fatalf("dot: %v, want ErrEmptyRelPath", err)
+	}
+	// ".." cleans to empty after jail normalize → empty relative path.
+	if _, err := safeJoin(dir, ".."); !errors.Is(err, ErrEmptyRelPath) {
+		t.Fatalf("dotdot: %v, want ErrEmptyRelPath", err)
 	}
 }
 
