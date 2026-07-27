@@ -24,6 +24,12 @@ var ErrFailed = errors.New("install check failed")
 // ErrBinaryNotFound is returned when Binary cannot locate cmdName under destDir.
 var ErrBinaryNotFound = errors.New("binary not found in install directory")
 
+// ErrEmptyRelPath is returned when safeJoin is given an empty or "." relative path.
+var ErrEmptyRelPath = errors.New("empty relative path")
+
+// ErrPathEscapes is returned when safeJoin would resolve outside destDir.
+var ErrPathEscapes = errors.New("path escapes install directory")
+
 // Check validates one expectation about an installed tool tree.
 type Check interface {
 	Name() string
@@ -165,7 +171,7 @@ func safeJoin(destDir, relPath string) (string, error) {
 	cleanRel := filepath.Clean("/" + filepath.ToSlash(relPath))
 	cleanRel = strings.TrimPrefix(cleanRel, "/")
 	if cleanRel == "" || cleanRel == "." {
-		return "", fmt.Errorf("empty relative path")
+		return "", ErrEmptyRelPath
 	}
 	joined := filepath.Join(destAbs, filepath.FromSlash(cleanRel))
 	joinedAbs, err := filepath.Abs(joined)
@@ -174,7 +180,7 @@ func safeJoin(destDir, relPath string) (string, error) {
 	}
 	sep := string(os.PathSeparator)
 	if joinedAbs != destAbs && !strings.HasPrefix(joinedAbs, destAbs+sep) {
-		return "", fmt.Errorf("path %q escapes install directory", relPath)
+		return "", fmt.Errorf("%w: %q", ErrPathEscapes, relPath)
 	}
 	return joinedAbs, nil
 }
