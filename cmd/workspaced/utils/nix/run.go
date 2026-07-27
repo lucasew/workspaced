@@ -1,13 +1,7 @@
 package nix
 
 import (
-	"fmt"
-	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/nix"
-	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -25,55 +19,14 @@ func init() {
 				}
 				ctx := cmd.Context()
 				ref := args[0]
-				runArgs := args[1:]
-
-				if len(runArgs) > 0 && runArgs[0] == "--" {
-					runArgs = runArgs[1:]
-				}
-
-				parts := strings.Split(ref, "#")
-				repo := parts[0]
-				item := ""
-				if len(parts) > 1 {
-					item = parts[1]
-				}
-
-				binary := ""
-				if strings.Contains(item, "/") {
-					itemParts := strings.Split(item, "/")
-					item = itemParts[0]
-					binary = itemParts[1]
-				}
+				runArgs := stripLeadingDashArgs(args[1:])
+				repo, item, binary := parseFlakeRef(ref)
 
 				resultPath, err := nix.Build(ctx, repo+"#"+item, true)
 				if err != nil {
 					return err
 				}
-
-				binDir := filepath.Join(resultPath, "bin")
-				if binary == "" {
-					entries, err := os.ReadDir(binDir)
-					if err != nil || len(entries) == 0 {
-						return fmt.Errorf("%w: %s", ErrNoBinaryFound, binDir)
-					}
-					binary = entries[0].Name()
-				}
-
-				binPath := filepath.Join(binDir, binary)
-				if _, err := os.Stat(binPath); err != nil {
-					entries, _ := os.ReadDir(binDir)
-					for _, entry := range entries {
-						if strings.Contains(entry.Name(), binary) {
-							binPath = filepath.Join(binDir, entry.Name())
-							break
-						}
-					}
-				}
-
-				ec := execdriver.MustRun(ctx, binPath, runArgs...)
-				executil.InheritContextWriters(ctx, ec)
-				ec.Stdin = os.Stdin
-				return ec.Run()
+				return runFromResultPath(ctx, resultPath, binary, runArgs)
 			},
 		}
 		parent.AddCommand(cmd)

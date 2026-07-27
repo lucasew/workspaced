@@ -147,11 +147,7 @@ func (t *biomeTool) InstallArtifact(ctx context.Context, artifact backend.Artifa
 }
 
 func (t *biomeTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	name := cmdName
-	if name == "" {
-		name = "biome"
-	}
-	p, err := checks.EnsureBinary(destDir, name, "biome", func() error {
+	p, err := checks.EnsureBinaryNamed(destDir, cmdName, "biome", "biome", func() error {
 		return t.Install(ctx, version, destDir)
 	})
 	if err == nil {

@@ -78,11 +78,7 @@ func (t *esbuildTool) InstallArtifact(ctx context.Context, artifact backend.Arti
 }
 
 func (t *esbuildTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	name := cmdName
-	if name == "" {
-		name = "esbuild"
-	}
-	return checks.EnsureBinary(destDir, name, "esbuild", func() error {
+	return checks.EnsureBinaryNamed(destDir, cmdName, "esbuild", "esbuild", func() error {
 		return t.Install(ctx, version, destDir)
 	})
 }

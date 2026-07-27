@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/lucasew/workspaced/internal/cmdctx"
+	"github.com/lucasew/workspaced/internal/cmdwire"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
 	"github.com/lucasew/workspaced/internal/dotfiles"
@@ -26,14 +26,7 @@ func init() {
 			Short: "Apply modules + templates to the repo root",
 			Args:  cobra.NoArgs,
 			RunE: func(cmd *cobra.Command, args []string) error {
-				ctx := cmd.Context()
-				dryRun := cmdctx.IsDryRun(ctx)
-				showNoop, _ := cmd.Flags().GetBool("show-noop")
-
-				g := taskgroup.MustFromContext(ctx)
-				printReport := Schedule(g, cmd, dryRun, showNoop)
-				taskgroup.MustSessionFrom(ctx).AfterWait(printReport)
-				return nil
+				return cmdwire.RunAfterWait(cmd, false, Schedule)
 			},
 		}
 		cmd.Flags().Bool("show-noop", false, "Also show files that would not change")

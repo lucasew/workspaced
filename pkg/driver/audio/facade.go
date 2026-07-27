@@ -25,13 +25,7 @@ func adjustVolume(ctx context.Context, delta float64) error {
 	if err != nil {
 		return err
 	}
-	newVol := vol + delta
-	if newVol > 1.0 {
-		newVol = 1.0
-	}
-	if newVol < 0 {
-		newVol = 0
-	}
+	newVol := driver.Clamp01(vol + delta)
 	if err := d.SetVolume(ctx, newVol); err != nil {
 		return err
 	}

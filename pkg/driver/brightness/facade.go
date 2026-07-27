@@ -25,13 +25,7 @@ func adjustBrightness(ctx context.Context, delta float64) error {
 	if err != nil {
 		return err
 	}
-	newLevel := status.Brightness + delta
-	if newLevel > 1.0 {
-		newLevel = 1.0
-	}
-	if newLevel < 0 {
-		newLevel = 0
-	}
+	newLevel := driver.Clamp01(status.Brightness + delta)
 	if err := d.SetBrightness(ctx, newLevel); err != nil {
 		return err
 	}

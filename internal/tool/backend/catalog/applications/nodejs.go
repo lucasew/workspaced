@@ -86,16 +86,9 @@ func (t *nodejsTool) InstallArtifact(ctx context.Context, artifact backend.Artif
 }
 
 func (t *nodejsTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	p, err := checks.EnsureBinary(destDir, cmdName, "Node.js", func() error {
+	return checks.EnsureBinary(destDir, cmdName, "Node.js", func() error {
 		return t.Install(ctx, version, destDir)
-	})
-	if err == nil {
-		return p, nil
-	}
-	if fallback := checks.FindBinary(destDir, "node"); fallback != "" {
-		return fallback, nil
-	}
-	return "", err
+	}, "node")
 }
 
 // --- helpers ---

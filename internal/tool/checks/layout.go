@@ -36,12 +36,29 @@ func BinaryCandidates(baseDir, cmdName string) []string {
 
 // EnsureBinary runs install, then locates cmdName under destDir via FindBinary.
 // toolLabel appears in the not-found error (e.g. "CMake", "Ruby").
-func EnsureBinary(destDir, cmdName, toolLabel string, install func() error) (string, error) {
+// fallbackNames are tried in order if cmdName is missing after install.
+func EnsureBinary(destDir, cmdName, toolLabel string, install func() error, fallbackNames ...string) (string, error) {
 	if err := install(); err != nil {
 		return "", err
 	}
 	if p := FindBinary(destDir, cmdName); p != "" {
 		return p, nil
 	}
+	for _, name := range fallbackNames {
+		if name == "" || name == cmdName {
+			continue
+		}
+		if p := FindBinary(destDir, name); p != "" {
+			return p, nil
+		}
+	}
 	return "", fmt.Errorf("binary %q not found in %s installation at %s", cmdName, toolLabel, destDir)
+}
+
+// EnsureBinaryNamed is EnsureBinary with empty cmdName defaulting to defaultName.
+func EnsureBinaryNamed(destDir, cmdName, defaultName, toolLabel string, install func() error, fallbackNames ...string) (string, error) {
+	if cmdName == "" {
+		cmdName = defaultName
+	}
+	return EnsureBinary(destDir, cmdName, toolLabel, install, fallbackNames...)
 }
