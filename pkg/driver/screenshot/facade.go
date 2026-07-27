@@ -34,7 +34,7 @@ func ResolveRect(ctx context.Context, targetType TargetType) (*wm.Rect, error) {
 		}
 		return d.SelectArea(ctx)
 	default:
-		return nil, fmt.Errorf("unknown target type: %v", targetType)
+		return nil, fmt.Errorf("%w: %v", ErrUnknownTargetType, targetType)
 	}
 }
 
@@ -67,7 +67,7 @@ func Capture(ctx context.Context, targetType TargetType) (string, error) {
 
 	dir := strings.TrimSpace(screenshot.Dir)
 	if dir == "" {
-		return "", fmt.Errorf("screenshot dir not configured")
+		return "", ErrDirNotConfigured
 	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("create screenshot dir: %w", err)

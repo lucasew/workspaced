@@ -13,6 +13,8 @@ import (
 var (
 	ErrSelectionToolNotFound = errors.New("selection tool not found")
 	ErrEmptySelection        = errors.New("empty selection")
+	ErrDirNotConfigured      = errors.New("screenshot dir not configured")
+	ErrUnknownTargetType     = errors.New("unknown target type")
 )
 
 type TargetType int
