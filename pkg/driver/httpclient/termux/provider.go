@@ -2,7 +2,6 @@ package termux
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"net"
 	"net/http"
@@ -56,41 +55,17 @@ func (d *Driver) Client() *http.Client {
 					dnsServer = dns + ":53"
 				}
 
-				dialer := &net.Dialer{
-					Timeout: 5 * time.Second,
-				}
-				return dialer.DialContext(ctx, "udp", dnsServer)
+				d := &net.Dialer{Timeout: 5 * time.Second}
+				return d.DialContext(ctx, "udp", dnsServer)
 			},
 		}
 
-		// Custom dialer with our resolver
 		dialer := &net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 			Resolver:  resolver,
 		}
-
-		innerTransport := &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// Force IPv4
-				if network == "tcp" {
-					network = "tcp4"
-				}
-				return dialer.DialContext(ctx, network, addr)
-			},
-			TLSClientConfig: &tls.Config{
-				RootCAs: d.rootCAs,
-			},
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-
-		d.client = &http.Client{
-			Transport: httpclientdriver.WithProgress(innerTransport),
-		}
+		d.client = httpclientdriver.NewClient(d.rootCAs, dialer)
 	})
 	return d.client
 }

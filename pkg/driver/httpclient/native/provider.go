@@ -2,14 +2,11 @@ package native
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/lucasew/workspaced/pkg/driver"
 	httpclientdriver "github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -44,38 +41,8 @@ type Driver struct {
 
 func (d *Driver) Client() *http.Client {
 	d.once.Do(func() {
-		dialer := &net.Dialer{
-			Timeout:       30 * time.Second,
-			KeepAlive:     30 * time.Second,
-			FallbackDelay: 300 * time.Millisecond,
-		}
-
-		innerTransport := &http.Transport{
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				// Try IPv4 first
-				if network == "tcp" {
-					network = "tcp4"
-				}
-				return dialer.DialContext(ctx, network, addr)
-			},
-			TLSClientConfig: &tls.Config{
-				RootCAs: d.rootCAs,
-			},
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-
-		// Wrap so that every request made through clients obtained from this
-		// driver can automatically become an Internet task (with progress
-		// derived from ContentLength + body reads) whenever a taskgroup is
-		// present in the request context. This is the central place for
-		// "download as visible task" logic.
-		d.client = &http.Client{
-			Transport: httpclientdriver.WithProgress(innerTransport),
-		}
+		// IPv4-first dial + WithProgress; see httpclient.NewClient.
+		d.client = httpclientdriver.NewClient(d.rootCAs, nil)
 	})
 	return d.client
 }
