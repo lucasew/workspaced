@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"sync"
 )
@@ -110,10 +111,18 @@ func (w *teaWriter) File() (*os.File, error) {
 // Program.Printf here deadlocks ("all goroutines are asleep") under
 // WORKSPACED_FORCE_TUI or short-lived sessions. Transcript loss of a partial
 // final line is preferable to hanging the process.
+//
+// Order matters: nil print (so Write cannot block on tea), close the write end
+// (EOF for io.Copy), wait for the copy goroutine, then close the read end.
+// Closing the read end while Copy is still reading races to
+// "read |0: file already closed" and was incorrectly failing home apply after
+// a successful plan/execute.
 func (w *teaWriter) close() error {
 	w.mu.Lock()
 	// Stop accepting print callbacks before unblocking the pipe copy so a
 	// concurrent Write from io.Copy cannot re-enter Program.Printf.
+	// Write holds mu across print, so this wait also drains any in-flight
+	// Printf; afterward Write is non-blocking (print is nil).
 	w.print = nil
 	w.buf = nil
 	pw, pr, done := w.pipeW, w.pipeR, w.copyDone
@@ -122,24 +131,31 @@ func (w *teaWriter) close() error {
 
 	var errs []error
 	if pw != nil {
-		if err := pw.Close(); err != nil {
+		if err := pw.Close(); err != nil && !isBenignPipeCloseErr(err) {
 			errs = append(errs, err)
 		}
 	}
-	if pr != nil {
-		// Unblock Copy if stuck in a slow Write, then wait for it.
-		if err := pr.Close(); err != nil {
-			errs = append(errs, err)
-		}
-	}
+	// Wait for EOF-driven Copy exit before closing pr. Closing pr first made
+	// io.Copy observe fs.ErrClosed and surface it as a session failure.
 	if done != nil {
 		<-done
 	}
-	w.mu.Lock()
-	if w.copyErr != nil {
-		errs = append(errs, w.copyErr)
-		w.copyErr = nil
+	if pr != nil {
+		if err := pr.Close(); err != nil && !isBenignPipeCloseErr(err) {
+			errs = append(errs, err)
+		}
 	}
+	w.mu.Lock()
+	if w.copyErr != nil && !isBenignPipeCloseErr(w.copyErr) {
+		errs = append(errs, w.copyErr)
+	}
+	w.copyErr = nil
 	w.mu.Unlock()
 	return errors.Join(errs...)
+}
+
+// isBenignPipeCloseErr reports teardown races that are not real failures:
+// closing a pipe end while the peer copy is finishing.
+func isBenignPipeCloseErr(err error) bool {
+	return errors.Is(err, fs.ErrClosed) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, os.ErrClosed)
 }
