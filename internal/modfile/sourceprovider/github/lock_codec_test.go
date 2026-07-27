@@ -135,7 +135,7 @@ func TestConfigureFromSpecAndModuleRef(t *testing.T) {
 	if cfg.Repo != "owner/repo" || cfg.Path != "" {
 		t.Fatalf("cfg=%#v", cfg)
 	}
-	fullRef, ver, err, handled := p.ResolveModuleRef(cfg, "subdir@v1")
+	fullRef, ver, handled, err := p.ResolveModuleRef(cfg, "subdir@v1")
 	if !handled || err != nil {
 		t.Fatalf("handled=%v err=%v", handled, err)
 	}

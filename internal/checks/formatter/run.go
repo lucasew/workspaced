@@ -42,19 +42,22 @@ func RunAll(ctx context.Context, dir string) error {
 		return nil
 	}
 
-	perTool, err := taskgroup.Map[item, error]{
+	// Soft-collect per-tool failures in U so one bad formatter does not cancel
+	// siblings (Map shares one SubGroup; a hard Fn error would). Hard error is
+	// only for Map/taskgroup failure. nil *toolFailure means that tool succeeded.
+	failures, err := taskgroup.Map[item, *toolFailure]{
 		Name:     "format",
 		Items:    applicable,
 		PoolKind: taskgroup.CPU,
 		Serial:   true,
 		TaskName: func(_ int, it item) string { return "fmt:" + it.tool.Name },
-		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (error, error) {
+		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (*toolFailure, error) {
 			l := logging.GetLogger(ctx)
 			s.Update("running " + it.tool.Name)
 			l.Info("running formatter", "name", it.tool.Name)
 			if err := runOne(ctx, dir, it.tool, it.detect); err != nil {
 				logging.ReportError(ctx, err, "name", it.tool.Name, "context", "formatter failed")
-				return fmt.Errorf("%s: %w", it.tool.Name, err), nil
+				return &toolFailure{name: it.tool.Name, err: err}, nil
 			}
 			return nil, nil
 		},
@@ -63,9 +66,9 @@ func RunAll(ctx context.Context, dir string) error {
 		return err
 	}
 	var errs []error
-	for _, e := range perTool {
-		if e != nil {
-			errs = append(errs, e)
+	for _, f := range failures {
+		if f != nil {
+			errs = append(errs, f)
 		}
 	}
 	if len(errs) == 0 {
@@ -73,6 +76,18 @@ func RunAll(ctx context.Context, dir string) error {
 	}
 	return fmt.Errorf("formatting failed for %d tools: %w", len(errs), errors.Join(errs...))
 }
+
+// toolFailure is a Map result (soft fail). Not the task hard-fail channel.
+type toolFailure struct {
+	name string
+	err  error
+}
+
+func (f *toolFailure) Error() string {
+	return f.name + ": " + f.err.Error()
+}
+
+func (f *toolFailure) Unwrap() error { return f.err }
 
 func runOne(ctx context.Context, dir string, t checks.Tool, det checks.DetectResult) error {
 	cmd, err := checks.BuildCmd(ctx, dir, t, det)

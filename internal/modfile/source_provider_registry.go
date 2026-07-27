@@ -20,7 +20,7 @@ type SourceProvider interface {
 	// ResolveModuleRef maps an input alias config plus "path[@version]" into
 	// module coordinates. handled=false means the caller should use the
 	// generic fallback.
-	ResolveModuleRef(src SourceConfig, pathAndVersion string) (fullRef, version string, err error, handled bool)
+	ResolveModuleRef(src SourceConfig, pathAndVersion string) (fullRef, version string, handled bool, err error)
 
 	// RehydrateLockedSource reconstructs runtime lock fields from a persisted
 	// renovate row. ok=false if this provider does not own the dependency.

@@ -165,5 +165,5 @@ Examples:
 }
 
 func isBinaryNotFound(err error) bool {
-	return errors.Is(err, tool.ErrBinaryNotFound) || strings.Contains(err.Error(), "binary not found")
+	return errors.Is(err, tool.ErrBinaryNotFound)
 }

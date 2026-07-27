@@ -51,10 +51,10 @@ func (p Provider) ConfigureFromSpec(cfg *modfile.SourceConfig, target string) {
 	cfg.Repo = ""
 }
 
-func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion string) (fullRef, version string, err error, handled bool) {
+func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion string) (fullRef, version string, handled bool, err error) {
 	_ = src
 	_ = pathAndVersion
-	return "", "", nil, false
+	return "", "", false, nil
 }
 
 func (p Provider) RehydrateLockedSource(dep modfile.RenovateDependency) (modfile.LockedSource, bool) {

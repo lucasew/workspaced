@@ -141,7 +141,7 @@ func (m *ModFile) ResolveModuleSource(moduleName, explicitFrom, modulesBaseDir s
 		return resolved, validateNonVersionedProvider(resolved)
 	}
 	if p, ok := getSourceProvider(provider); ok {
-		if fullRef, ver, err, handled := p.ResolveModuleRef(src, right); handled {
+		if fullRef, ver, handled, err := p.ResolveModuleRef(src, right); handled {
 			if err != nil {
 				return ResolvedModuleSource{}, fmt.Errorf("source alias %q (%s): %w", left, provider, err)
 			}

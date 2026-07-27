@@ -1,7 +1,6 @@
 package github
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -16,10 +15,10 @@ func (p Provider) ConfigureFromSpec(cfg *modfile.SourceConfig, target string) {
 	cfg.Path = ""
 }
 
-func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion string) (fullRef, version string, err error, handled bool) {
+func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion string) (fullRef, version string, handled bool, err error) {
 	repo := normalizeGitHubRepo(src.Repo)
 	if repo == "" {
-		return "", "", fmt.Errorf("github source requires repo"), true
+		return "", "", true, ErrRepoRequired
 	}
 	ref, ver := modfile.SplitRefAndVersion(pathAndVersion)
 	if ver == "" {
@@ -30,7 +29,7 @@ func (p Provider) ResolveModuleRef(src modfile.SourceConfig, pathAndVersion stri
 	if path != "" {
 		fullRef = repo + "/" + path
 	}
-	return fullRef, ver, nil, true
+	return fullRef, ver, true, nil
 }
 
 func (p Provider) RehydrateLockedSource(dep modfile.RenovateDependency) (modfile.LockedSource, bool) {

@@ -35,8 +35,8 @@ func (p *stubHashProvider) Normalize(src SourceConfig) SourceConfig {
 
 func (p *stubHashProvider) EnrichRenovateDependency(dep *RenovateDependency, src LockedSource) {}
 func (p *stubHashProvider) ConfigureFromSpec(cfg *SourceConfig, target string)                 {}
-func (p *stubHashProvider) ResolveModuleRef(src SourceConfig, pathAndVersion string) (string, string, error, bool) {
-	return "", "", nil, false
+func (p *stubHashProvider) ResolveModuleRef(src SourceConfig, pathAndVersion string) (string, string, bool, error) {
+	return "", "", false, nil
 }
 func (p *stubHashProvider) RehydrateLockedSource(dep RenovateDependency) (LockedSource, bool) {
 	return LockedSource{}, false

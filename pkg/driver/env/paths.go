@@ -30,6 +30,6 @@ func EnsureUnderHome(home, rel string) (string, error) {
 }
 
 // Hostname is os.Hostname with a stable error path for drivers.
-func Hostname(_ context.Context) (string, error) {
+func Hostname(ctx context.Context) (string, error) {
 	return os.Hostname()
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -149,7 +150,7 @@ func (b *Backend) readLoop(ctx context.Context) {
 	for {
 		msg, err := b.conn.ReadMessage()
 		if err != nil {
-			if err != io.EOF && !strings.Contains(err.Error(), "file already closed") {
+			if err != io.EOF && !errors.Is(err, fs.ErrClosed) && !errors.Is(err, io.ErrClosedPipe) {
 				logger.Debug("backend read ended", "server", b.ServerID, "error", err)
 			}
 			b.failPending(err)
