@@ -3,7 +3,6 @@ package apps
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -87,7 +86,7 @@ func (t *rubyTool) ListArtifacts(ctx context.Context, version string) ([]backend
 	tag := "ruby-" + v
 	at, ok := t.inner.(backend.ArtifactTool)
 	if !ok {
-		return nil, fmt.Errorf("github tool does not implement ArtifactTool")
+		return nil, catalog.ErrNoArtifactTool
 	}
 	return at.ListArtifacts(ctx, tag)
 }

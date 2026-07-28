@@ -107,7 +107,7 @@ func (t *biomeTool) ListArtifacts(ctx context.Context, version string) ([]backen
 	tag := biomeTagForVersion(v)
 	at, ok := t.inner.(backend.ArtifactTool)
 	if !ok {
-		return nil, fmt.Errorf("github tool does not implement ArtifactTool")
+		return nil, catalog.ErrNoArtifactTool
 	}
 	arts, err := at.ListArtifacts(ctx, tag)
 	if err != nil {
@@ -141,7 +141,7 @@ func (t *biomeTool) ListArtifacts(ctx context.Context, version string) ([]backen
 func (t *biomeTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	at, ok := t.inner.(backend.ArtifactTool)
 	if !ok {
-		return fmt.Errorf("github tool does not implement ArtifactTool")
+		return catalog.ErrNoArtifactTool
 	}
 	return at.InstallArtifact(ctx, artifact, destDir)
 }
