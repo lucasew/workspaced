@@ -16,8 +16,10 @@ import (
 )
 
 var (
-	ErrEmptyToolName  = errors.New("curated tool name cannot be empty")
-	errNoArtifactTool = errors.New("inner tool does not implement ArtifactTool")
+	ErrEmptyToolName = errors.New("curated tool name cannot be empty")
+	// ErrNoArtifactTool is returned when a curated tool's inner backend does
+	// not implement backend.ArtifactTool (ListArtifacts / InstallArtifact).
+	ErrNoArtifactTool = errors.New("inner tool does not implement ArtifactTool")
 )
 
 func init() {
@@ -113,7 +115,7 @@ func (t *curatedGitHub) InstallChecks() []checks.Check {
 func (t *curatedGitHub) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
 	at, ok := t.inner.(backend.ArtifactTool)
 	if !ok {
-		return nil, errNoArtifactTool
+		return nil, ErrNoArtifactTool
 	}
 	return at.ListArtifacts(ctx, version)
 }
@@ -121,7 +123,7 @@ func (t *curatedGitHub) ListArtifacts(ctx context.Context, version string) ([]ba
 func (t *curatedGitHub) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
 	at, ok := t.inner.(backend.ArtifactTool)
 	if !ok {
-		return errNoArtifactTool
+		return ErrNoArtifactTool
 	}
 	return at.InstallArtifact(ctx, artifact, destDir)
 }
