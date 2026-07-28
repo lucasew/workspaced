@@ -214,6 +214,7 @@ func WithTaskLabel(ctx context.Context, label string) context.Context {
 //   - real filenames (contain ".") → basename only (icon implies download)
 //   - GitHub release asset API paths → "github release"
 //   - UUIDs / bare IDs → host-based label
+//
 // Keep titles short; size/phase detail belongs in the subtitle.
 func taskName(req *http.Request) string {
 	if req != nil {
