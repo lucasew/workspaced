@@ -64,3 +64,21 @@ func stripLeadingDashArgs(args []string) []string {
 	}
 	return args
 }
+
+// buildFlakeFn builds a flake ref (repo#item) and returns the store result path.
+type buildFlakeFn func(ctx context.Context, flakeRef string) (resultPath string, err error)
+
+// runFlakeRef parses args[0] as a flake ref, builds it, and runs the binary with remaining args.
+func runFlakeRef(ctx context.Context, args []string, build buildFlakeFn) error {
+	if len(args) == 0 {
+		return ErrNoFlakeRef
+	}
+	ref := args[0]
+	runArgs := stripLeadingDashArgs(args[1:])
+	repo, item, binary := parseFlakeRef(ref)
+	resultPath, err := build(ctx, repo+"#"+item)
+	if err != nil {
+		return err
+	}
+	return runFromResultPath(ctx, resultPath, binary, runArgs)
+}

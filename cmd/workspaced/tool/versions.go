@@ -1,6 +1,7 @@
 package tool
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/lucasew/workspaced/internal/tool"
@@ -22,22 +23,7 @@ This works for curated short names (resolved via registry), github:owner/repo, m
 No installation is performed.`,
 			Args: cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				specStr := args[0]
-				spec, err := parsespec.Parse(specStr)
-				if err != nil {
-					return err
-				}
-
-				p, err := tool.Get(spec.Provider)
-				if err != nil {
-					return err
-				}
-				t, err := p.Tool(spec.Package)
-				if err != nil {
-					return err
-				}
-
-				versions, err := t.ListVersions(cmd.Context())
+				versions, err := listVersions(cmd.Context(), args[0])
 				if err != nil {
 					return err
 				}
@@ -48,4 +34,21 @@ No installation is performed.`,
 			},
 		})
 	})
+}
+
+// listVersions resolves a tool-spec and returns versions from the backend.
+func listVersions(ctx context.Context, specStr string) ([]string, error) {
+	spec, err := parsespec.Parse(specStr)
+	if err != nil {
+		return nil, err
+	}
+	p, err := tool.Get(spec.Provider)
+	if err != nil {
+		return nil, err
+	}
+	t, err := p.Tool(spec.Package)
+	if err != nil {
+		return nil, err
+	}
+	return t.ListVersions(ctx)
 }

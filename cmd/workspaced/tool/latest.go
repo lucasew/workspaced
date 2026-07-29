@@ -3,10 +3,6 @@ package tool
 import (
 	"fmt"
 
-	"github.com/lucasew/workspaced/internal/tool"
-
-	parsespec "github.com/lucasew/workspaced/internal/parse/spec"
-
 	"github.com/spf13/cobra"
 )
 
@@ -21,21 +17,7 @@ Equivalent to the first entry returned by "tool versions <tool-spec>".`,
 			Args: cobra.ExactArgs(1),
 			RunE: func(cmd *cobra.Command, args []string) error {
 				specStr := args[0]
-				spec, err := parsespec.Parse(specStr)
-				if err != nil {
-					return err
-				}
-
-				p, err := tool.Get(spec.Provider)
-				if err != nil {
-					return err
-				}
-				t, err := p.Tool(spec.Package)
-				if err != nil {
-					return err
-				}
-
-				versions, err := t.ListVersions(cmd.Context())
+				versions, err := listVersions(cmd.Context(), specStr)
 				if err != nil {
 					return err
 				}

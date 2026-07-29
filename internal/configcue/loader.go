@@ -115,59 +115,58 @@ func ExportJSON(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
 }
 
 func ExportCUE(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
-	discovered, err := DiscoverLayers(ctx, opts)
+	paths, layers, err := discoverPaths(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	paths := make([]string, 0, len(discovered.Layers))
-	for _, layer := range discovered.Layers {
-		paths = append(paths, layer.Path)
-	}
-
-	configValue, err := buildWorkspacedValue(ctx, paths, discovered.Layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts.HomeMode)
 	if err != nil {
 		return nil, err
 	}
 	// Use a fresh root with logger for the (rare) diagnostic warnings in this
 	// top-level export path. The real work ctx is not threaded into these
 	// high-level CUE export helpers.
-	return formatWorkspacedValue(ctx, configValue, paths, discovered.Layers)
+	return formatWorkspacedValue(ctx, configValue, paths, layers)
 }
 
 func ExportDef(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
-	discovered, err := DiscoverLayers(ctx, opts)
+	paths, layers, err := discoverPaths(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	paths := make([]string, 0, len(discovered.Layers))
-	for _, layer := range discovered.Layers {
-		paths = append(paths, layer.Path)
-	}
-
-	configValue, err := buildWorkspacedValue(ctx, paths, discovered.Layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts.HomeMode)
 	if err != nil {
 		return nil, err
 	}
-	return formatWorkspacedDef(ctx, configValue, paths, discovered.Layers)
+	return formatWorkspacedDef(ctx, configValue, paths, layers)
 }
 
 func Evaluate(ctx context.Context, opts DiscoverOptions) (EvaluationResult, error) {
-	discovered, err := DiscoverLayers(ctx, opts)
+	paths, layers, err := discoverPaths(ctx, opts)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
-	paths := make([]string, 0, len(discovered.Layers))
-	for _, layer := range discovered.Layers {
-		paths = append(paths, layer.Path)
-	}
-	b, err := exportJSONFromPaths(ctx, paths, discovered.Layers, opts.HomeMode)
+	b, err := exportJSONFromPaths(ctx, paths, layers, opts.HomeMode)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
 	return EvaluationResult{
-		Layers: discovered.Layers,
+		Layers: layers,
 		JSON:   b,
 	}, nil
+}
+
+// discoverPaths loads config layers and returns their paths in the same order.
+func discoverPaths(ctx context.Context, opts DiscoverOptions) (paths []string, layers []Layer, err error) {
+	discovered, err := DiscoverLayers(ctx, opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	paths = make([]string, 0, len(discovered.Layers))
+	for _, layer := range discovered.Layers {
+		paths = append(paths, layer.Path)
+	}
+	return paths, discovered.Layers, nil
 }
 
 func ExportJSONFromPaths(ctx context.Context, paths []string) ([]byte, error) {
