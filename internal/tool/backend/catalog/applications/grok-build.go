@@ -43,20 +43,11 @@ func (t *grokBuildTool) ListVersions(ctx context.Context) ([]string, error) {
 }
 
 func (t *grokBuildTool) Install(ctx context.Context, version string, destDir string) error {
-	v := strings.TrimSpace(version)
-	if v == "" || v == "latest" {
-		var err error
-		v, err = t.probeLatest(ctx)
-		if err != nil {
-			return err
-		}
+	arts, err := t.ListArtifacts(ctx, version)
+	if err != nil {
+		return err
 	}
-	plat := grokPlatform(runtime.GOOS, runtime.GOARCH)
-	url := "https://x.ai/cli/grok-" + v + "-" + plat
-	if runtime.GOOS == "windows" {
-		url += ".exe"
-	}
-	return t.InstallArtifact(ctx, backend.Artifact{URL: url, OS: runtime.GOOS, Arch: runtime.GOARCH}, destDir)
+	return t.InstallArtifact(ctx, arts[0], destDir)
 }
 
 func (t *grokBuildTool) EnrichLockfile(entry *modfile.RenovateDependency) {
@@ -64,20 +55,29 @@ func (t *grokBuildTool) EnrichLockfile(entry *modfile.RenovateDependency) {
 }
 
 func (t *grokBuildTool) ListArtifacts(ctx context.Context, version string) ([]backend.Artifact, error) {
+	v, err := t.resolveVersion(ctx, version)
+	if err != nil {
+		return nil, err
+	}
+	return []backend.Artifact{t.artifactFor(v)}, nil
+}
+
+// resolveVersion trims version and probes the stable channel when empty or "latest".
+func (t *grokBuildTool) resolveVersion(ctx context.Context, version string) (string, error) {
 	v := strings.TrimSpace(version)
 	if v == "" || v == "latest" {
-		var err error
-		v, err = t.probeLatest(ctx)
-		if err != nil {
-			return nil, err
-		}
+		return t.probeLatest(ctx)
 	}
-	plat := grokPlatform(runtime.GOOS, runtime.GOARCH)
-	u := "https://x.ai/cli/grok-" + v + "-" + plat
+	return v, nil
+}
+
+// artifactFor builds the current-platform download artifact for a concrete version.
+func (t *grokBuildTool) artifactFor(version string) backend.Artifact {
+	u := "https://x.ai/cli/grok-" + version + "-" + grokPlatform(runtime.GOOS, runtime.GOARCH)
 	if runtime.GOOS == "windows" {
 		u += ".exe"
 	}
-	return []backend.Artifact{{OS: runtime.GOOS, Arch: runtime.GOARCH, URL: u}}, nil
+	return backend.Artifact{URL: u, OS: runtime.GOOS, Arch: runtime.GOARCH}
 }
 
 func (t *grokBuildTool) InstallArtifact(ctx context.Context, art backend.Artifact, destDir string) error {
