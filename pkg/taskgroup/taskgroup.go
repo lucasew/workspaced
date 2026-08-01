@@ -365,27 +365,15 @@ func FromContext(ctx context.Context) *Group {
 // via Map / SubGroup, even if those subgroups were created before or around
 // the time the session UI wires the handler.
 func (g *Group) SetLogHandler(fn func(taskName, msg string)) {
-	g.mu.Lock()
-	g.onLog = fn
-	g.Live.ForEach(func(t *taskEntry) {
-		if t.status != nil {
-			t.status.mu.Lock()
-			t.status.onLog = fn
-			t.status.mu.Unlock()
-		}
-	})
-	for _, ch := range g.children {
-		ch.propagateLogHandler(fn)
-	}
-	g.mu.Unlock()
+	// Same recursive walk as for children; keep one implementation.
+	g.propagateLogHandler(fn)
 }
 
-// propagateLogHandler is called on children when an ancestor sets a new
-// log handler (via SetLogHandler on root or intermediate group). It
-// ensures the logger interceptor (onLog callback to prog.Printf + refresh,
-// and the usingBubbleTea skip decision) reaches tasks created inside
-// SubGroups / via Map even if those subgroups were created before or
-// around the time the renderer was activated.
+// propagateLogHandler applies the log handler to this group, its live tasks,
+// and all SubGroups recursively. Used by SetLogHandler and when an ancestor
+// pushes a new handler down the tree so Map / nested SubGroup work still
+// feeds onLog (and usingBubbleTea skip) even if subgroups existed before the
+// session UI was wired.
 func (g *Group) propagateLogHandler(fn func(taskName, msg string)) {
 	g.mu.Lock()
 	g.onLog = fn
@@ -408,12 +396,8 @@ func (g *Group) propagateLogHandler(fn func(taskName, msg string)) {
 // for tasks inside Map / nested SubGroups will also take the interceptor
 // path (skip normal output + feed onLog for the TUI).
 func (g *Group) setUsingBubbleTea(v bool) {
-	g.mu.Lock()
-	g.usingBubbleTea = v
-	for _, ch := range g.children {
-		ch.setUsingBubbleTeaFromAncestor(v)
-	}
-	g.mu.Unlock()
+	// Same recursive walk as for children; keep one implementation.
+	g.setUsingBubbleTeaFromAncestor(v)
 }
 
 func (g *Group) setUsingBubbleTeaFromAncestor(v bool) {
