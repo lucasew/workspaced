@@ -65,27 +65,25 @@ func (d *Driver) ToggleScratchpad(ctx context.Context) error {
 }
 
 func (d *Driver) GetOutputs(ctx context.Context) ([]api.Output, error) {
-	out, err := execdriver.MustRun(ctx, d.Binary, "-t", "get_outputs").Output()
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	var outputs []api.Output
-	if err := json.Unmarshal(out, &outputs); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	return outputs, nil
+	return getIPCJSON[[]api.Output](ctx, d.Binary, "get_outputs")
 }
 
 func (d *Driver) GetWorkspaces(ctx context.Context) ([]api.Workspace, error) {
-	out, err := execdriver.MustRun(ctx, d.Binary, "-t", "get_workspaces").Output()
+	return getIPCJSON[[]api.Workspace](ctx, d.Binary, "get_workspaces")
+}
+
+// getIPCJSON runs `binary -t <msg>` and unmarshals the JSON reply into T.
+func getIPCJSON[T any](ctx context.Context, binary, msg string) (T, error) {
+	var zero T
+	out, err := execdriver.MustRun(ctx, binary, "-t", msg).Output()
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+		return zero, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
 	}
-	var workspaces []api.Workspace
-	if err := json.Unmarshal(out, &workspaces); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	var v T
+	if err := json.Unmarshal(out, &v); err != nil {
+		return zero, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
 	}
-	return workspaces, nil
+	return v, nil
 }
 
 func (d *Driver) GetFocusedOutput(ctx context.Context) (string, *api.Rect, error) {
