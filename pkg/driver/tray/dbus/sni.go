@@ -181,20 +181,20 @@ func (s *StatusNotifierItem) Export(conn *dbus.Conn, path dbus.ObjectPath) error
 }
 
 func (s *StatusNotifierItem) ContextMenu(x, y int32) *dbus.Error {
-	logger := logging.GetLogger(s.driver.ctx)
-	logger.Info("sni context menu", "x", x, "y", y)
-	return nil
+	return s.logPoint("sni context menu", x, y)
 }
 
 func (s *StatusNotifierItem) Activate(x, y int32) *dbus.Error {
-	logger := logging.GetLogger(s.driver.ctx)
-	logger.Info("sni activate", "x", x, "y", y)
-	return nil
+	return s.logPoint("sni activate", x, y)
 }
 
 func (s *StatusNotifierItem) SecondaryActivate(x, y int32) *dbus.Error {
+	return s.logPoint("sni secondary activate", x, y)
+}
+
+func (s *StatusNotifierItem) logPoint(msg string, x, y int32) *dbus.Error {
 	logger := logging.GetLogger(s.driver.ctx)
-	logger.Info("sni secondary activate", "x", x, "y", y)
+	logger.Info(msg, "x", x, "y", y)
 	return nil
 }
 

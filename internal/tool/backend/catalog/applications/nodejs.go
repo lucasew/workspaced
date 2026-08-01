@@ -13,7 +13,6 @@ import (
 	"github.com/lucasew/workspaced/internal/modfile"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -82,7 +81,7 @@ func (t *nodejsTool) ListArtifacts(ctx context.Context, version string) ([]backe
 }
 
 func (t *nodejsTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func (t *nodejsTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {

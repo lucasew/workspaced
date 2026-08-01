@@ -1,9 +1,9 @@
 package deployer
 
 import (
-	"github.com/lucasew/workspaced/internal/source"
-	"path/filepath"
 	"sort"
+
+	"github.com/lucasew/workspaced/internal/source"
 )
 
 // ActionType represents the kind of action in a deployment plan.
@@ -35,7 +35,7 @@ type DesiredState = source.DesiredState
 
 // GetTarget returns the full target path for a DesiredState.
 func GetTarget(d DesiredState) string {
-	return filepath.Join(d.File.TargetBase(), d.File.RelPath())
+	return d.Target()
 }
 
 // ManagedInfo holds metadata about a managed file.

@@ -102,9 +102,7 @@ func (t *rubyTool) InstallArtifact(ctx context.Context, artifact backend.Artifac
 }
 
 func (t *rubyTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	return checks.EnsureBinary(destDir, cmdName, "Ruby", func() error {
-		return t.Install(ctx, version, destDir)
-	})
+	return ensureToolBinary(ctx, version, cmdName, destDir, "Ruby", t.Install)
 }
 
 func (t *rubyTool) Fix(_ context.Context, destDir string) error {

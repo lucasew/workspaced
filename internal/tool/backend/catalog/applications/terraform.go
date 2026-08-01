@@ -10,7 +10,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/backend/github"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
@@ -78,11 +77,11 @@ func (t *terraformTool) ListArtifacts(ctx context.Context, version string) ([]ba
 }
 
 func (t *terraformTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func normalizeTerraformVersion(version string) string {
-	return normalizeVersion(version, "v")
+	return normalizeV(version)
 }
 
 func (t *terraformTool) InstallChecks() []checks.Check {

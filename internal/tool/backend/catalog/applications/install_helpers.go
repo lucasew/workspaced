@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/tool/backend"
+	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
+	"github.com/lucasew/workspaced/internal/tool/checks"
 )
 
 // normalizeVersion trims space and the given prefixes (each once, in order).
@@ -20,6 +22,29 @@ func normalizeVersion(version string, prefixes ...string) string {
 		return v
 	}
 	return v
+}
+
+// normalizeVPrefixed strips a leading v/V (Flutter, CMake, …).
+func normalizeVPrefixed(version string) string {
+	return normalizeVersion(version, "v", "V")
+}
+
+// normalizeV strips a leading v only (esbuild, terraform, …).
+func normalizeV(version string) string {
+	return normalizeVersion(version, "v")
+}
+
+// defaultInstallArtifact is the usual InstallArtifact body for registry tools
+// that download via providerinstall with default DownloadOptions.
+func defaultInstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
+	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+}
+
+// ensureToolBinary is the usual EnsureBinary body: install then locate cmdName.
+func ensureToolBinary(ctx context.Context, version, cmdName, destDir, label string, install func(context.Context, string, string) error) (string, error) {
+	return checks.EnsureBinary(destDir, cmdName, label, func() error {
+		return install(ctx, version, destDir)
+	})
 }
 
 func resolveToolVersion(ctx context.Context, version string, normalize func(string) string, listVersions func(context.Context) ([]string, error)) (string, error) {

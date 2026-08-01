@@ -16,7 +16,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/backend/github"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -159,19 +158,17 @@ func (t *cmakeTool) ListArtifacts(ctx context.Context, version string) ([]backen
 }
 
 func (t *cmakeTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func (t *cmakeTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	return checks.EnsureBinary(destDir, cmdName, "CMake", func() error {
-		return t.Install(ctx, version, destDir)
-	})
+	return ensureToolBinary(ctx, version, cmdName, destDir, "CMake", t.Install)
 }
 
 // --- helpers ---
 
 func normalizeCMakeVersion(version string) string {
-	return normalizeVersion(version, "v", "V")
+	return normalizeVPrefixed(version)
 }
 
 func cmakeDirForVersion(ver string) string {

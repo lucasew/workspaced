@@ -13,7 +13,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/backend/github"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -135,13 +134,11 @@ func (t *llvmTool) InstallArtifact(ctx context.Context, artifact backend.Artifac
 	}); ok {
 		return at.InstallArtifact(ctx, artifact, destDir)
 	}
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func (t *llvmTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	return checks.EnsureBinary(destDir, cmdName, "LLVM", func() error {
-		return t.Install(ctx, version, destDir)
-	})
+	return ensureToolBinary(ctx, version, cmdName, destDir, "LLVM", t.Install)
 }
 
 // --- helpers ---

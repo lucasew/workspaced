@@ -12,7 +12,6 @@ import (
 	"github.com/lucasew/workspaced/internal/modfile"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -95,13 +94,11 @@ func (t *flutterTool) ListArtifacts(ctx context.Context, version string) ([]back
 }
 
 func (t *flutterTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func (t *flutterTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
-	return checks.EnsureBinary(destDir, cmdName, "Flutter", func() error {
-		return t.Install(ctx, version, destDir)
-	})
+	return ensureToolBinary(ctx, version, cmdName, destDir, "Flutter", t.Install)
 }
 
 // --- helpers ---
@@ -200,7 +197,7 @@ func (t *flutterTool) archiveMatchesPlatform(archive string) bool {
 }
 
 func normalizeFlutterVersion(version string) string {
-	return normalizeVersion(version, "v", "V")
+	return normalizeVPrefixed(version)
 }
 
 func (t *flutterTool) InstallChecks() []checks.Check {

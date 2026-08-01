@@ -14,7 +14,6 @@ import (
 	"github.com/lucasew/workspaced/internal/semver"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -74,7 +73,7 @@ func (t *esbuildTool) ListArtifacts(ctx context.Context, version string) ([]back
 }
 
 func (t *esbuildTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func (t *esbuildTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
@@ -177,7 +176,7 @@ func esbuildArtifactURL(plat, version string) string {
 }
 
 func normalizeEsbuildVersion(version string) string {
-	return normalizeVersion(version, "v")
+	return normalizeV(version)
 }
 
 // esbuildPlatform maps GOOS/GOARCH to the @esbuild/<platform> package suffix

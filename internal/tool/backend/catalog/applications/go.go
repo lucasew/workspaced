@@ -11,7 +11,6 @@ import (
 	"github.com/lucasew/workspaced/internal/modfile"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
-	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/httpclient"
@@ -95,14 +94,12 @@ func (t *goTool) ListArtifacts(ctx context.Context, version string) ([]backend.A
 }
 
 func (t *goTool) InstallArtifact(ctx context.Context, artifact backend.Artifact, destDir string) error {
-	return providerinstall.InstallArtifact(ctx, artifact, destDir, providerinstall.DownloadOptions{})
+	return defaultInstallArtifact(ctx, artifact, destDir)
 }
 
 func (t *goTool) EnsureBinary(ctx context.Context, version string, cmdName string, destDir string) (string, error) {
 	// After StripTopLevelDir the Go tarball/zip layout gives us bin/go, bin/gofmt, etc.
-	return checks.EnsureBinary(destDir, cmdName, "Go", func() error {
-		return t.Install(ctx, version, destDir)
-	})
+	return ensureToolBinary(ctx, version, cmdName, destDir, "Go", t.Install)
 }
 
 // --- helpers ---
