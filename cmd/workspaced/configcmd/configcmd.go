@@ -132,46 +132,38 @@ func lookupConfigValue(cfg *configcue.Config, key string) (any, error) {
 }
 
 func newEvalCommand(opts Options) *cobra.Command {
-	return &cobra.Command{
+	return newExportCommand(opts, cobra.Command{
 		Use:   "eval",
 		Short: "Evaluate merged config (cue eval-like)",
 		Long: `Evaluate the merged configuration, similarly to cue eval.
 
 Prints the full merged config without filtering.`,
-		Args: cobra.NoArgs,
-		RunE: func(c *cobra.Command, args []string) error {
-			disc, err := opts.discover()
-			if err != nil {
-				return err
-			}
-			out, err := configcue.ExportCUE(c.Context(), disc)
-			if err != nil {
-				return err
-			}
-			_, err = c.OutOrStdout().Write(out)
-			return err
-		},
-	}
+	}, configcue.ExportCUE)
 }
 
 func newDefCommand(opts Options) *cobra.Command {
-	return &cobra.Command{
+	return newExportCommand(opts, cobra.Command{
 		Use:   "def",
 		Short: "Show merged config definitions/types (cue def-like)",
-		Args:  cobra.NoArgs,
-		RunE: func(c *cobra.Command, args []string) error {
-			disc, err := opts.discover()
-			if err != nil {
-				return err
-			}
-			out, err := configcue.ExportDef(c.Context(), disc)
-			if err != nil {
-				return err
-			}
-			_, err = c.OutOrStdout().Write(out)
+	}, configcue.ExportDef)
+}
+
+func newExportCommand(opts Options, base cobra.Command, export func(context.Context, configcue.DiscoverOptions) ([]byte, error)) *cobra.Command {
+	cmd := base
+	cmd.Args = cobra.NoArgs
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		disc, err := opts.discover()
+		if err != nil {
 			return err
-		},
+		}
+		out, err := export(c.Context(), disc)
+		if err != nil {
+			return err
+		}
+		_, err = c.OutOrStdout().Write(out)
+		return err
 	}
+	return &cmd
 }
 
 func newLayersCommand(opts Options) *cobra.Command {

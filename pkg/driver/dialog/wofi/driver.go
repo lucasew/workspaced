@@ -76,9 +76,10 @@ func (d *Driver) Choose(ctx context.Context, opts dialog.ChooseOptions) (*dialog
 }
 
 func (d *Driver) RunApp(ctx context.Context) error {
+	// wofi has no dedicated window switcher mode; reuse the app launcher.
 	return execdriver.MustRun(ctx, "wofi", "--show", "drun").Run()
 }
 
 func (d *Driver) SwitchWindow(ctx context.Context) error {
-	return execdriver.MustRun(ctx, "wofi", "--show", "drun").Run()
+	return d.RunApp(ctx)
 }
