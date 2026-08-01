@@ -18,10 +18,7 @@ func (f *Factory) ID() string   { return "x11_feh" }
 func (f *Factory) Name() string { return "X11 (feh)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinaries(ctx, "systemd-run", "feh")
+	return execdriver.RequireEnvBinaries(ctx, "DISPLAY", "systemd-run", "feh")
 }
 
 func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {

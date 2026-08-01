@@ -19,10 +19,7 @@ func (f *Factory) ID() string   { return "clipboard_wlcopy" }
 func (f *Factory) Name() string { return "Wayland (wl-copy)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinary(ctx, "wl-copy")
+	return execdriver.RequireEnvBinary(ctx, "WAYLAND_DISPLAY", "wl-copy")
 }
 
 func (f *Factory) New(ctx context.Context) (clipboard.Driver, error) {

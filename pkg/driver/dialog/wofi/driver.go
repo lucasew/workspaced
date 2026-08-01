@@ -28,10 +28,7 @@ func (f *FullDriverFactory) CheckCompatibility(ctx context.Context) error   { re
 func (f *FullDriverFactory) New(ctx context.Context) (dialog.Driver, error) { return &Driver{}, nil }
 
 func checkWofi(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinary(ctx, "wofi")
+	return execdriver.RequireEnvBinary(ctx, "WAYLAND_DISPLAY", "wofi")
 }
 
 type Driver struct{}

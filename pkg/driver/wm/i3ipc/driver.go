@@ -20,10 +20,7 @@ type SwayFactory struct{}
 func (f *SwayFactory) ID() string   { return "screen_wayland_sway" }
 func (f *SwayFactory) Name() string { return "Sway" }
 func (f *SwayFactory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinary(ctx, "swaymsg")
+	return execdriver.RequireEnvBinary(ctx, "WAYLAND_DISPLAY", "swaymsg")
 }
 
 func (f *SwayFactory) New(ctx context.Context) (api.Driver, error) {
@@ -35,10 +32,7 @@ type I3Factory struct{}
 func (f *I3Factory) ID() string   { return "screen_x11_i3" }
 func (f *I3Factory) Name() string { return "i3" }
 func (f *I3Factory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinary(ctx, "i3-msg")
+	return execdriver.RequireEnvBinary(ctx, "DISPLAY", "i3-msg")
 }
 
 func (f *I3Factory) New(ctx context.Context) (api.Driver, error) {

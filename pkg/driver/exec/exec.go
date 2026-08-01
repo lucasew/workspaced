@@ -101,3 +101,19 @@ func RequireBinaries(ctx context.Context, names ...string) error {
 	}
 	return nil
 }
+
+// RequireEnvBinary requires envKey to be set, then name on PATH.
+func RequireEnvBinary(ctx context.Context, envKey, name string) error {
+	if err := driver.RequireEnv(ctx, envKey); err != nil {
+		return err
+	}
+	return RequireBinary(ctx, name)
+}
+
+// RequireEnvBinaries requires envKey to be set, then each name on PATH.
+func RequireEnvBinaries(ctx context.Context, envKey string, names ...string) error {
+	if err := driver.RequireEnv(ctx, envKey); err != nil {
+		return err
+	}
+	return RequireBinaries(ctx, names...)
+}

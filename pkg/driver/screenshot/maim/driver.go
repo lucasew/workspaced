@@ -23,10 +23,7 @@ func (f *Factory) ID() string   { return "screenshot_maim" }
 func (f *Factory) Name() string { return "Maim (X11)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinary(ctx, "maim")
+	return execdriver.RequireEnvBinary(ctx, "DISPLAY", "maim")
 }
 
 func (f *Factory) New(ctx context.Context) (screenshot.Driver, error) {

@@ -18,10 +18,7 @@ func (f *Factory) ID() string   { return "wayland_swaybg" }
 func (f *Factory) Name() string { return "Wayland (swaybg)" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinaries(ctx, "systemd-run", "swaybg")
+	return execdriver.RequireEnvBinaries(ctx, "WAYLAND_DISPLAY", "systemd-run", "swaybg")
 }
 
 func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {

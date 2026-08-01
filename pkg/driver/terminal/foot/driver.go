@@ -17,10 +17,7 @@ func (f *Factory) ID() string   { return "terminal_foot" }
 func (f *Factory) Name() string { return "Foot" }
 
 func (f *Factory) CheckCompatibility(ctx context.Context) error {
-	if err := driver.RequireEnv(ctx, "WAYLAND_DISPLAY"); err != nil {
-		return err
-	}
-	return execdriver.RequireBinary(ctx, "foot")
+	return execdriver.RequireEnvBinary(ctx, "WAYLAND_DISPLAY", "foot")
 }
 
 func (f *Factory) New(ctx context.Context) (terminal.Driver, error) {
