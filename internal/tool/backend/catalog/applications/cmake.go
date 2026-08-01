@@ -171,13 +171,7 @@ func (t *cmakeTool) EnsureBinary(ctx context.Context, version string, cmdName st
 // --- helpers ---
 
 func normalizeCMakeVersion(version string) string {
-	v := strings.TrimSpace(version)
-	v = strings.TrimPrefix(v, "v")
-	v = strings.TrimPrefix(v, "V")
-	if v == "" || v == "latest" {
-		return v
-	}
-	return v
+	return normalizeVersion(version, "v", "V")
 }
 
 func cmakeDirForVersion(ver string) string {

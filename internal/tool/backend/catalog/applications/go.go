@@ -167,13 +167,7 @@ func (t *goTool) listVersions(ctx context.Context) ([]string, error) {
 }
 
 func normalizeGoVersion(version string) string {
-	v := strings.TrimSpace(version)
-	v = strings.TrimPrefix(v, "go")
-	v = strings.TrimPrefix(v, "v")
-	if v == "" || v == "latest" {
-		return v
-	}
-	return v
+	return normalizeVersion(version, "go", "v")
 }
 
 func goVersionForIndex(version string) string {

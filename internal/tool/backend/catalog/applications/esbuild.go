@@ -177,12 +177,7 @@ func esbuildArtifactURL(plat, version string) string {
 }
 
 func normalizeEsbuildVersion(version string) string {
-	v := strings.TrimSpace(version)
-	v = strings.TrimPrefix(v, "v")
-	if v == "" || v == "latest" {
-		return v
-	}
-	return v
+	return normalizeVersion(version, "v")
 }
 
 // esbuildPlatform maps GOOS/GOARCH to the @esbuild/<platform> package suffix

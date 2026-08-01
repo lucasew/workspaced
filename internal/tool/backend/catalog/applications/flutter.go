@@ -200,13 +200,7 @@ func (t *flutterTool) archiveMatchesPlatform(archive string) bool {
 }
 
 func normalizeFlutterVersion(version string) string {
-	v := strings.TrimSpace(version)
-	v = strings.TrimPrefix(v, "v")
-	v = strings.TrimPrefix(v, "V")
-	if v == "" || v == "latest" {
-		return v
-	}
-	return v
+	return normalizeVersion(version, "v", "V")
 }
 
 func (t *flutterTool) InstallChecks() []checks.Check {

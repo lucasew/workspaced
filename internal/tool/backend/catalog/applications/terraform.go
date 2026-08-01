@@ -82,7 +82,7 @@ func (t *terraformTool) InstallArtifact(ctx context.Context, artifact backend.Ar
 }
 
 func normalizeTerraformVersion(version string) string {
-	return strings.TrimPrefix(strings.TrimSpace(version), "v")
+	return normalizeVersion(version, "v")
 }
 
 func (t *terraformTool) InstallChecks() []checks.Check {

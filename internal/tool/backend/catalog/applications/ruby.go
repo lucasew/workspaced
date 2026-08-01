@@ -114,13 +114,7 @@ func (t *rubyTool) Fix(_ context.Context, destDir string) error {
 // --- helpers (as methods to avoid littering package scope) ---
 
 func (t *rubyTool) normalizeVersion(version string) string {
-	v := strings.TrimSpace(version)
-	v = strings.TrimPrefix(v, "ruby-")
-	v = strings.TrimPrefix(v, "Ruby-")
-	if v == "" || v == "latest" {
-		return v
-	}
-	return v
+	return normalizeVersion(version, "ruby-", "Ruby-")
 }
 
 func (t *rubyTool) fixRubyShebangs(destDir string) error {

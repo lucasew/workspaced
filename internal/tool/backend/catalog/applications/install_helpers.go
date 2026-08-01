@@ -4,9 +4,23 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/lucasew/workspaced/internal/tool/backend"
 )
+
+// normalizeVersion trims space and the given prefixes (each once, in order).
+// Empty and "latest" are returned unchanged after that strip.
+func normalizeVersion(version string, prefixes ...string) string {
+	v := strings.TrimSpace(version)
+	for _, p := range prefixes {
+		v = strings.TrimPrefix(v, p)
+	}
+	if v == "" || v == "latest" {
+		return v
+	}
+	return v
+}
 
 func resolveToolVersion(ctx context.Context, version string, normalize func(string) string, listVersions func(context.Context) ([]string, error)) (string, error) {
 	v := normalize(version)

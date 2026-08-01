@@ -147,14 +147,7 @@ func (t *llvmTool) EnsureBinary(ctx context.Context, version string, cmdName str
 // --- helpers ---
 
 func normalizeLLVMVersion(version string) string {
-	v := strings.TrimSpace(version)
-	v = strings.TrimPrefix(v, "llvmorg-")
-	v = strings.TrimPrefix(v, "v")
-	v = strings.TrimPrefix(v, "V")
-	if v == "" || v == "latest" {
-		return v
-	}
-	return v
+	return normalizeVersion(version, "llvmorg-", "v", "V")
 }
 
 func toLLVMSpecTag(version string) string {
