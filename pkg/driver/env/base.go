@@ -23,17 +23,17 @@ func (Base) GetHostname(ctx context.Context) (string, error) {
 }
 
 func (Base) GetUserDataDir(ctx context.Context) (string, error) {
-	home, err := ResolveHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return EnsureUnderHome(home, ".local/share/workspaced")
+	return underResolvedHome(".local/share/workspaced")
 }
 
 func (Base) GetConfigDir(ctx context.Context) (string, error) {
+	return underResolvedHome(".config/workspaced")
+}
+
+func underResolvedHome(rel string) (string, error) {
 	home, err := ResolveHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return EnsureUnderHome(home, ".config/workspaced")
+	return EnsureUnderHome(home, rel)
 }

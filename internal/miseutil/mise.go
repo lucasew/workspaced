@@ -72,16 +72,16 @@ func Run(ctx context.Context, args ...string) error {
 
 // Latest resolves the latest version of a mise package spec (e.g. "node").
 func Latest(ctx context.Context, spec string) (string, error) {
-	out, err := Output(ctx, "latest", spec)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
+	return trimmedOutput(ctx, "latest", spec)
 }
 
 // Where returns the install root for a mise package spec.
 func Where(ctx context.Context, toolSpec string) (string, error) {
-	out, err := Output(ctx, "where", toolSpec)
+	return trimmedOutput(ctx, "where", toolSpec)
+}
+
+func trimmedOutput(ctx context.Context, args ...string) (string, error) {
+	out, err := Output(ctx, args...)
 	if err != nil {
 		return "", err
 	}

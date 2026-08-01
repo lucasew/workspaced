@@ -8,19 +8,19 @@ import (
 )
 
 func GetToolsDir() (string, error) {
-	home, err := envdriver.ResolveHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".local", "share", "workspaced", "tools"), nil
+	return workspacedShareDir("tools")
 }
 
 func GetShimsDir() (string, error) {
+	return workspacedShareDir("shims")
+}
+
+func workspacedShareDir(leaf string) (string, error) {
 	home, err := envdriver.ResolveHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "workspaced", "shims"), nil
+	return filepath.Join(home, ".local", "share", "workspaced", leaf), nil
 }
 
 // FindBinary searches for a binary named cmdName in the standard candidate
