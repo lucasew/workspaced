@@ -115,21 +115,17 @@ func ExportJSON(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
 }
 
 func ExportCUE(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
-	paths, layers, err := discoverPaths(ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts.HomeMode)
-	if err != nil {
-		return nil, err
-	}
 	// Use a fresh root with logger for the (rare) diagnostic warnings in this
 	// top-level export path. The real work ctx is not threaded into these
 	// high-level CUE export helpers.
-	return formatWorkspacedValue(ctx, configValue, paths, layers)
+	return exportFormatted(ctx, opts, formatWorkspacedValue)
 }
 
 func ExportDef(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
+	return exportFormatted(ctx, opts, formatWorkspacedDef)
+}
+
+func exportFormatted(ctx context.Context, opts DiscoverOptions, format func(context.Context, cue.Value, []string, []Layer) ([]byte, error)) ([]byte, error) {
 	paths, layers, err := discoverPaths(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -138,7 +134,7 @@ func ExportDef(ctx context.Context, opts DiscoverOptions) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return formatWorkspacedDef(ctx, configValue, paths, layers)
+	return format(ctx, configValue, paths, layers)
 }
 
 func Evaluate(ctx context.Context, opts DiscoverOptions) (EvaluationResult, error) {
@@ -649,18 +645,7 @@ func marshalWorkspacedValue(ctx context.Context, configValue cue.Value, paths []
 }
 
 func formatWorkspacedValue(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
-	if !configValue.Exists() {
-		if len(discovered) > 0 {
-			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "layers", discovered)
-		} else if len(paths) > 0 {
-			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue export produced empty result", "reason", "missing workspaced field", "paths", paths)
-		}
-		return []byte("{}\n"), nil
-	}
-
-	n := configValue.Syntax(
+	return formatWorkspacedSyntax(ctx, configValue, paths, discovered, "export", "config",
 		cue.Concrete(false),
 		cue.Final(),
 		cue.Definitions(false),
@@ -669,26 +654,10 @@ func formatWorkspacedValue(ctx context.Context, configValue cue.Value, paths []s
 		cue.Attributes(false),
 		cue.Docs(false),
 	)
-	out, err := format.Node(n, format.Simplify())
-	if err != nil {
-		return nil, fmt.Errorf("format cue config: %w", err)
-	}
-	return append(out, '\n'), nil
 }
 
 func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer) ([]byte, error) {
-	if !configValue.Exists() {
-		if len(discovered) > 0 {
-			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "layers", discovered)
-		} else if len(paths) > 0 {
-			logger := logging.GetLogger(ctx)
-			logger.Warn("experimental cue def produced empty result", "reason", "missing workspaced field", "paths", paths)
-		}
-		return []byte("{}\n"), nil
-	}
-
-	n := configValue.Syntax(
+	return formatWorkspacedSyntax(ctx, configValue, paths, discovered, "def", "def",
 		cue.Concrete(false),
 		cue.Definitions(true),
 		cue.Hidden(false),
@@ -696,9 +665,27 @@ func formatWorkspacedDef(ctx context.Context, configValue cue.Value, paths []str
 		cue.Attributes(true),
 		cue.Docs(true),
 	)
+}
+
+// formatWorkspacedSyntax formats the workspaced CUE value, or warns and
+// returns "{}" when the field is missing. kind labels the empty-result warn
+// ("export" / "def"); errLabel is used in format errors ("config" / "def").
+func formatWorkspacedSyntax(ctx context.Context, configValue cue.Value, paths []string, discovered []Layer, kind, errLabel string, opts ...cue.Option) ([]byte, error) {
+	if !configValue.Exists() {
+		if len(discovered) > 0 {
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing workspaced field", "layers", discovered)
+		} else if len(paths) > 0 {
+			logger := logging.GetLogger(ctx)
+			logger.Warn("experimental cue "+kind+" produced empty result", "reason", "missing workspaced field", "paths", paths)
+		}
+		return []byte("{}\n"), nil
+	}
+
+	n := configValue.Syntax(opts...)
 	out, err := format.Node(n, format.Simplify())
 	if err != nil {
-		return nil, fmt.Errorf("format cue def: %w", err)
+		return nil, fmt.Errorf("format cue %s: %w", errLabel, err)
 	}
 	return append(out, '\n'), nil
 }
