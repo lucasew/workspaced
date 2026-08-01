@@ -108,6 +108,16 @@ func cc(low, normal, medium, high float64) *ContrastCurve {
 	return &ContrastCurve{Low: low, Normal: normal, Medium: medium, High: high}
 }
 
+// toneDL returns a role tone that picks dark when IsDark, else light.
+func toneDL(dark, light float64) func(*Scheme) float64 {
+	return func(s *Scheme) float64 {
+		if s.IsDark {
+			return dark
+		}
+		return light
+	}
+}
+
 func ccGet(cc *ContrastCurve, cl float64) float64 {
 	if cc == nil {
 		return 0.0
@@ -168,12 +178,7 @@ func initRoles() {
 		return &Role{Name: name, Palette: palette, Tone: tone}
 	}
 
-	roles["background"] = r("background", "Neutral", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 6.0
-		}
-		return 98.0
-	})
+	roles["background"] = r("background", "Neutral", toneDL(6.0, 98.0))
 	roles["background"].IsBackground = true
 
 	roles["surface_dim"] = r("surface_dim", "Neutral", func(s *Scheme) float64 {
@@ -192,20 +197,10 @@ func initRoles() {
 	})
 	roles["surface_bright"].IsBackground = true
 
-	roles["surface"] = r("surface", "Neutral", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 6.0
-		}
-		return 98.0
-	})
+	roles["surface"] = r("surface", "Neutral", toneDL(6.0, 98.0))
 	roles["surface"].IsBackground = true
 
-	roles["on_background"] = r("on_background", "Neutral", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 10.0
-	})
+	roles["on_background"] = r("on_background", "Neutral", toneDL(90.0, 10.0))
 	roles["on_background"].Background = func(s *Scheme) *Role { return roles["background"] }
 	roles["on_background"].ContrastCurve = cc(3.0, 3.0, 4.5, 7.0)
 
@@ -249,102 +244,47 @@ func initRoles() {
 	})
 	roles["surface_container_highest"].IsBackground = true
 
-	roles["on_surface"] = r("on_surface", "Neutral", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 10.0
-	})
+	roles["on_surface"] = r("on_surface", "Neutral", toneDL(90.0, 10.0))
 	roles["on_surface"].Background = highestSurface
 	roles["on_surface"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
-	roles["surface_variant"] = r("surface_variant", "NeutralVariant", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 30.0
-		}
-		return 90.0
-	})
+	roles["surface_variant"] = r("surface_variant", "NeutralVariant", toneDL(30.0, 90.0))
 	roles["surface_variant"].IsBackground = true
 
-	roles["on_surface_variant"] = r("on_surface_variant", "NeutralVariant", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 80.0
-		}
-		return 30.0
-	})
+	roles["on_surface_variant"] = r("on_surface_variant", "NeutralVariant", toneDL(80.0, 30.0))
 	roles["on_surface_variant"].Background = highestSurface
 	roles["on_surface_variant"].ContrastCurve = cc(3.0, 4.5, 7.0, 11.0)
 
-	roles["inverse_surface"] = r("inverse_surface", "Neutral", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 20.0
-	})
+	roles["inverse_surface"] = r("inverse_surface", "Neutral", toneDL(90.0, 20.0))
 
-	roles["inverse_on_surface"] = r("inverse_on_surface", "Neutral", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 20.0
-		}
-		return 95.0
-	})
+	roles["inverse_on_surface"] = r("inverse_on_surface", "Neutral", toneDL(20.0, 95.0))
 	roles["inverse_on_surface"].Background = func(s *Scheme) *Role { return roles["inverse_surface"] }
 	roles["inverse_on_surface"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
-	roles["outline"] = r("outline", "NeutralVariant", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 60.0
-		}
-		return 50.0
-	})
+	roles["outline"] = r("outline", "NeutralVariant", toneDL(60.0, 50.0))
 	roles["outline"].Background = highestSurface
 	roles["outline"].ContrastCurve = cc(1.5, 3.0, 4.5, 7.0)
 
-	roles["outline_variant"] = r("outline_variant", "NeutralVariant", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 30.0
-		}
-		return 80.0
-	})
+	roles["outline_variant"] = r("outline_variant", "NeutralVariant", toneDL(30.0, 80.0))
 	roles["outline_variant"].Background = highestSurface
 	roles["outline_variant"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
 
 	roles["shadow"] = r("shadow", "Neutral", func(s *Scheme) float64 { return 0.0 })
 	roles["scrim"] = r("scrim", "Neutral", func(s *Scheme) float64 { return 0.0 })
-	roles["surface_tint"] = r("surface_tint", "Primary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 80.0
-		}
-		return 40.0
-	})
+	roles["surface_tint"] = r("surface_tint", "Primary", toneDL(80.0, 40.0))
 	roles["surface_tint"].IsBackground = true
 
 	// Primary
-	roles["primary"] = r("primary", "Primary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 80.0
-		}
-		return 40.0
-	})
+	roles["primary"] = r("primary", "Primary", toneDL(80.0, 40.0))
 	roles["primary"].IsBackground = true
 	roles["primary"].Background = highestSurface
 	roles["primary"].ContrastCurve = cc(3.0, 4.5, 7.0, 7.0)
 
-	roles["on_primary"] = r("on_primary", "Primary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 20.0
-		}
-		return 100.0
-	})
+	roles["on_primary"] = r("on_primary", "Primary", toneDL(20.0, 100.0))
 	roles["on_primary"].Background = func(s *Scheme) *Role { return roles["primary"] }
 	roles["on_primary"].ContrastCurve = cc(3.0, 7.0, 11.0, 21.0)
 
-	roles["primary_container"] = r("primary_container", "Primary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 30.0
-		}
-		return 90.0
-	})
+	roles["primary_container"] = r("primary_container", "Primary", toneDL(30.0, 90.0))
 	roles["primary_container"].IsBackground = true
 	roles["primary_container"].Background = highestSurface
 	roles["primary_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
@@ -352,50 +292,25 @@ func initRoles() {
 	roles["primary"].ToneDeltaPair = tdp(roles["primary_container"], roles["primary"], 10.0, "Nearer", false)
 	roles["primary_container"].ToneDeltaPair = roles["primary"].ToneDeltaPair
 
-	roles["on_primary_container"] = r("on_primary_container", "Primary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 10.0
-	})
+	roles["on_primary_container"] = r("on_primary_container", "Primary", toneDL(90.0, 10.0))
 	roles["on_primary_container"].Background = func(s *Scheme) *Role { return roles["primary_container"] }
 	roles["on_primary_container"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
-	roles["inverse_primary"] = r("inverse_primary", "Primary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 40.0
-		}
-		return 80.0
-	})
+	roles["inverse_primary"] = r("inverse_primary", "Primary", toneDL(40.0, 80.0))
 	roles["inverse_primary"].Background = func(s *Scheme) *Role { return roles["inverse_surface"] }
 	roles["inverse_primary"].ContrastCurve = cc(3.0, 4.5, 7.0, 7.0)
 
 	// Secondary
-	roles["secondary"] = r("secondary", "Secondary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 80.0
-		}
-		return 40.0
-	})
+	roles["secondary"] = r("secondary", "Secondary", toneDL(80.0, 40.0))
 	roles["secondary"].IsBackground = true
 	roles["secondary"].Background = highestSurface
 	roles["secondary"].ContrastCurve = cc(3.0, 4.5, 7.0, 7.0)
 
-	roles["on_secondary"] = r("on_secondary", "Secondary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 20.0
-		}
-		return 100.0
-	})
+	roles["on_secondary"] = r("on_secondary", "Secondary", toneDL(20.0, 100.0))
 	roles["on_secondary"].Background = func(s *Scheme) *Role { return roles["secondary"] }
 	roles["on_secondary"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
-	roles["secondary_container"] = r("secondary_container", "Secondary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 30.0
-		}
-		return 90.0
-	})
+	roles["secondary_container"] = r("secondary_container", "Secondary", toneDL(30.0, 90.0))
 	roles["secondary_container"].IsBackground = true
 	roles["secondary_container"].Background = highestSurface
 	roles["secondary_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
@@ -403,41 +318,21 @@ func initRoles() {
 	roles["secondary"].ToneDeltaPair = tdp(roles["secondary_container"], roles["secondary"], 10.0, "Nearer", false)
 	roles["secondary_container"].ToneDeltaPair = roles["secondary"].ToneDeltaPair
 
-	roles["on_secondary_container"] = r("on_secondary_container", "Secondary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 10.0
-	})
+	roles["on_secondary_container"] = r("on_secondary_container", "Secondary", toneDL(90.0, 10.0))
 	roles["on_secondary_container"].Background = func(s *Scheme) *Role { return roles["secondary_container"] }
 	roles["on_secondary_container"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
 	// Tertiary
-	roles["tertiary"] = r("tertiary", "Tertiary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 80.0
-		}
-		return 40.0
-	})
+	roles["tertiary"] = r("tertiary", "Tertiary", toneDL(80.0, 40.0))
 	roles["tertiary"].IsBackground = true
 	roles["tertiary"].Background = highestSurface
 	roles["tertiary"].ContrastCurve = cc(3.0, 4.5, 7.0, 7.0)
 
-	roles["on_tertiary"] = r("on_tertiary", "Tertiary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 20.0
-		}
-		return 100.0
-	})
+	roles["on_tertiary"] = r("on_tertiary", "Tertiary", toneDL(20.0, 100.0))
 	roles["on_tertiary"].Background = func(s *Scheme) *Role { return roles["tertiary"] }
 	roles["on_tertiary"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
-	roles["tertiary_container"] = r("tertiary_container", "Tertiary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 30.0
-		}
-		return 90.0
-	})
+	roles["tertiary_container"] = r("tertiary_container", "Tertiary", toneDL(30.0, 90.0))
 	roles["tertiary_container"].IsBackground = true
 	roles["tertiary_container"].Background = highestSurface
 	roles["tertiary_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
@@ -445,41 +340,21 @@ func initRoles() {
 	roles["tertiary"].ToneDeltaPair = tdp(roles["tertiary_container"], roles["tertiary"], 10.0, "Nearer", false)
 	roles["tertiary_container"].ToneDeltaPair = roles["tertiary"].ToneDeltaPair
 
-	roles["on_tertiary_container"] = r("on_tertiary_container", "Tertiary", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 10.0
-	})
+	roles["on_tertiary_container"] = r("on_tertiary_container", "Tertiary", toneDL(90.0, 10.0))
 	roles["on_tertiary_container"].Background = func(s *Scheme) *Role { return roles["tertiary_container"] }
 	roles["on_tertiary_container"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
 	// Error
-	roles["error"] = r("error", "Error", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 80.0
-		}
-		return 40.0
-	})
+	roles["error"] = r("error", "Error", toneDL(80.0, 40.0))
 	roles["error"].IsBackground = true
 	roles["error"].Background = highestSurface
 	roles["error"].ContrastCurve = cc(3.0, 4.5, 7.0, 7.0)
 
-	roles["on_error"] = r("on_error", "Error", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 20.0
-		}
-		return 100.0
-	})
+	roles["on_error"] = r("on_error", "Error", toneDL(20.0, 100.0))
 	roles["on_error"].Background = func(s *Scheme) *Role { return roles["error"] }
 	roles["on_error"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
-	roles["error_container"] = r("error_container", "Error", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 30.0
-		}
-		return 90.0
-	})
+	roles["error_container"] = r("error_container", "Error", toneDL(30.0, 90.0))
 	roles["error_container"].IsBackground = true
 	roles["error_container"].Background = highestSurface
 	roles["error_container"].ContrastCurve = cc(1.0, 1.0, 3.0, 4.5)
@@ -487,12 +362,7 @@ func initRoles() {
 	roles["error"].ToneDeltaPair = tdp(roles["error_container"], roles["error"], 10.0, "Nearer", false)
 	roles["error_container"].ToneDeltaPair = roles["error"].ToneDeltaPair
 
-	roles["on_error_container"] = r("on_error_container", "Error", func(s *Scheme) float64 {
-		if s.IsDark {
-			return 90.0
-		}
-		return 10.0
-	})
+	roles["on_error_container"] = r("on_error_container", "Error", toneDL(90.0, 10.0))
 	roles["on_error_container"].Background = func(s *Scheme) *Role { return roles["error_container"] }
 	roles["on_error_container"].ContrastCurve = cc(4.5, 7.0, 11.0, 21.0)
 
