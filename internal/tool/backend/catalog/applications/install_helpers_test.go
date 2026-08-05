@@ -65,3 +65,36 @@ func TestResolveToolVersion(t *testing.T) {
 		}
 	})
 }
+
+func TestSortVersionsDesc(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty yields ErrNoVersions", func(t *testing.T) {
+		t.Parallel()
+		_, err := sortVersionsDesc(nil)
+		if !errors.Is(err, ErrNoVersions) {
+			t.Fatalf("got %v, want ErrNoVersions", err)
+		}
+		_, err = sortVersionsDesc([]string{})
+		if !errors.Is(err, ErrNoVersions) {
+			t.Fatalf("got %v, want ErrNoVersions", err)
+		}
+	})
+
+	t.Run("newest first", func(t *testing.T) {
+		t.Parallel()
+		got, err := sortVersionsDesc([]string{"1.2.0", "2.0.0", "1.10.0"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"2.0.0", "1.10.0", "1.2.0"}
+		if len(got) != len(want) {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+		}
+	})
+}

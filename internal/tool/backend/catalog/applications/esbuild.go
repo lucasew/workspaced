@@ -7,11 +7,9 @@ import (
 	"io"
 	"net/http"
 	"runtime"
-	"sort"
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/semver"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/checks"
@@ -111,19 +109,7 @@ func (t *esbuildTool) listVersions(ctx context.Context) ([]string, error) {
 		}
 		out = append(out, ver)
 	}
-	if len(out) == 0 {
-		return nil, ErrNoVersions
-	}
-
-	svs := make(semver.SemVers, len(out))
-	for i, s := range out {
-		svs[i] = semver.Parse(s)
-	}
-	sort.Sort(sort.Reverse(svs))
-	for i, s := range svs {
-		out[i] = s.Original
-	}
-	return out, nil
+	return sortVersionsDesc(out)
 }
 
 // fetchTarballHash returns "sha1:<shasum>" from the platform package document.

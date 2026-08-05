@@ -2,11 +2,9 @@ package apps
 
 import (
 	"context"
-	"sort"
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/semver"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/backend/github"
@@ -59,22 +57,7 @@ func (t *heliumBrowserTool) ListVersions(ctx context.Context) ([]string, error) 
 			collected = append(collected, v)
 		}
 	}
-	if len(collected) == 0 {
-		return nil, ErrNoVersions
-	}
-
-	// Sort descending (newest first) using the project's semver helper.
-	svs := make(semver.SemVers, len(collected))
-	for i, s := range collected {
-		svs[i] = semver.Parse(s)
-	}
-	sort.Sort(sort.Reverse(svs))
-
-	out := make([]string, len(svs))
-	for i, s := range svs {
-		out[i] = s.Original
-	}
-	return out, nil
+	return sortVersionsDesc(collected)
 }
 
 func (t *heliumBrowserTool) Install(ctx context.Context, version string, destDir string) error {
