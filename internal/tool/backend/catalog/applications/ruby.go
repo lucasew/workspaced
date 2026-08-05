@@ -5,11 +5,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/modfile"
-	"github.com/lucasew/workspaced/internal/semver"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/backend/github"
@@ -53,20 +51,7 @@ func (t *rubyTool) ListVersions(ctx context.Context) ([]string, error) {
 		seen[ver] = true
 		out = append(out, ver)
 	}
-	if len(out) == 0 {
-		return nil, ErrNoVersions
-	}
-
-	// Sort descending semver so [0] == latest.
-	svs := make(semver.SemVers, len(out))
-	for i, s := range out {
-		svs[i] = semver.Parse(s)
-	}
-	sort.Sort(sort.Reverse(svs))
-	for i, s := range svs {
-		out[i] = s.Original
-	}
-	return out, nil
+	return sortVersionsDesc(out)
 }
 
 func (t *rubyTool) Install(ctx context.Context, version string, destDir string) error {

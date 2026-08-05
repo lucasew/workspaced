@@ -4,12 +4,32 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sort"
 	"strings"
 
+	"github.com/lucasew/workspaced/internal/semver"
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
 )
+
+// sortVersionsDesc returns versions ordered newest-first by semver so [0] is
+// latest. Empty input yields ErrNoVersions.
+func sortVersionsDesc(versions []string) ([]string, error) {
+	if len(versions) == 0 {
+		return nil, ErrNoVersions
+	}
+	svs := make(semver.SemVers, len(versions))
+	for i, s := range versions {
+		svs[i] = semver.Parse(s)
+	}
+	sort.Sort(sort.Reverse(svs))
+	out := make([]string, len(svs))
+	for i, s := range svs {
+		out[i] = s.Original
+	}
+	return out, nil
+}
 
 // normalizeVersion trims space and the given prefixes (each once, in order).
 // Empty and "latest" are returned unchanged after that strip.
