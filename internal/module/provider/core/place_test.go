@@ -388,15 +388,16 @@ func TestPlaceMoveDirPrefix(t *testing.T) {
 	}
 }
 
-func TestPlaceUnknownOp(t *testing.T) {
+func TestPlaceUnknownOpSkipped(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "a"), []byte("a"), 0o644); err != nil {
+	a := filepath.Join(root, "a")
+	if err := os.WriteFile(a, []byte("a"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	ctx := logging.NewWriterContext(t.Output())
-	_, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
+	out, err := placeModule{}.Resolve(ctx, module.ResolveRequest{
 		ModuleName: "m",
 		ModuleConfig: map[string]any{
 			"items": map[string]any{"out": root},
@@ -405,8 +406,11 @@ func TestPlaceUnknownOp(t *testing.T) {
 			},
 		},
 	})
-	if err == nil || !errors.Is(err, errPlaceUnknownOp) {
-		t.Fatalf("error=%v want %v", err, errPlaceUnknownOp)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if len(out.Files) != 1 {
+		t.Fatalf("files=%+v", out.Files)
 	}
 }
 

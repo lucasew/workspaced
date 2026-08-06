@@ -206,16 +206,14 @@ func collectPlaceEntries(srcPath string, st os.FileInfo) ([]placeEntry, error) {
 }
 
 func (r placeStepRun) apply(entries []placeEntry) ([]placeEntry, []string, error) {
-	op := strings.TrimSpace(r.step.Op)
-	switch op {
-	case "":
-		return nil, nil, fmt.Errorf("place module %q step %q: %w", r.module, r.name, errPlaceMissingOp)
+	// Op shape is CUE-prelude-typed; Go only dispatches known ops.
+	switch strings.TrimSpace(r.step.Op) {
 	case "move":
 		return r.move(entries)
 	case "require":
 		return r.require(entries)
 	default:
-		return nil, nil, fmt.Errorf("place module %q step %q: %w %q", r.module, r.name, errPlaceUnknownOp, op)
+		return entries, nil, nil
 	}
 }
 
@@ -271,9 +269,7 @@ func (r placeStepRun) move(entries []placeEntry) ([]placeEntry, []string, error)
 }
 
 func (r placeStepRun) require(entries []placeEntry) ([]placeEntry, []string, error) {
-	if len(r.step.Patterns) == 0 {
-		return nil, nil, fmt.Errorf("place module %q step %q: %w", r.module, r.name, errPlaceRequireNoPatterns)
-	}
+	// Patterns presence/shape is CUE-prelude-typed.
 	names := make([]string, 0, len(r.step.Patterns))
 	for name := range r.step.Patterns {
 		names = append(names, name)
@@ -283,14 +279,14 @@ func (r placeStepRun) require(entries []placeEntry) ([]placeEntry, []string, err
 	for _, name := range names {
 		raw := strings.TrimSpace(r.step.Patterns[name])
 		if raw == "" {
-			return nil, nil, fmt.Errorf("place module %q step %q pattern %q: %w", r.module, r.name, name, errPlaceEmptyPattern)
+			continue
 		}
 		negate := strings.HasPrefix(raw, "!")
 		pat := raw
 		if negate {
 			pat = strings.TrimSpace(strings.TrimPrefix(raw, "!"))
 			if pat == "" {
-				return nil, nil, fmt.Errorf("place module %q step %q pattern %q: %w", r.module, r.name, name, errPlaceEmptyNegation)
+				continue
 			}
 		}
 
