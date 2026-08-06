@@ -60,10 +60,10 @@ type base16IconsConfig struct {
 	DefaultContext string   `json:"default_context"`
 }
 
-func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
+func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
 	cfg, err := module.DecodeConfig[base16IconsConfig](req.ModuleConfig)
 	if err != nil {
-		return nil, fmt.Errorf("module %s: %w", req.ModuleName, err)
+		return module.ResolveResult{}, fmt.Errorf("module %s: %w", req.ModuleName, err)
 	}
 
 	// apply defaults (strings)
@@ -85,7 +85,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 	}
 
 	if strings.TrimSpace(cfg.InputDir) == "" {
-		return nil, ErrInputDirRequired
+		return module.ResolveResult{}, ErrInputDirRequired
 	}
 	cfg.InputDir = envdriver.ExpandPath(cfg.InputDir)
 	if cfg.OutputDir == "" {
@@ -94,19 +94,19 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 	cfg.OutputDir = envdriver.ExpandPath(cfg.OutputDir)
 
 	if _, err := os.Stat(cfg.InputDir); err != nil {
-		return nil, fmt.Errorf("invalid input_dir %q: %w", cfg.InputDir, err)
+		return module.ResolveResult{}, fmt.Errorf("invalid input_dir %q: %w", cfg.InputDir, err)
 	}
 	if cfg.ThemeName == "" {
-		return nil, ErrThemeNameRequired
+		return module.ResolveResult{}, ErrThemeNameRequired
 	}
 
 	palette, err := extractBase16(req)
 	if err != nil {
-		return nil, err
+		return module.ResolveResult{}, err
 	}
 	fp, err := moduleFingerprint(cfg, palette)
 	if err != nil {
-		return nil, err
+		return module.ResolveResult{}, err
 	}
 
 	cacheRoot := envdriver.ExpandPath("~/.cache/workspaced/modules/core-base16-icons-linux")
@@ -128,7 +128,7 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 			logging.ReportError(ctx, rmErr, "path", workDir)
 		}
 		if err := os.MkdirAll(workDir, 0755); err != nil {
-			return nil, err
+			return module.ResolveResult{}, err
 		}
 		err := icons.RunThemeGenerate(ctx, icons.ThemeGenerateOptions{
 			InputDir:       cfg.InputDir,
@@ -150,13 +150,13 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 				logging.ReportError(ctx, rmErr, "path", workDir)
 			}
-			return nil, err
+			return module.ResolveResult{}, err
 		}
 		if err := atomicReplaceDir(cacheDir, workDir); err != nil {
 			if rmErr := os.RemoveAll(workDir); rmErr != nil && !errors.Is(rmErr, os.ErrNotExist) {
 				logging.ReportError(ctx, rmErr, "path", workDir)
 			}
-			return nil, err
+			return module.ResolveResult{}, err
 		}
 	}
 
@@ -190,10 +190,10 @@ func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveReq
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return module.ResolveResult{}, err
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].RelPath < out[j].RelPath })
-	return out, nil
+	return module.ResolveResult{Files: out}, nil
 }
 
 func extractBase16(req module.ResolveRequest) (map[string]any, error) {
