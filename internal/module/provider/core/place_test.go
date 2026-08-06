@@ -212,8 +212,8 @@ func TestPlaceRequireFailsWhenMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected require failure")
 	}
-	if !strings.Contains(err.Error(), "no path matched") {
-		t.Fatalf("error=%v", err)
+	if !errors.Is(err, errPlaceRequireNoMatch) {
+		t.Fatalf("error=%v want %v", err, errPlaceRequireNoMatch)
 	}
 }
 
@@ -251,8 +251,8 @@ func TestPlaceRequireNegation(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected negation failure")
 	}
-	if !strings.Contains(err.Error(), "must not") {
-		t.Fatalf("error=%v", err)
+	if !errors.Is(err, errPlaceRequireMustNot) {
+		t.Fatalf("error=%v want %v", err, errPlaceRequireMustNot)
 	}
 }
 
@@ -405,18 +405,18 @@ func TestPlaceUnknownOp(t *testing.T) {
 			},
 		},
 	})
-	if err == nil || !strings.Contains(err.Error(), "unknown op") {
-		t.Fatalf("error=%v", err)
+	if err == nil || !errors.Is(err, errPlaceUnknownOp) {
+		t.Fatalf("error=%v want %v", err, errPlaceUnknownOp)
 	}
 }
 
 func TestCleanPlacePath(t *testing.T) {
 	t.Parallel()
-	if _, err := cleanPlacePath("../x"); err == nil {
-		t.Fatal("expected escape error")
+	if _, err := cleanPlacePath("../x"); !errors.Is(err, errPlacePathEscape) {
+		t.Fatalf("escape: %v", err)
 	}
-	if _, err := cleanPlacePath(""); err == nil {
-		t.Fatal("expected empty error")
+	if _, err := cleanPlacePath(""); !errors.Is(err, errPlaceEmptyPath) {
+		t.Fatalf("empty: %v", err)
 	}
 	got, err := cleanPlacePath("foo/bar")
 	if err != nil || got != "foo/bar" {
