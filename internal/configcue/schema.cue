@@ -21,6 +21,29 @@ package workspaced
 	bins?:    [...string]
 }
 
+// core:place step: exact-path move on the origin virtual FS (file or dir prefix).
+#PlaceStepMove: {
+	op:   "move"
+	from: string
+	to:   string
+}
+
+// core:place step: gitignore-style require clauses (AND). "!" = must not match.
+#PlaceStepRequire: {
+	op: "require"
+	patterns: [string]: string
+}
+
+#PlaceStep: #PlaceStepMove | #PlaceStepRequire
+
+// core:place module config. Extra keys allowed (e.g. hub template data).
+#PlaceConfig: {
+	items?:          [string]: string
+	ignore_missing?: bool
+	steps?:          [string]: #PlaceStep
+	...
+}
+
 #ModuleRef: {
 	enable: bool | *true
 	input?: string
@@ -28,6 +51,10 @@ package workspaced
 	from?:  string
 	version?: string
 	config?: _
+	// Place modules: step shape is CUE-checked; Go only dispatches known ops.
+	if from == "core:place" {
+		config?: #PlaceConfig
+	}
 }
 
 #Runtime: {
