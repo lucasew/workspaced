@@ -18,7 +18,7 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/image v0.42.0
-	modernc.org/sqlite v1.52.0
+	modernc.org/sqlite v1.56.0
 )
 
 require github.com/shogo82148/go-sfv v0.3.3 // indirect
@@ -45,7 +45,7 @@ require (
 	github.com/ktr0731/go-ansisgr v0.1.0 // indirect
 	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mmcloughlin/md4 v0.1.2 // indirect
@@ -64,12 +64,12 @@ require (
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect
 	kernel.org/pub/linux/libs/security/libcap/psx v1.2.70 // indirect
-	modernc.org/libc v1.72.3 // indirect
+	modernc.org/libc v1.74.4 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
