@@ -110,4 +110,20 @@ workspaced: modules: other: {
 			t.Fatalf("unify: %v", err)
 		}
 	})
+
+	t.Run("module without from field (input only)", func(t *testing.T) {
+		t.Parallel()
+		// Regression: if from == "core:place" must not require optional from.
+		err := unifyUser(t, `
+package workspaced
+workspaced: modules: fontconfig: {
+	input: "self"
+	path:  "fontconfig"
+	config: {enable: true}
+}
+`)
+		if err != nil {
+			t.Fatalf("unify: %v", err)
+		}
+	})
 }

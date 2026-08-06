@@ -48,9 +48,11 @@ package workspaced
 	enable: bool | *true
 	input?: string
 	path?:  string | *"."
-	from?:  string
+	// Default "" so guards can reference from without "optional field" errors
+	// (many modules only set input/path and omit from).
+	from:     string | *""
 	version?: string
-	config?: _
+	config?:  _
 	// Place modules: step shape is CUE-checked; Go only dispatches known ops.
 	if from == "core:place" {
 		config?: #PlaceConfig
