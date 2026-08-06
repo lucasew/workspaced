@@ -36,23 +36,23 @@ var presetBases = map[string]string{
 	"bin":  "/usr/local/bin",
 }
 
-func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
+func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
 	workspaceRoot := filepath.Dir(req.ModulesBaseDir)
 	modPath := req.Ref
 	if !filepath.IsAbs(modPath) {
 		modPath = filepath.Join(workspaceRoot, req.Ref)
 	}
 	if st, err := os.Stat(modPath); err != nil || !st.IsDir() {
-		return nil, fmt.Errorf("%w: %q at %s", ErrModuleNotFound, req.Ref, modPath)
+		return module.ResolveResult{}, fmt.Errorf("%w: %q at %s", ErrModuleNotFound, req.Ref, modPath)
 	}
 
 	if err := validateConfig(req.Ref, modPath, req.ModuleConfig, req.Config.Raw()); err != nil {
-		return nil, err
+		return module.ResolveResult{}, err
 	}
 
 	entries, err := os.ReadDir(modPath)
 	if err != nil {
-		return nil, err
+		return module.ResolveResult{}, err
 	}
 
 	var out []module.ResolvedFile
@@ -62,17 +62,17 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 			if name == "README.md" || strings.HasSuffix(name, ".cue") {
 				continue
 			}
-			return nil, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
+			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
 		targetBase, ok := presetBases[presetName]
 		if !ok {
-			return nil, fmt.Errorf("%w: %q in module %q", ErrUnknownPreset, presetName, req.Ref)
+			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrUnknownPreset, presetName, req.Ref)
 		}
 		if targetBase == "~" {
 			home, err := os.UserHomeDir()
 			if err != nil {
-				return nil, fmt.Errorf("get home directory: %w", err)
+				return module.ResolveResult{}, fmt.Errorf("get home directory: %w", err)
 			}
 			targetBase = home
 		}
@@ -101,11 +101,11 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return module.ResolveResult{}, err
 		}
 	}
 
-	return out, nil
+	return module.ResolveResult{Files: out}, nil
 }
 
 func validateConfig(modName string, modPath string, modCfg map[string]any, root map[string]any) error {

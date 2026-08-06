@@ -18,10 +18,10 @@ type Provider struct{}
 func (p *Provider) ID() string   { return "core" }
 func (p *Provider) Name() string { return "Core Module Provider" }
 
-func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
+func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
 	cm, ok := module.GetCoreModule(req.Ref)
 	if !ok {
-		return nil, fmt.Errorf("unknown core module %q", req.Ref)
+		return module.ResolveResult{}, fmt.Errorf("unknown core module %q", req.Ref)
 	}
 	return cm.Resolve(ctx, req)
 }

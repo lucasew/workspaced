@@ -133,7 +133,7 @@ func (p *ModuleScannerPlugin) resolveModule(
 		}
 	}
 
-	resolvedFiles, err := provider.Resolve(ctx, module.ResolveRequest{
+	resolved, err := provider.Resolve(ctx, module.ResolveRequest{
 		ModuleName:     m.name,
 		Ref:            ref,
 		Version:        moduleSource.Version,
@@ -144,9 +144,12 @@ func (p *ModuleScannerPlugin) resolveModule(
 	if err != nil {
 		return nil, fmt.Errorf("module %q from %s:%s: %w", m.name, providerID, ref, err)
 	}
+	for _, w := range resolved.Warnings {
+		AppendWarning(ctx, w)
+	}
 
-	out := make([]File, 0, len(resolvedFiles))
-	for _, rf := range resolvedFiles {
+	out := make([]File, 0, len(resolved.Files))
+	for _, rf := range resolved.Files {
 		fileType := TypeStatic
 		if rf.Symlink {
 			fileType = TypeSymlink

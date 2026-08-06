@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/git-pkgs/gitignore"
 	"github.com/lucasew/workspaced/internal/module"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -41,35 +43,59 @@ func (placeModule) Prepare(ctx context.Context, cfg map[string]any, resolver mod
 	return nil
 }
 
-// placeConfig for core:place. One shape only:
+// placeConfig for core:place.
 //
 //	items: {
 //	  ".grok/skills": "mySkills:."
-//	  ".config/agent/prompts": "mySkills:prompts"
-//	  // You can also reference the built-in self input directly:
-//	  ".local/bin": "self:bin"
 //	}
-//	// When true, skip items whose source path does not exist instead of failing.
 //	ignore_missing: true
+//	steps: {
+//	  "10_require": { op: "require", patterns: { skill: "SKILL.md" } }
+//	  "20_demote":  { op: "move", from: "SKILL.md", to: "entry.md" }
+//	}
 type placeConfig struct {
-	Items         map[string]string `json:"items"`
-	IgnoreMissing bool              `json:"ignore_missing"`
+	Items         map[string]string    `json:"items"`
+	IgnoreMissing bool                 `json:"ignore_missing"`
+	Steps         map[string]placeStep `json:"steps"`
 }
 
-func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]module.ResolvedFile, error) {
+type placeStep struct {
+	Op       string            `json:"op"`
+	From     string            `json:"from"`
+	To       string            `json:"to"`
+	Patterns map[string]string `json:"patterns"`
+}
+
+type placeEntry struct {
+	rel     string // origin-relative, slash-separated
+	abs     string
+	mode    os.FileMode
+	symlink bool
+}
+
+func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
 	logger := logging.GetLogger(ctx)
 
 	cfg, err := module.DecodeConfig[placeConfig](req.ModuleConfig)
 	if err != nil {
-		return nil, fmt.Errorf("module %s: %w", req.ModuleName, err)
+		return module.ResolveResult{}, fmt.Errorf("module %s: %w", req.ModuleName, err)
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, err
+		return module.ResolveResult{}, err
 	}
 
-	var out []module.ResolvedFile
+	stepNames := make([]string, 0, len(cfg.Steps))
+	for name := range cfg.Steps {
+		stepNames = append(stepNames, name)
+	}
+	sort.Strings(stepNames)
+
+	var (
+		out      []module.ResolvedFile
+		warnings []string
+	)
 
 	for dest, src := range cfg.Items {
 		s := strings.TrimSpace(src)
@@ -86,60 +112,229 @@ func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) ([]mo
 				logger.Info("place: skipping missing source", "module", req.ModuleName, "dest", dest, "source", srcPath)
 				continue
 			}
-			return nil, fmt.Errorf("place source %q: %w", srcPath, err)
+			return module.ResolveResult{}, fmt.Errorf("place source %q: %w", srcPath, err)
 		}
 
-		if !st.IsDir() {
-			// single file
-			base := filepath.Base(srcPath)
-			finalRel := base
-			if destClean != "" && destClean != "." {
-				finalRel = filepath.Join(destClean, base)
-			}
-			isSymlink := st.Mode()&os.ModeSymlink != 0
-			out = append(out, module.ResolvedFile{
-				RelPath:    finalRel,
-				TargetBase: home,
-				Mode:       st.Mode(),
-				Info:       fmt.Sprintf("module:%s place (%s)", req.ModuleName, finalRel),
-				AbsPath:    srcPath,
-				Symlink:    isSymlink,
-			})
-			continue
-		}
-
-		// directory tree
-		err = filepath.Walk(srcPath, func(path string, info os.FileInfo, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if info.IsDir() {
-				return nil
-			}
-			rel, err := filepath.Rel(srcPath, path)
-			if err != nil {
-				return err
-			}
-			finalRel := rel
-			if destClean != "" && destClean != "." {
-				finalRel = filepath.Join(destClean, rel)
-			}
-			isSymlink := info.Mode()&os.ModeSymlink != 0
-			out = append(out, module.ResolvedFile{
-				RelPath:    finalRel,
-				TargetBase: home,
-				Mode:       info.Mode(),
-				Info:       fmt.Sprintf("module:%s place (%s)", req.ModuleName, finalRel),
-				AbsPath:    path,
-				Symlink:    isSymlink,
-			})
-			return nil
-		})
+		entries, err := collectPlaceEntries(srcPath, st)
 		if err != nil {
-			return nil, err
+			return module.ResolveResult{}, err
+		}
+
+		for _, name := range stepNames {
+			step := cfg.Steps[name]
+			var stepWarns []string
+			entries, stepWarns, err = applyPlaceStep(req.ModuleName, destClean, name, step, entries)
+			if err != nil {
+				return module.ResolveResult{}, err
+			}
+			for _, w := range stepWarns {
+				logger.Warn(w)
+				warnings = append(warnings, w)
+			}
+		}
+
+		for _, e := range entries {
+			finalRel := e.rel
+			if destClean != "" && destClean != "." {
+				finalRel = filepath.Join(destClean, filepath.FromSlash(e.rel))
+			} else {
+				finalRel = filepath.FromSlash(e.rel)
+			}
+			out = append(out, module.ResolvedFile{
+				RelPath:    finalRel,
+				TargetBase: home,
+				Mode:       e.mode,
+				Info:       fmt.Sprintf("module:%s place (%s)", req.ModuleName, finalRel),
+				AbsPath:    e.abs,
+				Symlink:    e.symlink,
+			})
 		}
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].RelPath < out[j].RelPath })
-	return out, nil
+	return module.ResolveResult{Files: out, Warnings: warnings}, nil
+}
+
+func collectPlaceEntries(srcPath string, st os.FileInfo) ([]placeEntry, error) {
+	if !st.IsDir() {
+		base := filepath.Base(srcPath)
+		return []placeEntry{{
+			rel:     filepath.ToSlash(base),
+			abs:     srcPath,
+			mode:    st.Mode(),
+			symlink: st.Mode()&os.ModeSymlink != 0,
+		}}, nil
+	}
+
+	var entries []placeEntry
+	err := filepath.Walk(srcPath, func(p string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(srcPath, p)
+		if err != nil {
+			return err
+		}
+		entries = append(entries, placeEntry{
+			rel:     filepath.ToSlash(rel),
+			abs:     p,
+			mode:    info.Mode(),
+			symlink: info.Mode()&os.ModeSymlink != 0,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func applyPlaceStep(moduleName, dest, stepName string, step placeStep, entries []placeEntry) ([]placeEntry, []string, error) {
+	op := strings.TrimSpace(step.Op)
+	switch op {
+	case "":
+		return nil, nil, fmt.Errorf("place module %q step %q: missing op", moduleName, stepName)
+	case "move":
+		return placeMove(moduleName, dest, stepName, step, entries)
+	case "require":
+		return placeRequire(moduleName, dest, stepName, step, entries)
+	default:
+		return nil, nil, fmt.Errorf("place module %q step %q: unknown op %q", moduleName, stepName, op)
+	}
+}
+
+func placeMove(moduleName, dest, stepName string, step placeStep, entries []placeEntry) ([]placeEntry, []string, error) {
+	from, err := cleanPlacePath(step.From)
+	if err != nil {
+		return nil, nil, fmt.Errorf("place module %q step %q from: %w", moduleName, stepName, err)
+	}
+	to, err := cleanPlacePath(step.To)
+	if err != nil {
+		return nil, nil, fmt.Errorf("place module %q step %q to: %w", moduleName, stepName, err)
+	}
+
+	prefix := from + "/"
+	var (
+		moving   []placeEntry
+		staying  []placeEntry
+		warnings []string
+	)
+	for _, e := range entries {
+		if e.rel == from || strings.HasPrefix(e.rel, prefix) {
+			moving = append(moving, e)
+		} else {
+			staying = append(staying, e)
+		}
+	}
+	if len(moving) == 0 {
+		msg := fmt.Sprintf("place module %q item %q step %q: move source %q missing; skipped", moduleName, dest, stepName, from)
+		return entries, []string{msg}, nil
+	}
+
+	byRel := make(map[string]placeEntry, len(staying)+len(moving))
+	for _, e := range staying {
+		byRel[e.rel] = e
+	}
+
+	for _, e := range moving {
+		newRel := rewritePlacePrefix(e.rel, from, to)
+		if prev, ok := byRel[newRel]; ok {
+			msg := fmt.Sprintf("place module %q item %q step %q: move %q → %q overwrites existing %q", moduleName, dest, stepName, e.rel, newRel, prev.abs)
+			warnings = append(warnings, msg)
+		}
+		e.rel = newRel
+		byRel[newRel] = e
+	}
+
+	out := make([]placeEntry, 0, len(byRel))
+	for _, e := range byRel {
+		out = append(out, e)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].rel < out[j].rel })
+	return out, warnings, nil
+}
+
+func placeRequire(moduleName, dest, stepName string, step placeStep, entries []placeEntry) ([]placeEntry, []string, error) {
+	if len(step.Patterns) == 0 {
+		return nil, nil, fmt.Errorf("place module %q step %q: require needs patterns", moduleName, stepName)
+	}
+	names := make([]string, 0, len(step.Patterns))
+	for name := range step.Patterns {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		raw := strings.TrimSpace(step.Patterns[name])
+		if raw == "" {
+			return nil, nil, fmt.Errorf("place module %q step %q pattern %q: empty", moduleName, stepName, name)
+		}
+		negate := strings.HasPrefix(raw, "!")
+		pat := raw
+		if negate {
+			pat = strings.TrimSpace(strings.TrimPrefix(raw, "!"))
+			if pat == "" {
+				return nil, nil, fmt.Errorf("place module %q step %q pattern %q: empty after !", moduleName, stepName, name)
+			}
+		}
+
+		m := gitignore.New("")
+		m.AddPatterns([]byte(pat+"\n"), "")
+		if errs := m.Errors(); len(errs) > 0 {
+			return nil, nil, fmt.Errorf("place module %q step %q pattern %q: %v", moduleName, stepName, name, errs[0])
+		}
+
+		matched := false
+		for _, e := range entries {
+			if m.MatchPath(e.rel, false) {
+				matched = true
+				break
+			}
+		}
+
+		if negate {
+			if matched {
+				return nil, nil, fmt.Errorf("place module %q item %q step %q pattern %q: matched %q (must not)", moduleName, dest, stepName, name, raw)
+			}
+			continue
+		}
+		if !matched {
+			return nil, nil, fmt.Errorf("place module %q item %q step %q pattern %q: no path matched %q", moduleName, dest, stepName, name, raw)
+		}
+	}
+	return entries, nil, nil
+}
+
+func cleanPlacePath(p string) (string, error) {
+	p = strings.TrimSpace(p)
+	p = filepath.ToSlash(p)
+	p = strings.Trim(p, "/")
+	if p == "" || p == "." {
+		return "", errors.New("empty path")
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == ".." {
+			return "", fmt.Errorf("path escapes origin: %q", p)
+		}
+	}
+	cleaned := path.Clean(p)
+	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return "", fmt.Errorf("path escapes origin: %q", p)
+	}
+	return cleaned, nil
+}
+
+func rewritePlacePrefix(rel, from, to string) string {
+	if rel == from {
+		return to
+	}
+	// rel is from/rest
+	rest := strings.TrimPrefix(rel, from+"/")
+	if to == "" {
+		return rest
+	}
+	return to + "/" + rest
 }

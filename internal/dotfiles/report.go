@@ -34,29 +34,33 @@ func LogApplyResult(ctx context.Context, result *ApplyResult, opts LogApplyOptio
 		if opts.NoChangesTarget != "" && !opts.DryRun {
 			logger.Info("no changes needed", "target", opts.NoChangesTarget)
 		}
-		return
-	}
-	for _, a := range deployer.SortActions(result.Actions) {
-		if a.Type == deployer.ActionNoop && !opts.ShowNoop {
-			continue
+	} else {
+		for _, a := range deployer.SortActions(result.Actions) {
+			if a.Type == deployer.ActionNoop && !opts.ShowNoop {
+				continue
+			}
+			sourceInfo := ""
+			if a.Desired.File != nil {
+				sourceInfo = a.Desired.File.SourceInfo()
+			}
+			logger.Info("apply action",
+				"type", a.Type,
+				"target", deployer.PrettyPath(a.Target),
+				"source", sourceInfo,
+			)
 		}
-		sourceInfo := ""
-		if a.Desired.File != nil {
-			sourceInfo = a.Desired.File.SourceInfo()
+		attrs := []any{
+			"created", result.FilesCreated,
+			"updated", result.FilesUpdated,
+			"deleted", result.FilesDeleted,
 		}
-		logger.Info("apply action",
-			"type", a.Type,
-			"target", deployer.PrettyPath(a.Target),
-			"source", sourceInfo,
-		)
+		if opts.ShowNoop {
+			attrs = append(attrs, "noop", result.FilesNoOp)
+		}
+		logger.Info("apply summary", attrs...)
 	}
-	attrs := []any{
-		"created", result.FilesCreated,
-		"updated", result.FilesUpdated,
-		"deleted", result.FilesDeleted,
+	// After the file diff (or idle message), surface module soft diagnostics.
+	for _, w := range result.Warnings {
+		logger.Warn(w)
 	}
-	if opts.ShowNoop {
-		attrs = append(attrs, "noop", result.FilesNoOp)
-	}
-	logger.Info("apply summary", attrs...)
 }

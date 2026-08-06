@@ -24,10 +24,17 @@ type ResolvedFile struct {
 	Symlink    bool
 }
 
+// ResolveResult is the output of a module Resolve.
+// Warnings are soft diagnostics (logged and shown after the plan file diff).
+type ResolveResult struct {
+	Files    []ResolvedFile
+	Warnings []string
+}
+
 type Provider interface {
 	ID() string
 	Name() string
-	Resolve(ctx context.Context, req ResolveRequest) ([]ResolvedFile, error)
+	Resolve(ctx context.Context, req ResolveRequest) (ResolveResult, error)
 }
 
 // SourceRefResolver resolves a source reference of the form "alias:path" (or
@@ -40,7 +47,7 @@ type SourceRefResolver func(ctx context.Context, spec, modulesBaseDir string) (s
 // Example: the module with Ref() == "place" is used via from: "core:place".
 type CoreModule interface {
 	Ref() string
-	Resolve(ctx context.Context, req ResolveRequest) ([]ResolvedFile, error)
+	Resolve(ctx context.Context, req ResolveRequest) (ResolveResult, error)
 
 	// Prepare lets the core module rewrite its moduleConfig before Resolve is
 	// called. This is primarily used to turn source refs ("someinput:subdir")

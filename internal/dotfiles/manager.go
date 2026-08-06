@@ -70,7 +70,9 @@ type ApplyResult struct {
 	FilesDeleted int
 	FilesNoOp    int
 	Actions      []deployer.Action
-	Error        error
+	// Warnings are soft diagnostics from module resolve (e.g. place move).
+	Warnings []string
+	Error    error
 }
 
 // Apply runs the full deployment cycle.
@@ -78,13 +80,18 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	logger := logging.GetLogger(ctx)
 	result := &ApplyResult{}
 
+	var warningSink []string
+	ctx = source.WithWarningSink(ctx, &warningSink)
+
 	// 1. Run pipeline
 	logger.Info("running pipeline", "plugins", len(m.pipeline.GetPlugins()))
 	files, err := m.pipeline.Run(ctx, []source.File{})
 	if err != nil {
 		result.Error = err
+		result.Warnings = warningSink
 		return result, fmt.Errorf("run pipeline: %w", err)
 	}
+	result.Warnings = warningSink
 
 	logger.Info("pipeline completed", "files", len(files))
 
