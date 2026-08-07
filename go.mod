@@ -1,12 +1,12 @@
 module github.com/lucasew/workspaced
 
-go 1.25.6
+go 1.25.12
 
 require (
 	charm.land/bubbletea/v2 v2.0.7
 	cuelang.org/go v0.17.1
 	github.com/coreos/go-systemd/v22 v22.7.0
-	github.com/fetchurl/fetchurl v0.0.0-20260714002336-2d69880d6c8b
+	github.com/fetchurl/fetchurl v0.0.0-20260805193825-2d498b565d21
 	github.com/git-pkgs/gitignore v1.2.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gokrazy/rsync v0.3.3
