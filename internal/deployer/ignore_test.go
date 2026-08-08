@@ -20,6 +20,25 @@ func writeGitWorkTree(t *testing.T, gitignore string) string {
 	return root
 }
 
+func TestGitignoreUntrackedWalksUpToGitRoot(t *testing.T) {
+	t.Parallel()
+	gitRoot := writeGitWorkTree(t, ".grok/\n")
+	nested := filepath.Join(gitRoot, "apps", "svc")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ignore := GitignoreUntracked(nested)
+	if ignore == nil {
+		t.Fatal("expected ignore fn from parent git root")
+	}
+	if !ignore(filepath.Join(nested, ".grok", "skill.md")) {
+		t.Fatal("nested .grok path should match parent .gitignore")
+	}
+	if ignore(filepath.Join(nested, "main.go")) {
+		t.Fatal("nested tracked path should not be ignored")
+	}
+}
+
 func TestGitignoreUntrackedNilWithoutGit(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

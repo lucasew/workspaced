@@ -46,6 +46,35 @@ func TestLogApplyResult(t *testing.T) {
 			},
 		},
 		{
+			name:   "codebase idle apply with state drops reports them",
+			result: &ApplyResult{StateDropped: 3},
+			opts: LogApplyOptions{
+				NoChangesTarget: "repo root",
+			},
+			wantContain: []string{
+				"dropped gitignored paths from state",
+				"count=3",
+			},
+			wantAbsent: []string{
+				"no changes needed",
+			},
+		},
+		{
+			name:   "codebase idle plan with state drops reports would-drop",
+			result: &ApplyResult{StateDropped: 2},
+			opts: LogApplyOptions{
+				DryRun:          true,
+				NoChangesTarget: "repo root",
+			},
+			wantContain: []string{
+				"would drop gitignored paths from state",
+				"count=2",
+			},
+			wantAbsent: []string{
+				"no changes needed",
+			},
+		},
+		{
 			name:   "codebase idle plan suppresses idle line",
 			result: &ApplyResult{},
 			opts: LogApplyOptions{

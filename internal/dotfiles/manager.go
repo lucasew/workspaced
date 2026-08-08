@@ -79,6 +79,9 @@ type ApplyResult struct {
 	FilesUpdated int
 	FilesDeleted int
 	FilesNoOp    int
+	// StateDropped is how many existing state.json keys were removed because
+	// they are gitignored. Plan reports this without writing; apply persists it.
+	StateDropped int
 	Actions      []deployer.Action
 	// Warnings are soft diagnostics from module resolve (e.g. place move).
 	Warnings []string
@@ -122,6 +125,7 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	}
 
 	dropped := deployer.DropIgnored(state, m.ignore)
+	result.StateDropped = dropped
 	if dropped > 0 {
 		logger.Info("dropping gitignored paths from state", "count", dropped)
 	}
