@@ -157,3 +157,49 @@ func TestExecuteWritesRegularFile(t *testing.T) {
 		t.Fatalf("state not updated: %+v", state.Files)
 	}
 }
+
+func TestExecuteIgnoredCreateOmitsState(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	target := filepath.Join(dir, "placed.md")
+	content := []byte("hello ignore\n")
+	ex := NewExecutor()
+	ex.Ignore = func(path string) bool { return path == target }
+
+	actions := []Action{{
+		Type:   ActionCreate,
+		Target: target,
+		Desired: DesiredState{
+			File: &source.BufferFile{
+				BasicFile: source.BasicFile{
+					RelPathStr:    "placed.md",
+					TargetBaseDir: dir,
+					FileMode:      0o644,
+					Info:          "module:place (placed.md)",
+					FileType:      source.TypeStatic,
+				},
+				Content: content,
+			},
+		},
+	}}
+	state := &State{Files: map[string]ManagedInfo{
+		target: {SourceInfo: "old"},
+	}}
+
+	g, ctx := taskgroup.New(logging.NewWriterContext(t.Output()), taskgroup.DefaultLimits())
+	_ = g
+	if err := ex.Execute(ctx, actions, state); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(content) {
+		t.Fatalf("got %q want %q", got, content)
+	}
+	if _, ok := state.Files[target]; ok {
+		t.Fatalf("ignored path still in state: %+v", state.Files)
+	}
+}

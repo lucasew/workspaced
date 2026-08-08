@@ -15,11 +15,20 @@ import (
 )
 
 // Planner compares current state with desired state and generates actions.
-type Planner struct{}
+type Planner struct {
+	// Ignore, if set, is true for targets that must not be adopted into state
+	// (typically gitignored paths). Content still converges; equal content is
+	// a noop instead of an adopt-update.
+	Ignore func(target string) bool
+}
 
 // NewPlanner creates a new Planner.
 func NewPlanner() *Planner {
 	return &Planner{}
+}
+
+func (p *Planner) ignored(target string) bool {
+	return p != nil && p.Ignore != nil && p.Ignore(target)
 }
 
 func calculateHash(r io.Reader) (string, error) {
@@ -30,7 +39,7 @@ func calculateHash(r io.Reader) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func planOne(ctx context.Context, target string, d DesiredState, current ManagedInfo, managed bool) (Action, error) {
+func planOne(ctx context.Context, target string, d DesiredState, current ManagedInfo, managed, ignored bool) (Action, error) {
 	info, err := os.Lstat(target)
 	exists := err == nil
 
@@ -99,6 +108,9 @@ func planOne(ctx context.Context, target string, d DesiredState, current Managed
 	if needsUpdate {
 		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
 	}
+	if ignored {
+		return Action{Type: ActionNoop, Target: target, Desired: d, Current: current}, nil
+	}
 	if !managed || current.SourceInfo != d.File.SourceInfo() {
 		return Action{Type: ActionUpdate, Target: target, Desired: d, Current: current}, nil
 	}
@@ -121,7 +133,7 @@ func (p *Planner) Plan(ctx context.Context, desired []DesiredState, currentState
 			target := ds.Target()
 			s.Update(target)
 			current, managed := currentState.Files[target]
-			return planOne(ctx, target, ds, current, managed)
+			return planOne(ctx, target, ds, current, managed, p.ignored(target))
 		},
 	}.Run(ctx)
 	if err != nil {

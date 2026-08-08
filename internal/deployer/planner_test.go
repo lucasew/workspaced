@@ -99,3 +99,96 @@ func TestPlannerNoCacheForcesUpdateOnIdenticalContent(t *testing.T) {
 		t.Fatalf("no-cache want update, got %#v", actions)
 	}
 }
+
+func TestPlannerIgnoredEqualIsNoop(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "placed.md")
+	content := []byte("hello\n")
+	if err := os.WriteFile(target, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	desired := []DesiredState{{
+		File: &source.BufferFile{
+			BasicFile: source.BasicFile{
+				RelPathStr:    "placed.md",
+				TargetBaseDir: dir,
+				FileMode:      0o644,
+				Info:          "module:place (placed.md)",
+				FileType:      source.TypeStatic,
+			},
+			Content: content,
+		},
+	}}
+	state := &State{Files: map[string]ManagedInfo{}}
+	p := NewPlanner()
+	p.Ignore = func(path string) bool { return path == target }
+
+	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	_ = g
+	actions, err := p.Plan(ctx, desired, state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(actions) != 1 || actions[0].Type != ActionNoop {
+		t.Fatalf("want noop, got %#v", actions)
+	}
+}
+
+func TestPlannerIgnoredMissingIsCreate(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "placed.md")
+	desired := []DesiredState{{
+		File: &source.BufferFile{
+			BasicFile: source.BasicFile{
+				RelPathStr:    "placed.md",
+				TargetBaseDir: dir,
+				FileMode:      0o644,
+				Info:          "module:place (placed.md)",
+				FileType:      source.TypeStatic,
+			},
+			Content: []byte("hello\n"),
+		},
+	}}
+	p := NewPlanner()
+	p.Ignore = func(path string) bool { return path == target }
+
+	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	_ = g
+	actions, err := p.Plan(ctx, desired, &State{Files: map[string]ManagedInfo{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(actions) != 1 || actions[0].Type != ActionCreate {
+		t.Fatalf("want create, got %#v", actions)
+	}
+}
+
+func TestPlannerUnmanagedEqualStillAdopts(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "tracked.md")
+	content := []byte("hello\n")
+	if err := os.WriteFile(target, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	desired := []DesiredState{{
+		File: &source.BufferFile{
+			BasicFile: source.BasicFile{
+				RelPathStr:    "tracked.md",
+				TargetBaseDir: dir,
+				FileMode:      0o644,
+				Info:          "module:x (tracked.md)",
+				FileType:      source.TypeStatic,
+			},
+			Content: content,
+		},
+	}}
+	g, ctx := taskgroup.New(logging.ContextWithLogger(t.Context(), slog.Default()), taskgroup.DefaultLimits())
+	_ = g
+	actions, err := NewPlanner().Plan(ctx, desired, &State{Files: map[string]ManagedInfo{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(actions) != 1 || actions[0].Type != ActionUpdate {
+		t.Fatalf("want adopt update, got %#v", actions)
+	}
+}
