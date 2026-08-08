@@ -67,16 +67,25 @@ func PrettyPath(path string) string {
 }
 
 // Executor applies deployment actions.
-type Executor struct{}
+type Executor struct {
+	// Ignore, if set, is true for targets that must not appear in state
+	// after create/update (typically gitignored paths).
+	Ignore func(target string) bool
+}
 
 // NewExecutor creates a new Executor.
 func NewExecutor() *Executor {
 	return &Executor{}
 }
 
+func (e *Executor) skipState(target string) bool {
+	return e != nil && e.Ignore != nil && e.Ignore(target)
+}
+
 // statePatch is the pure state delta produced by applying one action's filesystem work.
 type statePatch struct {
 	delete bool
+	skip   bool // create/update of an ignored path: drop any existing key
 	target string
 	info   ManagedInfo
 }
@@ -85,7 +94,7 @@ func applyPatch(state *State, p statePatch) {
 	if state == nil {
 		return
 	}
-	if p.delete {
+	if p.delete || p.skip {
 		delete(state.Files, p.target)
 		return
 	}
@@ -132,6 +141,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			}
 
 			info := ManagedInfo{SourceInfo: action.Desired.File.SourceInfo()}
+			skip := e.skipState(action.Target)
 			if action.Desired.File.Type() == source.TypeSymlink {
 				if _, err := os.Lstat(action.Target); err == nil {
 					if err := os.RemoveAll(action.Target); err != nil {
@@ -145,7 +155,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 				if err := os.Symlink(linkTarget, action.Target); err != nil {
 					return statePatch{}, fmt.Errorf("create symlink %s -> %s: %w", action.Target, linkTarget, err)
 				}
-				return statePatch{target: action.Target, info: info}, nil
+				return statePatch{target: action.Target, info: info, skip: skip}, nil
 			}
 
 			// Replace non-regular targets (dirs/symlinks) so rename can install a file.
@@ -166,7 +176,7 @@ func (e *Executor) Execute(ctx context.Context, actions []Action, state *State) 
 			if writeErr != nil {
 				return statePatch{}, fmt.Errorf("write content to %s: %w", action.Target, writeErr)
 			}
-			return statePatch{target: action.Target, info: info}, nil
+			return statePatch{target: action.Target, info: info, skip: skip}, nil
 		}
 		return statePatch{}, nil
 	}

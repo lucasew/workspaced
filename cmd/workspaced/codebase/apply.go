@@ -132,6 +132,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		mgr, err := dotfiles.NewManager(dotfiles.Config{
 			Pipeline:   pipeline,
 			StateStore: stateStore,
+			Ignore:     deployer.GitignoreUntracked(workspaceRoot),
 			// No home-specific hooks (dconf, gtk, etc.)
 		})
 		if err != nil {

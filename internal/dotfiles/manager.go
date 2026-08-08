@@ -24,6 +24,7 @@ type Manager struct {
 	planner    *deployer.Planner
 	executor   *deployer.Executor
 	hooks      []Hook
+	ignore     func(string) bool
 }
 
 // Config configures the Manager.
@@ -36,6 +37,10 @@ type Config struct {
 
 	// Hooks (optional).
 	Hooks []Hook
+
+	// Ignore, if set, is true for targets that must not appear in managed
+	// state (typically gitignored paths under the apply root).
+	Ignore func(target string) bool
 }
 
 // NewManager creates a new Manager.
@@ -48,12 +53,17 @@ func NewManager(cfg Config) (*Manager, error) {
 		return nil, ErrStateStoreRequired
 	}
 
+	planner := deployer.NewPlanner()
+	planner.Ignore = cfg.Ignore
+	executor := deployer.NewExecutor()
+	executor.Ignore = cfg.Ignore
 	return &Manager{
 		pipeline:   cfg.Pipeline,
 		stateStore: cfg.StateStore,
-		planner:    deployer.NewPlanner(),
-		executor:   deployer.NewExecutor(),
+		planner:    planner,
+		executor:   executor,
 		hooks:      cfg.Hooks,
+		ignore:     cfg.Ignore,
 	}, nil
 }
 
@@ -111,6 +121,11 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		return result, fmt.Errorf("load state: %w", err)
 	}
 
+	dropped := deployer.DropIgnored(state, m.ignore)
+	if dropped > 0 {
+		logger.Info("dropping gitignored paths from state", "count", dropped)
+	}
+
 	// 4. Plan actions
 	logger.Info("planning actions")
 	planStart := time.Now()
@@ -141,6 +156,12 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	if !hasChanges {
 		logger.Info("no changes needed")
+		if dropped > 0 && !opts.DryRun {
+			if err := m.stateStore.Save(state); err != nil {
+				result.Error = err
+				return result, fmt.Errorf("save state: %w", err)
+			}
+		}
 		return result, nil
 	}
 

@@ -76,6 +76,7 @@ If plan is empty but you expected changes:
 - Lock/source resolution not updated
 - Template `skip`/conditionals suppressing output
 - Change only in an untracked file outside module layout
+- Codebase apply: gitignored dests (repo `.gitignore` / `.git/info/exclude`) still create/update on disk but are omitted from `state.json` and are never pruned. Home apply does not use this.
 
 ## Gotchas
 
