@@ -30,8 +30,15 @@ func LogApplyResult(ctx context.Context, result *ApplyResult, opts LogApplyOptio
 	}
 	logger := logging.GetLogger(ctx)
 	hasChanges := result.FilesCreated > 0 || result.FilesUpdated > 0 || result.FilesDeleted > 0 || (opts.ShowNoop && result.FilesNoOp > 0)
+	if result.StateDropped > 0 {
+		msg := "dropped gitignored paths from state"
+		if opts.DryRun {
+			msg = "would drop gitignored paths from state"
+		}
+		logger.Info(msg, "count", result.StateDropped)
+	}
 	if !hasChanges {
-		if opts.NoChangesTarget != "" && !opts.DryRun {
+		if opts.NoChangesTarget != "" && !opts.DryRun && result.StateDropped == 0 {
 			logger.Info("no changes needed", "target", opts.NoChangesTarget)
 		}
 	} else {

@@ -20,12 +20,13 @@ func GitignoreUntracked(root string) func(absTarget string) bool {
 	if root == "" || root == "." {
 		return nil
 	}
-	if !isGitWorkTree(root) {
+	gitRoot := findGitRoot(root)
+	if gitRoot == "" {
 		return nil
 	}
-	m := loadRepoIgnore(root)
+	m := loadRepoIgnore(gitRoot)
 	return func(absTarget string) bool {
-		rel := RelToRoot(absTarget, root)
+		rel := RelToRoot(absTarget, gitRoot)
 		if rel == absTarget || rel == "." || rel == "" {
 			return false
 		}
@@ -47,6 +48,20 @@ func DropIgnored(state *State, ignore func(string) bool) int {
 		}
 	}
 	return n
+}
+
+func findGitRoot(start string) string {
+	dir := filepath.Clean(start)
+	for {
+		if isGitWorkTree(dir) {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 func isGitWorkTree(root string) bool {
