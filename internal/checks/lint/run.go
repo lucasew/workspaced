@@ -48,10 +48,11 @@ func RunAll(ctx context.Context, dir string) (*sarif.Report, error) {
 		return checks.BundleRuns()
 	}
 
+	// Control: ResolveCmd may EnsureInstalled (httpclient Internet).
 	runs, err := taskgroup.Map[item, *sarif.Run]{
 		Name:     "lint",
 		Items:    applicable,
-		PoolKind: taskgroup.CPU,
+		PoolKind: taskgroup.Control,
 		TaskName: func(_ int, it item) string { return "lint:" + it.tool.Name },
 		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (*sarif.Run, error) {
 			l := logging.GetLogger(ctx)

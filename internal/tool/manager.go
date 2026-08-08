@@ -165,10 +165,7 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		}
 	}()
 
-	// The actual installation work (network + extract) can be long-running.
-	// When a taskgroup.Group is present in the context we schedule it as a
-	// child task under the Internet pool so it gets its own named entry,
-	// Status updates, and captured logs in the progress system.
+	// Named install shell is Control: httpclient.WithProgress takes Internet.
 	doInstall := func(ctx context.Context) error {
 		// Prefer the rich ArtifactTool path when we have a binary hint (better artifact scoring).
 		if binaryHint != "" {
@@ -190,9 +187,8 @@ func (m *Manager) installWithHint(ctx context.Context, toolSpecStr string, binar
 		return t.Install(ctx, version, workPath)
 	}
 
-	if err := taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+	if err := taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("installing " + normalizedVersion)
-		// No Unit(): httpclient promotes the asset download to a fetch bar.
 		return doInstall(ctx)
 	}); err != nil {
 		return fmt.Errorf("installation failed: %w", err)

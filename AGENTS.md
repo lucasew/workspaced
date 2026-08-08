@@ -91,3 +91,4 @@ Parallel work over a list goes through `pkg/taskgroup` (see the package doc for 
 - `Each[T].Run`: fan-out when only success/failure matters (no `struct{}` results).
 - If you reach for `Each` + mutex + `append`, switch to `Map` + pure reduce. Shared mutable state touched from parallel FS/network work should return a patch from the map step; apply patches serially in the reduce step.
 - Do not wrap `Map`/`Each` in an extra `Control`+`Unit` shell when they already own the aggregate bar.
+- Only leaf tasks take IO/CPU/Internet. Orchestrators (`Map`/`Each`/`GoIsolated`/`Go` whose Fn schedules more taskgroup or httpclient/rsync work) are Control. Same-kind nest deadlocks when the pool fills. Details: `pkg/taskgroup` package doc.

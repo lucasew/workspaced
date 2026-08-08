@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
@@ -104,6 +105,73 @@ func TestPopulateSourceLockHashesSkipsExisting(t *testing.T) {
 	}
 	if entries["beta"].Hash != "sha256:keep" {
 		t.Fatalf("beta hash changed to %q", entries["beta"].Hash)
+	}
+}
+
+// nestedInternetHashProvider is httpclient.WithProgress: LockHash Go's an
+// Internet task and waits for it while still inside the Map child.
+type nestedInternetHashProvider struct {
+	stubHashProvider
+}
+
+func (p *nestedInternetHashProvider) LockHash(ctx context.Context, alias string, src SourceConfig, modulesBaseDir string) (string, SourceConfig, error) {
+	g := taskgroup.MustFromContext(ctx)
+	done := make(chan struct{})
+	g.Go("fetch:"+alias, taskgroup.Internet, func(context.Context, *taskgroup.Status) error {
+		close(done)
+		return nil
+	})
+	select {
+	case <-done:
+		return p.stubHashProvider.LockHash(ctx, alias, src, modulesBaseDir)
+	case <-ctx.Done():
+		return "", src, ctx.Err()
+	}
+}
+
+func TestPopulateSourceLockHashesNestedInternetDoesNotDeadlock(t *testing.T) {
+	t.Parallel()
+	p := &nestedInternetHashProvider{stubHashProvider{id: "stubhash-nested-net"}}
+	prev, hadPrev := sourceProviders[p.id]
+	RegisterSourceProvider(p)
+	t.Cleanup(func() {
+		if hadPrev {
+			sourceProviders[p.id] = prev
+			return
+		}
+		delete(sourceProviders, p.id)
+	})
+
+	// One Internet slot + more items than slots: the old PoolKind=Internet
+	// Map held every slot while nested fetch waited → runtime deadlock.
+	// Timeout must wrap New so acquire(g.ctx) unblocks instead of hanging the test.
+	ctx, cancel := context.WithTimeout(logging.NewWriterContext(t.Output()), 2*time.Second)
+	t.Cleanup(cancel)
+	g, ctx := taskgroup.New(ctx, taskgroup.Limits{IO: 1, CPU: 1, Internet: 1})
+	t.Cleanup(func() {
+		if err := g.Wait(); err != nil {
+			t.Logf("group wait: %v", err)
+		}
+	})
+
+	mod := &ModFile{Sources: map[string]SourceConfig{
+		"a": {Provider: p.id, Repo: "o/a"},
+		"b": {Provider: p.id, Repo: "o/b"},
+		"c": {Provider: p.id, Repo: "o/c"},
+		"d": {Provider: p.id, Repo: "o/d"},
+	}}
+	entries := map[string]LockedSource{
+		"a": {Provider: p.id, Repo: "o/a"},
+		"b": {Provider: p.id, Repo: "o/b"},
+		"c": {Provider: p.id, Repo: "o/c"},
+		"d": {Provider: p.id, Repo: "o/d"},
+	}
+
+	if err := PopulateSourceLockHashes(ctx, mod, t.TempDir(), entries); err != nil {
+		t.Fatalf("PopulateSourceLockHashes: %v", err)
+	}
+	if got := p.calls.Load(); got != 4 {
+		t.Fatalf("calls=%d want 4", got)
 	}
 }
 

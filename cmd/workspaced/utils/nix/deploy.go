@@ -45,7 +45,7 @@ func init() {
 					return err
 				}
 
-				// Each owns the aggregate bar; deployNode may spawn nested fetch/build work.
+				// Leaf: deployNode is ssh/nix exec, no nested limited-pool tasks.
 				err = taskgroup.Each[string]{
 					Name:     "nix-deploy",
 					Items:    nodes,

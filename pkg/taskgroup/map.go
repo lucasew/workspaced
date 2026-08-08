@@ -28,7 +28,10 @@ type Map[T any, U any] struct {
 	// Pool selects the resource pool per item. When nil, PoolKind is used for
 	// every item (zero value is Control).
 	Pool func(T) PoolKind
-	// PoolKind is used when Pool is nil.
+	// PoolKind is used when Pool is nil. Only leaves take IO/CPU/Internet.
+	// If Fn schedules any limited-pool work (httpclient.WithProgress, rsync,
+	// nested Map/Go), this must be Control. Same-kind nest deadlocks when
+	// the pool fills.
 	PoolKind PoolKind
 	// Serial runs items one at a time (each child depends on the previous).
 	// Progress reporting is unchanged: one aggregate bar plus per-item tasks.
@@ -159,7 +162,7 @@ type Each[T any] struct {
 	// Pool selects the resource pool per item. When nil, PoolKind is used for
 	// every item (zero value is Control).
 	Pool func(T) PoolKind
-	// PoolKind is used when Pool is nil.
+	// PoolKind is used when Pool is nil. Same rule as Map.PoolKind.
 	PoolKind PoolKind
 	// Serial runs items one at a time. See Map.Serial.
 	Serial bool

@@ -37,12 +37,14 @@ func PopulateSourceLockHashes(ctx context.Context, modFile *ModFile, modulesBase
 
 	logger.Info("computing source lock hashes", "sources", len(entries), "pending", len(needsWork))
 
-	// Map owns the aggregate bar; httpclient may add per-fetch bars under children.
+	// Map owns the aggregate bar. Children are Control — httpclient.WithProgress
+	// already takes Internet slots. Internet here plus nested fetch deadlocks
+	// once the pool fills (leaven codegen: 72 sources, Internet=4).
 	// Session root always carries a Group (MustFromContext).
 	updates, err := taskgroup.Map[string, sourceLockHashUpdate]{
 		Name:     "source-locks",
 		Items:    needsWork,
-		PoolKind: taskgroup.Internet,
+		PoolKind: taskgroup.Control,
 		TaskName: func(_ int, alias string) string { return "source:" + alias },
 		Fn: func(ctx context.Context, s *taskgroup.Status, alias string) (sourceLockHashUpdate, error) {
 			entry := entries[alias]

@@ -101,7 +101,7 @@ func (m *Manager) EnsureInstalled(ctx context.Context, toolSpecStr, cmdName stri
 		}
 		var binPath string
 		var installErr error
-		installErr = taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Internet, func(ctx context.Context, s *taskgroup.Status) error {
+		installErr = taskgroup.GoIsolated(ctx, "install:"+spec.String(), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 			s.Update("installing " + normalizedVersion)
 			var err error
 			binPath, err = bt.EnsureBinary(ctx, actualVersion, cmdName, workPath)

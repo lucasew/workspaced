@@ -56,6 +56,7 @@ For complex subsystems, mirror `skills/workspaced/references/templates.md`: deci
 - No lists in module configs.
 - Use `pkg/driver/exec` outside driver implementations.
 - Import driver prelude only from `cmd/workspaced/root.go`.
+- Only leaf taskgroup tasks take IO/CPU/Internet (`pkg/taskgroup` package doc).
 
 Rest is in AGENTS.md and `skills/workspaced/`.
 

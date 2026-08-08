@@ -78,13 +78,13 @@ func RunFullBackup(ctx context.Context) error {
 		HasProgress: true,
 	}
 
-	// Determine pool: rsync/archive → IO, git_repo_sync → Internet.
+	// Leaves take the pool that matches the work. rsync nests an IO task.
 	poolFor := func(kind string) taskgroup.PoolKind {
 		switch kind {
 		case "git_repo_sync":
 			return taskgroup.Internet
 		case "rsync":
-			return taskgroup.Control // rsync driver manages its own IO tasks
+			return taskgroup.Control
 		default:
 			return taskgroup.IO
 		}

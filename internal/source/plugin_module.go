@@ -78,10 +78,11 @@ func (p *ModuleScannerPlugin) Process(ctx context.Context, files []File) ([]File
 	}
 
 	// Map each enabled module to its resolved files; reduce concatenates in input order.
+	// Control: Resolve may fetch sources (httpclient) and nest other Maps (icons).
 	perModule, err := taskgroup.Map[enabledModule, []File]{
 		Name:     "modules",
 		Items:    enabled,
-		PoolKind: taskgroup.IO,
+		PoolKind: taskgroup.Control,
 		TaskName: func(_ int, m enabledModule) string { return "module:" + m.name },
 		Fn: func(ctx context.Context, s *taskgroup.Status, m enabledModule) ([]File, error) {
 			s.Update(m.name)

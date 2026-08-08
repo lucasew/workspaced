@@ -29,6 +29,16 @@
 //
 // Stacking Control+Unit around Map/Each.Run, or SubGroup+Go+Unit around a
 // fetch task, duplicates bars without adding information.
+//
+// # Pool nesting
+//
+// Only leaf tasks take IO, CPU, or Internet. A leaf does the work itself
+// (read/write, exec, httpclient.WithProgress, rsync.RunWithTaskGroup) and does
+// not schedule another limited-pool task.
+//
+// Anything that Map/Each/GoIsolated/Go wraps around further taskgroup work
+// is Control. Shared pools: a limited parent slot plus a nested acquire of
+// the same kind deadlocks once the pool fills.
 package taskgroup
 
 import (
@@ -56,10 +66,10 @@ var (
 type PoolKind int
 
 const (
-	Control  PoolKind = iota // Unlimited, used to create other tasks
-	IO                       // File system, local disk
-	CPU                      // Computation
-	Internet                 // Network I/O
+	Control  PoolKind = iota // Unlimited orchestrator; wrap nested work
+	IO                       // Leaf: local disk / rsync
+	CPU                      // Leaf: computation / local exec
+	Internet                 // Leaf: network (or httpclient.WithProgress)
 )
 
 func (p PoolKind) String() string {
@@ -766,9 +776,10 @@ func Isolate(ctx context.Context, fn func(context.Context) error) error {
 // and returns its error without cancelling sibling work on the parent group.
 // When no Group is on ctx, fn runs synchronously with a throwaway Status.
 //
-// Do not wrap HTTP-only work this way when httpclient.WithProgress already
-// promotes the request to an Internet task — that yields two bars (unit shell
-// + fetch). Use Isolate(ctx, perform) so only the fetch task appears.
+// pool is Control when fn schedules more limited-pool work. Do not wrap
+// HTTP-only work this way when httpclient.WithProgress already promotes the
+// request to an Internet task — that yields two bars and can deadlock.
+// Use Isolate(ctx, perform) so only the fetch task appears.
 func GoIsolated(ctx context.Context, name string, pool PoolKind, fn func(context.Context, *Status) error) error {
 	if fn == nil {
 		return nil

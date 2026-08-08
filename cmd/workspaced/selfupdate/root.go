@@ -49,23 +49,18 @@ in ~/.local/bin/workspaced is updated automatically.`,
 			ctx := c.Context()
 			g := taskgroup.FromContext(ctx)
 
-			// Choose the right pool for the self-update task itself so it
-			// participates in concurrency limits and gets the correct
-			// emoji/type in the progress UI.
-			pool := taskgroup.Internet
 			msg := "downloading from GitHub"
 			srcPath, err := findSourcePath(ctx)
 			if err != nil {
 				return err
 			}
 			if srcPath != "" {
-				pool = taskgroup.CPU // compiling is CPU-bound
 				msg = "compiling from source"
 			}
 
-			g.Go("self-update", pool, func(ctx context.Context, s *taskgroup.Status) error {
+			// Control: github/httpclient and the source build nest limited-pool work.
+			g.Go("self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 				s.Update(msg)
-				defer s.Unit()()
 				return runSelfUpdate(ctx, force)
 			})
 

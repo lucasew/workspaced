@@ -45,10 +45,11 @@ func RunAll(ctx context.Context, dir string) error {
 	// Soft-collect per-tool failures in U so one bad formatter does not cancel
 	// siblings (Map shares one SubGroup; a hard Fn error would). Hard error is
 	// only for Map/taskgroup failure. nil *toolFailure means that tool succeeded.
+	// Control: ResolveCmd may EnsureInstalled (httpclient Internet).
 	failures, err := taskgroup.Map[item, *toolFailure]{
 		Name:     "format",
 		Items:    applicable,
-		PoolKind: taskgroup.CPU,
+		PoolKind: taskgroup.Control,
 		Serial:   true,
 		TaskName: func(_ int, it item) string { return "fmt:" + it.tool.Name },
 		Fn: func(ctx context.Context, s *taskgroup.Status, it item) (*toolFailure, error) {
