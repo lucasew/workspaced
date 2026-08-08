@@ -1,0 +1,322 @@
+package nix
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"workspaced/pkg/api"
+	envdriver "workspaced/pkg/driver/env"
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/notification"
+	"workspaced/pkg/executil"
+	"workspaced/pkg/icons"
+	"workspaced/pkg/logging"
+	"workspaced/pkg/sudo"
+	"workspaced/pkg/types"
+)
+
+var buildCache sync.Map // key: sourcePath#attribute, value: resultPath
+
+type Direction int
+
+const (
+	To Direction = iota
+	From
+)
+
+func parseFlakeRef(ref string) (repo string, item string) {
+	parts := strings.SplitN(ref, "#", 2)
+	repo = parts[0]
+	if len(parts) > 1 {
+		item = parts[1]
+	}
+	return
+}
+
+func ResolveFlakePath(ctx context.Context, repo string) (string, error) {
+	if repo == "" || repo == "." || repo == "," {
+		root, err := envdriver.GetDotfilesRoot(ctx)
+		if err != nil {
+			return "", err
+		}
+		repo = root
+	}
+
+	// Use nix flake archive to ensure the source is in the Nix store and get its path
+	out, err := execdriver.MustRun(ctx, "nix", "flake", "archive", repo, "--json").Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to archive flake %s to store: %w", repo, err)
+	}
+
+	var meta struct {
+		Path string `json:"path"`
+	}
+	if err := json.Unmarshal(out, &meta); err != nil {
+		return "", fmt.Errorf("failed to parse flake archive output: %w", err)
+	}
+
+	return meta.Path, nil
+}
+
+func CopyClosure(ctx context.Context, target string, path string, direction Direction) error {
+	args := []string{}
+	if direction == To {
+		args = append(args, "-s", "--to", target, path)
+	} else {
+		args = append(args, "--from", target, path)
+	}
+
+	cmd := execdriver.MustRun(ctx, "nix-copy-closure", args...)
+	executil.InheritContextWriters(ctx, cmd)
+	return cmd.Run()
+}
+
+func GetRemoteCacheDir(ctx context.Context, target string) (string, error) {
+	// Sentinel: Use XDG_RUNTIME_DIR (wiped on reboot) or fallback to user cache
+	script := `echo "${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/rbuild-outputs"`
+	out, err := execdriver.MustRun(ctx, "ssh", target, script).Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func RemoteBuild(ctx context.Context, ref string, target string, copyBack bool) (string, error) {
+	logger := logging.GetLogger(ctx)
+
+	if target == "" {
+		target = os.Getenv("NIX_RBUILD_TARGET")
+		if target == "" {
+			target = "whiterun"
+		}
+	}
+
+	n := &notification.Notification{
+		ID:          notification.NixBuildNotificationID,
+		Title:       "Nix Remote Build",
+		HasProgress: true,
+	}
+	if icon, err := icons.GetIconPath(ctx, "https://nixos.org"); err == nil {
+		n.Icon = icon
+	}
+
+	updateProgress := func(msg string, prog float64) {
+		n.Message = msg
+		n.Progress = prog
+		logging.ReportError(ctx, notification.Notify(ctx, n))
+		logger.Info(msg, "progress", prog)
+	}
+
+	// 1. Resolve source
+	updateProgress("Resolving flake metadata...", 0.1)
+	repo, item := parseFlakeRef(ref)
+
+	sourcePath, err := ResolveFlakePath(ctx, repo)
+	if err != nil {
+		return "", err
+	}
+
+	// 2. Sync source to target
+	updateProgress(fmt.Sprintf("Syncing sources to %s...", target), 0.3)
+	if err := CopyClosure(ctx, target, sourcePath, To); err != nil {
+		return "", fmt.Errorf("failed to copy source to %s: %w", target, err)
+	}
+
+	// 3. Remote build
+	updateProgress("Building on remote server...", 0.6)
+	remoteCache, err := GetRemoteCacheDir(ctx, target)
+	if err != nil {
+		return "", fmt.Errorf("failed to get remote cache dir: %w", err)
+	}
+
+	buildID := make([]byte, 8)
+	_, _ = rand.Read(buildID)
+	uuid := fmt.Sprintf("%x", buildID)
+	outLink := fmt.Sprintf("%s/%s", remoteCache, uuid)
+
+	buildCmd := "nix build"
+
+	safeRef := fmt.Sprintf("%s#%s", sourcePath, item)
+	remoteArgs := []string{
+		target, "-t",
+		"mkdir", "-p", remoteCache, "&&",
+		buildCmd, fmt.Sprintf("%q", safeRef), "--out-link", outLink, "--show-trace",
+	}
+
+	cmdBuild := execdriver.MustRun(ctx, "ssh", remoteArgs...)
+	executil.InheritContextWriters(ctx, cmdBuild)
+	if err := cmdBuild.Run(); err != nil {
+		return "", fmt.Errorf("%w: remote build failed: %w", api.ErrBuildFailed, err)
+	}
+
+	out, err := execdriver.MustRun(ctx, "ssh", target, "realpath", outLink).Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve result path: %w", err)
+	}
+	resultPath := strings.TrimSpace(string(out))
+
+	// 4. Copy back
+	if copyBack {
+		updateProgress("Syncing result back...", 0.9)
+		if err := CopyClosure(ctx, target, resultPath, From); err != nil {
+			return "", fmt.Errorf("failed to copy result from %s: %w", target, err)
+		}
+	}
+
+	updateProgress("Build completed successfully.", 1.0)
+	return resultPath, nil
+}
+
+func Build(ctx context.Context, ref string, useCache bool) (string, error) {
+	logger := logging.GetLogger(ctx)
+
+	repo, item := parseFlakeRef(ref)
+
+	// Resolve the source path to a store path
+	sourcePath, err := ResolveFlakePath(ctx, repo)
+	if err != nil {
+		return "", err
+	}
+
+	cacheKey := fmt.Sprintf("%s#%s", sourcePath, item)
+	if useCache {
+		if val, ok := buildCache.Load(cacheKey); ok {
+			resultPath := val.(string)
+			if _, err := os.Stat(resultPath); err == nil {
+				logger.Debug("build cache hit", "ref", ref, "path", resultPath)
+				return resultPath, nil
+			}
+			buildCache.Delete(cacheKey)
+		}
+	}
+
+	logger.Info("performing nix build", "ref", ref)
+	// We use the store path of the source to ensure deterministic build and avoid re-evaluation if not needed
+	cmd := execdriver.MustRun(ctx, "nix", "build", fmt.Sprintf("%s#%s", sourcePath, item), "--no-link", "--print-out-paths")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("%w: nix build failed: %w", api.ErrBuildFailed, err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	resultPath := lines[0]
+	// If multiple paths, try to find the one with bin/
+	for _, line := range lines {
+		if info, err := os.Stat(filepath.Join(line, "bin")); err == nil && info.IsDir() {
+			resultPath = line
+			break
+		}
+	}
+
+	if useCache {
+		buildCache.Store(cacheKey, resultPath)
+	}
+
+	return resultPath, nil
+}
+
+func Rebuild(ctx context.Context, action string, flake string) error {
+	hostname, err := envdriver.GetHostname(ctx)
+	if err != nil {
+		return fmt.Errorf("hostname: %w", err)
+	}
+	if flake == "" || flake == "." || flake == "," {
+		root, err := envdriver.GetDotfilesRoot(ctx)
+		if err != nil {
+			return err
+		}
+		flake = root
+	}
+
+	if envdriver.IsInStore(ctx) {
+		flake = "github:lucasew/nixcfg"
+	}
+
+	// Check if we are on a known node
+	supportedNodes := []string{"riverwood", "whiterun", "ravenrock", "atomicpi", "recovery"}
+	isSupported := slices.Contains(supportedNodes, hostname)
+
+	if !isSupported {
+		return fmt.Errorf("%w: %s", api.ErrHostNotFound, hostname)
+	}
+
+	var toplevel string
+	if strings.HasPrefix(flake, "/nix/store/") {
+		toplevel = flake
+	} else {
+		ref := fmt.Sprintf("%s#nixosConfigurations.%s.config.system.build.toplevel", flake, hostname)
+		var err error
+		toplevel, err = Build(ctx, ref, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	cmdName := filepath.Join(toplevel, "bin/switch-to-configuration")
+	args := []string{action}
+
+	if os.Getuid() != 0 {
+		return sudo.Enqueue(ctx, &types.SudoCommand{
+			Slug:    "rebuild",
+			Command: cmdName,
+			Args:    args,
+		})
+	} else {
+		cmd := execdriver.MustRun(ctx, cmdName, args...)
+		executil.InheritContextWriters(ctx, cmd)
+		return cmd.Run()
+	}
+}
+
+func HomeManagerSwitch(ctx context.Context, action string, flake string) error {
+	if flake == "" || flake == "." || flake == "," {
+		root, err := envdriver.GetDotfilesRoot(ctx)
+		if err != nil {
+			return err
+		}
+		flake = root
+	}
+
+	if envdriver.IsInStore(ctx) {
+		flake = "github:lucasew/nixcfg"
+	}
+
+	var activationPackage string
+	if strings.HasPrefix(flake, "/nix/store/") {
+		activationPackage = flake
+	} else {
+		ref := fmt.Sprintf("%s#homeConfigurations.main.activationPackage", flake)
+		var err error
+		activationPackage, err = Build(ctx, ref, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	activatePath := filepath.Join(activationPackage, "activate")
+	if _, err := os.Stat(activatePath); err != nil {
+		return fmt.Errorf("activation script not found at %s: %w", activatePath, err)
+	}
+
+	cmd := execdriver.MustRun(ctx, activatePath)
+	executil.InheritContextWriters(ctx, cmd)
+	return cmd.Run()
+}
+
+func GetFlakeOutput(ctx context.Context, flake, output string) (string, error) {
+	cmd := execdriver.MustRun(ctx, "nix", "build", fmt.Sprintf("%s#%s", flake, output), "--no-link", "--print-out-paths")
+	if stderr := executil.Stderr(ctx); stderr != nil {
+		cmd.Stderr = stderr
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}

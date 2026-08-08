@@ -1,0 +1,7 @@
+[module]
+name = "example"
+description = "Example module demonstrating conditionals and features"
+version = "1.0.0"
+
+[dependencies]
+# No dependencies

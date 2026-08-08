@@ -1,0 +1,93 @@
+# golangci-lint v2 configuration
+# See: https://golangci-lint.run/usage/configuration/
+version: "2"
+
+linters:
+  # Enable every linter.
+  # This is how you get dupl (duplicate code detection), forbidigo (forbid specific calls),
+  # revive, gosec, gocritic, err113, exhaustive, and all the rest.
+  default: all
+
+  # Disable legacy linter names that have been superseded in v2 (avoids deprecation warnings from default:all).
+  disable:
+    - gomodguard
+    - wsl      # legacy name; superseded by wsl_v5 in golangci-lint v2
+    - wsl_v5   # whitespace rules fight gofmt/editors; keep disabled like former wsl
+    # bodyclose only recognizes resp.Body.Close() in the same function as Do/Get.
+    # This repo closes via logging.Close (reports failures through ReportError); the
+    # checker cannot follow that helper across packages, so it only emits false
+    # positives. progressTransport also transfers Body ownership via a channel.
+    - bodyclose
+
+  settings:
+    # depguard configuration: enforce correct import layering.
+    # The previous default "Main" list behavior (from enabling-all) was effectively inverted
+    # or too coarse (e.g. "cmd" substring in pkg/cmdregistry caused spurious "not allowed from list 'Main'"
+    # on legitimate cobra usage). We explicitly define the rule the correct way:
+    #   non-cmd packages (pkg/..., etc.) must not import workspaced/cmd/... packages.
+    # cmd/... (the application entrypoints + their internal wiring) are allowed to import each other
+    # and pkg/... as needed.
+    depguard:
+      rules:
+        "pkg-must-not-import-cmd":
+          deny:
+            - pkg: "workspaced/cmd"
+              desc: "pkg/... must not import cmd/... (inverts layering; cmd/ contains main entrypoints and command wiring that should not be library dependencies). See AGENTS.md"
+          files:
+            # Scope to library code only. A negation-only pattern like "!cmd/**" is treated
+            # as a positive match in depguard v2 and falsely flags every cmd→cmd import.
+            # Positive pkg/** globs express the real invariant.
+            - "pkg/**/*.go"
+
+    dupl:
+      # Report duplicated code fragments if they have at least this many tokens.
+      threshold: 100
+
+    forbidigo:
+      # Forbid specific identifiers (function calls, packages, etc).
+      # Use this to warn/error on calls that should be avoided per project rules (AGENTS.md).
+      # After adding these, run lint and add targeted //nolint:forbidigo comments only in the
+      # legitimate implementation sites (e.g. inside pkg/driver/exec/*, pkg/logging/*, cmd/workspaced/root.go initial setup).
+      forbid:
+        # Logging
+        - pattern: ^fmt\.Print(f|ln)?$
+          msg: "use structured logging from pkg/logging instead of fmt.Print*"
+        - pattern: ^log\.(Print|Fatal|Panic)
+          msg: "use pkg/logging instead of the standard log package"
+        - pattern: ^slog\.(New|SetDefault|Default)
+          msg: "use pkg/logging (GetLogger, ContextWithLogger, NewRootContext, etc.) instead of direct slog logger creation/manipulation (see AGENTS.md). slog.String/Int/etc helpers are fine as arguments to logging helpers."
+
+        # Context
+        - pattern: ^context\.Background$
+          msg: "avoid context.Background; pass a derived context (see AGENTS.md)"
+        - pattern: ^context\.TODO$
+          msg: "avoid context.TODO; use a proper context (see AGENTS.md)"
+
+        # Network (drivers only)
+        - pattern: ^http\.Default(Client|Transport)$
+          msg: "use the httpclient or fetchurl driver instead of http.Default* (see AGENTS.md)"
+        - pattern: ^http\.(Get|Post|PostForm|NewRequest|NewRequestWithContext|Client)
+          msg: "use the httpclient or fetchurl driver for network instead of direct net/http calls (see AGENTS.md)"
+
+        # Process execution (use the driver facade outside the driver impls)
+        - pattern: ^exec\.(Command|CommandContext|LookPath)
+          msg: "use pkg/driver/exec (Run etc) outside of driver implementations (see AGENTS.md)"
+
+        # Config (CUE-first)
+        - pattern: GlobalConfig\.Merge
+          msg: "Config is CUE-first only. Never fall back to GlobalConfig.Merge() patterns (see AGENTS.md)"
+
+        # General deprecated / discouraged
+        - pattern: ^ioutil\.
+          msg: "ioutil is deprecated (Go 1.16+); use os, io, etc. directly"
+
+      # exclude-godebug: true
+
+# Default caps (max-same-issues=3) hide most findings for chatty rules like
+# wrapcheck/depguard, so janitor passes only see the first few hits.
+# Fully uncapped (0) inflates SARIF to thousands of results and trips
+# `workspaced codebase lint` aggregation. 50 is enough to see real clusters
+# without turning the report into noise.
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 50

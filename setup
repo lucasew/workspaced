@@ -1,0 +1,367 @@
+#!/usr/bin/env bash
+#
+# Bootstrap workspaced from GitHub Releases without assuming a fixed asset
+# naming scheme. Mirrors the Go github backend: fetch release metadata, score
+# assets by OS/arch (+ optional APPNAME hint), download + extract, then run
+# `self-install` so the binary lives in the normal tool location (shim in
+# ~/.local/bin, binary in ~/.local/share/workspaced/bin). Any remaining args
+# are forwarded to that installed binary.
+#
+# Env overrides:
+#   REPO          owner/repo (default: lucasew/workspaced)
+#   APPNAME       binary/hint name (default: workspaced)
+#   VERSION       release tag, or "latest" (default: latest)
+#   OS / ARCH     override detected platform (go-style: linux/darwin/windows, amd64/arm64/386)
+#   DOWNLOAD_DIR  reuse/cache directory (default: mktemp -d)
+#   GITHUB_TOKEN  optional; reduces API rate limits
+#
+set -euo pipefail
+
+REPO="${REPO:-lucasew/workspaced}"
+APPNAME="${APPNAME:-workspaced}"
+
+if [[ ! -v DOWNLOAD_DIR ]]; then
+	DOWNLOAD_DIR=$(mktemp -d)
+fi
+mkdir -p "$DOWNLOAD_DIR"
+
+# ---------------------------------------------------------------------------
+# Platform detection (normalized to goos/goarch style used by SelectArtifact)
+# ---------------------------------------------------------------------------
+
+detect_os() {
+	case "$(uname -s 2>/dev/null || echo unknown)" in
+	Linux*) echo linux ;;
+	Darwin*) echo darwin ;;
+	FreeBSD*) echo freebsd ;;
+	MINGW* | MSYS* | CYGWIN* | Windows_NT) echo windows ;;
+	*) echo "$(uname -s | tr '[:upper:]' '[:lower:]')" ;;
+	esac
+}
+
+detect_arch() {
+	case "$(uname -m 2>/dev/null || echo unknown)" in
+	x86_64 | amd64) echo amd64 ;;
+	aarch64 | arm64) echo arm64 ;;
+	i386 | i686 | x86) echo 386 ;;
+	armv7* | armv6*) echo arm ;;
+	riscv64) echo riscv64 ;;
+	*) echo "$(uname -m | tr '[:upper:]' '[:lower:]')" ;;
+	esac
+}
+
+if [[ ! -v OS ]]; then
+	OS="$(detect_os)"
+fi
+if [[ ! -v ARCH ]]; then
+	ARCH="$(detect_arch)"
+fi
+
+# ---------------------------------------------------------------------------
+# Asset name → (os, arch) — same heuristics as pkg/tool/backend/github/parseAssetName
+# ---------------------------------------------------------------------------
+
+asset_os() {
+	local n
+	n=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+	if [[ $n == *android* ]]; then
+		echo android
+	elif [[ $n == *linux* || $n == *ubuntu* ]]; then
+		echo linux
+	elif [[ $n == *darwin* || $n == *macos* || $n == *apple* ]]; then
+		echo darwin
+	elif [[ $n == *windows* ]]; then
+		echo windows
+	else
+		echo ""
+	fi
+}
+
+asset_arch() {
+	local n
+	n=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+	if [[ $n == *amd64* || $n == *x86_64* || $n == *x64* ]]; then
+		echo amd64
+	elif [[ $n == *arm64* || $n == *aarch64* ]]; then
+		echo arm64
+	elif [[ $n == *386* || $n == *i386* || $n == *i686* ]]; then
+		echo 386
+	elif [[ $n == *riscv* ]]; then
+		echo riscv64
+	elif [[ $n == *arm* ]]; then
+		echo arm
+	else
+		echo ""
+	fi
+}
+
+# Score asset for current OS/ARCH (higher is better; 0 = ineligible).
+# Rough port of backend.ScoreArtifact.
+score_asset() {
+	local name="$1"
+	local n a_os a_arch score=0
+	n=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+	a_os=$(asset_os "$name")
+	a_arch=$(asset_arch "$name")
+
+	# Skip checksums / source / docs
+	if [[ $n == *checksums* || $n == *.sha256 || $n == *.sha512 || $n == *.md5 ||
+		$n == *.txt && $n != *tar* || $n == source* || $n == *.deb || $n == *.rpm ]]; then
+		echo 0
+		return
+	fi
+
+	if [[ -z $a_os || -z $a_arch ]]; then
+		echo 0
+		return
+	fi
+
+	# Platform match (android may fall back to linux artifacts)
+	local want_os="$OS"
+	if [[ $a_os != "$want_os" ]]; then
+		if [[ $want_os == android && $a_os == linux ]]; then
+			:
+		else
+			echo 0
+			return
+		fi
+	fi
+	if [[ $a_arch != "$ARCH" ]]; then
+		echo 0
+		return
+	fi
+
+	# Hint: prefer assets mentioning APPNAME
+	local hint
+	hint=$(echo "$APPNAME" | tr '[:upper:]' '[:lower:]')
+	if [[ -n $hint && $n == *"$hint"* ]]; then
+		score=$((score + 120))
+	else
+		score=1
+	fi
+
+	# Prefer common archive formats over bare binaries
+	if [[ $n == *.tar.gz || $n == *.tgz || $n == *.zip ]]; then
+		score=$((score + 10))
+	fi
+	if [[ $n == *debug* ]]; then
+		score=$((score - 20))
+	fi
+	if ((score <= 0)); then
+		score=1
+	fi
+	echo "$score"
+}
+
+# ---------------------------------------------------------------------------
+# GitHub API
+# ---------------------------------------------------------------------------
+
+github_api() {
+	local url="$1"
+	local args=(-fsSL -H "User-Agent: ${APPNAME}-setup (+https://github.com/${REPO})" -H "X-GitHub-Api-Version: 2022-11-28")
+	if [[ -n ${GITHUB_TOKEN:-} ]]; then
+		args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+	elif command -v gh >/dev/null 2>&1; then
+		local tok
+		tok=$(gh auth token 2>/dev/null || true)
+		if [[ -n $tok ]]; then
+			args+=(-H "Authorization: Bearer ${tok}")
+		fi
+	fi
+	curl "${args[@]}" "$url"
+}
+
+release_api_url() {
+	local ver="${VERSION:-latest}"
+	if [[ $ver == latest || -z $ver ]]; then
+		echo "https://api.github.com/repos/${REPO}/releases/latest"
+	else
+		echo "https://api.github.com/repos/${REPO}/releases/tags/${ver}"
+	fi
+}
+
+# Parse release JSON: emit lines of  score<TAB>name<TAB>url
+# Uses only POSIX-ish tools; prefers python3 for robust JSON, falls back to grep/sed.
+list_scored_assets() {
+	local json="$1"
+	if command -v python3 >/dev/null 2>&1; then
+		python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+for a in data.get("assets") or []:
+    name = a.get("name") or ""
+    url = a.get("browser_download_url") or ""
+    if name and url:
+        print(f"{name}\t{url}")
+' <<<"$json"
+	else
+		# Minimal fallback: extract name + browser_download_url pairs (order not guaranteed)
+		echo "$json" | grep -oE '"name":\s*"[^"]+"|"browser_download_url":\s*"[^"]+"' |
+			sed -E 's/.*":\s*"([^"]+)".*/\1/' |
+			paste - - 2>/dev/null || true
+	fi
+}
+
+pick_asset() {
+	local json="$1"
+	local best_score=0 best_name="" best_url="" name url score
+
+	while IFS=$'\t' read -r name url; do
+		[[ -z ${name:-} || -z ${url:-} ]] && continue
+		score=$(score_asset "$name")
+		if ((score > best_score)); then
+			best_score=$score
+			best_name=$name
+			best_url=$url
+		fi
+	done < <(list_scored_assets "$json")
+
+	if ((best_score <= 0)) || [[ -z $best_url ]]; then
+		echo "error: no release asset for ${OS}/${ARCH} in ${REPO} (version ${VERSION:-latest})" >&2
+		echo "hint: set OS/ARCH/VERSION/REPO env vars, or check https://github.com/${REPO}/releases" >&2
+		return 1
+	fi
+	echo "$best_name	$best_url"
+}
+
+# ---------------------------------------------------------------------------
+# Download + extract
+# ---------------------------------------------------------------------------
+
+extract_archive() {
+	local archive="$1"
+	local dest="$2"
+	local base
+	base=$(basename "$archive")
+	local lbase
+	lbase=$(echo "$base" | tr '[:upper:]' '[:lower:]')
+
+	if [[ $lbase == *.tar.gz || $lbase == *.tgz ]]; then
+		tar -xzf "$archive" -C "$dest"
+	elif [[ $lbase == *.tar.bz2 || $lbase == *.tbz2 ]]; then
+		tar -xjf "$archive" -C "$dest"
+	elif [[ $lbase == *.tar.xz || $lbase == *.txz ]]; then
+		tar -xJf "$archive" -C "$dest"
+	elif [[ $lbase == *.zip ]]; then
+		if command -v unzip >/dev/null 2>&1; then
+			unzip -qo "$archive" -d "$dest"
+		else
+			# Busybox/python fallback
+			python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$archive" "$dest"
+		fi
+	else
+		# Bare binary asset — install under APPNAME
+		cp "$archive" "${dest}/${APPNAME}"
+		chmod +x "${dest}/${APPNAME}"
+	fi
+}
+
+find_binary() {
+	local dir="$1"
+	local candidates=(
+		"${dir}/${APPNAME}"
+		"${dir}/${APPNAME}.exe"
+		"${dir}/bin/${APPNAME}"
+		"${dir}/bin/${APPNAME}.exe"
+	)
+	local c
+	for c in "${candidates[@]}"; do
+		if [[ -f $c ]]; then
+			echo "$c"
+			return 0
+		fi
+	done
+	# Any executable in top level
+	local f
+	while IFS= read -r -d '' f; do
+		if [[ -x $f && ! -d $f ]]; then
+			echo "$f"
+			return 0
+		fi
+	done < <(find "$dir" -maxdepth 2 -type f -print0 2>/dev/null)
+	return 1
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+ensure_bootstrap_binary() {
+	local bin found
+	bin="${DOWNLOAD_DIR}/${APPNAME}"
+	if [[ ! -x $bin ]]; then
+		if found=$(find_binary "$DOWNLOAD_DIR" 2>/dev/null); then
+			bin=$found
+		fi
+	fi
+
+	if [[ -x ${bin:-/nonexistent} ]]; then
+		echo "$bin"
+		return 0
+	fi
+
+	local api_url release_json asset_line asset_name asset_url archive
+	api_url=$(release_api_url)
+	release_json=$(github_api "$api_url")
+
+	if command -v python3 >/dev/null 2>&1; then
+		local resolved_tag
+		resolved_tag=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("tag_name",""))' <<<"$release_json" 2>/dev/null || true)
+		VERSION="${VERSION:-${resolved_tag:-latest}}"
+	fi
+
+	asset_line=$(pick_asset "$release_json")
+	asset_name=${asset_line%%	*}
+	asset_url=${asset_line#*	}
+
+	archive="${DOWNLOAD_DIR}/${asset_name}"
+	curl -fsSL -o "$archive" "$asset_url"
+	extract_archive "$archive" "$DOWNLOAD_DIR"
+
+	bin=$(find_binary "$DOWNLOAD_DIR") || {
+		echo "error: downloaded ${asset_name} but could not find ${APPNAME} binary in ${DOWNLOAD_DIR}" >&2
+		return 1
+	}
+	chmod +x "$bin" 2>/dev/null || true
+	echo "$bin"
+}
+
+installed_binary() {
+	local candidates=(
+		"${HOME}/.local/bin/${APPNAME}"
+		"${HOME}/.local/share/workspaced/bin/${APPNAME}"
+		"${HOME}/.local/share/workspaced/bin/${APPNAME}.exe"
+	)
+	local c
+	for c in "${candidates[@]}"; do
+		if [[ -x $c ]]; then
+			echo "$c"
+			return 0
+		fi
+	done
+	return 1
+}
+
+BIN=$(ensure_bootstrap_binary)
+
+# Place the release binary in its final location via self-install (shim + share/bin).
+# If the caller invoked setup as `setup self-install …`, pass those flags through
+# and stop (install is the whole job).
+if [[ ${1:-} == self-install ]]; then
+	shift
+	exec "$BIN" self-install "$@"
+fi
+
+"$BIN" self-install -f
+
+INSTALLED=$(installed_binary) || {
+	echo "error: self-install succeeded but ${APPNAME} not found under ~/.local" >&2
+	exit 1
+}
+
+if [[ $# -eq 0 ]]; then
+	exit 0
+fi
+
+exec "$INSTALLED" "$@"

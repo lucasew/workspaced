@@ -1,0 +1,47 @@
+package notify_send
+
+import (
+	"context"
+	"fmt"
+	"workspaced/pkg/driver"
+	execdriver "workspaced/pkg/driver/exec"
+	"workspaced/pkg/driver/notification"
+)
+
+func init() {
+	driver.Register[notification.Driver](&Factory{})
+}
+
+type Factory struct{}
+
+func (f *Factory) ID() string   { return "notification_notify_send" }
+func (f *Factory) Name() string { return "notify-send" }
+
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
+	return execdriver.RequireBinary(ctx, "notify-send")
+}
+
+func (f *Factory) New(ctx context.Context) (notification.Driver, error) {
+	return &Driver{}, nil
+}
+
+type Driver struct{}
+
+func (d *Driver) Notify(ctx context.Context, n *notification.Notification) error {
+	args := []string{}
+	if n.Urgency != "" {
+		args = append(args, "-u", n.Urgency)
+	}
+	if n.Icon != "" {
+		args = append(args, "-i", n.Icon)
+	}
+	if n.HasProgress {
+		args = append(args, "-h", fmt.Sprintf("int:value:%d", int(n.Progress*100)))
+	}
+	if n.ID != 0 {
+		args = append(args, "-r", fmt.Sprintf("%d", n.ID))
+	}
+
+	args = append(args, n.Title, n.Message)
+	return execdriver.MustRun(ctx, "notify-send", args...).Run()
+}
