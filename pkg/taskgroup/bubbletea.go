@@ -8,6 +8,14 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/mattn/go-runewidth"
+)
+
+const (
+	defaultTermWidth = 80
+	// Below this, drop the bar and show a compact percent.
+	narrowTermWidth = 56
+	minBarInner     = 8
 )
 
 // Run waits for the group's session to finish (tasks + UI teardown), or for
@@ -70,12 +78,14 @@ type bubbleModel struct {
 	bars  map[string]barEntry
 	order []string // task IDs in first-seen order (stable row layout)
 	live  *liveHub
+	width int
 }
 
 func newBubbleModel(g *Group) bubbleModel {
 	return bubbleModel{
 		group: g,
 		bars:  make(map[string]barEntry),
+		width: defaultTermWidth,
 	}
 }
 
@@ -97,6 +107,11 @@ func (m bubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+	case tea.WindowSizeMsg:
+		if msg.Width > 0 {
+			m.width = msg.Width
+		}
+		return m, nil
 	case tickMsg, refreshMsg:
 		if m.group == nil {
 			return m, m.tick()
@@ -175,9 +190,14 @@ func (m bubbleModel) View() (view tea.View) {
 		return
 	}
 
+	width := m.width
+	if width <= 0 {
+		width = defaultTermWidth
+	}
+
 	var buf bytes.Buffer
 	for _, row := range live {
-		buf.WriteString(clipRunes(row, 120))
+		buf.WriteString(clipCells(row, width))
 		buf.WriteByte('\n')
 	}
 	for _, id := range m.order {
@@ -185,24 +205,73 @@ func (m bubbleModel) View() (view tea.View) {
 		if !ok {
 			continue
 		}
-		buf.WriteString(formatBarLine(b, 30))
+		buf.WriteString(formatBarLine(b, width))
 		buf.WriteByte('\n')
 	}
 	view.SetContent(buf.String())
 	return
 }
 
-// formatBarLine renders one row: ICON BAR title: subtitle
-// Example: "🌐 [===============---------------] bundle.tar.gz: 5.0 MiB / 10.0 MiB"
-// Subtitle should be detail only (sizes, counts, phase) — not a repeat of title
-// or a percent already implied by the bar.
-func formatBarLine(b barEntry, barWidth int) string {
-	return fmt.Sprintf("%s %s %s: %s",
-		poolEmoji(b.pool),
-		plainBar(b.percent, barWidth),
-		b.title,
-		b.subtitle,
-	)
+// formatBarLine renders one row for the current terminal width.
+//
+// Narrow:  "🌐  45.2% bundle.tar.gz: 5.0 MiB / 10.0 MiB"
+// Wide:    "🌐 bundle.tar.gz: 5.0 MiB / 10.0 MiB [===============-----]"
+//
+// The wide bar fills whatever cells remain after the emoji and message.
+func formatBarLine(b barEntry, width int) string {
+	if width <= 0 {
+		width = defaultTermWidth
+	}
+	emoji := poolEmoji(b.pool)
+	msg := barMessage(b)
+	if width < narrowTermWidth {
+		return formatNarrowBar(emoji, msg, b.percent, width)
+	}
+	return formatWideBar(emoji, msg, b.percent, width)
+}
+
+func barMessage(b barEntry) string {
+	switch {
+	case b.title != "" && b.subtitle != "":
+		return b.title + ": " + b.subtitle
+	case b.title != "":
+		return b.title
+	default:
+		return b.subtitle
+	}
+}
+
+func formatNarrowBar(emoji, msg string, pct float64, width int) string {
+	prefix := emoji + " " + formatPercent(pct) + " "
+	rest := width - cellWidth(prefix)
+	if rest < 0 {
+		return clipCells(prefix, width)
+	}
+	return prefix + clipCells(msg, rest)
+}
+
+func formatWideBar(emoji, msg string, pct float64, width int) string {
+	// "emoji" + " " + message + " " + [bar]
+	fixed := cellWidth(emoji) + 1 + 1 + 2 // spaces + brackets
+	inner := width - fixed - cellWidth(msg)
+	if inner < minBarInner {
+		msg = clipCells(msg, width-fixed-minBarInner)
+		inner = width - fixed - cellWidth(msg)
+	}
+	if inner < 1 {
+		return formatNarrowBar(emoji, msg, pct, width)
+	}
+	return emoji + " " + msg + " " + plainBar(pct, inner)
+}
+
+func formatPercent(pct float64) string {
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 1 {
+		pct = 1
+	}
+	return fmt.Sprintf("%5.1f%%", pct*100)
 }
 
 // poolEmoji returns a short emoji based on the task's PoolKind so users can
@@ -238,18 +307,18 @@ func plainBar(pct float64, width int) string {
 	return "[" + strings.Repeat("=", filled) + strings.Repeat("-", width-filled) + "]"
 }
 
-func clipRunes(s string, max int) string {
+func cellWidth(s string) int {
+	return runewidth.StringWidth(s)
+}
+
+func clipCells(s string, max int) string {
 	if max <= 0 {
 		return ""
 	}
-	n := 0
-	for i := range s {
-		if n == max {
-			return s[:i]
-		}
-		n++
+	if cellWidth(s) <= max {
+		return s
 	}
-	return s
+	return runewidth.Truncate(s, max, "")
 }
 
 // RunBubbleTea is a compatibility alias for Run (session Close when present).

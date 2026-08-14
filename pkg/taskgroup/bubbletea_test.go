@@ -3,26 +3,46 @@ package taskgroup
 import (
 	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
 )
 
-func TestFormatBarLine(t *testing.T) {
+func TestFormatBarLineWide(t *testing.T) {
 	line := formatBarLine(barEntry{
 		title:    "bundle.tar.gz",
 		subtitle: "5.0 MiB / 10.0 MiB",
 		pool:     Internet,
 		percent:  0.5,
-	}, 10)
-	// ICON BAR title: subtitle — bar is fixed-width after the emoji.
-	wantPrefix := "🌐 ["
-	if !strings.HasPrefix(line, wantPrefix) {
-		t.Fatalf("line = %q, want prefix %q", line, wantPrefix)
+	}, 80)
+	if !strings.HasPrefix(line, "🌐 bundle.tar.gz: 5.0 MiB / 10.0 MiB [") {
+		t.Fatalf("wide = %q, want emoji message [bar]", line)
 	}
-	if !strings.Contains(line, "] bundle.tar.gz: 5.0 MiB / 10.0 MiB") {
-		t.Fatalf("line = %q, want title: size subtitle after bar", line)
+	if !strings.HasSuffix(line, "]") {
+		t.Fatalf("wide = %q, want trailing ]", line)
 	}
-	// No text between icon and bar (old layout put title before the bar).
-	if strings.Contains(line, "bundle.tar.gz: [") {
-		t.Fatalf("old layout leaked: title before bar in %q", line)
+	if cellWidth(line) != 80 {
+		t.Fatalf("wide width = %d, want 80 (%q)", cellWidth(line), line)
+	}
+}
+
+func TestFormatBarLineNarrow(t *testing.T) {
+	line := formatBarLine(barEntry{
+		title:    "bundle.tar.gz",
+		subtitle: "5.0 MiB / 10.0 MiB",
+		pool:     Internet,
+		percent:  0.5,
+	}, 40)
+	if !strings.HasPrefix(line, "🌐  50.0% ") {
+		t.Fatalf("narrow = %q, want emoji percent message", line)
+	}
+	if strings.Contains(line, "[") {
+		t.Fatalf("narrow kept a bar: %q", line)
+	}
+	if !strings.Contains(line, "bundle.tar.gz") {
+		t.Fatalf("narrow missing message: %q", line)
+	}
+	if cellWidth(line) > 40 {
+		t.Fatalf("narrow width = %d > 40 (%q)", cellWidth(line), line)
 	}
 }
 
@@ -37,10 +57,19 @@ func TestFormatBarLinePools(t *testing.T) {
 		{Internet, "🌐"},
 	}
 	for _, tt := range tests {
-		line := formatBarLine(barEntry{title: "t", subtitle: "s", pool: tt.pool, percent: 0}, 4)
+		line := formatBarLine(barEntry{title: "t", subtitle: "s", pool: tt.pool, percent: 0}, 80)
 		if !strings.HasPrefix(line, tt.emoji+" ") {
 			t.Errorf("pool %v: line = %q, want emoji %s", tt.pool, line, tt.emoji)
 		}
+	}
+}
+
+func TestFormatPercent(t *testing.T) {
+	if got, want := formatPercent(0.45231), " 45.2%"; got != want {
+		t.Fatalf("formatPercent(0.45231) = %q, want %q", got, want)
+	}
+	if got, want := formatPercent(1), "100.0%"; got != want {
+		t.Fatalf("formatPercent(1) = %q, want %q", got, want)
 	}
 }
 
@@ -132,6 +161,7 @@ func TestViewIncludesLiveRows(t *testing.T) {
 
 func TestViewLayout(t *testing.T) {
 	m := newBubbleModel(nil)
+	m.width = 80
 	m.syncFromSnapshot([]TaskState{
 		{ID: "1", Name: "bundle.tar.gz", Pool: Internet, State: Running, Message: "5.0 MiB / 10.0 MiB", Current: 50, Total: 100},
 		{ID: "2", Name: "build", Pool: CPU, State: Running, Message: "part 1/4", Current: 1, Total: 4},
@@ -141,20 +171,41 @@ func TestViewLayout(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("lines = %v (%d), want 2", lines, len(lines))
 	}
-	// Both lines: ICON BAR title: subtitle
 	for i, line := range lines {
-		// emoji + space + [bar] + space + title: subtitle
-		if !strings.Contains(line, "] ") || !strings.Contains(line, ": ") {
-			t.Errorf("line %d = %q, want ICON BAR title: subtitle", i, line)
+		if !strings.Contains(line, ": ") || !strings.Contains(line, " [") {
+			t.Errorf("line %d = %q, want emoji message [bar]", i, line)
 		}
-		// Bar comes before the colon-separated title
 		barIdx := strings.Index(line, "[")
 		titleIdx := strings.Index(line, "bundle.tar.gz")
 		if titleIdx < 0 {
 			titleIdx = strings.Index(line, "build")
 		}
-		if barIdx < 0 || titleIdx < 0 || barIdx > titleIdx {
-			t.Errorf("line %d = %q: bar should precede title", i, line)
+		if barIdx < 0 || titleIdx < 0 || titleIdx > barIdx {
+			t.Errorf("line %d = %q: message should precede bar", i, line)
 		}
+	}
+}
+
+func TestViewResizeSwitchesLayout(t *testing.T) {
+	m := newBubbleModel(nil)
+	m.syncFromSnapshot([]TaskState{
+		{ID: "1", Name: "build", Pool: CPU, State: Running, Message: "part 1/4", Current: 1, Total: 4},
+	})
+
+	next, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 24})
+	m = next.(bubbleModel)
+	narrow := strings.TrimSuffix(m.View().Content, "\n")
+	if !strings.Contains(narrow, "%") || strings.Contains(narrow, "[") {
+		t.Fatalf("width 40 = %q, want percent layout", narrow)
+	}
+
+	next, _ = m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m = next.(bubbleModel)
+	wide := strings.TrimSuffix(m.View().Content, "\n")
+	if !strings.Contains(wide, "[") || strings.Contains(wide, "%") {
+		t.Fatalf("width 80 = %q, want expanding bar", wide)
+	}
+	if cellWidth(wide) != 80 {
+		t.Fatalf("width 80 line is %d cells: %q", cellWidth(wide), wide)
 	}
 }
