@@ -119,10 +119,28 @@ func TestLiveHubAbandonAll(t *testing.T) {
 
 func TestLineWriterFromNoSession(t *testing.T) {
 	w := LineWriterFrom(t.Context())
-	if _, ok := w.(passWriter); !ok {
-		t.Fatalf("got %T, want passWriter", w)
+	lw, ok := w.(*lineWriter)
+	if !ok {
+		t.Fatalf("got %T, want *lineWriter", w)
+	}
+	if lw.commitOnClose {
+		t.Fatal("no-session writer must not flush leftover on close")
 	}
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFinishedLineWriterOnlyEmitsCompleteLines(t *testing.T) {
+	var buf strings.Builder
+	w := newFinishedLineWriter(&buf)
+	if _, err := w.Write([]byte("10%\r50%\r100%\ndone\npartial")); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); got != "100%\ndone\n" {
+		t.Fatalf("got %q, want only finished lines", got)
 	}
 }

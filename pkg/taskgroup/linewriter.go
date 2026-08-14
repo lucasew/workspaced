@@ -114,11 +114,14 @@ func (h *liveHub) abandonAll() []string {
 }
 
 // lineWriter is one stream's live row. First visible glyph registers the
-// row; '\n' commits it via print; Close commits any leftover.
+// row; '\n' commits it via print. Close commits leftover when commitOnClose
+// is set (TUI). The TERM=dumb / no-UI path leaves it unset so only finished
+// lines are emitted.
 type lineWriter struct {
-	id    string
-	hub   *liveHub
-	print func(string)
+	id            string
+	hub           *liveHub
+	print         func(string)
+	commitOnClose bool
 
 	mu     sync.Mutex
 	filter lineFilter
@@ -127,8 +130,9 @@ type lineWriter struct {
 
 func newLineWriter(hub *liveHub, print func(string)) *lineWriter {
 	w := &lineWriter{
-		hub:   hub,
-		print: print,
+		hub:           hub,
+		print:         print,
+		commitOnClose: true,
 	}
 	if hub != nil {
 		w.id = "live-" + strconv.FormatUint(hub.seq.Add(1), 10)
@@ -197,12 +201,13 @@ func (w *lineWriter) Close() error {
 	w.closed = true
 	text := w.filter.take()
 	print := w.print
+	flush := w.commitOnClose
 	id := w.id
 	hub := w.hub
 	w.mu.Unlock()
 
 	hub.drop(id)
-	if text != "" && print != nil {
+	if flush && text != "" && print != nil {
 		print(text)
 	}
 	return nil
@@ -223,12 +228,13 @@ func (w *lineWriter) abandon() string {
 //
 // With an active session UI the writer is a live row: CR / erase-line rewrite
 // that row until a newline commits it above the bars. Close commits leftover.
-// Without a session it is a passthrough to os.Stderr (Close is a no-op).
+// Without a session (or TERM=dumb / non-tty) only finished lines are written
+// to os.Stderr; a trailing partial line is dropped.
 func LineWriterFrom(ctx context.Context) io.WriteCloser {
 	if s := SessionFrom(ctx); s != nil {
 		return s.LineWriter()
 	}
-	return passWriter{os.Stderr}
+	return newFinishedLineWriter(os.Stderr)
 }
 
 // LineWriter returns a new live-row writer for this session. The row appears
@@ -236,13 +242,23 @@ func LineWriterFrom(ctx context.Context) io.WriteCloser {
 // cmd.Stderr (same writer for both).
 func (s *Session) LineWriter() io.WriteCloser {
 	if s == nil || !s.wantUI {
-		return passWriter{os.Stderr}
+		return newFinishedLineWriter(os.Stderr)
 	}
 	s.ensureUI()
 	if s.live == nil {
-		return passWriter{os.Stderr}
+		return newFinishedLineWriter(os.Stderr)
 	}
 	return newLineWriter(s.live, s.commitLine)
+}
+
+// newFinishedLineWriter prints only newline-terminated frames. CR progress
+// is materialized and discarded until \n. Close does not flush leftover.
+func newFinishedLineWriter(out io.Writer) *lineWriter {
+	return &lineWriter{
+		print: func(s string) {
+			_, _ = io.WriteString(out, s+"\n")
+		},
+	}
 }
 
 func (s *Session) commitLine(msg string) {
@@ -251,9 +267,3 @@ func (s *Session) commitLine(msg string) {
 	}
 	s.prog.Printf("%s", msg)
 }
-
-// passWriter writes through and ignores Close (must not close os.Stderr).
-type passWriter struct{ w io.Writer }
-
-func (p passWriter) Write(b []byte) (int, error) { return p.w.Write(b) }
-func (p passWriter) Close() error                { return nil }
