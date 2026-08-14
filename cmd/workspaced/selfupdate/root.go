@@ -1,6 +1,7 @@
 package selfupdate
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 
 	"github.com/lucasew/workspaced/internal/miseutil"
 	"github.com/lucasew/workspaced/internal/selfbin"
@@ -59,9 +61,10 @@ in ~/.local/bin/workspaced is updated automatically.`,
 			}
 
 			// Control: github/httpclient and the source build nest limited-pool work.
+			// Do not Unit here — GitHub installs already own a fetch bar.
 			g.Go("self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 				s.Update(msg)
-				return runSelfUpdate(ctx, force)
+				return runSelfUpdate(ctx, force, s)
 			})
 
 			return nil
@@ -76,7 +79,7 @@ in ~/.local/bin/workspaced is updated automatically.`,
 // Main update flow
 // ============================================================================
 
-func runSelfUpdate(ctx context.Context, force bool) error {
+func runSelfUpdate(ctx context.Context, force bool, s *taskgroup.Status) error {
 	// Try source build first (dev mode - always rebuilds)
 	srcPath, err := findSourcePath(ctx)
 	if err != nil {
@@ -85,18 +88,18 @@ func runSelfUpdate(ctx context.Context, force bool) error {
 	if srcPath != "" {
 		logger := logging.GetLogger(ctx)
 		logger.Info("building from source (always rebuilds)", "path", srcPath)
-		return buildAndInstallFromSource(ctx, srcPath)
+		return buildAndInstallFromSource(ctx, srcPath, s)
 	}
 
 	// Fallback to GitHub provider (checks version unless --force)
-	return updateFromGitHub(ctx, force)
+	return updateFromGitHub(ctx, force, s)
 }
 
 // ============================================================================
 // Source build strategy
 // ============================================================================
 
-func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
+func buildAndInstallFromSource(ctx context.Context, srcPath string, s *taskgroup.Status) error {
 	// Install to fixed location (not versioned); real home, not Termux /home chroot view.
 	installDir, installPath, err := selfbin.InstallPaths(ctx)
 	if err != nil {
@@ -132,21 +135,34 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 	}, "path", tmpPath)
 
 	goSpec := fmt.Sprintf("go@%s", goVersion)
+	logger := logging.GetLogger(ctx)
+	logger.Info("building from source", "path", srcPath, "go", goSpec)
+
+	prog := newBuildProgress(s)
+	if s != nil {
+		s.Progress(0, 1)
+		s.Update("compiling")
+	}
+	if n, err := countBuildPackages(ctx, misePath, goSpec, srcPath); err == nil && n > 0 {
+		prog.total = n
+		if s != nil {
+			s.Progress(0, n)
+		}
+	}
+
 	buildCmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
 		"go", "build", "-v", "-o", tmpPath, "./cmd/workspaced")
 	if err != nil {
 		return err
 	}
-
 	buildCmd.Dir = srcPath
-	buildCmd.Stdout = os.Stdout
-	buildCmd.Stderr = os.Stderr
+	buildCmd.Stdout = prog
+	buildCmd.Stderr = prog
 
-	logger := logging.GetLogger(ctx)
-	logger.Info("building from source", "path", srcPath, "go", goSpec)
 	if err := buildCmd.Run(); err != nil {
-		return fmt.Errorf("build failed: %w", err)
+		return fmt.Errorf("build failed: %w\n%s", err, prog.tail())
 	}
+	prog.finish("installing")
 	if err := os.Chmod(tmpPath, 0755); err != nil {
 		return fmt.Errorf("set permissions on built binary: %w", err)
 	}
@@ -162,7 +178,7 @@ func buildAndInstallFromSource(ctx context.Context, srcPath string) error {
 // GitHub provider strategy
 // ============================================================================
 
-func updateFromGitHub(ctx context.Context, force bool) error {
+func updateFromGitHub(ctx context.Context, force bool, s *taskgroup.Status) error {
 	// Use the exposed constructor directly. This works even without the old
 	// detailed methods on the thin Provider interface, and demonstrates how
 	// a future registry backend (or other code) can obtain a github Tool.
@@ -238,6 +254,9 @@ func updateFromGitHub(ctx context.Context, force bool) error {
 
 	logger := logging.GetLogger(ctx)
 	logger.Info("downloading from GitHub", "version", latestVersion, "os", artifact.OS, "arch", artifact.Arch)
+	if s != nil {
+		s.Update("downloading")
+	}
 	if err := at.InstallArtifact(ctx, *artifact, tmpDir); err != nil {
 		return fmt.Errorf("installation failed: %w", err)
 	}
@@ -341,6 +360,95 @@ func findBinary(dir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("%w: %s", ErrNoBinaryFound, dir)
+}
+
+// buildProgress counts `go build -v` package lines onto a Status bar.
+type buildProgress struct {
+	s     *taskgroup.Status
+	mu    sync.Mutex
+	buf   []byte
+	n     int64
+	total int64
+	last  []string
+}
+
+func newBuildProgress(s *taskgroup.Status) *buildProgress {
+	return &buildProgress{s: s}
+}
+
+func (w *buildProgress) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			break
+		}
+		line := strings.TrimSpace(string(bytes.TrimSuffix(w.buf[:i], []byte{'\r'})))
+		w.buf = w.buf[i+1:]
+		if line == "" {
+			continue
+		}
+		w.last = append(w.last, line)
+		if len(w.last) > 8 {
+			w.last = w.last[len(w.last)-8:]
+		}
+		w.n++
+		total := w.total
+		if total < w.n {
+			total = w.n
+			w.total = total
+		}
+		if w.s != nil && total > 0 {
+			w.s.Progress(w.n, total)
+			w.s.Update(line)
+		}
+	}
+	return len(p), nil
+}
+
+func (w *buildProgress) tail() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return strings.Join(w.last, "\n")
+}
+
+func (w *buildProgress) finish(msg string) {
+	w.mu.Lock()
+	total := w.total
+	s := w.s
+	w.mu.Unlock()
+	if s == nil {
+		return
+	}
+	if total < 1 {
+		total = 1
+	}
+	s.Progress(total, total)
+	s.Update(msg)
+}
+
+func countBuildPackages(ctx context.Context, misePath, goSpec, srcPath string) (int64, error) {
+	cmd, err := execdriver.Run(ctx, misePath, "exec", goSpec, "--",
+		"go", "list", "-e", "-deps", "-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", "./cmd/workspaced")
+	if err != nil {
+		return 0, err
+	}
+	var stdout, stderr bytes.Buffer
+	cmd.Dir = srcPath
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return 0, fmt.Errorf("go list: %w: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	var n int64
+	for _, line := range strings.Split(stdout.String(), "\n") {
+		if strings.TrimSpace(line) != "" {
+			n++
+		}
+	}
+	return n, nil
 }
 
 func findSourcePath(ctx context.Context) (string, error) {

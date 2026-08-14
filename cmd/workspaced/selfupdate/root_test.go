@@ -7,6 +7,23 @@ import (
 	"testing"
 )
 
+func TestBuildProgressCountsLines(t *testing.T) {
+	w := newBuildProgress(nil)
+	w.total = 3
+	if _, err := w.Write([]byte("github.com/a\ngithub.com/b\n")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("github.com/c\n")); err != nil {
+		t.Fatal(err)
+	}
+	if w.n != 3 || w.total != 3 {
+		t.Fatalf("progress = %d/%d, want 3/3", w.n, w.total)
+	}
+	if got := w.tail(); got != "github.com/a\ngithub.com/b\ngithub.com/c" {
+		t.Fatalf("tail = %q", got)
+	}
+}
+
 func TestFindBinary(t *testing.T) {
 	tmpDir := t.TempDir()
 
