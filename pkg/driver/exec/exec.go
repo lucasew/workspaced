@@ -3,12 +3,12 @@ package exec
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/logging"
+	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
 
 // Driver provides platform-specific command execution.
@@ -31,8 +31,9 @@ func IsBinaryAvailable(ctx context.Context, name string) bool {
 }
 
 // Run creates an exec.Cmd using the selected driver.
-// Stderr defaults to the process os.Stderr (including session UI redirects).
-// Context writers from executil override stdout/stderr when set.
+// Stderr defaults to a session live-row writer when a Session is on ctx,
+// otherwise the process os.Stderr. Context writers from executil override
+// stdout/stderr when set.
 func Run(ctx context.Context, name string, args ...string) (*exec.Cmd, error) {
 	logger := logging.GetLogger(ctx)
 	logger.Debug("running command", "name", name, "args", args)
@@ -70,12 +71,13 @@ func MustRun(ctx context.Context, name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// attachDefaultWriters sets stderr to the process os.Stderr so Output() does
-// not swallow diagnostics, then applies executil context overrides when set.
+// attachDefaultWriters sets stderr to a session live-row writer when a Session
+// is on ctx (CR / in-line CSI stay on one row until newline). Otherwise stderr
+// is the process os.Stderr. executil context overrides still win.
 // Stdout is left unset unless the context carries one, so callers can still
 // use Cmd.Output() or assign a capture buffer.
 func attachDefaultWriters(ctx context.Context, cmd *exec.Cmd) {
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = taskgroup.LineWriterFrom(ctx)
 	if stdout := executil.Stdout(ctx); stdout != nil {
 		cmd.Stdout = stdout
 	}

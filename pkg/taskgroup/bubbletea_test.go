@@ -116,6 +116,20 @@ func TestSyncFromSnapshotDefaultSubtitle(t *testing.T) {
 	}
 }
 
+func TestViewIncludesLiveRows(t *testing.T) {
+	hub := newLiveHub()
+	w := newLineWriter(hub, func(string) {})
+	if _, err := w.Write([]byte("downloading 10%\rdownloading 50%")); err != nil {
+		t.Fatal(err)
+	}
+	m := newBubbleModel(nil)
+	m.live = hub
+	content := m.View().Content
+	if content != "downloading 50%\n" {
+		t.Fatalf("view = %q, want live row only", content)
+	}
+}
+
 func TestViewLayout(t *testing.T) {
 	m := newBubbleModel(nil)
 	m.syncFromSnapshot([]TaskState{

@@ -621,6 +621,7 @@ func (g *Group) runTask(t *taskEntry) {
 	// Session.Overlay values (e.g. plan's dry-run set after Enter) must be
 	// visible to materializers that only see this task ctx.
 	if sess := g.session; sess != nil {
+		taskCtx = context.WithValue(taskCtx, sessionKey{}, sess)
 		if o := sess.overlayContext(); o != nil {
 			taskCtx = valueOverlay{Context: taskCtx, overlay: o}
 		}

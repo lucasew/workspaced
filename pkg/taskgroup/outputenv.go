@@ -5,7 +5,6 @@ import (
 	"log"
 	"log/slog"
 	"os"
-	"strings"
 	"sync"
 
 	tea "charm.land/bubbletea/v2"
@@ -24,20 +23,19 @@ type outputEnv struct {
 }
 
 // newOutputEnv patches os.Stderr, slog.Default, and log.Default to converge on
-// a teaWriter that prints complete lines via prog.Printf (no Send — Send after
-// Quit can block the pipe copy and stall restore).
-func newOutputEnv(prog *tea.Program) *outputEnv {
+// a lineWriter (via a pipe-backed teaWriter) so CR / in-line CSI rewrite one
+// live row and newlines commit through prog.Printf. No Send — Send after Quit
+// can block the pipe copy and stall restore.
+func newOutputEnv(prog *tea.Program, hub *liveHub) *outputEnv {
 	e := &outputEnv{
 		oldStderr: os.Stderr,
 		oldSlog:   slog.Default(),
 		oldLogOut: log.Default().Writer(),
 	}
 
-	tw := &teaWriter{print: func(s string) {
-		s = strings.ReplaceAll(s, "\r", "")
-		s = strings.ReplaceAll(s, "\n", "")
+	tw := &teaWriter{raw: newLineWriter(hub, func(s string) {
 		prog.Printf("%s", s)
-	}}
+	})}
 	e.tw = tw
 
 	if f, err := tw.File(); err == nil {

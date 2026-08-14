@@ -69,6 +69,7 @@ type bubbleModel struct {
 	// unique, so display state must never use title as a map key.
 	bars  map[string]barEntry
 	order []string // task IDs in first-seen order (stable row layout)
+	live  *liveHub
 }
 
 func newBubbleModel(g *Group) bubbleModel {
@@ -168,12 +169,17 @@ func (m bubbleModel) View() (view tea.View) {
 	view.KeyboardEnhancements = tea.KeyboardEnhancements{}
 	view.AltScreen = false
 	view.MouseMode = tea.MouseModeNone
-	if len(m.bars) == 0 {
+	live := m.live.snapshot()
+	if len(m.bars) == 0 && len(live) == 0 {
 		view.SetContent("")
 		return
 	}
 
 	var buf bytes.Buffer
+	for _, row := range live {
+		buf.WriteString(clipRunes(row, 120))
+		buf.WriteByte('\n')
+	}
 	for _, id := range m.order {
 		b, ok := m.bars[id]
 		if !ok {
@@ -230,6 +236,20 @@ func plainBar(pct float64, width int) string {
 	}
 	filled := min(int(pct*float64(width)+0.5), width)
 	return "[" + strings.Repeat("=", filled) + strings.Repeat("-", width-filled) + "]"
+}
+
+func clipRunes(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	n := 0
+	for i := range s {
+		if n == max {
+			return s[:i]
+		}
+		n++
+	}
+	return s
 }
 
 // RunBubbleTea is a compatibility alias for Run (session Close when present).

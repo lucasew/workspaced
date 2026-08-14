@@ -35,6 +35,7 @@ type Session struct {
 	uiDone chan struct{}
 	uiErr  error
 	out    *outputEnv
+	live   *liveHub
 
 	mu    sync.Mutex
 	after []func() error
@@ -65,11 +66,13 @@ func Enter(ctx context.Context, limits Limits) (*Session, context.Context) {
 
 // SessionFrom returns the Session attached to ctx, or nil.
 func SessionFrom(ctx context.Context) *Session {
-	s, ok := ctx.Value(sessionKey{}).(*Session)
-	if !ok {
-		return nil
+	if s, ok := ctx.Value(sessionKey{}).(*Session); ok && s != nil {
+		return s
 	}
-	return s
+	if g := FromContext(ctx); g != nil {
+		return g.session
+	}
+	return nil
 }
 
 // MustSessionFrom panics if no Session is on ctx.
@@ -189,7 +192,9 @@ func (s *Session) Close() error {
 
 func (s *Session) startUI() {
 	g := s.group
+	s.live = newLiveHub()
 	model := newBubbleModel(g)
+	model.live = s.live
 	// Do not bind tea to g.ctx: error cancellation would kill the program with
 	// "context canceled" before Close can prefer the task error. Lifetime is
 	// owned by Close via Quit.
@@ -202,7 +207,7 @@ func (s *Session) startUI() {
 		prog.Send(refreshMsg{})
 	})
 
-	s.out = newOutputEnv(prog)
+	s.out = newOutputEnv(prog, s.live)
 	s.prog = prog
 	s.uiDone = make(chan struct{})
 	go func() {
@@ -218,11 +223,18 @@ func (s *Session) teardownUI() error {
 		return nil
 	}
 	// Restore real stderr/slog before touching tea — avoids pipe drain sitting
-	// on prog.Printf while the event loop is stopping.
+	// on prog.Printf while the event loop is stopping. Drain the pipe first so
+	// leftover live rows are complete, then print them on the real stderr
+	// (Printf here can deadlock).
 	var restoreErr error
 	if s.out != nil {
 		restoreErr = s.out.restore()
 		s.out = nil
+	}
+	leftover := s.live.abandonAll()
+	s.live = nil
+	for _, line := range leftover {
+		_, _ = os.Stderr.WriteString(line + "\n")
 	}
 	s.group.SetLogHandler(nil)
 	s.group.setUsingBubbleTea(false)
@@ -238,6 +250,9 @@ func (s *Session) teardownUI() error {
 func sessionForGroup(g *Group) *Session {
 	if g == nil {
 		return nil
+	}
+	if g.session != nil {
+		return g.session
 	}
 	return SessionFrom(g.ctx)
 }

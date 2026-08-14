@@ -19,6 +19,9 @@ import (
 // runs go io.Copy(w, readEnd) so all bytes still pass through Write.
 type teaWriter struct {
 	print func(string)
+	// raw, when set, receives every byte unchanged (used to feed a lineWriter
+	// so CR / CSI stay intact). print is ignored in that mode.
+	raw io.Writer
 
 	mu  sync.Mutex
 	buf []byte
@@ -30,6 +33,13 @@ type teaWriter struct {
 }
 
 func (w *teaWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	raw := w.raw
+	w.mu.Unlock()
+	if raw != nil {
+		return raw.Write(p)
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.buf = append(w.buf, p...)
@@ -123,6 +133,8 @@ func (w *teaWriter) close() error {
 	// concurrent Write from io.Copy cannot re-enter Program.Printf.
 	// Write holds mu across print, so this wait also drains any in-flight
 	// Printf; afterward Write is non-blocking (print is nil).
+	// Keep raw until the copy finishes so leftover CR bytes still reach the
+	// lineWriter; abandonAll then commits them onto the restored stderr.
 	w.print = nil
 	w.buf = nil
 	pw, pr, done := w.pipeW, w.pipeR, w.copyDone
@@ -140,6 +152,9 @@ func (w *teaWriter) close() error {
 	if done != nil {
 		<-done
 	}
+	w.mu.Lock()
+	w.raw = nil
+	w.mu.Unlock()
 	if pr != nil {
 		if err := pr.Close(); err != nil && !isBenignPipeCloseErr(err) {
 			errs = append(errs, err)
