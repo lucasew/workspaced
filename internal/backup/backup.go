@@ -143,7 +143,11 @@ func RunFullBackup(ctx context.Context) error {
 			}
 			logging.ReportError(ctx, notification.Notify(ctx, n2))
 
-			if err := item.Action.Run(ctx, n2); err != nil {
+			// Nested rsync leaves report errors to the group. Isolate so one
+			// failed action does not cancel siblings (first-error-wins).
+			if err := taskgroup.Isolate(ctx, func(ctx context.Context) error {
+				return item.Action.Run(ctx, n2)
+			}); err != nil {
 				logger.Error("backup action failed", "name", name, "kind", kind, "error", err)
 				out.Err = err
 				return out, nil
