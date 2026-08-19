@@ -71,6 +71,36 @@ func TestSessionLazyUINoGo(t *testing.T) {
 	}
 }
 
+func TestStatusAfterWaitFromJob(t *testing.T) {
+	s, ctx := Enter(withLogger(t), DefaultLimits())
+	var after atomic.Bool
+	g := MustFromContext(ctx)
+	g.Go("work", CPU, func(ctx context.Context, st *Status) error {
+		st.AfterWait(func() error { after.Store(true); return nil })
+		return nil
+	})
+	if after.Load() {
+		t.Fatal("AfterWait ran before Close")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if !after.Load() {
+		t.Fatal("Status.AfterWait hook did not run")
+	}
+}
+
+func TestStatusAfterWaitNoSessionIsNoop(t *testing.T) {
+	g, _ := New(withLogger(t), DefaultLimits())
+	g.Go("work", CPU, func(ctx context.Context, st *Status) error {
+		st.AfterWait(func() error { t.Error("hook ran without session"); return nil })
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		t.Fatalf("Wait: %v", err)
+	}
+}
+
 func TestSessionOnScheduleWired(t *testing.T) {
 	// First Go invokes onSchedule (lazy UI hook) without requiring a real TUI.
 	s, ctx := Enter(withLogger(t), DefaultLimits())

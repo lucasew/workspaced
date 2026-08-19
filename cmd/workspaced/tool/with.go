@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/tool"
@@ -74,8 +73,6 @@ Examples:
 					command := cmdLine[0]
 					commandArgs := cmdLine[1:]
 
-					var theCmd *exec.Cmd
-
 					g := taskgroup.MustFromContext(cmd.Context())
 					g.Go("tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 						// Resolution/install runs under this task's ctx so ^C cancels fetches.
@@ -142,13 +139,10 @@ Examples:
 						if err != nil {
 							return err
 						}
-						theCmd = c
+						// Real stdio after the progress UI unmounts.
+						s.AfterWaitRun(c)
 						return nil
 					})
-
-					// Run child after session Close (Wait + UI/stderr restore) so it
-					// inherits real stdio. PostRun Close runs this via AfterWait.
-					taskgroup.MustSessionFrom(cmd.Context()).AfterWaitRun(&theCmd)
 					return nil
 				},
 			}

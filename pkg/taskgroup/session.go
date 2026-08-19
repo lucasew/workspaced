@@ -21,9 +21,11 @@ type sessionKey struct{}
 // when the terminal is interactive — commands that only use AfterWait or print
 // stdout (e.g. history search for Ctrl+R) never take over the tty.
 //
-// Commands should only schedule work with Group.Go (via MustFromContext) and
-// register AfterWait for anything that needs real stdio or must run after all
-// tasks (plan tables, stdout paths, child process exec).
+// Commands should only schedule work with Group.Go (via MustFromContext).
+// Register AfterWait (Session or Status) for anything that needs real stdio
+// or must run after all tasks and UI teardown (plan tables, stdout paths,
+// child process exec). Prefer Status.AfterWait from inside the job when the
+// hook depends on work the task just finished.
 type Session struct {
 	group *Group
 
@@ -139,11 +141,37 @@ func (s *Session) AfterWaitRun(cmd **exec.Cmd) {
 		if c == nil {
 			return nil
 		}
-		c.Stdin = os.Stdin
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-		return c.Run()
+		return runAfterWaitCmd(c)
 	})
+}
+
+// AfterWait registers fn on the owning Session (same list as Session.AfterWait).
+// The hook runs after all tasks finish and the progress UI has unmounted.
+// No-op when this Status has no Session (New without Enter).
+func (s *Status) AfterWait(fn func() error) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.session.AfterWait(fn)
+}
+
+// AfterWaitRun runs cmd with real process stdio after the session UI unmounts.
+// cmd is captured now; prefer this from inside a job over Session.AfterWaitRun
+// plus an outer **exec.Cmd. No-op when cmd is nil or there is no Session.
+func (s *Status) AfterWaitRun(cmd *exec.Cmd) {
+	if s == nil || cmd == nil {
+		return
+	}
+	s.AfterWait(func() error {
+		return runAfterWaitCmd(cmd)
+	})
+}
+
+func runAfterWaitCmd(c *exec.Cmd) error {
+	c.Stdin = os.Stdin
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	return c.Run()
 }
 
 // ensureUI starts the progress UI on first scheduled task (lazy).

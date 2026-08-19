@@ -153,6 +153,10 @@ type Status struct {
 	logs    []string
 	onLog   func(taskName, msg string)
 	name    string
+	// session is the owning Session when this task was scheduled via Enter.
+	// AfterWait / AfterWaitRun forward here so jobs can defer work until
+	// after the progress UI unmounts. Nil when the group has no Session.
+	session *Session
 }
 
 // Update sets the current status message (shown in the progress bar).
@@ -471,9 +475,10 @@ func (g *Group) Go(desc string, pool PoolKind, fn func(ctx context.Context, s *S
 		deps: deps,
 		done: make(chan struct{}),
 		status: &Status{
-			name:  desc,
-			total: -1,
-			onLog: g.onLog,
+			name:    desc,
+			total:   -1,
+			onLog:   g.onLog,
+			session: g.session,
 		},
 		state: Pending,
 	}

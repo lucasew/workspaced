@@ -3,7 +3,6 @@ package open
 import (
 	"context"
 	"fmt"
-	"os/exec"
 
 	"github.com/lucasew/workspaced/internal/tool"
 	_ "github.com/lucasew/workspaced/internal/tool/prelude"
@@ -49,7 +48,6 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 	}
 
 	g := taskgroup.MustFromContext(ctx)
-	var theCmd *exec.Cmd
 	g.Go("open:lazy:"+toolName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
 		s.Update("resolving " + toolName)
 		binPath, err := resolver(ctx, toolName, binName)
@@ -62,9 +60,9 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 		if err != nil {
 			return fmt.Errorf("create command: %w", err)
 		}
-		theCmd = c
+		// Real stdio after the progress UI unmounts (shim/lazy exec).
+		s.AfterWaitRun(c)
 		return nil
 	})
-	taskgroup.MustSessionFrom(ctx).AfterWaitRun(&theCmd)
 	return nil
 }
