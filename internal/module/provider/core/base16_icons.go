@@ -1,5 +1,8 @@
 package core
 
+// This file must not be named *_linux.go. Go treats that suffix as a linux-only
+// build constraint, which would hide core:base16-icons-linux on other GOOS.
+
 import (
 	"context"
 	"crypto/sha256"
