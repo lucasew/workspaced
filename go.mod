@@ -19,6 +19,7 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/image v0.42.0
+	golang.org/x/sys v0.46.0
 	modernc.org/sqlite v1.52.0
 )
 
@@ -64,7 +65,6 @@ require (
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	google.golang.org/protobuf v1.36.7 // indirect

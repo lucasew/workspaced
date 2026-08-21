@@ -48,6 +48,11 @@ type Session struct {
 
 	closeOnce sync.Once
 	err       error
+
+	// stdioSnap is the fcntl flags on stdin/stdout/stderr before tea.Run.
+	// Restored after the program exits so Darwin O_NONBLOCK does not leak
+	// to AfterWait children (helix) or the parent shell.
+	stdioSnap stdioFlags
 }
 
 // Enter creates a root Group. UI is not started yet (see ensureUI).
@@ -223,6 +228,7 @@ func (s *Session) startUI() {
 	s.live = newLiveHub()
 	model := newBubbleModel(g)
 	model.live = s.live
+	s.stdioSnap = snapshotStdioFlags()
 	// Do not bind tea to g.ctx: error cancellation would kill the program with
 	// "context canceled" before Close can prefer the task error. Lifetime is
 	// owned by Close via Quit.
@@ -270,6 +276,7 @@ func (s *Session) teardownUI() error {
 	s.prog.Quit()
 	<-s.uiDone
 	s.prog = nil
+	s.stdioSnap.restore()
 	return restoreErr
 }
 

@@ -34,8 +34,14 @@ func Run(g *Group) error {
 }
 
 // isInteractiveTerminal returns false for TERM=dumb, NO_COLOR, CI, or when
-// stderr is not a character device. This is the guard so the bubbletea
-// kick-in becomes a plain Wait() for non-ttys / CI etc.
+// stdout or stderr is not a character device. This is the guard so the
+// bubbletea kick-in becomes a plain Wait() for non-ttys / CI / command
+// substitution.
+//
+// Both stdout and stderr must be ttys. `$(workspaced tool which …)` keeps
+// stderr as the tty but pipes stdout. Starting bubbletea in that case sets
+// O_NONBLOCK on the shared Darwin tty file description; the parent then
+// execs helix and write() returns EAGAIN (errno 35).
 //
 // For testing the TUI code path in this harness (or CI), you can set
 // WORKSPACED_FORCE_TUI=1 to bypass the tty check (the bubbletea branch will
@@ -53,11 +59,18 @@ func isInteractiveTerminal() bool {
 	if os.Getenv("CI") != "" {
 		return false
 	}
-	fi, err := os.Stderr.Stat()
+	return isCharDevice(os.Stdout) && isCharDevice(os.Stderr)
+}
+
+func isCharDevice(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	fi, err := f.Stat()
 	if err != nil {
 		return false
 	}
-	return (fi.Mode() & os.ModeCharDevice) != 0
+	return fi.Mode()&os.ModeCharDevice != 0
 }
 
 type refreshMsg struct{}
