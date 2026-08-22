@@ -19,7 +19,7 @@ require (
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/image v0.42.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.47.0
 	modernc.org/sqlite v1.52.0
 )
 
