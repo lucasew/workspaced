@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"runtime"
 	"strings"
@@ -13,9 +12,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // esbuild is installed from the @esbuild/* platform packages on the npm
@@ -135,25 +131,10 @@ func (t *esbuildTool) fetchTarballHash(ctx context.Context, plat, version string
 }
 
 func esbuildGET(ctx context.Context, u string) ([]byte, error) {
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	// Prefer install-v1 packument (smaller) when the registry supports it.
-	req.Header.Set("Accept", "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8")
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", u, resp.Status)
-	}
-	return io.ReadAll(resp.Body)
+	return getBytes(ctx, u, func(req *http.Request) {
+		// Prefer install-v1 packument (smaller) when the registry supports it.
+		req.Header.Set("Accept", "application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8")
+	})
 }
 
 func esbuildArtifactURL(plat, version string) string {

@@ -2,11 +2,8 @@ package apps
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"runtime"
 	"strings"
 
@@ -14,9 +11,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 var (
@@ -93,27 +87,10 @@ func (t *nodejsTool) EnsureBinary(ctx context.Context, version string, cmdName s
 // --- helpers ---
 
 func (t *nodejsTool) listVersions(ctx context.Context) ([]string, error) {
-	u := "https://nodejs.org/dist/index.json"
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("index.json: %s", resp.Status)
-	}
 	var infos []struct {
 		Version string `json:"version"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&infos); err != nil {
+	if err := getJSON(ctx, "https://nodejs.org/dist/index.json", &infos); err != nil {
 		return nil, err
 	}
 	out := make([]string, len(infos))
@@ -126,23 +103,7 @@ func (t *nodejsTool) listVersions(ctx context.Context) ([]string, error) {
 func (t *nodejsTool) fetchShasums(ctx context.Context, ver string) (map[string]string, error) {
 	ver = normalizeNodejsVersion(ver)
 	u := fmt.Sprintf("https://nodejs.org/dist/%s/SHASUMS256.txt", ver)
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("SHASUMS: %s", resp.Status)
-	}
-	b, err := io.ReadAll(resp.Body)
+	b, err := getBytes(ctx, u)
 	if err != nil {
 		return nil, err
 	}

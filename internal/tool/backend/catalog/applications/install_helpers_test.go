@@ -3,8 +3,13 @@ package apps
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	_ "github.com/lucasew/workspaced/pkg/driver/httpclient/native"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func TestResolveToolVersion(t *testing.T) {
@@ -95,6 +100,70 @@ func TestSortVersionsDesc(t *testing.T) {
 			if got[i] != want[i] {
 				t.Fatalf("got %v, want %v", got, want)
 			}
+		}
+	})
+}
+
+func TestHTTPGetHelpers(t *testing.T) {
+	t.Parallel()
+	ctx := logging.NewWriterContext(t.Output())
+
+	t.Run("getBytes and configure", func(t *testing.T) {
+		t.Parallel()
+		var gotAccept string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotAccept = r.Header.Get("Accept")
+			if _, err := w.Write([]byte("hello")); err != nil {
+				t.Errorf("write: %v", err)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		b, err := getBytes(ctx, srv.URL, func(req *http.Request) {
+			req.Header.Set("Accept", "text/plain")
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != "hello" {
+			t.Fatalf("got %q, want hello", b)
+		}
+		if gotAccept != "text/plain" {
+			t.Fatalf("Accept = %q, want text/plain", gotAccept)
+		}
+	})
+
+	t.Run("getJSON", func(t *testing.T) {
+		t.Parallel()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, err := w.Write([]byte(`{"version":"1.2.3"}`)); err != nil {
+				t.Errorf("write: %v", err)
+			}
+		}))
+		t.Cleanup(srv.Close)
+
+		var dest struct {
+			Version string `json:"version"`
+		}
+		if err := getJSON(ctx, srv.URL, &dest); err != nil {
+			t.Fatal(err)
+		}
+		if dest.Version != "1.2.3" {
+			t.Fatalf("got %q, want 1.2.3", dest.Version)
+		}
+	})
+
+	t.Run("non-OK", func(t *testing.T) {
+		t.Parallel()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "nope", http.StatusNotFound)
+		}))
+		t.Cleanup(srv.Close)
+
+		_, err := getBytes(ctx, srv.URL)
+		var ue unexpectedHTTPStatusError
+		if !errors.As(err, &ue) {
+			t.Fatalf("got %v, want unexpectedHTTPStatusError", err)
 		}
 	})
 }

@@ -2,9 +2,6 @@ package apps
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"runtime"
 	"strings"
 
@@ -12,9 +9,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {
@@ -45,26 +39,8 @@ func (t *goTool) ListArtifacts(ctx context.Context, version string) ([]backend.A
 		return nil, err
 	}
 
-	u := "https://go.dev/dl/?mode=json"
-	hc, err := driver.Get[httpclient.Driver](ctx)
+	releases, err := fetchGoReleases(ctx)
 	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("go dl index: %s", resp.Status)
-	}
-
-	var releases []goRelease
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
 		return nil, err
 	}
 
@@ -120,27 +96,17 @@ type goFile struct {
 	Kind     string `json:"kind"`
 }
 
-func (t *goTool) listVersions(ctx context.Context) ([]string, error) {
-	u := "https://go.dev/dl/?mode=json"
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("go dl index: %s", resp.Status)
-	}
-
+func fetchGoReleases(ctx context.Context) ([]goRelease, error) {
 	var releases []goRelease
-	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+	if err := getJSON(ctx, "https://go.dev/dl/?mode=json", &releases); err != nil {
+		return nil, err
+	}
+	return releases, nil
+}
+
+func (t *goTool) listVersions(ctx context.Context) ([]string, error) {
+	releases, err := fetchGoReleases(ctx)
+	if err != nil {
 		return nil, err
 	}
 
