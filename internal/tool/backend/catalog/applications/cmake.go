@@ -2,7 +2,6 @@ package apps
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -218,24 +217,8 @@ func pickBestCMakeArchive(cands []backend.Artifact) backend.Artifact {
 
 func (t *cmakeTool) fetchManifest(ctx context.Context, dir, ver string) (cmakeFilesManifest, error) {
 	u := fmt.Sprintf("https://cmake.org/files/%s/cmake-%s-files-v1.json", dir, ver)
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return cmakeFilesManifest{}, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return cmakeFilesManifest{}, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return cmakeFilesManifest{}, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return cmakeFilesManifest{}, fmt.Errorf("cmake files manifest: %s", resp.Status)
-	}
 	var m cmakeFilesManifest
-	if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+	if err := getJSON(ctx, u, &m); err != nil {
 		return cmakeFilesManifest{}, err
 	}
 	return m, nil

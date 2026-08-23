@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"runtime"
 	"strings"
@@ -15,9 +13,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 const claudeCodeReleasesBaseURL = "https://downloads.claude.ai/claude-code-releases"
@@ -152,28 +147,7 @@ func (t *claudeCodeTool) fetch(ctx context.Context, url string) ([]byte, error) 
 	if t.fetchURL != nil {
 		return t.fetchURL(ctx, url)
 	}
-
-	httpDriver, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := httpDriver.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GET %s: %s", url, resp.Status)
-	}
-
-	return io.ReadAll(resp.Body)
+	return getBytes(ctx, url)
 }
 
 func (t *claudeCodeTool) currentPlatform() string {

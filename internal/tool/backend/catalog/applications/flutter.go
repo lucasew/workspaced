@@ -2,9 +2,7 @@ package apps
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,9 +11,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {
@@ -47,26 +42,8 @@ func (t *flutterTool) ListArtifacts(ctx context.Context, version string) ([]back
 		return nil, err
 	}
 
-	u := t.releasesURL()
-	hc, err := driver.Get[httpclient.Driver](ctx)
+	idx, err := t.fetchReleasesIndex(ctx)
 	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("flutter releases index: %s", resp.Status)
-	}
-
-	var idx flutterReleasesIndex
-	if err := json.NewDecoder(resp.Body).Decode(&idx); err != nil {
 		return nil, err
 	}
 
@@ -116,27 +93,17 @@ type flutterRelease struct {
 	SHA256  string `json:"sha256"`
 }
 
-func (t *flutterTool) listVersions(ctx context.Context) ([]string, error) {
-	u := t.releasesURL()
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("flutter releases index: %s", resp.Status)
-	}
-
+func (t *flutterTool) fetchReleasesIndex(ctx context.Context) (flutterReleasesIndex, error) {
 	var idx flutterReleasesIndex
-	if err := json.NewDecoder(resp.Body).Decode(&idx); err != nil {
+	if err := getJSON(ctx, t.releasesURL(), &idx); err != nil {
+		return flutterReleasesIndex{}, err
+	}
+	return idx, nil
+}
+
+func (t *flutterTool) listVersions(ctx context.Context) ([]string, error) {
+	idx, err := t.fetchReleasesIndex(ctx)
+	if err != nil {
 		return nil, err
 	}
 

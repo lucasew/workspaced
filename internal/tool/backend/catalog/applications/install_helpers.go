@@ -2,7 +2,10 @@ package apps
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"runtime"
 	"sort"
 	"strings"
@@ -11,6 +14,9 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend"
 	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
+	"github.com/lucasew/workspaced/pkg/driver"
+	"github.com/lucasew/workspaced/pkg/driver/httpclient"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 // sortVersionsDesc returns versions ordered newest-first by semver so [0] is
@@ -128,4 +134,56 @@ func installSelectedArtifact(
 		return fmt.Errorf("no suitable artifact found for %s/%s for %s@%s", runtime.GOOS, runtime.GOARCH, toolRef, v)
 	}
 	return installArtifact(ctx, *artifact, destDir)
+}
+
+type unexpectedHTTPStatusError struct {
+	url    string
+	status string
+}
+
+func (e unexpectedHTTPStatusError) Error() string {
+	return "GET " + e.url + ": " + e.status
+}
+
+func httpGET(ctx context.Context, u string, configure ...func(*http.Request)) (*http.Response, error) {
+	hc, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, fn := range configure {
+		if fn != nil {
+			fn(req)
+		}
+	}
+	resp, err := hc.Client().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		logging.Close(ctx, resp.Body)
+		return nil, unexpectedHTTPStatusError{url: u, status: resp.Status}
+	}
+	return resp, nil
+}
+
+func getBytes(ctx context.Context, u string, configure ...func(*http.Request)) ([]byte, error) {
+	resp, err := httpGET(ctx, u, configure...)
+	if err != nil {
+		return nil, err
+	}
+	defer logging.Close(ctx, resp.Body)
+	return io.ReadAll(resp.Body)
+}
+
+func getJSON(ctx context.Context, u string, dest any) error {
+	resp, err := httpGET(ctx, u)
+	if err != nil {
+		return err
+	}
+	defer logging.Close(ctx, resp.Body)
+	return json.NewDecoder(resp.Body).Decode(dest)
 }
