@@ -276,6 +276,7 @@ var (
 	ErrModuleFieldNotStruct      = errors.New("module field is not a struct")
 	ErrModuleConfigFieldNotFound = errors.New("module.config field not found")
 	ErrUnsupportedValueType      = errors.New("unsupported cue context value type")
+	ErrFileNotStruct             = errors.New("module.file is not a struct")
 )
 
 func findModuleConfigExpr(file *ast.File) (ast.Expr, error) {

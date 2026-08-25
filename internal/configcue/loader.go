@@ -213,7 +213,15 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 	if err != nil {
 		return cue.Value{}, err
 	}
-	return configValue, nil
+	fileLayers, err := buildModuleFileLayers(configValue, paths, discovered)
+	if err != nil {
+		return cue.Value{}, err
+	}
+	if len(fileLayers) == 0 {
+		return configValue, nil
+	}
+	postWithFiles := append(append([]compiledLayer{}, postLayers...), fileLayers...)
+	return compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeMode, preLayers, postWithFiles)
 }
 
 func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeMode bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
@@ -410,6 +418,63 @@ func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered
 		})
 	}
 	return preLayers, postLayers, nil
+}
+
+func buildModuleFileLayers(configValue cue.Value, paths []string, discovered []Layer) ([]compiledLayer, error) {
+	if !configValue.Exists() {
+		return nil, nil
+	}
+	configJSON, err := configValue.MarshalJSON()
+	if err != nil {
+		return nil, fmt.Errorf("marshal cue config before module file resolution: %w", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(configJSON, &raw); err != nil {
+		return nil, fmt.Errorf("decode cue config before module file resolution: %w", err)
+	}
+	cfg, err := decodeConfig(configJSON)
+	if err != nil {
+		return nil, err
+	}
+	modules, err := cfg.Modules()
+	if err != nil {
+		return nil, fmt.Errorf("decode modules for file resolution: %w", err)
+	}
+	modulesBaseDir := resolveModulesBaseDir(paths, discovered)
+	if modulesBaseDir == "" {
+		return nil, nil
+	}
+	names := make([]string, 0, len(modules))
+	for name := range modules {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	layers := make([]compiledLayer, 0)
+	for _, name := range names {
+		entry := modules[name]
+		if !entry.Enable {
+			continue
+		}
+		modulePath, ok, err := resolveLocalModulePath(cfg, name, entry, modulesBaseDir)
+		if err != nil {
+			return nil, fmt.Errorf("resolve module %q for file: %w", name, err)
+		}
+		if !ok || !modulecue.Exists(modulePath) {
+			continue
+		}
+		fileJSON, ok, err := modulecue.EvalFile(modulePath, raw)
+		if err != nil {
+			return nil, fmt.Errorf("module %q file: %w", name, err)
+		}
+		if !ok {
+			continue
+		}
+		layers = append(layers, compiledLayer{
+			Name:   "module_file_" + name + ".cue",
+			Source: "package workspaced\nworkspaced: { file: " + string(fileJSON) + " }\n",
+		})
+	}
+	return layers, nil
 }
 
 func resolveModulesBaseDir(paths []string, discovered []Layer) string {
