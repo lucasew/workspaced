@@ -21,6 +21,7 @@ Implementation: `internal/filespine`, schema in `internal/configcue/schema.cue`.
 | `lines` | all `values` keys | sort keys, join with `\n` |
 | `text` | exactly one key | that slot |
 | `ref` | exactly one key, kind `ref` | bytes from the source path |
+| `json` / `toml` / `yaml` / `ini` | `values` is a map | marshal that map |
 
 Same path, different `type` → error.
 
@@ -47,6 +48,11 @@ There is no `runtime.env` and no `{kind: "env"}`.
 CUE can add or override the same key. Go walks the CUE value. Dest `Open`
 does not take a slot key.
 
+Structured types (`json`, `toml`, `yaml`, `ini`) take a map in `values` and
+write that map. Root lists are not allowed. `ini` allows one section level
+(`values.core.bare = true` → `[core]\nbare = true`). A `.json.tmpl` on disk
+still lowers as `text`, not as `json`.
+
 ## Example
 
 ```cue
@@ -57,11 +63,18 @@ workspaced: file: ".bashrc": {
 		"10-path":  {kind: "text", text: "export PATH=$HOME/bin:$PATH"}
 	}
 }
+
+workspaced: file: ".config/foo.json": {
+	type: "json"
+	values: {
+		port: 8080
+		name: "foo"
+	}
+}
 ```
 
 ## Out of scope
 
-- `json` / `toml` file types
 - `file.home` vs `file.codebase` namespaces
 - writable dest FS
 - `runtime.env`
