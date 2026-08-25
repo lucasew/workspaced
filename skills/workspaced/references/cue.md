@@ -36,7 +36,10 @@ Conceptually:
 
 1. Load cue (+ preludes/schema constraints in the program).
 2. Evaluate/unify toward a config object.
-3. Decode slices (modules, inputs, …) for apply, tools, drivers, etc.
+3. Decode slices (modules, inputs, `file`, …) for apply, tools, drivers, etc.
+
+`workspaced.file` is the dest tree. Templates lower into it. `Open` on the dest
+`fs.FS` returns the combined file. Contract: `docs/specs/file-spine.md`.
 
 Clever authoring is fine when the result still has the fields and shapes those
 steps expect. Clever authoring that never appears under the keys workspaced reads

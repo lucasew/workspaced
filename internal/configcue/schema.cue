@@ -108,7 +108,32 @@ package workspaced
 })
 
 
-#BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive 
+#BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive
+
+// File spine: see docs/specs/file-spine.md.
+#SlotText: close({
+	kind: "text"
+	text: string
+})
+#SlotRef: close({
+	kind: "ref"
+	ref:  string
+})
+#Slot: string | #SlotText | #SlotRef
+
+#FileLines: close({
+	type: "lines"
+	values: [string]: #Slot
+})
+#FileText: close({
+	type: "text"
+	values: [string]: #Slot
+})
+#FileRef: close({
+	type: "ref"
+	values: [string]: #Slot
+})
+#File: #FileLines | #FileText | #FileRef
 
 workspaced: {
 	inputs: {
@@ -118,6 +143,8 @@ workspaced: {
 		[string]: #Input
 	}
 	runtime?: #Runtime
+	// Path is fs.FS style, relative to $HOME (home) or the repo root (codebase).
+	file?: [string]: #File
 	modules: {
 		[string]: #ModuleRef
 	}

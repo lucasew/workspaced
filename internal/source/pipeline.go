@@ -91,8 +91,7 @@ type StandardDotfilesOptions struct {
 //   - (optional) module scanner
 //   - (optional) relocate plugin
 //   - template expander
-//   - dotd processor
-//   - strict conflict resolver
+//   - file spine (lower + unify workspaced.file + encode)
 //
 // It does *not* add home-specific things like the dconf plugin.
 //
@@ -134,8 +133,11 @@ func NewStandardDotfilesPipeline(
 	engine := template.NewEngine(ctx)
 
 	p.AddPlugin(NewTemplateExpanderPlugin(engine, cfg))
-	p.AddPlugin(NewDotDProcessorPlugin(engine, cfg))
-	p.AddPlugin(NewStrictConflictResolverPlugin())
+	target := opts.RelocateTo
+	if target == "" {
+		target = opts.ConfigTreeTarget
+	}
+	p.AddPlugin(NewFileSpinePlugin(cfg, target))
 
 	return p, nil
 }
