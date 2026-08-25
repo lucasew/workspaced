@@ -34,6 +34,7 @@ Typical roles you'll see (names may vary with your file; inspect theirs):
 | inputs | Named sources (`self`, remote specs, versions/refs as applicable) |
 | modules.\<id\> | Enable/bind a module: which input, path inside input, `config` bag |
 | config on module | Data for that module's templates/behavior — your playground in CUE |
+| file on module | Dest map (`module.file`) unified into `workspaced.file` when enabled |
 
 Init starter pattern (illustrative only):
 

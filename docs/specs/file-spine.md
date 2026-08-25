@@ -1,7 +1,9 @@
 # File spine
 
-`workspaced.file` is the dest tree. Module templates lower into it. Apply
-reads a dest `fs.FS`. `Open(name)` returns the combined file.
+`workspaced.file` is the dest tree. Enabled modules may declare `module.file`
+in `module.cue`; those maps unify into `workspaced.file`. Module templates
+also lower into it. Apply reads a dest `fs.FS`. `Open(name)` returns the
+combined file.
 
 Implementation: `internal/filespine`, schema in `internal/configcue/schema.cue`.
 
@@ -36,6 +38,23 @@ Same path, different `type` → error.
 Bare string is text. Structs need `kind`. Same key must unify.
 
 There is no `runtime.env` and no `{kind: "env"}`.
+
+## Module `file`
+
+In `module.cue` (`package module`):
+
+```cue
+module: file: {
+	".config/foo.toml": {
+		type: "toml"
+		values: {theme: "base16"}
+	}
+}
+```
+
+`module.file` can read `workspaced.*` (runtime, other module config). Only
+enabled modules contribute. Host `workspaced.file` still works and unifies
+with the same keys.
 
 ## Lowering
 
