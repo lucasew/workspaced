@@ -59,6 +59,9 @@ flowchart TD
 One-liner: dynamic? not static. Many outputs from one generator? multi-file vs
 index (subdir or not). Many sources into one output? `.d.tmpl`.
 
+`.d.tmpl` fragments and CUE `workspaced.file` unify as keyed `lines` slots.
+See `docs/specs/file-spine.md`.
+
 ## Artifact kinds
 
 | Kind | Source shape | Result | Use when |

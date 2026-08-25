@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"cuelang.org/go/cue"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
@@ -20,7 +21,17 @@ var (
 )
 
 type Config struct {
-	raw map[string]any
+	raw    map[string]any
+	cueVal cue.Value
+}
+
+// Cue returns the evaluated workspaced CUE value. Zero if the config was
+// decoded from JSON only.
+func (c *Config) Cue() cue.Value {
+	if c == nil {
+		return cue.Value{}
+	}
+	return c.cueVal
 }
 
 type Input struct {
@@ -168,11 +179,20 @@ func LoadFiles(ctx context.Context, paths []string) (*Config, error) {
 	if len(paths) == 0 {
 		return Load(ctx)
 	}
-	data, err := ExportJSONFromPaths(ctx, paths)
+	configValue, err := buildWorkspacedValue(ctx, paths, nil, false)
 	if err != nil {
 		return nil, err
 	}
-	return decodeConfig(data)
+	data, err := marshalWorkspacedValue(ctx, configValue, paths, nil)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := decodeConfig(data)
+	if err != nil {
+		return nil, err
+	}
+	cfg.cueVal = configValue
+	return cfg, nil
 }
 
 func loadConfig(ctx context.Context, opts DiscoverOptions) (*Config, error) {
@@ -180,7 +200,12 @@ func loadConfig(ctx context.Context, opts DiscoverOptions) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return decodeConfig(result.JSON)
+	cfg, err := decodeConfig(result.JSON)
+	if err != nil {
+		return nil, err
+	}
+	cfg.cueVal = result.Value
+	return cfg, nil
 }
 
 func decodeConfig(data []byte) (*Config, error) {

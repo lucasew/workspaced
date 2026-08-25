@@ -58,6 +58,7 @@ type DiscoverResult struct {
 type EvaluationResult struct {
 	Layers []Layer         `json:"layers"`
 	JSON   json.RawMessage `json:"json"`
+	Value  cue.Value       `json:"-"`
 }
 
 func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, error) {
@@ -142,13 +143,18 @@ func Evaluate(ctx context.Context, opts DiscoverOptions) (EvaluationResult, erro
 	if err != nil {
 		return EvaluationResult{}, err
 	}
-	b, err := exportJSONFromPaths(ctx, paths, layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts.HomeMode)
+	if err != nil {
+		return EvaluationResult{}, err
+	}
+	b, err := marshalWorkspacedValue(ctx, configValue, paths, layers)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
 	return EvaluationResult{
 		Layers: layers,
 		JSON:   b,
+		Value:  configValue,
 	}, nil
 }
 
