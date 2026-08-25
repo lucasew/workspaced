@@ -25,6 +25,7 @@ func Merge(declared map[string]File, extras []Contribution) (map[string]File, er
 	for path, f := range declared {
 		cp := f
 		cp.Values = cloneValues(f.Values)
+		cp.Data = cloneData(f.Data)
 		if cp.Mode == 0 {
 			cp.Mode = 0o644
 		}

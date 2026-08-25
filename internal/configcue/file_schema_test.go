@@ -37,6 +37,22 @@ func TestFileSpineSchema(t *testing.T) {
 		return err
 	}
 
+	t.Run("accepts structured types", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package workspaced
+workspaced: file: {
+	"a.json": {type: "json", values: {port: 8080, name: "x"}}
+	"a.toml": {type: "toml", values: {port: 8080}}
+	"a.yaml": {type: "yaml", values: {nested: {a: true}}}
+	"a.ini":  {type: "ini", values: {core: {bare: true}}}
+}
+`)
+		if err != nil {
+			t.Fatalf("unify: %v", err)
+		}
+	})
+
 	t.Run("accepts lines text and ref", func(t *testing.T) {
 		t.Parallel()
 		err := unify(t, `
@@ -83,7 +99,7 @@ workspaced: file: "x": {
 		err := unify(t, `
 package workspaced
 workspaced: file: "x": {
-	type: "json"
+	type: "xml"
 	values: {a: "{}"}
 }
 `)

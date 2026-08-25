@@ -133,7 +133,12 @@ package workspaced
 	type: "ref"
 	values: [string]: #Slot
 })
-#File: #FileLines | #FileText | #FileRef
+// Structured dest: values is a map (merge-friendly). Root lists are not allowed.
+#FileStructured: close({
+	type: "json" | "toml" | "yaml" | "ini"
+	values: [string]: _
+})
+#File: #FileLines | #FileText | #FileRef | #FileStructured
 
 workspaced: {
 	inputs: {

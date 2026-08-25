@@ -1,6 +1,7 @@
 package filespine
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"io/fs"
@@ -247,5 +248,89 @@ func TestOpenDoesNotExposeKeys(t *testing.T) {
 	}
 	if string(data) != "export PATH=1" {
 		t.Fatalf("got %q", data)
+	}
+}
+
+func TestEncodeStructuredFormats(t *testing.T) {
+	t.Parallel()
+	fileVal := compileFileValue(t, `
+file: {
+	"a.json": {type: "json", values: {name: "x", port: 8080, on: true}}
+	"a.toml": {type: "toml", values: {name: "x", port: 8080}}
+	"a.yaml": {type: "yaml", values: {name: "x", nested: {a: true}}}
+	"a.ini":  {type: "ini", values: {editor: "vim", core: {bare: true, filemode: true}}}
+}
+`)
+	got, err := Parse(fileVal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonOut, err := Encode(got["a.json"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantJSON := "{\n  \"name\": \"x\",\n  \"on\": true,\n  \"port\": 8080\n}\n"
+	if string(jsonOut) != wantJSON {
+		t.Fatalf("json = %q, want %q", jsonOut, wantJSON)
+	}
+
+	tomlOut, err := Encode(got["a.toml"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(tomlOut, []byte("name")) || !bytes.Contains(tomlOut, []byte("8080")) {
+		t.Fatalf("toml = %q", tomlOut)
+	}
+
+	yamlOut, err := Encode(got["a.yaml"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(yamlOut, []byte("name: x")) || !bytes.Contains(yamlOut, []byte("a: true")) {
+		t.Fatalf("yaml = %q", yamlOut)
+	}
+
+	iniOut, err := Encode(got["a.ini"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantINI := "editor = vim\n[core]\nbare = true\nfilemode = true\n"
+	if string(iniOut) != wantINI {
+		t.Fatalf("ini = %q, want %q", iniOut, wantINI)
+	}
+}
+
+func TestINIRejectsNestedSection(t *testing.T) {
+	t.Parallel()
+	f := File{
+		Path: "a.ini",
+		Type: TypeINI,
+		Data: map[string]any{
+			"core": map[string]any{
+				"deep": map[string]any{"x": "y"},
+			},
+		},
+	}
+	_, err := Encode(f)
+	if !errors.Is(err, ErrINISection) {
+		t.Fatalf("err = %v, want ErrINISection", err)
+	}
+}
+
+func TestStructuredOpen(t *testing.T) {
+	t.Parallel()
+	fileVal := compileFileValue(t, `
+file: "cfg.json": {type: "json", values: {ok: true}}
+`)
+	parsed, err := Parse(fileVal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := fs.ReadFile(NewFS(parsed), "cfg.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "{\n  \"ok\": true\n}\n" {
+		t.Fatalf("got %q", got)
 	}
 }
