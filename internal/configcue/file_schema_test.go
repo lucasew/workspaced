@@ -51,6 +51,7 @@ workspaced: file: {
 	"a.toml": {type: "toml", values: {port: 8080}}
 	"a.yaml": {type: "yaml", values: {nested: {a: true}}}
 	"a.ini":  {type: "ini", values: {core: {bare: true}}}
+	"a.xml":  {type: "xml", values: {cfg: {name: "x"}}}
 }
 `)
 		if err != nil {
@@ -104,7 +105,7 @@ workspaced: file: "x": {
 		err := unify(t, `
 package workspaced
 workspaced: file: "x": {
-	type: "xml"
+	type: "plist"
 	values: {a: "{}"}
 }
 `)

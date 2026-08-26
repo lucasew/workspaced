@@ -23,7 +23,7 @@
 	values: [string]: #Slot
 })
 #FileStructured: close({
-	type: "json" | "toml" | "yaml" | "ini"
+	type: "json" | "toml" | "yaml" | "ini" | "xml"
 	values: [string]: _
 })
 #File: #FileLines | #FileText | #FileRef | #FileStructured

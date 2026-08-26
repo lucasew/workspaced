@@ -20,6 +20,7 @@ const (
 	TypeTOML  = "toml"
 	TypeYAML  = "yaml"
 	TypeINI   = "ini"
+	TypeXML   = "xml"
 )
 
 var (
@@ -36,6 +37,8 @@ var (
 	ErrEmptyPath        = errors.New("empty dest path")
 	ErrStructuredRoot   = errors.New("structured file values must be a map")
 	ErrINISection       = errors.New("ini values may nest one section map only")
+	ErrXMLRoot          = errors.New("xml values must have exactly one root element")
+	ErrXMLName          = errors.New("invalid xml name")
 	ErrUnsupportedValue = errors.New("unsupported value")
 )
 
@@ -75,7 +78,7 @@ func parseFile(name string, v cue.Value) (File, error) {
 		return File{}, fmt.Errorf("file %q type: %w", name, err)
 	}
 	switch typ {
-	case TypeLines, TypeText, TypeRef, TypeJSON, TypeTOML, TypeYAML, TypeINI:
+	case TypeLines, TypeText, TypeRef, TypeJSON, TypeTOML, TypeYAML, TypeINI, TypeXML:
 	default:
 		return File{}, fmt.Errorf("file %q: %w: %s", name, ErrUnknownFileType, typ)
 	}
@@ -116,7 +119,7 @@ func parseFile(name string, v cue.Value) (File, error) {
 
 func isStructured(typ string) bool {
 	switch typ {
-	case TypeJSON, TypeTOML, TypeYAML, TypeINI:
+	case TypeJSON, TypeTOML, TypeYAML, TypeINI, TypeXML:
 		return true
 	default:
 		return false

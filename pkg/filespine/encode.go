@@ -3,9 +3,12 @@ package filespine
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"strconv"
+	"unicode"
+	"unicode/utf8"
 
 	toml "github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v3"
@@ -34,7 +37,7 @@ func Encode(f File) ([]byte, error) {
 		if err := writeOnlySlot(&buf, f); err != nil {
 			return nil, fmt.Errorf("file %q: %w", f.Path, err)
 		}
-	case TypeJSON, TypeTOML, TypeYAML, TypeINI:
+	case TypeJSON, TypeTOML, TypeYAML, TypeINI, TypeXML:
 		data, err := encodeStructured(f.Type, f.Data)
 		if err != nil {
 			return nil, fmt.Errorf("file %q: %w", f.Path, err)
@@ -74,6 +77,8 @@ func encodeStructured(typ string, data map[string]any) ([]byte, error) {
 		out, err = encodeYAML(data)
 	case TypeINI:
 		out, err = encodeINI(data)
+	case TypeXML:
+		out, err = encodeXML(data)
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnknownFileType, typ)
 	}
@@ -225,4 +230,156 @@ func iniScalar(v any) (string, error) {
 	default:
 		return "", fmt.Errorf("ini: %w: %T", ErrUnsupportedValue, v)
 	}
+}
+
+type xmlEnc struct {
+	buf *bytes.Buffer
+}
+
+func encodeXML(data map[string]any) ([]byte, error) {
+	keys := sortedKeys(data)
+	if len(keys) != 1 {
+		return nil, fmt.Errorf("%w: got %d top-level keys", ErrXMLRoot, len(keys))
+	}
+	root := keys[0]
+	if _, ok := data[root].([]any); ok {
+		return nil, fmt.Errorf("%w: root %q is a list", ErrXMLRoot, root)
+	}
+	var buf bytes.Buffer
+	if _, err := buf.WriteString(xml.Header); err != nil {
+		return nil, err
+	}
+	enc := xmlEnc{buf: &buf}
+	if err := enc.node(root, data[root], 0); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (e xmlEnc) node(name string, v any, indent int) error {
+	if err := checkXMLName(name); err != nil {
+		return err
+	}
+	switch x := v.(type) {
+	case []any:
+		for i, el := range x {
+			if _, ok := el.([]any); ok {
+				return fmt.Errorf("%s: %w: nested list", name, ErrUnsupportedValue)
+			}
+			if i > 0 {
+				if err := e.buf.WriteByte('\n'); err != nil {
+					return err
+				}
+			}
+			if err := e.node(name, el, indent); err != nil {
+				return err
+			}
+		}
+		return nil
+	case map[string]any:
+		if err := e.indent(indent); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(e.buf, "<%s>", name); err != nil {
+			return err
+		}
+		kids := sortedKeys(x)
+		if len(kids) == 0 {
+			_, err := fmt.Fprintf(e.buf, "</%s>", name)
+			return err
+		}
+		if err := e.buf.WriteByte('\n'); err != nil {
+			return err
+		}
+		for i, k := range kids {
+			if i > 0 {
+				if err := e.buf.WriteByte('\n'); err != nil {
+					return err
+				}
+			}
+			if err := e.node(k, x[k], indent+1); err != nil {
+				return err
+			}
+		}
+		if err := e.buf.WriteByte('\n'); err != nil {
+			return err
+		}
+		if err := e.indent(indent); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(e.buf, "</%s>", name)
+		return err
+	default:
+		s, err := xmlScalar(v)
+		if err != nil {
+			return fmt.Errorf("%s: %w", name, err)
+		}
+		if err := e.indent(indent); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(e.buf, "<%s>", name); err != nil {
+			return err
+		}
+		if err := xml.EscapeText(e.buf, []byte(s)); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(e.buf, "</%s>", name)
+		return err
+	}
+}
+
+func (e xmlEnc) indent(n int) error {
+	for range n {
+		if _, err := e.buf.WriteString("  "); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func xmlScalar(v any) (string, error) {
+	switch x := v.(type) {
+	case string:
+		return x, nil
+	case bool:
+		return strconv.FormatBool(x), nil
+	case int64:
+		return strconv.FormatInt(x, 10), nil
+	case int:
+		return strconv.Itoa(x), nil
+	case float64:
+		return strconv.FormatFloat(x, 'g', -1, 64), nil
+	case nil:
+		return "", nil
+	default:
+		return "", fmt.Errorf("xml: %w: %T", ErrUnsupportedValue, v)
+	}
+}
+
+func checkXMLName(name string) error {
+	if name == "" || !validXMLName(name) {
+		return fmt.Errorf("%w: %q", ErrXMLName, name)
+	}
+	return nil
+}
+
+func validXMLName(name string) bool {
+	r, size := utf8.DecodeRuneInString(name)
+	if size == 0 || r == utf8.RuneError || !isXMLNameStart(r) {
+		return false
+	}
+	for _, r := range name[size:] {
+		if !isXMLNameChar(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func isXMLNameStart(r rune) bool {
+	return r == '_' || unicode.IsLetter(r)
+}
+
+func isXMLNameChar(r rune) bool {
+	return r == '_' || r == '-' || r == '.' || unicode.IsLetter(r) || unicode.IsDigit(r)
 }

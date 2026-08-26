@@ -259,6 +259,7 @@ file: {
 	"a.toml": {type: "toml", values: {name: "x", port: 8080}}
 	"a.yaml": {type: "yaml", values: {name: "x", nested: {a: true}}}
 	"a.ini":  {type: "ini", values: {editor: "vim", core: {bare: true, filemode: true}}}
+	"a.xml":  {type: "xml", values: {cfg: {name: "x", nested: {a: true}, port: 8080}}}
 }
 `)
 	got, err := Parse(fileVal)
@@ -297,6 +298,79 @@ file: {
 	wantINI := "editor = vim\n[core]\nbare = true\nfilemode = true\n"
 	if string(iniOut) != wantINI {
 		t.Fatalf("ini = %q, want %q", iniOut, wantINI)
+	}
+
+	xmlOut, err := Encode(got["a.xml"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantXML := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<cfg>\n  <name>x</name>\n  <nested>\n    <a>true</a>\n  </nested>\n  <port>8080</port>\n</cfg>\n"
+	if string(xmlOut) != wantXML {
+		t.Fatalf("xml = %q, want %q", xmlOut, wantXML)
+	}
+}
+
+func TestXMLRepeatsListItems(t *testing.T) {
+	t.Parallel()
+	f := File{
+		Path: "a.xml",
+		Type: TypeXML,
+		Data: map[string]any{
+			"items": map[string]any{
+				"item": []any{"a", "b"},
+			},
+		},
+	}
+	out, err := Encode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<items>\n  <item>a</item>\n  <item>b</item>\n</items>\n"
+	if string(out) != want {
+		t.Fatalf("xml = %q, want %q", out, want)
+	}
+}
+
+func TestXMLEscapesText(t *testing.T) {
+	t.Parallel()
+	f := File{
+		Path: "a.xml",
+		Type: TypeXML,
+		Data: map[string]any{"note": "a<b>&c"},
+	}
+	out, err := Encode(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<note>a&lt;b&gt;&amp;c</note>\n"
+	if string(out) != want {
+		t.Fatalf("xml = %q, want %q", out, want)
+	}
+}
+
+func TestXMLRejectsMultipleRoots(t *testing.T) {
+	t.Parallel()
+	f := File{
+		Path: "a.xml",
+		Type: TypeXML,
+		Data: map[string]any{"a": "1", "b": "2"},
+	}
+	_, err := Encode(f)
+	if !errors.Is(err, ErrXMLRoot) {
+		t.Fatalf("err = %v, want ErrXMLRoot", err)
+	}
+}
+
+func TestXMLRejectsBadName(t *testing.T) {
+	t.Parallel()
+	f := File{
+		Path: "a.xml",
+		Type: TypeXML,
+		Data: map[string]any{"1cfg": "x"},
+	}
+	_, err := Encode(f)
+	if !errors.Is(err, ErrXMLName) {
+		t.Fatalf("err = %v, want ErrXMLName", err)
 	}
 }
 
