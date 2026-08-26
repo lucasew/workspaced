@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lucasew/workspaced/pkg/filespine"
 	_ "github.com/lucasew/workspaced/pkg/driver/env/native"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
