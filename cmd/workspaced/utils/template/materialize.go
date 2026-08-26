@@ -40,7 +40,7 @@ func init() {
 					}
 					providers = append(providers, scanner)
 				}
-				tree, err := source.BuildTree(ctx, cfg, targetDir, providers...)
+				tree, err := source.Builder{Config: cfg, TargetBase: targetDir, Providers: providers}.Tree(ctx)
 				if err != nil {
 					return err
 				}

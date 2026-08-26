@@ -80,13 +80,17 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		configDir := filepath.Join(dotfilesRoot, "config")
 		modulesDir := ws.ModulesBaseDir()
 
-		tree, err := source.BuildStandardTree(ctx, cfg, source.StandardDotfilesOptions{
+		b, err := source.StandardDotfilesOptions{
 			ConfigTreeDir:    configDir,
 			ConfigTreeTarget: home,
 			ModulesDir:       modulesDir,
 			ModulesCfg:       cfg,
 			Extra:            []source.Plugin{&apply.DconfPlugin{}},
-		})
+		}.Builder(cfg)
+		if err != nil {
+			return err
+		}
+		tree, err := b.Tree(ctx)
 		if err != nil {
 			return err
 		}

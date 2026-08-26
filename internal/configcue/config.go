@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"cuelang.org/go/cue"
+	"github.com/lucasew/workspaced/internal/filespine"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
@@ -32,6 +33,11 @@ func (c *Config) Cue() cue.Value {
 		return cue.Value{}
 	}
 	return c.cueVal
+}
+
+// FileMap is workspaced.file after unify.
+func (c *Config) FileMap() (map[string]filespine.File, error) {
+	return filespine.Parse(filespine.LookupFile(c.Cue()))
 }
 
 type Input struct {
