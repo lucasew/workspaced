@@ -6,7 +6,6 @@ import (
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/deployer"
 	"github.com/lucasew/workspaced/internal/source"
-	"github.com/lucasew/workspaced/internal/template"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -29,8 +28,7 @@ func init() {
 				if err != nil {
 					return err
 				}
-				engine := template.NewEngine(ctx)
-				pipeline := source.NewPipeline()
+				providers := make([]source.Plugin, 0, len(sourcePaths))
 				for i, srcPath := range sourcePaths {
 					absSrc, err := filepath.Abs(srcPath)
 					if err != nil {
@@ -40,18 +38,15 @@ func init() {
 					if err != nil {
 						return err
 					}
-					pipeline.AddPlugin(scanner)
+					providers = append(providers, scanner)
 				}
-				pipeline.AddPlugin(source.NewTemplateExpanderPlugin(engine, cfg))
-				pipeline.AddPlugin(source.NewDotDProcessorPlugin(engine, cfg))
-				pipeline.AddPlugin(source.NewStrictConflictResolverPlugin())
-				files, err := pipeline.Run(ctx, nil)
+				tree, err := source.BuildTree(ctx, cfg, targetDir, providers...)
 				if err != nil {
 					return err
 				}
 				executor := deployer.NewExecutor()
 				actions := []deployer.Action{}
-				for _, f := range files {
+				for _, f := range tree.Files() {
 					actions = append(actions, deployer.Action{Type: deployer.ActionCreate, Target: filepath.Join(f.TargetBase(), f.RelPath()), Desired: deployer.DesiredState{File: f}})
 				}
 				return executor.Execute(ctx, actions, &deployer.State{Files: make(map[string]deployer.ManagedInfo)})

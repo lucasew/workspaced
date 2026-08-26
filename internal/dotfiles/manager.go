@@ -11,15 +11,15 @@ import (
 )
 
 var (
-	// ErrPipelineRequired is returned when a Manager is created without a pipeline.
-	ErrPipelineRequired = errors.New("pipeline is required")
+	// ErrTreeRequired is returned when a Manager is created without a dest tree.
+	ErrTreeRequired = errors.New("tree is required")
 	// ErrStateStoreRequired is returned when a Manager is created without a state store.
 	ErrStateStoreRequired = errors.New("state store is required")
 )
 
-// Manager is the main API for dotfiles management.
+// Manager writes a dest Tree to disk.
 type Manager struct {
-	pipeline   *source.Pipeline
+	tree       *source.Tree
 	stateStore deployer.StateStore
 	planner    *deployer.Planner
 	executor   *deployer.Executor
@@ -29,8 +29,8 @@ type Manager struct {
 
 // Config configures the Manager.
 type Config struct {
-	// Pipeline of plugins.
-	Pipeline *source.Pipeline
+	// Tree is dest files from templates + config. Apply does not rebuild it.
+	Tree *source.Tree
 
 	// StateStore for persistence.
 	StateStore deployer.StateStore
@@ -45,8 +45,8 @@ type Config struct {
 
 // NewManager creates a new Manager.
 func NewManager(cfg Config) (*Manager, error) {
-	if cfg.Pipeline == nil {
-		return nil, ErrPipelineRequired
+	if cfg.Tree == nil {
+		return nil, ErrTreeRequired
 	}
 
 	if cfg.StateStore == nil {
@@ -58,7 +58,7 @@ func NewManager(cfg Config) (*Manager, error) {
 	executor := deployer.NewExecutor()
 	executor.Ignore = cfg.Ignore
 	return &Manager{
-		pipeline:   cfg.Pipeline,
+		tree:       cfg.Tree,
 		stateStore: cfg.StateStore,
 		planner:    planner,
 		executor:   executor,
@@ -93,22 +93,12 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 	logger := logging.GetLogger(ctx)
 	result := &ApplyResult{}
 
-	var warningSink []string
-	ctx = source.WithWarningSink(ctx, &warningSink)
+	files := m.tree.Files()
+	result.Warnings = append([]string{}, m.tree.Warnings...)
 
-	// 1. Run pipeline
-	logger.Info("running pipeline", "plugins", len(m.pipeline.GetPlugins()))
-	files, err := m.pipeline.Run(ctx, []source.File{})
-	if err != nil {
-		result.Error = err
-		result.Warnings = warningSink
-		return result, fmt.Errorf("run pipeline: %w", err)
-	}
-	result.Warnings = warningSink
+	logger.Info("applying dest tree", "files", len(files))
 
-	logger.Info("pipeline completed", "files", len(files))
-
-	// 2. Convert source.File to deployer.DesiredState
+	// Convert source.File to deployer.DesiredState
 	desired := make([]deployer.DesiredState, len(files))
 	for i, f := range files {
 		desired[i] = deployer.DesiredState{
@@ -116,7 +106,6 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		}
 	}
 
-	// 3. Load current state
 	logger.Info("loading state", "store", m.stateStore.Path())
 	state, err := m.stateStore.Load()
 	if err != nil {
@@ -130,7 +119,6 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 		logger.Info("dropping gitignored paths from state", "count", dropped)
 	}
 
-	// 4. Plan actions
 	logger.Info("planning actions")
 	planStart := time.Now()
 	actions, err := m.planner.Plan(ctx, desired, state)
@@ -215,11 +203,6 @@ func (m *Manager) Apply(ctx context.Context, opts ApplyOptions) (*ApplyResult, e
 
 	logger.Info("apply completed successfully")
 	return result, nil
-}
-
-// GetPipeline returns the configured pipeline.
-func (m *Manager) GetPipeline() *source.Pipeline {
-	return m.pipeline
 }
 
 // GetStateStore returns the configured state store.

@@ -1,7 +1,6 @@
 package dotfiles
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,17 +10,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 )
-
-type fileListPlugin struct {
-	files []source.File
-}
-
-func (p fileListPlugin) Name() string { return "files" }
-
-func (p fileListPlugin) Process(_ context.Context, files []source.File) ([]source.File, error) {
-	out := append([]source.File{}, files...)
-	return append(out, p.files...), nil
-}
 
 func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 	t.Parallel()
@@ -46,7 +34,7 @@ func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 	}
 	mode := st.Mode()
 
-	pipe := source.NewPipeline(fileListPlugin{files: []source.File{
+	tree := source.TreeFromFiles([]source.File{
 		&source.BufferFile{
 			BasicFile: source.BasicFile{
 				RelPathStr:    ignoredRel,
@@ -67,7 +55,7 @@ func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 			},
 			Content: content,
 		},
-	}})
+	})
 
 	statePath := filepath.Join(root, ".workspaced", "state.json")
 	store, err := deployer.NewFileStateStore(statePath, root)
@@ -82,7 +70,7 @@ func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 	}
 
 	mgr, err := NewManager(Config{
-		Pipeline:   pipe,
+		Tree:       tree,
 		StateStore: store,
 		Ignore:     func(target string) bool { return target == ignoredAbs },
 	})
