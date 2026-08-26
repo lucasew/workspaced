@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/filespine"
+	"github.com/lucasew/workspaced/pkg/filespine"
 )
 
 const contentKey = "content"
@@ -29,7 +29,14 @@ func NewFileSpinePlugin(cfg *configcue.Config, targetBase string) *FileSpinePlug
 func (p *FileSpinePlugin) Name() string { return "file-spine" }
 
 func (p *FileSpinePlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	tree, err := (Builder{Config: p.cfg, TargetBase: p.targetBase}).unify(ctx, files)
+	dest, err := filespine.Compose(ctx,
+		CueFiles{Config: p.cfg},
+		FileSlots{Label: "files", Files: files},
+	)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := NewTree(dest, p.targetBase)
 	if err != nil {
 		return nil, err
 	}

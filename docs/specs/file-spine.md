@@ -5,7 +5,7 @@ in `module.cue`; those maps unify into `workspaced.file`. Module templates
 also lower into it. Apply reads a dest `fs.FS`. `Open(name)` returns the
 combined file.
 
-Implementation: `internal/filespine`, schema in `internal/configcue/schema.cue`.
+Implementation: `pkg/filespine`, schema in `internal/configcue/schema.cue`.
 
 ## Path
 
