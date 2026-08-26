@@ -18,6 +18,32 @@ type Tree struct {
 	Warnings   []string
 }
 
+// NewTree wraps a dest FS and builds the apply view.
+func NewTree(dest *filespine.FS, targetBase string) (*Tree, error) {
+	if dest == nil {
+		return &Tree{targetBase: targetBase}, nil
+	}
+	decls := dest.Files()
+	out := make([]File, 0, len(decls))
+	for _, decl := range decls {
+		base := decl.TargetBase
+		if base == "" {
+			base = targetBase
+		}
+		sf, err := destFile(decl, base)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, sf)
+	}
+	return &Tree{dest: dest, targetBase: targetBase, files: out}, nil
+}
+
+// NewApplyTree is a dest-less Tree for callers that already have apply files.
+func NewApplyTree(files []File, warnings ...string) *Tree {
+	return &Tree{files: files, Warnings: warnings}
+}
+
 // Dest is the encoded dest tree. Open returns the combined file.
 func (t *Tree) Dest() *filespine.FS {
 	if t == nil {
@@ -42,29 +68,25 @@ func (t *Tree) TargetBase() string {
 	return t.targetBase
 }
 
-// TreeFromFiles builds a Tree that only has an apply view (no dest FS).
-// Tests and callers that already have desired files use this.
-func TreeFromFiles(files []File, warnings ...string) *Tree {
-	return &Tree{files: files, Warnings: warnings}
+// Builder renders providers through templates and workspaced.file.
+type Builder struct {
+	Config     *configcue.Config
+	TargetBase string
+	Providers  []Plugin
 }
 
-// BuildTree renders providers through templates and workspaced.file.
-// Providers only discover or adjust files (scan, modules, relocate).
-func BuildTree(ctx context.Context, cfg *configcue.Config, targetBase string, providers ...Plugin) (*Tree, error) {
+// Tree runs providers, expands templates, and unifies workspaced.file.
+func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 	var warnings []string
 	ctx = WithWarningSink(ctx, &warnings)
 
-	p := NewPipeline(providers...)
-	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
+	p := NewPipeline(b.Providers...)
+	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), b.Config))
 	files, err := p.Run(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	tree, err := buildTreeFromFiles(ctx, treeFromFiles{
-		cfg:        cfg,
-		targetBase: targetBase,
-		files:      files,
-	})
+	tree, err := b.unify(ctx, files)
 	if err != nil {
 		return nil, err
 	}
@@ -72,33 +94,14 @@ func BuildTree(ctx context.Context, cfg *configcue.Config, targetBase string, pr
 	return tree, nil
 }
 
-// BuildStandardTree is BuildTree with the usual config-tree + modules sources.
-func BuildStandardTree(ctx context.Context, cfg *configcue.Config, opts StandardDotfilesOptions) (*Tree, error) {
-	providers, err := standardProviders(opts)
+func (b Builder) unify(ctx context.Context, files []File) (*Tree, error) {
+	logger := logging.GetLogger(ctx)
+	declared, err := b.Config.FileMap()
 	if err != nil {
 		return nil, err
 	}
-	return BuildTree(ctx, cfg, standardTarget(opts), providers...)
-}
-
-type treeFromFiles struct {
-	cfg        *configcue.Config
-	targetBase string
-	files      []File
-}
-
-func buildTreeFromFiles(ctx context.Context, in treeFromFiles) (*Tree, error) {
-	logger := logging.GetLogger(ctx)
-	declared := map[string]filespine.File{}
-	if in.cfg != nil {
-		var err error
-		declared, err = filespine.Parse(filespine.LookupFile(in.cfg.Cue()))
-		if err != nil {
-			return nil, err
-		}
-	}
-	extras := make([]filespine.Contribution, 0, len(in.files))
-	for _, f := range in.files {
+	extras := make([]filespine.Contribution, 0, len(files))
+	for _, f := range files {
 		c, err := lowerFile(f)
 		if err != nil {
 			return nil, err
@@ -109,19 +112,10 @@ func buildTreeFromFiles(ctx context.Context, in treeFromFiles) (*Tree, error) {
 	if err != nil {
 		return nil, err
 	}
-	dest := filespine.NewFS(merged)
-	out := make([]File, 0, len(merged))
-	for _, decl := range dest.Files() {
-		base := decl.TargetBase
-		if base == "" {
-			base = in.targetBase
-		}
-		sf, err := destFile(decl, base)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, sf)
+	tree, err := NewTree(filespine.NewFS(merged), b.TargetBase)
+	if err != nil {
+		return nil, err
 	}
-	logger.Debug("file spine encoded", "files", len(out))
-	return &Tree{dest: dest, targetBase: in.targetBase, files: out}, nil
+	logger.Debug("file spine encoded", "files", len(tree.files))
+	return tree, nil
 }

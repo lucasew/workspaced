@@ -87,20 +87,32 @@ type StandardDotfilesOptions struct {
 	Extra []Plugin
 }
 
-// NewStandardDotfilesPipeline is the plugin sequence behind BuildStandardTree.
-// Prefer BuildStandardTree when you want the dest tree.
+// Builder returns the render input for this options set.
+func (opts StandardDotfilesOptions) Builder(cfg *configcue.Config) (Builder, error) {
+	providers, err := standardProviders(opts)
+	if err != nil {
+		return Builder{}, err
+	}
+	return Builder{
+		Config:     cfg,
+		TargetBase: standardTarget(opts),
+		Providers:  providers,
+	}, nil
+}
+
+// NewStandardDotfilesPipeline is the plugin sequence behind Builder.Tree.
 func NewStandardDotfilesPipeline(
 	ctx context.Context,
 	cfg *configcue.Config,
 	opts StandardDotfilesOptions,
 ) (*Pipeline, error) {
-	providers, err := standardProviders(opts)
+	b, err := opts.Builder(cfg)
 	if err != nil {
 		return nil, err
 	}
-	p := NewPipeline(providers...)
+	p := NewPipeline(b.Providers...)
 	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
-	p.AddPlugin(NewFileSpinePlugin(cfg, standardTarget(opts)))
+	p.AddPlugin(NewFileSpinePlugin(cfg, b.TargetBase))
 	return p, nil
 }
 

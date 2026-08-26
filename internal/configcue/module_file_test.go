@@ -55,7 +55,7 @@ workspaced: {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsed, err := filespine.Parse(filespine.LookupFile(cfg.Cue()))
+	parsed, err := cfg.FileMap()
 	if err != nil {
 		t.Fatal(err)
 	}

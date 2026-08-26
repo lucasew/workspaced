@@ -29,11 +29,7 @@ func NewFileSpinePlugin(cfg *configcue.Config, targetBase string) *FileSpinePlug
 func (p *FileSpinePlugin) Name() string { return "file-spine" }
 
 func (p *FileSpinePlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	tree, err := buildTreeFromFiles(ctx, treeFromFiles{
-		cfg:        p.cfg,
-		targetBase: p.targetBase,
-		files:      files,
-	})
+	tree, err := (Builder{Config: p.cfg, TargetBase: p.targetBase}).unify(ctx, files)
 	if err != nil {
 		return nil, err
 	}

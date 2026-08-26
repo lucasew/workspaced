@@ -11,7 +11,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func TestBuildTreeRendersTemplateAndStatic(t *testing.T) {
+func TestBuilderTreeRendersTemplateAndStatic(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	src := t.TempDir()
@@ -26,7 +26,7 @@ func TestBuildTreeRendersTemplateAndStatic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, err := BuildTree(ctx, &configcue.Config{}, dest, scanner)
+	tree, err := Builder{Config: &configcue.Config{}, TargetBase: dest, Providers: []Plugin{scanner}}.Tree(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestBuildTreeRendersTemplateAndStatic(t *testing.T) {
 	}
 }
 
-func TestBuildTreeMergesCueLines(t *testing.T) {
+func TestBuilderTreeMergesCueLines(t *testing.T) {
 	t.Parallel()
 	ctx := logging.NewWriterContext(t.Output())
 	src := t.TempDir()
@@ -83,7 +83,7 @@ workspaced: {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tree, err := BuildTree(ctx, cfg, dest, scanner)
+	tree, err := Builder{Config: cfg, TargetBase: dest, Providers: []Plugin{scanner}}.Tree(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,9 +96,9 @@ workspaced: {
 	}
 }
 
-func TestTreeFromFilesHasNoDest(t *testing.T) {
+func TestNewApplyTreeHasNoDest(t *testing.T) {
 	t.Parallel()
-	tree := TreeFromFiles([]File{&BufferFile{
+	tree := NewApplyTree([]File{&BufferFile{
 		BasicFile: BasicFile{RelPathStr: "a", TargetBaseDir: "/tmp"},
 		Content:   []byte("x"),
 	}})

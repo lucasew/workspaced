@@ -34,7 +34,7 @@ func TestApplyPersistsDropOfGitignoredStateOnIdle(t *testing.T) {
 	}
 	mode := st.Mode()
 
-	tree := source.TreeFromFiles([]source.File{
+	tree := source.NewApplyTree([]source.File{
 		&source.BufferFile{
 			BasicFile: source.BasicFile{
 				RelPathStr:    ignoredRel,

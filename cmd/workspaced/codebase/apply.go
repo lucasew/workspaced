@@ -106,7 +106,11 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			stdOpts.ConfigTreeDir = configDir
 		}
 
-		tree, err := source.BuildStandardTree(ctx, cfg, stdOpts)
+		b, err := stdOpts.Builder(cfg)
+		if err != nil {
+			return err
+		}
+		tree, err := b.Tree(ctx)
 		if err != nil {
 			return err
 		}
