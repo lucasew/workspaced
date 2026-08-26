@@ -37,7 +37,7 @@ func (c *Config) Cue() cue.Value {
 
 // FileMap is workspaced.file after unify.
 func (c *Config) FileMap() (map[string]filespine.File, error) {
-	return filespine.Parse(c.Cue().LookupPath(cue.ParsePath("file")))
+	return filespine.ParseAt(c.Cue(), "file")
 }
 
 type Input struct {

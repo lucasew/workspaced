@@ -110,36 +110,6 @@ package workspaced
 
 #BackupAction: #BackupActionGitRepoSync | #BackupActionRsync | #BackupActionArchive
 
-// File spine: see docs/specs/file-spine.md.
-#SlotText: close({
-	kind: "text"
-	text: string
-})
-#SlotRef: close({
-	kind: "ref"
-	ref:  string
-})
-#Slot: string | #SlotText | #SlotRef
-
-#FileLines: close({
-	type: "lines"
-	values: [string]: #Slot
-})
-#FileText: close({
-	type: "text"
-	values: [string]: #Slot
-})
-#FileRef: close({
-	type: "ref"
-	values: [string]: #Slot
-})
-// Structured dest: values is a map (merge-friendly). Root lists are not allowed.
-#FileStructured: close({
-	type: "json" | "toml" | "yaml" | "ini"
-	values: [string]: _
-})
-#File: #FileLines | #FileText | #FileRef | #FileStructured
-
 workspaced: {
 	inputs: {
 		self: #Input & {
@@ -148,8 +118,7 @@ workspaced: {
 		[string]: #Input
 	}
 	runtime?: #Runtime
-	// Path is fs.FS style, relative to $HOME (home) or the repo root (codebase).
-	file?: [string]: #File
+	// dest tree: pkg/filespine Mount("workspaced.file")
 	modules: {
 		[string]: #ModuleRef
 	}

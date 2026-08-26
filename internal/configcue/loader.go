@@ -23,6 +23,7 @@ import (
 	"github.com/lucasew/workspaced/internal/modulecue"
 	"github.com/lucasew/workspaced/pkg/driver"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"cuelang.org/go/cue"
@@ -245,6 +246,10 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 	v := ctx.CompileString(string(schemaBytes), cue.Filename("schema.cue"))
 	if err := v.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w\n%s", err, cueerrors.Details(err, nil))
+	}
+	v, err = filespine.Constrain(v, "workspaced.file")
+	if err != nil {
+		return cue.Value{}, fmt.Errorf("mount filespine: %w", err)
 	}
 
 	preludeCommonLayer := ctx.CompileString(string(preludeCommonBytes), cue.Filename("prelude_common.cue"))

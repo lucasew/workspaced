@@ -5,6 +5,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"github.com/lucasew/workspaced/pkg/filespine"
 )
 
 func TestFileSpineSchema(t *testing.T) {
@@ -17,6 +18,10 @@ func TestFileSpineSchema(t *testing.T) {
 	schema := cueCtx.CompileBytes(schemaBytes, cue.Filename("schema.cue"))
 	if err := schema.Err(); err != nil {
 		t.Fatalf("schema: %v", err)
+	}
+	schema, err = filespine.Constrain(schema, "workspaced.file")
+	if err != nil {
+		t.Fatalf("mount: %v", err)
 	}
 
 	unify := func(t *testing.T, user string) error {
