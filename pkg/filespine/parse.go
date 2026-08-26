@@ -33,11 +33,3 @@ func Parse(fileValue cue.Value) (map[string]File, error) {
 	}
 	return out, nil
 }
-
-// LookupFile is workspaced.file on a workspaced root value.
-func LookupFile(workspaced cue.Value) cue.Value {
-	if !workspaced.Exists() {
-		return cue.Value{}
-	}
-	return workspaced.LookupPath(cue.ParsePath("file"))
-}

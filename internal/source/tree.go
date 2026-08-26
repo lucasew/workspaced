@@ -4,12 +4,12 @@ import (
 	"context"
 
 	"github.com/lucasew/workspaced/internal/configcue"
-	"github.com/lucasew/workspaced/internal/filespine"
 	"github.com/lucasew/workspaced/internal/template"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-// Tree is dest files after templates and config unify.
+// Tree is dest files after providers compose.
 // Apply writes this; it does not rebuild it.
 type Tree struct {
 	dest       *filespine.FS
@@ -68,54 +68,40 @@ func (t *Tree) TargetBase() string {
 	return t.targetBase
 }
 
-// Builder renders providers through templates and workspaced.file.
+// Builder discovers source files, then composes cue + static + templates.
 type Builder struct {
 	Config     *configcue.Config
 	TargetBase string
 	Providers  []Plugin
 }
 
-// Tree runs providers, expands templates, and unifies workspaced.file.
+// Tree runs discovery, then filespine.Compose of cue, static, and templates.
 func (b Builder) Tree(ctx context.Context) (*Tree, error) {
 	var warnings []string
 	ctx = WithWarningSink(ctx, &warnings)
 
-	p := NewPipeline(b.Providers...)
-	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), b.Config))
-	files, err := p.Run(ctx, nil)
+	files, err := NewPipeline(b.Providers...).Run(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
-	tree, err := b.unify(ctx, files)
+	static, tmpl := splitTemplateFiles(files)
+	rendered, err := NewTemplateExpanderPlugin(template.NewEngine(ctx), b.Config).Process(ctx, tmpl)
+	if err != nil {
+		return nil, err
+	}
+	dest, err := filespine.Compose(ctx,
+		CueFiles{Config: b.Config},
+		FileSlots{Label: "static", Files: static},
+		FileSlots{Label: "templates", Files: rendered},
+	)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := NewTree(dest, b.TargetBase)
 	if err != nil {
 		return nil, err
 	}
 	tree.Warnings = warnings
-	return tree, nil
-}
-
-func (b Builder) unify(ctx context.Context, files []File) (*Tree, error) {
-	logger := logging.GetLogger(ctx)
-	declared, err := b.Config.FileMap()
-	if err != nil {
-		return nil, err
-	}
-	extras := make([]filespine.Contribution, 0, len(files))
-	for _, f := range files {
-		c, err := lowerFile(f)
-		if err != nil {
-			return nil, err
-		}
-		extras = append(extras, c)
-	}
-	merged, err := filespine.Merge(declared, extras)
-	if err != nil {
-		return nil, err
-	}
-	tree, err := NewTree(filespine.NewFS(merged), b.TargetBase)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debug("file spine encoded", "files", len(tree.files))
+	logging.GetLogger(ctx).Debug("dest composed", "files", len(tree.files))
 	return tree, nil
 }

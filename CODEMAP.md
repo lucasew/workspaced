@@ -16,10 +16,10 @@ CUE config (`workspaced.cue`) drives everything.
 
 - `pkg/driver/driver.go` and `pkg/driver/prelude`: driver system
 - `pkg/taskgroup/`: Session, progress UI, `Map`/`Each`/`Isolate` (package doc + AGENTS.md map/reduce rule)
-- `pkg/palette/`, `pkg/logging/`, `pkg/api/`: rest of `pkg/`
+- `pkg/palette/`, `pkg/logging/`, `pkg/api/`, `pkg/filespine/`: rest of `pkg/` (dest compose: Provider + Compose)
 - `internal/tool/backend/backend.go` and `internal/tool/backend/catalog/`: tool backends
 - `internal/tool/checks`: optional `InstallChecker` for install trees. `mise run test:registry-install` (sets `WORKSPACED_TEST_TOOL_INSTALL=1`) does full install verification. Not part of `mise release`. Multi-target CI: `.github/workflows/registry-install.yml` (linux amd64 + arm64). Per-tool failures append to `GITHUB_STEP_SUMMARY` from `install_test.go` when that env is set.
-- `internal/configcue/`, `internal/modfile/`, `internal/source/`, `internal/filespine/`: config, state, rendering, dest file spine (`docs/specs/file-spine.md`)
+- `internal/configcue/`, `internal/modfile/`, `internal/source/`: config, state, rendering; dest compose is `pkg/filespine` (`docs/specs/file-spine.md`)
 - `internal/apply/`, `internal/deployer/`: apply flow
 - `cmd/workspaced/root.go`: `pkg/driver/prelude`; tool/check preludes load from the cmds that need them
 

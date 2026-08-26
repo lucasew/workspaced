@@ -3,7 +3,7 @@
 - Modular templates for dotfiles, plus drivers that abstract common system tools.
 - Most of what people want from Nix/NixOS, without the slow path.
 
-- Library import path is `pkg/` (`api`, `driver`, `logging`, `palette`, `taskgroup`); the rest is `internal/` + `cmd/`. Details in AGENTS.md.
+- Library import path is `pkg/` (`api`, `driver`, `filespine`, `logging`, `palette`, `taskgroup`); the rest is `internal/` + `cmd/`. Details in AGENTS.md.
 
 ## Terminology
 
