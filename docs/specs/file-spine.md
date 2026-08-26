@@ -23,7 +23,7 @@ Implementation: `pkg/filespine`. CUE schema is `pkg/filespine/file.cue`; hosts m
 | `lines` | all `values` keys | sort keys, join with `\n` |
 | `text` | exactly one key | that slot |
 | `ref` | exactly one key, kind `ref` | bytes from the source path |
-| `json` / `toml` / `yaml` / `ini` | `values` is a map | marshal that map |
+| `json` / `toml` / `yaml` / `ini` / `xml` | `values` is a map | marshal that map |
 
 Same path, different `type` → error.
 
@@ -67,10 +67,12 @@ with the same keys.
 CUE can add or override the same key. Go walks the CUE value. Dest `Open`
 does not take a slot key.
 
-Structured types (`json`, `toml`, `yaml`, `ini`) take a map in `values` and
+Structured types (`json`, `toml`, `yaml`, `ini`, `xml`) take a map in `values` and
 write that map. Root lists are not allowed. `ini` allows one section level
-(`values.core.bare = true` → `[core]\nbare = true`). A `.json.tmpl` on disk
-still lowers as `text`, not as `json`.
+(`values.core.bare = true` → `[core]\nbare = true`). `xml` needs exactly one
+root key (`values.cfg.name = "x"` → `<cfg><name>x</name></cfg>`). Nested maps
+become child elements. Lists become repeated tags. There are no attributes
+and no namespaces. A `.json.tmpl` on disk still lowers as `text`, not as `json`.
 
 ## Example
 
