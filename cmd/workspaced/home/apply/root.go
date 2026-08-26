@@ -77,31 +77,18 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			return fmt.Errorf("get home directory: %w", err)
 		}
 
-		// 1. dconf marker plugin (home-specific)
-		pipeline := source.NewPipeline()
-		pipeline.AddPlugin(&apply.DconfPlugin{})
-
-		// 2. Standard sources for this dotfiles repo targeting home
 		configDir := filepath.Join(dotfilesRoot, "config")
 		modulesDir := ws.ModulesBaseDir()
 
-		stdOpts := source.StandardDotfilesOptions{
+		tree, err := source.BuildStandardTree(ctx, cfg, source.StandardDotfilesOptions{
 			ConfigTreeDir:    configDir,
 			ConfigTreeTarget: home,
-		}
-		// Always provide ModulesDir even if it doesn't exist on disk yet.
-		// This allows core:place (and other core modules) to be processed
-		// without requiring a pre-existing modules/ directory.
-		stdOpts.ModulesDir = modulesDir
-		stdOpts.ModulesCfg = cfg
-
-		stdPipeline, err := source.NewStandardDotfilesPipeline(ctx, cfg, stdOpts)
+			ModulesDir:       modulesDir,
+			ModulesCfg:       cfg,
+			Extra:            []source.Plugin{&apply.DconfPlugin{}},
+		})
 		if err != nil {
 			return err
-		}
-		// Transfer plugins (dconf was added before, standard has the rest)
-		for _, pl := range stdPipeline.GetPlugins() {
-			pipeline.AddPlugin(pl)
 		}
 
 		// StateStore — paths on disk are relative to $HOME (~).
@@ -179,7 +166,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		}
 
 		mgr, err := dotfiles.NewManager(dotfiles.Config{
-			Pipeline:   pipeline,
+			Tree:       tree,
 			StateStore: stateStore,
 			Hooks:      hooks,
 		})

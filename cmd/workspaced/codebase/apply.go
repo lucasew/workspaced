@@ -93,31 +93,22 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			return fmt.Errorf("refresh workspace lockfile: %w", err)
 		}
 
-		pipeline := source.NewPipeline()
-
-		// Standard sources for codebase.
-		// The workspace root is the dir containing the discovered workspaced.cue .
 		configDir := filepath.Join(workspaceRoot, ".workspaced", "config")
 		modulesDir := filepath.Join(workspaceRoot, "modules")
 
 		stdOpts := source.StandardDotfilesOptions{
 			ConfigTreeTarget: workspaceRoot,
 			RelocateTo:       workspaceRoot,
+			ModulesDir:       modulesDir,
+			ModulesCfg:       cfg,
 		}
 		if _, err := os.Stat(configDir); err == nil {
 			stdOpts.ConfigTreeDir = configDir
 		}
-		// Always provide ModulesDir (even if not on disk) so placer modules
-		// (core:place etc.) are considered even in fresh workspaces.
-		stdOpts.ModulesDir = modulesDir
-		stdOpts.ModulesCfg = cfg
 
-		stdPipeline, err := source.NewStandardDotfilesPipeline(ctx, cfg, stdOpts)
+		tree, err := source.BuildStandardTree(ctx, cfg, stdOpts)
 		if err != nil {
 			return err
-		}
-		for _, pl := range stdPipeline.GetPlugins() {
-			pipeline.AddPlugin(pl)
 		}
 
 		// State lives in the repo next to the lock.
@@ -130,10 +121,9 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		}
 
 		mgr, err := dotfiles.NewManager(dotfiles.Config{
-			Pipeline:   pipeline,
+			Tree:       tree,
 			StateStore: stateStore,
 			Ignore:     deployer.GitignoreUntracked(workspaceRoot),
-			// No home-specific hooks (dconf, gtk, etc.)
 		})
 		if err != nil {
 			return fmt.Errorf("create manager: %w", err)

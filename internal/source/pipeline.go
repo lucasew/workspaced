@@ -82,29 +82,37 @@ type StandardDotfilesOptions struct {
 	// scanners). This forces *all* files (config tree + modules) to use this
 	// physical root, interpreting their RelPaths relative to it.
 	RelocateTo string
+
+	// Extra providers run before the config tree and module scanners.
+	Extra []Plugin
 }
 
-// NewStandardDotfilesPipeline builds the common plugin sequence used by
-// "home apply", "codebase apply", and similar flows:
-//
-//   - (optional) direct config tree (the "config/" directory with .tmpl rules)
-//   - (optional) module scanner
-//   - (optional) relocate plugin
-//   - template expander
-//   - file spine (lower + unify workspaced.file + encode)
-//
-// It does *not* add home-specific things like the dconf plugin.
-//
-// The "config tree" is just one way to provide files (with the familiar
-// template conventions). Modules are another. Both end up as File entries
-// that get placed according to their final TargetBase + RelPath.
+// NewStandardDotfilesPipeline is the plugin sequence behind BuildStandardTree.
+// Prefer BuildStandardTree when you want the dest tree.
 func NewStandardDotfilesPipeline(
 	ctx context.Context,
 	cfg *configcue.Config,
 	opts StandardDotfilesOptions,
 ) (*Pipeline, error) {
+	providers, err := standardProviders(opts)
+	if err != nil {
+		return nil, err
+	}
+	p := NewPipeline(providers...)
+	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
+	p.AddPlugin(NewFileSpinePlugin(cfg, standardTarget(opts)))
+	return p, nil
+}
 
-	p := NewPipeline()
+func standardTarget(opts StandardDotfilesOptions) string {
+	if opts.RelocateTo != "" {
+		return opts.RelocateTo
+	}
+	return opts.ConfigTreeTarget
+}
+
+func standardProviders(opts StandardDotfilesOptions) ([]Plugin, error) {
+	providers := append([]Plugin{}, opts.Extra...)
 
 	if opts.ConfigTreeDir != "" {
 		scanner, err := NewScannerPlugin(ScannerConfig{
@@ -116,28 +124,17 @@ func NewStandardDotfilesPipeline(
 		if err != nil {
 			return nil, err
 		}
-		p.AddPlugin(scanner)
+		providers = append(providers, scanner)
 	}
 
-	// Note: we add the module scanner even if opts.ModulesDir does not
-	// exist on disk. This is required for pure core:place (and similar)
-	// modules that don't require a local modules/ checkout.
+	// Module scanner even if ModulesDir is not on disk: core:place and similar
+	// do not need a local modules/ checkout.
 	if opts.ModulesDir != "" && opts.ModulesCfg != nil {
-		p.AddPlugin(NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
+		providers = append(providers, NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
 	}
 
 	if opts.RelocateTo != "" {
-		p.AddPlugin(NewRelocatePlugin(opts.RelocateTo))
+		providers = append(providers, NewRelocatePlugin(opts.RelocateTo))
 	}
-
-	engine := template.NewEngine(ctx)
-
-	p.AddPlugin(NewTemplateExpanderPlugin(engine, cfg))
-	target := opts.RelocateTo
-	if target == "" {
-		target = opts.ConfigTreeTarget
-	}
-	p.AddPlugin(NewFileSpinePlugin(cfg, target))
-
-	return p, nil
+	return providers, nil
 }

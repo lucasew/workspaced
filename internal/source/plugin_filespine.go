@@ -10,7 +10,6 @@ import (
 
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/filespine"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 const contentKey = "content"
@@ -30,42 +29,15 @@ func NewFileSpinePlugin(cfg *configcue.Config, targetBase string) *FileSpinePlug
 func (p *FileSpinePlugin) Name() string { return "file-spine" }
 
 func (p *FileSpinePlugin) Process(ctx context.Context, files []File) ([]File, error) {
-	logger := logging.GetLogger(ctx)
-	declared := map[string]filespine.File{}
-	if p.cfg != nil {
-		var err error
-		declared, err = filespine.Parse(filespine.LookupFile(p.cfg.Cue()))
-		if err != nil {
-			return nil, err
-		}
-	}
-	extras := make([]filespine.Contribution, 0, len(files))
-	for _, f := range files {
-		c, err := lowerFile(f)
-		if err != nil {
-			return nil, err
-		}
-		extras = append(extras, c)
-	}
-	merged, err := filespine.Merge(declared, extras)
+	tree, err := buildTreeFromFiles(ctx, treeFromFiles{
+		cfg:        p.cfg,
+		targetBase: p.targetBase,
+		files:      files,
+	})
 	if err != nil {
 		return nil, err
 	}
-	dest := filespine.NewFS(merged)
-	out := make([]File, 0, len(merged))
-	for _, decl := range dest.Files() {
-		base := decl.TargetBase
-		if base == "" {
-			base = p.targetBase
-		}
-		sf, err := destFile(decl, base)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, sf)
-	}
-	logger.Debug("file spine encoded", "files", len(out))
-	return out, nil
+	return tree.Files(), nil
 }
 
 func lowerFile(f File) (filespine.Contribution, error) {
