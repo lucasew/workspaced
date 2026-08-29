@@ -1,0 +1,49 @@
+package native
+
+import (
+	"context"
+	"fmt"
+	"github.com/lucasew/workspaced/pkg/api"
+	"github.com/lucasew/workspaced/pkg/driver"
+	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
+	"os/exec"
+)
+
+type Factory struct{}
+
+func (f *Factory) ID() string {
+	return "exec_native"
+}
+
+func (f *Factory) Name() string {
+	return "Native"
+}
+
+func (f *Factory) CheckCompatibility(ctx context.Context) error {
+	// Always compatible
+	return nil
+}
+
+func (f *Factory) New(ctx context.Context) (execdriver.Driver, error) {
+	return &Driver{}, nil
+}
+
+type Driver struct{}
+
+func (d *Driver) Run(ctx context.Context, name string, args ...string) *exec.Cmd {
+	// Use standard exec.CommandContext - works fine on normal Linux/macOS
+	return exec.CommandContext(ctx, name, args...)
+}
+
+func (d *Driver) Which(ctx context.Context, name string) (string, error) {
+	// Use standard LookPath - works fine on normal systems
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", api.ErrBinaryNotFound, name)
+	}
+	return path, nil
+}
+
+func init() {
+	driver.Register[execdriver.Driver](&Factory{})
+}
