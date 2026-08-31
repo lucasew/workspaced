@@ -17,14 +17,11 @@ func (s Source) GetJSON(ctx context.Context, url string, out any) error {
 		return fmt.Errorf("get http client driver: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := githubutil.NewAPIRequest(ctx, http.MethodGet, url)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	githubutil.ApplyAuth(ctx, req)
 	resp, err := httpDriver.Client().Do(req)
 	if err != nil {
 		return err

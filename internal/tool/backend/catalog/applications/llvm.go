@@ -40,13 +40,10 @@ func (t *llvmTool) ListVersions(ctx context.Context) ([]string, error) {
 	// remain visible in the catalog. The generic github backend only gets the
 	// default first page (~30).
 	u := "https://api.github.com/repos/llvm/llvm-project/releases?per_page=100"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := githubutil.NewAPIRequest(ctx, http.MethodGet, u)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	githubutil.ApplyAuth(ctx, req)
 
 	hc, err := driver.Get[httpclient.Driver](ctx)
 	if err != nil {

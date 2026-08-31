@@ -45,7 +45,7 @@ func fetchAndExtractTarballURL(ctx context.Context, url string, destDir string, 
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+	req.Header.Set("User-Agent", githubutil.UserAgent)
 	githubutil.ApplyAuth(ctx, req)
 
 	httpDriver, err := driver.Get[httpclientdriver.Driver](ctx)

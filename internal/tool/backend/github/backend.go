@@ -78,22 +78,7 @@ func (p *Backend) ListVersions(ctx context.Context, pkg backend.PackageConfig) (
 	logger := logging.GetLogger(ctx)
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases", pkg.Repo)
 	logger.Debug("fetching versions", "url", url)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	githubutil.ApplyAuth(ctx, req)
-
-	// Use httpclient driver
-	httpClient, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get http client: %w", err)
-	}
-
-	resp, err := httpClient.Client().Do(req)
+	resp, err := doAPI(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +120,18 @@ func releaseTags(releases []release, includePrerelease bool) []string {
 	return versions
 }
 
+func doAPI(ctx context.Context, rawURL string) (*http.Response, error) {
+	req, err := githubutil.NewAPIRequest(ctx, http.MethodGet, rawURL)
+	if err != nil {
+		return nil, err
+	}
+	httpClient, err := driver.Get[httpclient.Driver](ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get http client: %w", err)
+	}
+	return httpClient.Client().Do(req)
+}
+
 // apiErrorFromResponse turns a non-OK GitHub API response into ErrAPIError.
 // When the body is readable, rate-limit wording is detected; if ReadAll fails,
 // fall back to a status-only message that includes the read error.
@@ -161,22 +158,7 @@ func (p *Backend) GetArtifacts(ctx context.Context, pkg backend.PackageConfig, v
 	}
 	logger.Debug("fetching release info", "url", url)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	githubutil.ApplyAuth(ctx, req)
-
-	// Use httpclient driver
-	httpClient, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get http client: %w", err)
-	}
-
-	resp, err := httpClient.Client().Do(req)
+	resp, err := doAPI(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -232,8 +214,7 @@ func (p *Backend) Install(ctx context.Context, artifact backend.Artifact, destPa
 	// artifact metadata) to the authenticated API asset endpoint.
 	browserURL := artifact.URL
 	configure := func(req *http.Request) {
-		githubutil.ApplyAuth(ctx, req)
-		req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
+		githubutil.ApplyAPIHeaders(ctx, req)
 	}
 
 	// For GitHub release assets, when we have a token, rewrite the outgoing
@@ -245,12 +226,10 @@ func (p *Backend) Install(ctx context.Context, artifact backend.Artifact, destPa
 		if token := githubutil.Token(ctx); token != "" {
 			if apiURL, err := url.Parse(artifact.GitHubAssetAPIURL); err == nil {
 				configure = func(req *http.Request) {
-					githubutil.ApplyAuth(ctx, req)
 					req.URL = apiURL
 					req.Host = apiURL.Host
 					req.Header.Set("Accept", "application/octet-stream")
-					req.Header.Set("User-Agent", "workspaced (+https://github.com/lucasew/.dotfiles)")
-					req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+					githubutil.ApplyAPIHeaders(ctx, req)
 				}
 			}
 		}
