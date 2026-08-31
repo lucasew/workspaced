@@ -187,3 +187,16 @@ func getJSON(ctx context.Context, u string, dest any) error {
 	defer logging.Close(ctx, resp.Body)
 	return json.NewDecoder(resp.Body).Decode(dest)
 }
+
+// parseGNUHashFile maps filename → digest from GNU coreutils hash listings
+// (SHA-256.txt, SHASUMS256.txt): one "digest  filename" pair per line.
+func parseGNUHashFile(b []byte) map[string]string {
+	m := map[string]string{}
+	for line := range strings.SplitSeq(string(b), "\n") {
+		fs := strings.Fields(line)
+		if len(fs) >= 2 {
+			m[fs[1]] = fs[0]
+		}
+	}
+	return m
+}

@@ -3,8 +3,6 @@ package apps
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -14,9 +12,6 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	"github.com/lucasew/workspaced/internal/tool/backend/github"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
-	"github.com/lucasew/workspaced/pkg/logging"
 )
 
 func init() {
@@ -226,34 +221,11 @@ func (t *cmakeTool) fetchManifest(ctx context.Context, dir, ver string) (cmakeFi
 
 func (t *cmakeTool) fetchSHA256(ctx context.Context, dir, ver, filename string) (string, error) {
 	u := fmt.Sprintf("https://cmake.org/files/%s/cmake-%s-SHA-256.txt", dir, ver)
-	hc, err := driver.Get[httpclient.Driver](ctx)
+	b, err := getBytes(ctx, u)
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return "", err
-	}
-	resp, err := hc.Client().Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer logging.Close(ctx, resp.Body)
-	if resp.StatusCode != http.StatusOK {
-		// Some very old releases may lack it; non-fatal.
-		return "", nil
-	}
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		fs := strings.Fields(line)
-		if len(fs) >= 2 && fs[1] == filename {
-			return fs[0], nil
-		}
-	}
-	return "", nil
+	return parseGNUHashFile(b)[filename], nil
 }
 
 func (t *cmakeTool) InstallChecks() []checks.Check {

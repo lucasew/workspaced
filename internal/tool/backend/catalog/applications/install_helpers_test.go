@@ -167,3 +167,17 @@ func TestHTTPGetHelpers(t *testing.T) {
 		}
 	})
 }
+
+func TestParseGNUHashFile(t *testing.T) {
+	t.Parallel()
+	got := parseGNUHashFile([]byte("abc123  foo.tar.gz\n# comment\ndef456  bar.zip\nmalformed\n"))
+	if got["foo.tar.gz"] != "abc123" {
+		t.Fatalf("foo.tar.gz = %q, want abc123", got["foo.tar.gz"])
+	}
+	if got["bar.zip"] != "def456" {
+		t.Fatalf("bar.zip = %q, want def456", got["bar.zip"])
+	}
+	if _, ok := got["malformed"]; ok {
+		t.Fatalf("unexpected entry for malformed line: %v", got)
+	}
+}
