@@ -374,6 +374,24 @@ func TestXMLRejectsBadName(t *testing.T) {
 	}
 }
 
+func TestStructuredRejectsUnsupportedScalar(t *testing.T) {
+	t.Parallel()
+	for _, typ := range []string{TypeINI, TypeXML} {
+		t.Run(typ, func(t *testing.T) {
+			t.Parallel()
+			f := File{
+				Path: "a." + typ,
+				Type: typ,
+				Data: map[string]any{"x": []byte("nope")},
+			}
+			_, err := Encode(f)
+			if !errors.Is(err, ErrUnsupportedValue) {
+				t.Fatalf("err = %v, want ErrUnsupportedValue", err)
+			}
+		})
+	}
+}
+
 func TestINIRejectsNestedSection(t *testing.T) {
 	t.Parallel()
 	f := File{
