@@ -2,7 +2,6 @@ package rofi
 
 import (
 	"context"
-	"strings"
 
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
@@ -35,47 +34,7 @@ func checkRofi(ctx context.Context) error {
 type Driver struct{}
 
 func (d *Driver) Choose(ctx context.Context, opts dialog.ChooseOptions) (*dialog.Item, error) {
-	var input strings.Builder
-	for _, item := range opts.Items {
-		label := item.Label
-		if label == "" {
-			label = item.Value
-		}
-		input.WriteString(label)
-		if item.Icon != "" {
-			input.WriteString("\x00icon\x1f")
-			input.WriteString(item.Icon)
-		}
-		input.WriteString("\n")
-	}
-
-	args := []string{"-dmenu", "-p", opts.Prompt}
-	args = append(args, "-show-icons")
-
-	cmd := execdriver.MustRun(ctx, "rofi", args...)
-	cmd.Stdin = strings.NewReader(input.String())
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	selected := strings.TrimSpace(string(out))
-	if selected == "" {
-		return nil, nil
-	}
-
-	for _, item := range opts.Items {
-		label := item.Label
-		if label == "" {
-			label = item.Value
-		}
-		if selected == label {
-			return &item, nil
-		}
-	}
-
-	return &dialog.Item{Label: selected, Value: selected}, nil
+	return dialog.ChooseViaCmd(ctx, opts, "rofi", true, "-dmenu", "-p", opts.Prompt, "-show-icons")
 }
 
 func (d *Driver) RunApp(ctx context.Context) error {
