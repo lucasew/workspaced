@@ -2,10 +2,10 @@ package wofi
 
 import (
 	"context"
+
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"strings"
 )
 
 func init() {
@@ -34,42 +34,7 @@ func checkWofi(ctx context.Context) error {
 type Driver struct{}
 
 func (d *Driver) Choose(ctx context.Context, opts dialog.ChooseOptions) (*dialog.Item, error) {
-	var input strings.Builder
-	for _, item := range opts.Items {
-		label := item.Label
-		if label == "" {
-			label = item.Value
-		}
-		input.WriteString(label)
-		input.WriteString("\n")
-	}
-
-	args := []string{"--dmenu", "-p", opts.Prompt}
-
-	cmd := execdriver.MustRun(ctx, "wofi", args...)
-	cmd.Stdin = strings.NewReader(input.String())
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	selected := strings.TrimSpace(string(out))
-	if selected == "" {
-		return nil, nil
-	}
-
-	for _, item := range opts.Items {
-		label := item.Label
-		if label == "" {
-			label = item.Value
-		}
-		if selected == label {
-			return &item, nil
-		}
-	}
-
-	return &dialog.Item{Label: selected, Value: selected}, nil
+	return dialog.ChooseViaCmd(ctx, opts, "wofi", false, "--dmenu", "-p", opts.Prompt)
 }
 
 func (d *Driver) RunApp(ctx context.Context) error {
