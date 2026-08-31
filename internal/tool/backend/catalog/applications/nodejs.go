@@ -107,14 +107,7 @@ func (t *nodejsTool) fetchShasums(ctx context.Context, ver string) (map[string]s
 	if err != nil {
 		return nil, err
 	}
-	m := map[string]string{}
-	for _, line := range strings.Split(string(b), "\n") {
-		fs := strings.Fields(line)
-		if len(fs) >= 2 {
-			m[fs[1]] = fs[0]
-		}
-	}
-	return m, nil
+	return parseGNUHashFile(b), nil
 }
 
 func (t *nodejsTool) nodePlatformAndExt() (osPart, archPart, ext string) {

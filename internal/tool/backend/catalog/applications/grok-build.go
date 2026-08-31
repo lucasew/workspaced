@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -16,9 +15,7 @@ import (
 	"github.com/lucasew/workspaced/internal/tool/backend/catalog"
 	providerinstall "github.com/lucasew/workspaced/internal/tool/backend/install"
 	"github.com/lucasew/workspaced/internal/tool/checks"
-	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
-	"github.com/lucasew/workspaced/pkg/driver/httpclient"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -130,36 +127,17 @@ func (t *grokBuildTool) EnsureBinary(ctx context.Context, version string, cmdNam
 // --- grok-specific bits (follows https://x.ai/cli/install.sh artifact layout) ---
 
 func (t *grokBuildTool) probeLatest(ctx context.Context) (string, error) {
-	hc, err := driver.Get[httpclient.Driver](ctx)
-	if err != nil {
-		return "", err
-	}
 	for _, base := range []string{
 		"https://x.ai/cli",
 		"https://storage.googleapis.com/grok-build-public-artifacts/cli",
 	} {
-		u := base + "/stable"
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		b, err := getBytes(ctx, base+"/stable")
 		if err != nil {
 			continue
 		}
-		resp, err := hc.Client().Do(req)
-		if err != nil {
-			continue
+		if s := strings.TrimSpace(string(b)); s != "" {
+			return s, nil
 		}
-		if resp.StatusCode == http.StatusOK {
-			b, err := io.ReadAll(resp.Body)
-			logging.Close(ctx, resp.Body)
-			if err != nil {
-				// Read failure: treat as empty body and try the next channel.
-				continue
-			}
-			if s := strings.TrimSpace(string(b)); s != "" {
-				return s, nil
-			}
-			continue
-		}
-		logging.Close(ctx, resp.Body)
 	}
 	return "", ErrGrokBuildProbeFailure
 }
