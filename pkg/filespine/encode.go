@@ -206,30 +206,11 @@ func encodeINI(data map[string]any) ([]byte, error) {
 }
 
 func iniLine(key string, v any) (string, error) {
-	s, err := iniScalar(v)
+	s, err := formatScalar("ini", v)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", key, err)
 	}
 	return key + " = " + s, nil
-}
-
-func iniScalar(v any) (string, error) {
-	switch x := v.(type) {
-	case string:
-		return x, nil
-	case bool:
-		return strconv.FormatBool(x), nil
-	case int64:
-		return strconv.FormatInt(x, 10), nil
-	case int:
-		return strconv.Itoa(x), nil
-	case float64:
-		return strconv.FormatFloat(x, 'g', -1, 64), nil
-	case nil:
-		return "", nil
-	default:
-		return "", fmt.Errorf("ini: %w: %T", ErrUnsupportedValue, v)
-	}
 }
 
 type xmlEnc struct {
@@ -310,7 +291,7 @@ func (e xmlEnc) node(name string, v any, indent int) error {
 		_, err := fmt.Fprintf(e.buf, "</%s>", name)
 		return err
 	default:
-		s, err := xmlScalar(v)
+		s, err := formatScalar("xml", v)
 		if err != nil {
 			return fmt.Errorf("%s: %w", name, err)
 		}
@@ -337,7 +318,7 @@ func (e xmlEnc) indent(n int) error {
 	return nil
 }
 
-func xmlScalar(v any) (string, error) {
+func formatScalar(kind string, v any) (string, error) {
 	switch x := v.(type) {
 	case string:
 		return x, nil
@@ -352,7 +333,7 @@ func xmlScalar(v any) (string, error) {
 	case nil:
 		return "", nil
 	default:
-		return "", fmt.Errorf("xml: %w: %T", ErrUnsupportedValue, v)
+		return "", fmt.Errorf("%s: %w: %T", kind, ErrUnsupportedValue, v)
 	}
 }
 
