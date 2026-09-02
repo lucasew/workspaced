@@ -363,13 +363,13 @@ type compiledLayer struct {
 }
 
 func buildResolvedModuleLayers(configValue cue.Value, paths []string, discovered []Layer) ([]compiledLayer, []compiledLayer, error) {
-	configJSON, err := configValue.MarshalJSON()
+	raw, err := decodeReadyMap(configValue)
 	if err != nil {
-		return nil, nil, fmt.Errorf("marshal cue config before module config resolution: %w", err)
-	}
-	var raw map[string]any
-	if err := json.Unmarshal(configJSON, &raw); err != nil {
 		return nil, nil, fmt.Errorf("decode cue config before module config resolution: %w", err)
+	}
+	configJSON, err := json.Marshal(raw)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode cue config before module config resolution: %w", err)
 	}
 	cfg, err := decodeConfig(configJSON)
 	if err != nil {
@@ -429,13 +429,13 @@ func buildModuleFileLayers(configValue cue.Value, paths []string, discovered []L
 	if !configValue.Exists() {
 		return nil, nil
 	}
-	configJSON, err := configValue.MarshalJSON()
+	raw, err := decodeReadyMap(configValue)
 	if err != nil {
-		return nil, fmt.Errorf("marshal cue config before module file resolution: %w", err)
-	}
-	var raw map[string]any
-	if err := json.Unmarshal(configJSON, &raw); err != nil {
 		return nil, fmt.Errorf("decode cue config before module file resolution: %w", err)
+	}
+	configJSON, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("encode cue config before module file resolution: %w", err)
 	}
 	cfg, err := decodeConfig(configJSON)
 	if err != nil {
@@ -891,13 +891,65 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 	return string(b), nil
 }
 
-func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []Layer) (map[string]map[string]any, error) {
-	b, err := configValue.MarshalJSON()
+// decodeReadyMap is a partial JSON view of v. Incomplete fields (for example
+// workspaced.file before a module supplies type) are omitted so input and
+// module resolution can run before the last unify.
+func decodeReadyMap(v cue.Value) (map[string]any, error) {
+	decoded, ok, err := decodeReadyValue(v)
 	if err != nil {
-		return nil, fmt.Errorf("marshal cue config for input resolution: %w", err)
+		return nil, err
 	}
-	var raw map[string]any
-	if err := json.Unmarshal(b, &raw); err != nil {
+	if !ok || decoded == nil {
+		return map[string]any{}, nil
+	}
+	m, ok := decoded.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("cue value is not a struct")
+	}
+	return m, nil
+}
+
+func decodeReadyValue(v cue.Value) (any, bool, error) {
+	if !v.Exists() {
+		return nil, false, nil
+	}
+	if err := v.Err(); err != nil {
+		return nil, false, err
+	}
+	if raw, err := v.MarshalJSON(); err == nil {
+		var out any
+		if err := json.Unmarshal(raw, &out); err != nil {
+			return nil, false, err
+		}
+		return out, true, nil
+	}
+	if v.IncompleteKind() != cue.StructKind {
+		return nil, false, nil
+	}
+	iter, err := v.Fields()
+	if err != nil {
+		return nil, false, nil
+	}
+	out := map[string]any{}
+	for iter.Next() {
+		child, ok, err := decodeReadyValue(iter.Value())
+		if err != nil {
+			return nil, false, err
+		}
+		if !ok {
+			continue
+		}
+		out[iter.Selector().Unquoted()] = child
+	}
+	if len(out) == 0 {
+		return nil, false, nil
+	}
+	return out, true, nil
+}
+
+func resolveRuntimeInputs(configValue cue.Value, paths []string, discovered []Layer) (map[string]map[string]any, error) {
+	raw, err := decodeReadyMap(configValue)
+	if err != nil {
 		return nil, fmt.Errorf("decode cue config for input resolution: %w", err)
 	}
 	inputsRaw, _ := raw["inputs"].(map[string]any)

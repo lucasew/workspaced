@@ -55,6 +55,43 @@ func TestResolveRuntimeInputs_decodeError(t *testing.T) {
 	}
 }
 
+func TestDecodeReadyMap_skipsIncompleteFileType(t *testing.T) {
+	cueCtx := cuecontext.New()
+	v := cueCtx.CompileString(`{
+		inputs: {self: {from: "self"}}
+		file: {
+			"x.toml": {
+				type: "json" | "toml" | "yaml"
+				values: {a: 1}
+			}
+		}
+	}`)
+	if err := v.Err(); err != nil {
+		t.Fatalf("compile cue: %v", err)
+	}
+	if _, err := v.MarshalJSON(); err == nil {
+		t.Fatal("full marshal should fail on incomplete file type")
+	}
+	got, err := decodeReadyMap(v)
+	if err != nil {
+		t.Fatalf("decodeReadyMap: %v", err)
+	}
+	inputs, _ := got["inputs"].(map[string]any)
+	self, _ := inputs["self"].(map[string]any)
+	if from, _ := self["from"].(string); from != "self" {
+		t.Fatalf("inputs.self.from = %#v", got["inputs"])
+	}
+	file, _ := got["file"].(map[string]any)
+	entry, _ := file["x.toml"].(map[string]any)
+	values, _ := entry["values"].(map[string]any)
+	if values["a"] != float64(1) && values["a"] != 1 {
+		t.Fatalf("file values = %#v, want a=1 without requiring type", got["file"])
+	}
+	if _, ok := entry["type"]; ok {
+		t.Fatalf("incomplete type should be omitted, got %#v", entry["type"])
+	}
+}
+
 func TestResolveRuntimeInputs_empty(t *testing.T) {
 	cueCtx := cuecontext.New()
 	v := cueCtx.CompileString(`{modules: {}}`)
