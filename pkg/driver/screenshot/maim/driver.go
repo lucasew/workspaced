@@ -1,7 +1,6 @@
 package maim
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/lucasew/workspaced/pkg/driver"
@@ -9,7 +8,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver/screenshot"
 	api "github.com/lucasew/workspaced/pkg/driver/wm"
 	"image"
-	_ "image/png"
 	"strings"
 )
 
@@ -59,16 +57,5 @@ func (d *Driver) Capture(ctx context.Context, rect *api.Rect) (image.Image, erro
 		args = append(args, "-g", fmt.Sprintf("%dx%d+%d+%d", rect.Width, rect.Height, rect.X, rect.Y))
 	}
 
-	cmd := execdriver.MustRun(ctx, "maim", args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("maim failed: %w", err)
-	}
-
-	img, _, err := image.Decode(bytes.NewReader(out))
-	if err != nil {
-		return nil, fmt.Errorf("decode maim output: %w", err)
-	}
-
-	return img, nil
+	return screenshot.CaptureViaCmd(ctx, "maim", args...)
 }
