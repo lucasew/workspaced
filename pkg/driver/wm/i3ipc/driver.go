@@ -2,8 +2,8 @@ package i3ipc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
 	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -59,25 +59,11 @@ func (d *Driver) ToggleScratchpad(ctx context.Context) error {
 }
 
 func (d *Driver) GetOutputs(ctx context.Context) ([]api.Output, error) {
-	return getIPCJSON[[]api.Output](ctx, d.Binary, "get_outputs")
+	return api.JSONViaCmd[[]api.Output](ctx, d.Binary, "-t", "get_outputs")
 }
 
 func (d *Driver) GetWorkspaces(ctx context.Context) ([]api.Workspace, error) {
-	return getIPCJSON[[]api.Workspace](ctx, d.Binary, "get_workspaces")
-}
-
-// getIPCJSON runs `binary -t <msg>` and unmarshals the JSON reply into T.
-func getIPCJSON[T any](ctx context.Context, binary, msg string) (T, error) {
-	var zero T
-	out, err := execdriver.MustRun(ctx, binary, "-t", msg).Output()
-	if err != nil {
-		return zero, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	var v T
-	if err := json.Unmarshal(out, &v); err != nil {
-		return zero, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	return v, nil
+	return api.JSONViaCmd[[]api.Workspace](ctx, d.Binary, "-t", "get_workspaces")
 }
 
 func (d *Driver) GetFocusedOutput(ctx context.Context) (string, *api.Rect, error) {
@@ -117,14 +103,9 @@ func (d *Driver) GetFocusedOutput(ctx context.Context) (string, *api.Rect, error
 }
 
 func (d *Driver) GetFocusedWindowRect(ctx context.Context) (*api.Rect, error) {
-	out, err := execdriver.MustRun(ctx, d.Binary, "-t", "get_tree").Output()
+	root, err := api.JSONViaCmd[api.Node](ctx, d.Binary, "-t", "get_tree")
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-
-	var root api.Node
-	if err := json.Unmarshal(out, &root); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+		return nil, err
 	}
 
 	found := findFocusedNode(&root)

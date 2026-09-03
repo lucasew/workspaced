@@ -2,8 +2,8 @@ package hyprland
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+
 	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
@@ -49,11 +49,7 @@ func (d *Driver) ToggleScratchpad(ctx context.Context) error {
 }
 
 func (d *Driver) GetOutputs(ctx context.Context) ([]api.Output, error) {
-	out, err := execdriver.MustRun(ctx, "hyprctl", "monitors", "-j").Output()
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	var monitors []struct {
+	monitors, err := api.JSONViaCmd[[]struct {
 		Name            string `json:"name"`
 		Focused         bool   `json:"focused"`
 		X               int    `json:"x"`
@@ -63,9 +59,9 @@ func (d *Driver) GetOutputs(ctx context.Context) ([]api.Output, error) {
 		ActiveWorkspace struct {
 			Name string `json:"name"`
 		} `json:"activeWorkspace"`
-	}
-	if err := json.Unmarshal(out, &monitors); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	}](ctx, "hyprctl", "monitors", "-j")
+	if err != nil {
+		return nil, err
 	}
 	var outputs []api.Output
 	for _, m := range monitors {
@@ -80,27 +76,19 @@ func (d *Driver) GetOutputs(ctx context.Context) ([]api.Output, error) {
 }
 
 func (d *Driver) GetWorkspaces(ctx context.Context) ([]api.Workspace, error) {
-	out, err := execdriver.MustRun(ctx, "hyprctl", "workspaces", "-j").Output()
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	var workspaces []struct {
+	workspaces, err := api.JSONViaCmd[[]struct {
 		Name    string `json:"name"`
 		Monitor string `json:"monitor"`
-	}
-	if err := json.Unmarshal(out, &workspaces); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	}](ctx, "hyprctl", "workspaces", "-j")
+	if err != nil {
+		return nil, err
 	}
 
-	activeWSOut, err := execdriver.MustRun(ctx, "hyprctl", "activeworkspace", "-j").Output()
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	var activeWS struct {
+	activeWS, err := api.JSONViaCmd[struct {
 		Name string `json:"name"`
-	}
-	if err := json.Unmarshal(activeWSOut, &activeWS); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	}](ctx, "hyprctl", "activeworkspace", "-j")
+	if err != nil {
+		return nil, err
 	}
 
 	var result []api.Workspace
@@ -128,16 +116,12 @@ func (d *Driver) GetFocusedOutput(ctx context.Context) (string, *api.Rect, error
 }
 
 func (d *Driver) GetFocusedWindowRect(ctx context.Context) (*api.Rect, error) {
-	out, err := execdriver.MustRun(ctx, "hyprctl", "activewindow", "-j").Output()
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
-	}
-	var win struct {
+	win, err := api.JSONViaCmd[struct {
 		At   []int `json:"at"`
 		Size []int `json:"size"`
-	}
-	if err := json.Unmarshal(out, &win); err != nil {
-		return nil, fmt.Errorf("%w: %w", dapi.ErrIPC, err)
+	}](ctx, "hyprctl", "activewindow", "-j")
+	if err != nil {
+		return nil, err
 	}
 	if len(win.At) != 2 || len(win.Size) != 2 {
 		return nil, fmt.Errorf("%w: invalid hyprland active window geometry", dapi.ErrIPC)
