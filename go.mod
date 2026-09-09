@@ -1,6 +1,6 @@
 module github.com/lucasew/workspaced
 
-go 1.25.6
+go 1.26.0
 
 require (
 	charm.land/bubbletea/v2 v2.0.7
@@ -21,7 +21,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/image v0.42.0
-	golang.org/x/sys v0.46.0
+	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.52.0
 )
 
