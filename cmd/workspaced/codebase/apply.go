@@ -98,7 +98,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 
 		stdOpts := source.StandardDotfilesOptions{
 			ConfigTreeTarget: workspaceRoot,
-			RelocateTo:       workspaceRoot,
+			KeepTarget:       workspaceRoot,
 			ModulesDir:       modulesDir,
 			ModulesCfg:       cfg,
 		}
