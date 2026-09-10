@@ -13,6 +13,7 @@ import (
 	"github.com/git-pkgs/gitignore"
 	"github.com/lucasew/workspaced/internal/module"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -83,6 +84,9 @@ type placeStepRun struct {
 
 func (placeModule) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
 	logger := logging.GetLogger(ctx)
+	if !filespine.NamespaceVisible(req.Config.RuntimeMode(), filespine.ModeHome) {
+		return module.ResolveResult{}, nil
+	}
 
 	cfg, err := module.DecodeConfig[placeConfig](req.ModuleConfig)
 	if err != nil {

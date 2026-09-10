@@ -78,13 +78,6 @@ type StandardDotfilesOptions struct {
 	// ModulesCfg is the config passed to the module scanner.
 	ModulesCfg *configcue.Config
 
-	// KeepTarget, if non-empty, keeps only files whose TargetBase is this root.
-	// Codebase apply uses this so home/etc presets stay off the repo.
-	KeepTarget string
-	// DropTarget, if non-empty, drops files whose TargetBase is this root.
-	// Home apply uses this so the codebase preset is left for codebase apply.
-	DropTarget string
-
 	// Extra providers run before the config tree and module scanners.
 	Extra []Plugin
 }
@@ -97,7 +90,7 @@ func (opts StandardDotfilesOptions) Builder(cfg *configcue.Config) (Builder, err
 	}
 	return Builder{
 		Config:     cfg,
-		TargetBase: standardTarget(opts),
+		TargetBase: opts.ConfigTreeTarget,
 		Providers:  providers,
 	}, nil
 }
@@ -116,10 +109,6 @@ func NewStandardDotfilesPipeline(
 	p.AddPlugin(NewTemplateExpanderPlugin(template.NewEngine(ctx), cfg))
 	p.AddPlugin(NewFileSpinePlugin(cfg, b.TargetBase))
 	return p, nil
-}
-
-func standardTarget(opts StandardDotfilesOptions) string {
-	return opts.ConfigTreeTarget
 }
 
 func standardProviders(opts StandardDotfilesOptions) ([]Plugin, error) {
@@ -144,11 +133,5 @@ func standardProviders(opts StandardDotfilesOptions) ([]Plugin, error) {
 		providers = append(providers, NewModuleScannerPlugin(opts.ModulesDir, opts.ModulesCfg, 100))
 	}
 
-	if opts.KeepTarget != "" {
-		providers = append(providers, NewKeepTargetPlugin(opts.KeepTarget))
-	}
-	if opts.DropTarget != "" {
-		providers = append(providers, NewDropTargetPlugin(opts.DropTarget))
-	}
 	return providers, nil
 }

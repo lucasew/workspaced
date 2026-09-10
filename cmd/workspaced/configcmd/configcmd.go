@@ -34,7 +34,7 @@ func (o Options) discover() (configcue.DiscoverOptions, error) {
 	if o.HomeMode {
 		mode = filespine.ModeHome
 	}
-	return configcue.DiscoverOptions{Cwd: cwd, HomeMode: o.HomeMode, Mode: mode}, nil
+	return configcue.DiscoverOptions{Cwd: cwd, HomeLayers: o.HomeMode, Mode: mode}, nil
 }
 
 func (o Options) load(ctx context.Context) (*configcue.Config, error) {

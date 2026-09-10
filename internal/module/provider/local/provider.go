@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/lucasew/workspaced/internal/module"
 	"github.com/lucasew/workspaced/internal/modulecue"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,6 +94,13 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir)
 		if err != nil {
 			return module.ResolveResult{}, fmt.Errorf("%w in module %q", err, req.Ref)
+		}
+		mode := filespine.ModeHome
+		if req.Config != nil {
+			mode = req.Config.RuntimeMode()
+		}
+		if !filespine.NamespaceVisible(mode, presetName) {
+			continue
 		}
 
 		presetPath := filepath.Join(modPath, presetName)

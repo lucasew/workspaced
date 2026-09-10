@@ -48,19 +48,17 @@ type Layer struct {
 }
 
 type DiscoverOptions struct {
-	Cwd      string
-	HomeMode bool
+	Cwd string
 	// Mode is injected as workspaced.runtime.mode (home, codebase, system).
-	// Empty means home when HomeMode is set, otherwise codebase.
 	Mode string
+	// HomeLayers uses home discovery and prelude_home. Independent of Mode
+	// so codebase apply in $DOTFILES can keep home layers.
+	HomeLayers bool
 }
 
 func (o DiscoverOptions) RuntimeMode() string {
 	if o.Mode != "" {
 		return o.Mode
-	}
-	if o.HomeMode {
-		return filespine.ModeHome
 	}
 	return filespine.ModeCodebase
 }
@@ -78,7 +76,7 @@ type EvaluationResult struct {
 func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, error) {
 	layers := make([]Layer, 0)
 
-	if !opts.HomeMode {
+	if !opts.HomeLayers {
 		repoPath, err := ResolveWorkspaceCuePath(ctx, opts.Cwd)
 		if err != nil {
 			return DiscoverResult{}, err
@@ -88,7 +86,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 		}
 	}
 
-	if opts.HomeMode {
+	if opts.HomeLayers {
 		dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 		if err == nil && dotfilesRoot != "" {
 			p := filepath.Join(dotfilesRoot, "workspaced.cue")
@@ -98,7 +96,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 		}
 	}
 
-	if opts.HomeMode {
+	if opts.HomeLayers {
 		homeDir, err := envdriver.ResolveHomeDir()
 		if err == nil && homeDir != "" {
 			p := filepath.Join(homeDir, "workspaced.cue")
@@ -108,7 +106,7 @@ func DiscoverLayers(ctx context.Context, opts DiscoverOptions) (DiscoverResult, 
 		}
 	}
 
-	if opts.HomeMode {
+	if opts.HomeLayers {
 		configDir, err := envdriver.GetConfigDir(ctx)
 		if err == nil && configDir != "" {
 			p := filepath.Join(configDir, "workspaced.cue")
@@ -189,8 +187,11 @@ func ExportJSONFromPaths(ctx context.Context, paths []string) ([]byte, error) {
 	return exportJSONFromPaths(ctx, paths, nil, false)
 }
 
-func exportJSONFromPaths(ctx context.Context, paths []string, discovered []Layer, homeMode bool) ([]byte, error) {
-	opts := DiscoverOptions{HomeMode: homeMode}
+func exportJSONFromPaths(ctx context.Context, paths []string, discovered []Layer, homeLayers bool) ([]byte, error) {
+	opts := DiscoverOptions{HomeLayers: homeLayers, Mode: filespine.ModeCodebase}
+	if homeLayers {
+		opts.Mode = filespine.ModeHome
+	}
 	configValue, err := buildWorkspacedValue(ctx, paths, discovered, opts)
 	if err != nil {
 		return nil, err
@@ -200,13 +201,13 @@ func exportJSONFromPaths(ctx context.Context, paths []string, discovered []Layer
 
 func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Layer, opts DiscoverOptions) (cue.Value, error) {
 	mode := opts.RuntimeMode()
-	homeMode := opts.HomeMode
+	homeLayers := opts.HomeLayers
 	baseRuntimePrelude, err := buildRuntimePrelude(ctx, nil, mode)
 	if err != nil {
 		return cue.Value{}, err
 	}
 	cueCtx := cuecontext.New()
-	initialValue, err := compileWorkspacedValueWithContext(cueCtx, paths, baseRuntimePrelude, homeMode, nil, nil)
+	initialValue, err := compileWorkspacedValueWithContext(cueCtx, paths, baseRuntimePrelude, homeLayers, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -218,7 +219,7 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 	if err != nil {
 		return cue.Value{}, err
 	}
-	baseConfigValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeMode, nil, nil)
+	baseConfigValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, nil, nil)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -226,7 +227,7 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 	if err != nil {
 		return cue.Value{}, err
 	}
-	configValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeMode, preLayers, postLayers)
+	configValue, err := compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, preLayers, postLayers)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -238,10 +239,10 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 		return configValue, nil
 	}
 	postWithFiles := append(append([]compiledLayer{}, postLayers...), fileLayers...)
-	return compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeMode, preLayers, postWithFiles)
+	return compileWorkspacedValueWithContext(cueCtx, paths, runtimePrelude, homeLayers, preLayers, postWithFiles)
 }
 
-func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeMode bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
+func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtimePrelude string, homeLayers bool, preLayers []compiledLayer, postLayers []compiledLayer) (cue.Value, error) {
 	schemaBytes, err := schemaFS.ReadFile("schema.cue")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("read embedded cue schema: %w", err)
@@ -251,7 +252,7 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 		return cue.Value{}, fmt.Errorf("read embedded cue prelude_common: %w", err)
 	}
 	preludeVariantFile := "prelude_codebase.cue"
-	if homeMode {
+	if homeLayers {
 		preludeVariantFile = "prelude_home.cue"
 	}
 	preludeVariantBytes, err := schemaFS.ReadFile(preludeVariantFile)

@@ -67,7 +67,7 @@ func ParseRoot(fileValue cue.Value, opts ParseRootOptions) (map[string]File, err
 	for iter.Next() {
 		name := iter.Selector().Unquoted()
 		if IsNamespace(name) {
-			if !namespaceVisible(mode, name) {
+			if !NamespaceVisible(mode, name) {
 				continue
 			}
 			tree, err := parseTree(name, iter.Value())
@@ -119,7 +119,8 @@ func parseTree(ns string, v cue.Value) (map[string]File, error) {
 	return out, nil
 }
 
-func namespaceVisible(mode, ns string) bool {
+// NamespaceVisible reports whether dest namespace ns is emitted for mode.
+func NamespaceVisible(mode, ns string) bool {
 	switch mode {
 	case ModeCodebase:
 		return ns == "codebase"

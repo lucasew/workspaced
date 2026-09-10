@@ -85,7 +85,6 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 			ConfigTreeTarget: home,
 			ModulesDir:       modulesDir,
 			ModulesCfg:       cfg,
-			DropTarget:       ws.Root,
 			Extra:            []source.Plugin{&apply.DconfPlugin{}},
 		}.Builder(cfg)
 		if err != nil {
