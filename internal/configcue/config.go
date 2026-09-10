@@ -35,9 +35,34 @@ func (c *Config) Cue() cue.Value {
 	return c.cueVal
 }
 
-// FileMap is workspaced.file after unify.
+// FileMap is workspaced.file after unify, filtered by runtime.mode.
+// Flat keys and file.home are home. file.codebase is the repo tree.
 func (c *Config) FileMap() (map[string]filespine.File, error) {
-	return filespine.ParseAt(c.Cue(), "file")
+	if c == nil {
+		return map[string]filespine.File{}, nil
+	}
+	fileVal := c.Cue().LookupPath(cue.ParsePath("file"))
+	return filespine.ParseRoot(fileVal, filespine.ParseRootOptions{Mode: c.RuntimeMode()})
+}
+
+// RuntimeMode is workspaced.runtime.mode. Missing mode is home.
+func (c *Config) RuntimeMode() string {
+	if c == nil {
+		return filespine.ModeHome
+	}
+	if v := c.Cue(); v.Exists() {
+		s, err := v.LookupPath(cue.ParsePath("runtime.mode")).String()
+		if err == nil && s != "" {
+			return s
+		}
+	}
+	raw, _ := c.Raw()["runtime"].(map[string]any)
+	if raw != nil {
+		if s, ok := raw["mode"].(string); ok && s != "" {
+			return s
+		}
+	}
+	return filespine.ModeHome
 }
 
 type Input struct {
@@ -161,11 +186,15 @@ func Load(ctx context.Context) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return loadConfig(ctx, DiscoverOptions{Cwd: cwd})
+	return loadConfig(ctx, DiscoverOptions{Cwd: cwd, Mode: filespine.ModeCodebase})
 }
 
 func LoadHome(ctx context.Context) (*Config, error) {
-	return loadConfig(ctx, DiscoverOptions{HomeMode: true})
+	return loadConfig(ctx, DiscoverOptions{HomeMode: true, Mode: filespine.ModeHome})
+}
+
+func LoadSystem(ctx context.Context) (*Config, error) {
+	return loadConfig(ctx, DiscoverOptions{HomeMode: true, Mode: filespine.ModeSystem})
 }
 
 func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
@@ -176,16 +205,16 @@ func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
 
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err == nil && filepath.Clean(dotfilesRoot) == filepath.Clean(root) {
-		return LoadHome(ctx)
+		return loadConfig(ctx, DiscoverOptions{HomeMode: true, Mode: filespine.ModeCodebase})
 	}
-	return loadConfig(ctx, DiscoverOptions{Cwd: root})
+	return loadConfig(ctx, DiscoverOptions{Cwd: root, Mode: filespine.ModeCodebase})
 }
 
 func LoadFiles(ctx context.Context, paths []string) (*Config, error) {
 	if len(paths) == 0 {
 		return Load(ctx)
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, nil, false)
+	configValue, err := buildWorkspacedValue(ctx, paths, nil, DiscoverOptions{Mode: filespine.ModeHome})
 	if err != nil {
 		return nil, err
 	}

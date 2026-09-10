@@ -11,10 +11,12 @@ Implementation: `pkg/filespine`. CUE schema is `pkg/filespine/file.cue`; hosts m
 
 `fs.FS` name. No leading `/`. No `~`. No `..`.
 
-| Command | `Open(".bashrc")` |
-|---|---|
-| `home apply` | `$HOME/.bashrc` |
-| `codebase apply` | `<repo>/.bashrc` |
+| Command | CUE tree | `Open(".bashrc")` |
+|---|---|---|
+| `home apply` | flat keys + `file.home` (and `file.etc` / …) | `$HOME/.bashrc` |
+| `codebase apply` | `file.codebase` | `<repo>/.bashrc` |
+
+`workspaced.runtime.mode` is `"home"`, `"codebase"`, or `"system"`. Flat dests (`file.".codex/config.toml"`) are home. Namespaces match module presets: `file.home`, `file.codebase`, `file.etc`, …
 
 ## File types
 
@@ -54,7 +56,8 @@ module: file: {
 
 `module.file` can read `workspaced.*` (runtime, other module config). Only
 enabled modules contribute. Host `workspaced.file` still works and unifies
-with the same keys.
+with the same keys. Nested `module.file.home` / `module.file.codebase` lift
+into those namespaces; a flat map is home.
 
 ## Lowering
 
@@ -77,11 +80,19 @@ and no namespaces. A `.json.tmpl` on disk still lowers as `text`, not as `json`.
 ## Example
 
 ```cue
-workspaced: file: ".bashrc": {
+workspaced: file: home: ".bashrc": {
 	type: "lines"
 	values: {
 		"00-umask": "umask 022"
 		"10-path":  {kind: "text", text: "export PATH=$HOME/bin:$PATH"}
+	}
+}
+
+// Same dest; flat keys are home (compatible with older cue).
+workspaced: file: ".bashrc": {
+	type: "lines"
+	values: {
+		"00-umask": "umask 022"
 	}
 }
 
@@ -96,6 +107,5 @@ workspaced: file: ".config/foo.json": {
 
 ## Out of scope
 
-- `file.home` vs `file.codebase` namespaces
 - writable dest FS
 - `runtime.env`

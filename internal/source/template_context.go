@@ -63,6 +63,11 @@ func buildTemplateData(ctx context.Context, cfg *configcue.Config, f File) (map[
 	if dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx); err == nil && dotfilesRoot != "" {
 		runtimeData["dotfiles_root"] = dotfilesRoot
 	}
+	if cfg != nil {
+		if mode := cfg.RuntimeMode(); mode != "" {
+			runtimeData["mode"] = mode
+		}
+	}
 
 	out := map[string]any{
 		"root":    root,

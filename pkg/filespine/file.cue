@@ -30,3 +30,18 @@
 
 // Tree is a dest map. Keys are fs.FS names (no leading /, no ~, no ..).
 #Tree: [string]: #File
+
+// Root is workspaced.file: preset folders are dest trees, other keys are dest
+// files (treated as home). Reserved names match module presets plus system.
+#Root: {
+	home?:     #Tree
+	codebase?: #Tree
+	etc?:      #Tree
+	usr?:      #Tree
+	root?:     #Tree
+	var?:      #Tree
+	bin?:      #Tree
+	system?:   #Tree
+
+	[!~"^(home|codebase|etc|usr|root|var|bin|system)$"]: #File
+}

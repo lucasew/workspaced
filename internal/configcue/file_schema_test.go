@@ -19,7 +19,7 @@ func TestFileSpineSchema(t *testing.T) {
 	if err := schema.Err(); err != nil {
 		t.Fatalf("schema: %v", err)
 	}
-	schema, err = filespine.Constrain(schema, "workspaced.file")
+	schema, err = filespine.ConstrainRoot(schema, "workspaced.file")
 	if err != nil {
 		t.Fatalf("mount: %v", err)
 	}
@@ -97,6 +97,22 @@ workspaced: file: "x": {
 `)
 		if err == nil {
 			t.Fatal("expected schema error")
+		}
+	})
+
+	t.Run("accepts namespaced and flat dests", func(t *testing.T) {
+		t.Parallel()
+		err := unify(t, `
+package workspaced
+workspaced: file: {
+	".codex/config.toml": {type: "toml", values: {model: "x"}}
+	codebase: {
+		".gitignore": {type: "text", values: {content: "bin/"}}
+	}
+}
+`)
+		if err != nil {
+			t.Fatalf("unify: %v", err)
 		}
 	})
 

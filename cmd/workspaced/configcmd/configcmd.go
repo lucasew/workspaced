@@ -12,6 +12,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/lucasew/workspaced/internal/configcue"
+	"github.com/lucasew/workspaced/pkg/filespine"
 
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,11 @@ func (o Options) discover() (configcue.DiscoverOptions, error) {
 	if err != nil {
 		return configcue.DiscoverOptions{}, err
 	}
-	return configcue.DiscoverOptions{Cwd: cwd, HomeMode: o.HomeMode}, nil
+	mode := filespine.ModeCodebase
+	if o.HomeMode {
+		mode = filespine.ModeHome
+	}
+	return configcue.DiscoverOptions{Cwd: cwd, HomeMode: o.HomeMode, Mode: mode}, nil
 }
 
 func (o Options) load(ctx context.Context) (*configcue.Config, error) {
