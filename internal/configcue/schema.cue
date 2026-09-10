@@ -70,6 +70,8 @@ package workspaced
 	goos?: string
 	goarch?: string
 	memory?: int
+	// Command family that loaded this config.
+	mode?: "home" | "codebase" | "system"
 	inputs?: [string]: {
 		path?: string
 		provider?: string

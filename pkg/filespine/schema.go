@@ -21,6 +21,15 @@ var (
 // Mount returns CUE that defines the dest schema and constrains path to #Tree.
 // path is dotted, e.g. "workspaced.file" or "app.dest".
 func Mount(path string) (string, error) {
+	return mountDef(path, "#Tree")
+}
+
+// MountRoot constrains path to #Root (preset trees plus flat dest files).
+func MountRoot(path string) (string, error) {
+	return mountDef(path, "#Root")
+}
+
+func mountDef(path, def string) (string, error) {
 	parts, err := splitCuePath(path)
 	if err != nil {
 		return "", err
@@ -36,7 +45,9 @@ func Mount(path string) (string, error) {
 		b.WriteString(strings.Repeat("\t", i))
 		if i == len(parts)-1 {
 			b.WriteString(p)
-			b.WriteString("?: _filespine.#Tree\n")
+			b.WriteString("?: _filespine.")
+			b.WriteString(def)
+			b.WriteByte('\n')
 			continue
 		}
 		b.WriteString(p)
@@ -51,7 +62,16 @@ func Mount(path string) (string, error) {
 
 // Constrain unifies Mount(path) onto v.
 func Constrain(v cue.Value, path string) (cue.Value, error) {
-	src, err := Mount(path)
+	return constrainMount(v, path, Mount)
+}
+
+// ConstrainRoot unifies MountRoot(path) onto v.
+func ConstrainRoot(v cue.Value, path string) (cue.Value, error) {
+	return constrainMount(v, path, MountRoot)
+}
+
+func constrainMount(v cue.Value, path string, mount func(string) (string, error)) (cue.Value, error) {
+	src, err := mount(path)
 	if err != nil {
 		return cue.Value{}, err
 	}

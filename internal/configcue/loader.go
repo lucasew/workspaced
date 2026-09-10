@@ -50,6 +50,19 @@ type Layer struct {
 type DiscoverOptions struct {
 	Cwd      string
 	HomeMode bool
+	// Mode is injected as workspaced.runtime.mode (home, codebase, system).
+	// Empty means home when HomeMode is set, otherwise codebase.
+	Mode string
+}
+
+func (o DiscoverOptions) RuntimeMode() string {
+	if o.Mode != "" {
+		return o.Mode
+	}
+	if o.HomeMode {
+		return filespine.ModeHome
+	}
+	return filespine.ModeCodebase
 }
 
 type DiscoverResult struct {
@@ -132,7 +145,7 @@ func exportFormatted(ctx context.Context, opts DiscoverOptions, format func(cont
 	if err != nil {
 		return nil, err
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +157,7 @@ func Evaluate(ctx context.Context, opts DiscoverOptions) (EvaluationResult, erro
 	if err != nil {
 		return EvaluationResult{}, err
 	}
-	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts.HomeMode)
+	configValue, err := buildWorkspacedValue(ctx, paths, layers, opts)
 	if err != nil {
 		return EvaluationResult{}, err
 	}
@@ -177,15 +190,18 @@ func ExportJSONFromPaths(ctx context.Context, paths []string) ([]byte, error) {
 }
 
 func exportJSONFromPaths(ctx context.Context, paths []string, discovered []Layer, homeMode bool) ([]byte, error) {
-	configValue, err := buildWorkspacedValue(ctx, paths, discovered, homeMode)
+	opts := DiscoverOptions{HomeMode: homeMode}
+	configValue, err := buildWorkspacedValue(ctx, paths, discovered, opts)
 	if err != nil {
 		return nil, err
 	}
 	return marshalWorkspacedValue(ctx, configValue, paths, discovered)
 }
 
-func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Layer, homeMode bool) (cue.Value, error) {
-	baseRuntimePrelude, err := buildRuntimePrelude(ctx, nil)
+func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Layer, opts DiscoverOptions) (cue.Value, error) {
+	mode := opts.RuntimeMode()
+	homeMode := opts.HomeMode
+	baseRuntimePrelude, err := buildRuntimePrelude(ctx, nil, mode)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -198,7 +214,7 @@ func buildWorkspacedValue(ctx context.Context, paths []string, discovered []Laye
 	if err != nil {
 		return cue.Value{}, err
 	}
-	runtimePrelude, err := buildRuntimePrelude(ctx, resolvedInputs)
+	runtimePrelude, err := buildRuntimePrelude(ctx, resolvedInputs, mode)
 	if err != nil {
 		return cue.Value{}, err
 	}
@@ -247,7 +263,7 @@ func compileWorkspacedValueWithContext(ctx *cue.Context, paths []string, runtime
 	if err := v.Err(); err != nil {
 		return cue.Value{}, fmt.Errorf("compile embedded cue schema: %w\n%s", err, cueerrors.Details(err, nil))
 	}
-	v, err = filespine.Constrain(v, "workspaced.file")
+	v, err = filespine.ConstrainRoot(v, "workspaced.file")
 	if err != nil {
 		return cue.Value{}, fmt.Errorf("mount filespine: %w", err)
 	}
@@ -837,7 +853,7 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[string]any) (string, error) {
+func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[string]any, mode string) (string, error) {
 	home, err := envdriver.GetHomeDir(ctx)
 	if err != nil {
 		// Fallback when drivers are not ready (early bootstrap).
@@ -859,6 +875,9 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 		return "", fmt.Errorf("hostname: %w", err)
 	}
 
+	if mode == "" {
+		mode = filespine.ModeHome
+	}
 	runtimeMap := map[string]any{
 		"is_phone":      envdriver.IsPhone(ctx),
 		"hostname":      hostname,
@@ -869,6 +888,7 @@ func buildRuntimePrelude(ctx context.Context, resolvedInputs map[string]map[stri
 		"goos":          runtime.GOOS,
 		"goarch":        runtime.GOARCH,
 		"memory":        memory.TotalMemory(),
+		"mode":          mode,
 	}
 	// Optional: personal tree may be absent (CI, plain codebase checkouts).
 	// Home prelude uses it via optional schema field; missing key fails only if cue requires it.

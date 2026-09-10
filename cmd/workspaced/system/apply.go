@@ -23,7 +23,7 @@ func RunApply(ctx context.Context, action string) error {
 	if err != nil {
 		return fmt.Errorf("get dotfiles root: %w", err)
 	}
-	cfg, err := configcue.LoadHome(ctx)
+	cfg, err := configcue.LoadSystem(ctx)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
