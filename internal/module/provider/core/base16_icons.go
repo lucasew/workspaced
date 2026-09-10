@@ -21,6 +21,7 @@ import (
 	"github.com/lucasew/workspaced/internal/icons"
 	"github.com/lucasew/workspaced/internal/module"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
@@ -64,6 +65,9 @@ type base16IconsConfig struct {
 }
 
 func (base16IconsLinuxModule) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
+	if !filespine.NamespaceVisible(req.Config.RuntimeMode(), filespine.ModeHome) {
+		return module.ResolveResult{}, nil
+	}
 	cfg, err := module.DecodeConfig[base16IconsConfig](req.ModuleConfig)
 	if err != nil {
 		return module.ResolveResult{}, fmt.Errorf("module %s: %w", req.ModuleName, err)

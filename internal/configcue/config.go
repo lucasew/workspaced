@@ -50,17 +50,13 @@ func (c *Config) RuntimeMode() string {
 	if c == nil {
 		return filespine.ModeHome
 	}
-	if v := c.Cue(); v.Exists() {
-		s, err := v.LookupPath(cue.ParsePath("runtime.mode")).String()
-		if err == nil && s != "" {
-			return s
-		}
+	v := c.Cue()
+	if !v.Exists() {
+		return filespine.ModeHome
 	}
-	raw, _ := c.Raw()["runtime"].(map[string]any)
-	if raw != nil {
-		if s, ok := raw["mode"].(string); ok && s != "" {
-			return s
-		}
+	s, err := v.LookupPath(cue.ParsePath("runtime.mode")).String()
+	if err == nil && s != "" {
+		return s
 	}
 	return filespine.ModeHome
 }
@@ -190,11 +186,11 @@ func Load(ctx context.Context) (*Config, error) {
 }
 
 func LoadHome(ctx context.Context) (*Config, error) {
-	return loadConfig(ctx, DiscoverOptions{HomeMode: true, Mode: filespine.ModeHome})
+	return loadConfig(ctx, DiscoverOptions{HomeLayers: true, Mode: filespine.ModeHome})
 }
 
 func LoadSystem(ctx context.Context) (*Config, error) {
-	return loadConfig(ctx, DiscoverOptions{HomeMode: true, Mode: filespine.ModeSystem})
+	return loadConfig(ctx, DiscoverOptions{HomeLayers: true, Mode: filespine.ModeSystem})
 }
 
 func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
@@ -205,7 +201,7 @@ func LoadForWorkspace(ctx context.Context, root string) (*Config, error) {
 
 	dotfilesRoot, err := envdriver.GetDotfilesRoot(ctx)
 	if err == nil && filepath.Clean(dotfilesRoot) == filepath.Clean(root) {
-		return loadConfig(ctx, DiscoverOptions{HomeMode: true, Mode: filespine.ModeCodebase})
+		return loadConfig(ctx, DiscoverOptions{HomeLayers: true, Mode: filespine.ModeCodebase})
 	}
 	return loadConfig(ctx, DiscoverOptions{Cwd: root, Mode: filespine.ModeCodebase})
 }

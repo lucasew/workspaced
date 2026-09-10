@@ -7,6 +7,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/driver"
 	"github.com/lucasew/workspaced/pkg/driver/dialog"
 	"github.com/lucasew/workspaced/pkg/driver/wm"
+	"github.com/lucasew/workspaced/pkg/filespine"
 	"sort"
 	"strconv"
 
@@ -24,7 +25,8 @@ func init() {
 					return err
 				}
 				result, err := configcue.Evaluate(c.Context(), configcue.DiscoverOptions{
-					HomeMode: true,
+					HomeLayers: true,
+					Mode:       filespine.ModeHome,
 				})
 				if err != nil {
 					return err

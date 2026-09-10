@@ -40,7 +40,6 @@ func TestResolvePresetBases(t *testing.T) {
 	}
 
 	want := []module.ResolvedFile{
-		{RelPath: ".gitignore", TargetBase: root},
 		{RelPath: "nginx/nginx.conf", TargetBase: "/etc"},
 		{RelPath: ".bashrc", TargetBase: home},
 	}

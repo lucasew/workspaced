@@ -97,7 +97,7 @@ workspaced: {
 		}
 	})
 
-	cfg, err := configcue.LoadForWorkspace(ctx, root)
+	cfg, err := configcue.LoadFiles(ctx, []string{filepath.Join(root, "workspaced.cue")})
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
