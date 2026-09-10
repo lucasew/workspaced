@@ -27,13 +27,38 @@ type Provider struct{}
 func (p *Provider) ID() string   { return "self" }
 func (p *Provider) Name() string { return "Workspace Module" }
 
+const (
+	presetHome      = "~"
+	presetWorkspace = "<workspace>"
+)
+
 var presetBases = map[string]string{
-	"home": "~",
-	"etc":  "/etc",
-	"usr":  "/usr",
-	"root": "/",
-	"var":  "/var",
-	"bin":  "/usr/local/bin",
+	"home":     presetHome,
+	"codebase": presetWorkspace,
+	"etc":      "/etc",
+	"usr":      "/usr",
+	"root":     "/",
+	"var":      "/var",
+	"bin":      "/usr/local/bin",
+}
+
+func resolvePresetBase(name, modulesBaseDir string) (string, error) {
+	base, ok := presetBases[name]
+	if !ok {
+		return "", fmt.Errorf("%w: %q", ErrUnknownPreset, name)
+	}
+	switch base {
+	case presetHome:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("get home directory: %w", err)
+		}
+		return home, nil
+	case presetWorkspace:
+		return filepath.Clean(filepath.Dir(modulesBaseDir)), nil
+	default:
+		return base, nil
+	}
 }
 
 func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (module.ResolveResult, error) {
@@ -65,20 +90,13 @@ func (p *Provider) Resolve(ctx context.Context, req module.ResolveRequest) (modu
 			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrStrictStructureViolation, name, req.Ref)
 		}
 		presetName := preset.Name()
-		targetBase, ok := presetBases[presetName]
-		if !ok {
-			return module.ResolveResult{}, fmt.Errorf("%w: %q in module %q", ErrUnknownPreset, presetName, req.Ref)
-		}
-		if targetBase == "~" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return module.ResolveResult{}, fmt.Errorf("get home directory: %w", err)
-			}
-			targetBase = home
+		targetBase, err := resolvePresetBase(presetName, req.ModulesBaseDir)
+		if err != nil {
+			return module.ResolveResult{}, fmt.Errorf("%w in module %q", err, req.Ref)
 		}
 
 		presetPath := filepath.Join(modPath, presetName)
-		err := filepath.Walk(presetPath, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(presetPath, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}

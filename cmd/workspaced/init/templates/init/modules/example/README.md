@@ -44,5 +44,5 @@ Writes `~/.config/example/welcome.txt`.
 
 1. Copy this directory.
 2. Edit `module.cue` (meta + config schema).
-3. Put templates under `home/`, `etc/`, or another preset root.
+3. Put templates under `home/`, `codebase/`, `etc/`, or another preset root.
 4. Point `workspaced.cue` at it.
