@@ -16,16 +16,22 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "history",
-		Short: "History management",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+type Command struct {
+	Ingest *Ingest
+	List   *List
+	Record *Record
+	Search *Search
+}
+
+func (Command) Description() string {
+	return "History management"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced utils history")
 }
 
 func ingestBash(ctx context.Context) ([]types.HistoryEvent, error) {

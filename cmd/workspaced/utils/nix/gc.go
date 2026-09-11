@@ -1,20 +1,15 @@
 package nix
 
 import (
-	"github.com/lucasew/workspaced/internal/nix"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/nix"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "gc-cleanup",
-			Short: "Cleanup old Nix profiles by enqueuing rm commands",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return nix.CleanupProfiles(cmd.Context())
-			},
-		}
-		parent.AddCommand(cmd)
-	})
+type GcCleanup struct{}
+
+func (GcCleanup) Description() string { return "Cleanup old Nix profiles by enqueuing rm commands" }
+
+func (*GcCleanup) Run(ctx context.Context) error {
+	return nix.CleanupProfiles(ctx)
 }

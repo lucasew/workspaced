@@ -1,97 +1,102 @@
 package open
 
 import (
+	"context"
+
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/driver/opener"
 	"github.com/lucasew/workspaced/pkg/driver/terminal"
-
-	"github.com/spf13/cobra"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "open [target]",
-		Short: "Open a file, URL or webapp",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return c.Help()
-			}
-			return opener.Open(c.Context(), args[0])
-		},
+type Command struct {
+	File     *File
+	Webapp   *Webapp
+	Terminal *Terminal
+	Exec     *Exec
+	Lazy     *Lazy
+	Mise     *Mise
+}
+
+func (Command) Description() string {
+	return "Open a file, URL or webapp"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced open")
+}
+
+type File struct {
+	Target cmd.StringArg
+}
+
+func (File) Description() string { return "Open a file or URL" }
+
+func (f *File) Run(ctx context.Context) error {
+	return opener.Open(ctx, f.Target.Value())
+}
+
+type Webapp struct {
+	URL       cmd.StringArg   `short:"u" long:"url" help:"URL to open"`
+	Profile   cmd.StringArg   `short:"p" long:"profile" help:"Browser profile name"`
+	ExtraFlag []cmd.StringArg `short:"e" long:"extra-flag" help:"Extra browser flags"`
+	Chromium  cmd.StringArg   `long:"chromium" help:"Chromium-like binary to use (overrides browser.webapp)"`
+	name      *cmd.StringArg
+}
+
+func (Webapp) Description() string { return "Launch a configured webapp" }
+
+func (w *Webapp) Run(ctx context.Context) error {
+	cfg, err := configcue.LoadHome(ctx)
+	if err != nil {
+		return err
 	}
 
-	var urlFlag string
-	var profileFlag string
-	var extraFlags []string
-	var chromiumFlag string
+	var wa opener.WebappConfig
 
-	webappCmd := &cobra.Command{
-		Use:   "webapp [name]",
-		Short: "Launch a configured webapp",
-		RunE: func(c *cobra.Command, args []string) error {
-			cfg, err := configcue.LoadHome(c.Context())
-			if err != nil {
-				return err
+	if w.name != nil {
+		name := w.name.Value()
+		var modCfg struct {
+			Apps map[string]opener.WebappConfig `json:"apps"`
+		}
+		if err := cfg.ModuleConfig("webapp", &modCfg); err == nil {
+			if app, ok := modCfg.Apps[name]; ok {
+				wa = app
 			}
-
-			var wa opener.WebappConfig
-
-			if len(args) > 0 {
-				name := args[0]
-				var modCfg struct {
-					Apps map[string]opener.WebappConfig `json:"apps"`
-				}
-				if err := cfg.ModuleConfig("webapp", &modCfg); err == nil {
-					if app, ok := modCfg.Apps[name]; ok {
-						wa = app
-					}
-				}
-			}
-
-			// Override with flags
-			if urlFlag != "" {
-				wa.URL = urlFlag
-			}
-			if profileFlag != "" {
-				wa.Profile = profileFlag
-			}
-			if len(extraFlags) > 0 {
-				wa.ExtraFlags = append(wa.ExtraFlags, extraFlags...)
-			}
-			if chromiumFlag != "" {
-				wa.Chromium = chromiumFlag
-			}
-
-			return opener.OpenWebapp(c.Context(), wa)
-		},
+		}
 	}
 
-	webappCmd.Flags().StringVarP(&urlFlag, "url", "u", "", "URL to open")
-	webappCmd.Flags().StringVarP(&profileFlag, "profile", "p", "", "Browser profile name")
-	webappCmd.Flags().StringSliceVarP(&extraFlags, "extra-flag", "e", nil, "Extra browser flags")
-	webappCmd.Flags().StringVar(&chromiumFlag, "chromium", "", "Chromium-like binary to use (overrides browser.webapp)")
+	if url := w.URL.Value(); url != "" {
+		wa.URL = url
+	}
+	if profile := w.Profile.Value(); profile != "" {
+		wa.Profile = profile
+	}
+	if extra := cmd.Values(w.ExtraFlag); len(extra) > 0 {
+		wa.ExtraFlags = append(wa.ExtraFlags, extra...)
+	}
+	if chromium := w.Chromium.Value(); chromium != "" {
+		wa.Chromium = chromium
+	}
 
-	cmd.AddCommand(webappCmd)
+	return opener.OpenWebapp(ctx, wa)
+}
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "terminal [cmd...]",
-		Short: "Launch the preferred terminal",
-		RunE: func(c *cobra.Command, args []string) error {
-			opts := terminal.Options{
-				Title: "Terminal",
-			}
-			if len(args) > 0 {
-				opts.Command = args[0]
-				opts.Args = args[1:]
-			}
-			return terminal.Open(c.Context(), opts)
-		},
-	})
+type Terminal struct {
+	cmd []cmd.StringArg
+}
 
-	cmd.AddCommand(execCommand())
-	cmd.AddCommand(lazyCommand())
-	cmd.AddCommand(miseCommand())
+func (Terminal) Description() string { return "Launch the preferred terminal" }
 
-	return cmd
+func (t *Terminal) Run(ctx context.Context) error {
+	args := cmd.Values(t.cmd)
+	opts := terminal.Options{
+		Title: "Terminal",
+	}
+	if len(args) > 0 {
+		opts.Command = args[0]
+		opts.Args = args[1:]
+	}
+	return terminal.Open(ctx, opts)
 }

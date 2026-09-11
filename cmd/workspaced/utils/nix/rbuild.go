@@ -1,39 +1,29 @@
 package nix
 
 import (
-	"github.com/lucasew/workspaced/internal/nix"
+	"context"
+	"fmt"
+	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/nix"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		var target string
-		var copyBack bool
-		var useNom bool
+type Rbuild struct {
+	Target     cmd.StringArg `short:"t" long:"target" help:"Remote host to build on (default: whiterun)"`
+	CopyBack   cmd.Flag      `long:"copy-back" help:"Copy result back to local store" default:"true"`
+	NoCopyBack cmd.Flag      `long:"no-copy-back" help:"Do not copy result back to local store"`
+	Nom        cmd.Flag      `long:"nom" help:"Use nix-output-monitor (nom)" default:"true"`
+	ref        cmd.StringArg
+}
 
-		cmd := &cobra.Command{
-			Use:   "rbuild <ref>",
-			Short: "Performs a remote build of a Nix flake reference",
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				ctx := cmd.Context()
-				ref := args[0]
+func (Rbuild) Description() string { return "Performs a remote build of a Nix flake reference" }
 
-				resultPath, err := nix.RemoteBuild(ctx, ref, target, copyBack)
-				if err != nil {
-					return err
-				}
-
-				cmd.Println(resultPath)
-				return nil
-			},
-		}
-
-		cmd.Flags().StringVarP(&target, "target", "t", "", "Remote host to build on (default: whiterun)")
-		cmd.Flags().BoolVar(&copyBack, "copy-back", true, "Copy result back to local store")
-		cmd.Flags().BoolVar(&useNom, "nom", true, "Use nix-output-monitor (nom)")
-
-		parent.AddCommand(cmd)
-	})
+func (r *Rbuild) Run(ctx context.Context) error {
+	resultPath, err := nix.RemoteBuild(ctx, r.ref.Value(), r.Target.Value(), r.CopyBack.Value() && !r.NoCopyBack.Value())
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(os.Stdout, resultPath)
+	return err
 }

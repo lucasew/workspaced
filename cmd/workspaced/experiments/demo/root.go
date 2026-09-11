@@ -6,22 +6,26 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/lucasew/workspaced/internal/cmdregistry"
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
-
-	"github.com/spf13/cobra"
 )
 
 var ErrSimulated503 = errors.New("simulated 503 from registry (demo failure)")
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Tasks  *Tasks
+	Plain  *Plain
+	Nested *Nested
+	Loop   *Loop
+	Map    *MapCmd `cmd:"map"`
+	Cpu10k *Cpu10k
+	Lines  *Lines
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "demo",
-		Short: "Showcase the output rendering and task system",
-		Long: `The demo command exercises the taskgroup primitive (g.Go + Status + context slog)
+func (Command) Description() string {
+	return `Showcase the output rendering and task system
+
+The demo command exercises the taskgroup primitive (g.Go + Status + context slog)
 and the opt-in bubbletea renderer (a Group method).
 
 All demos use the exact same rules as production code:
@@ -38,22 +42,16 @@ Run subcommands to see different aspects:
   workspaced experiments demo loop     - 5x sleep+log+progress; calls RunBubbleTea to show logs over moving bar
   workspaced experiments demo map      - taskgroup.Map over a slice (parallel transform, len(items) as progress hint)
   workspaced experiments demo cpu10k   - 10k CPU-bound Map items (prune / live-set stress)
-  workspaced experiments demo lines    - three LineWriter counters rewriting in place`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Bare "experiments demo" runs the main tasks showcase for convenience.
-			return runTasksDemo(cmd)
-		},
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+  workspaced experiments demo lines    - three LineWriter counters rewriting in place`
 }
 
-// runTasksDemo is the body used by both bare "experiments demo" and "demo tasks".
-func runTasksDemo(cmd *cobra.Command) error {
-	// All non-root code must get the group from the context provided by the
-	// top-level command. MustFromContext panics if it is absent.
-	g := taskgroup.MustFromContext(cmd.Context())
-	logger := logging.GetLogger(cmd.Context())
+func (*Command) Run(ctx context.Context) error {
+	return runTasksDemo(ctx)
+}
+
+func runTasksDemo(ctx context.Context) error {
+	g := taskgroup.MustFromContext(ctx)
+	logger := logging.GetLogger(ctx)
 
 	logger.Info("Scheduling work on the task group obtained via MustFromContext.")
 	logger.Info("This demo calls g.RunBubbleTea() to kick in the (opt-in) bubbletea UI.")

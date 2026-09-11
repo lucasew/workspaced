@@ -1,18 +1,20 @@
 package experiments
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	children `flatten:""`
+	Cue      *Cue `cmd:"cue"`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "experiments",
-		Short: "Experimental features and prototypes",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+func (Command) Description() string {
+	return "Experimental features and prototypes"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced experiments")
 }

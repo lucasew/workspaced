@@ -1,19 +1,25 @@
 package codebase
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	children `flatten:""`
+	Apply    *Apply
+	Plan     *Plan
+	Lint     *Lint
+	Format   *Format
+	Lsp      *Lsp
+	CIStatus *CIStatus `cmd:"ci-status"`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:                "codebase",
-		Short:              "Tools for analyzing and managing codebases",
-		DisableFlagParsing: true,
-		SilenceUsage:       true,
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Tools for analyzing and managing codebases"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced codebase")
 }

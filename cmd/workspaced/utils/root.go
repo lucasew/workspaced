@@ -10,31 +10,24 @@ import (
 	"os"
 	"time"
 
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/executil"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
 
 	"github.com/gorilla/websocket"
-
-	"github.com/spf13/cobra"
 )
 
-var Registry cmdregistry.CommandRegistry
-
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:              "utils",
-		Short:            "Miscellaneous commands that are not necessarily related to a driver",
-		TraverseChildren: true,
-	}
-	Registry.FillCommands(cmd)
-
-	return cmd
+type Command struct {
+	children `flatten:""`
 }
 
-func FindCommand(name string, args []string) (*cobra.Command, []string, error) {
-	return GetCommand().Find(append([]string{name}, args...))
+func (Command) Description() string {
+	return "Miscellaneous commands that are not necessarily related to a driver"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced utils")
 }
 
 func TryRemoteRaw(ctx context.Context, cmdName string, args []string) (string, bool, error) {

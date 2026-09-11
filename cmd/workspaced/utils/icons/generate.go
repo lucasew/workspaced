@@ -1,71 +1,56 @@
 package icons
 
 import (
-	iconspkg "github.com/lucasew/workspaced/internal/icons"
+	"context"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	iconspkg "github.com/lucasew/workspaced/internal/icons"
 )
 
-func init() {
-	Registry.FromGetter(GetGenerateCommand)
+type Generate struct {
+	InputDir       cmd.StringArg   `long:"input-dir" help:"Directory containing .svg/.svg.tmpl masters" default:"~/.dotfiles/assets/icons/master"`
+	OutputDir      cmd.StringArg   `long:"output-dir" help:"Output icon theme directory" default:"~/.local/share/icons/workspaced-base16"`
+	ThemeName      cmd.StringArg   `long:"theme-name" help:"Theme name written in index.theme" default:"workspaced-base16"`
+	Sizes          cmd.StringArg   `long:"sizes" help:"PNG sizes to render, comma-separated" default:"16,24,32,48,64,128,256"`
+	Replace        []cmd.StringArg `long:"replace" help:"Color replacement rule old=new (hex, with or without #). Can be repeated"`
+	MapScheme      cmd.Flag        `long:"map-scheme" help:"Map all SVG hex colors to nearest color in current base16 scheme" default:"true"`
+	NoMapScheme    cmd.Flag        `long:"no-map-scheme" help:"Do not map SVG hex colors to nearest color in current base16 scheme"`
+	DefaultContext cmd.StringArg   `long:"default-context" help:"Context to use when icon file is at input root" default:"apps"`
+	Clean          cmd.Flag        `long:"clean" help:"Delete output directory before generation"`
+	NoRaster       cmd.Flag        `long:"no-raster" help:"Only write scalable SVG icons"`
+	UpdateCache    cmd.Flag        `long:"update-cache" help:"Run gtk-update-icon-cache after generation (if available)" default:"true"`
+	NoUpdateCache  cmd.Flag        `long:"no-update-cache" help:"Do not run gtk-update-icon-cache after generation"`
+	Jobs           cmd.StringArg   `long:"jobs" help:"Number of SVG processing workers (integer or 'auto')" default:"auto"`
 }
 
-func GetGenerateCommand() *cobra.Command {
-	var (
-		inputDir       string
-		outputDir      string
-		themeName      string
-		sizesRaw       string
-		replacements   []string
-		mapScheme      bool
-		clean          bool
-		noRaster       bool
-		updateCache    bool
-		defaultContext string
-		jobsRaw        string
-	)
+func (Generate) Description() string {
+	return `Generate icon theme variants from SVG templates
 
-	cmd := &cobra.Command{
-		Use:   "generate",
-		Short: "Generate icon theme variants from SVG templates",
-		Long: `Generate a freedesktop icon theme from SVG master files.
+Generate a freedesktop icon theme from SVG master files.
 
 Input files can be plain .svg or .svg.tmpl templates.
 Template variables include base16 keys (base00..base0F) from the active workspaced config.
-Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return iconspkg.RunThemeGenerate(cmd.Context(), iconspkg.ThemeGenerateOptions{
-				InputDir:       inputDir,
-				OutputDir:      outputDir,
-				ThemeName:      themeName,
-				Jobs:           jobsRaw,
-				Sizes:          sizesRaw,
-				Replace:        replacements,
-				MapScheme:      mapScheme,
-				HasMapScheme:   true,
-				Clean:          clean,
-				NoRaster:       noRaster,
-				UpdateCache:    updateCache,
-				HasUpdateCache: true,
-				DefaultContext: defaultContext,
-				UseCache:       false,
-				Stdout:         os.Stdout,
-				Stderr:         os.Stderr,
-			})
-		},
-	}
+Example template usage: fill="#{{ .base0D }}" or fill="%BASE0D%".`
+}
 
-	cmd.Flags().StringVar(&inputDir, "input-dir", "~/.dotfiles/assets/icons/master", "Directory containing .svg/.svg.tmpl masters")
-	cmd.Flags().StringVar(&outputDir, "output-dir", "~/.local/share/icons/workspaced-base16", "Output icon theme directory")
-	cmd.Flags().StringVar(&themeName, "theme-name", "workspaced-base16", "Theme name written in index.theme")
-	cmd.Flags().StringVar(&sizesRaw, "sizes", "16,24,32,48,64,128,256", "PNG sizes to render, comma-separated")
-	cmd.Flags().StringArrayVar(&replacements, "replace", nil, "Color replacement rule old=new (hex, with or without #). Can be repeated")
-	cmd.Flags().BoolVar(&mapScheme, "map-scheme", true, "Map all SVG hex colors to nearest color in current base16 scheme")
-	cmd.Flags().StringVar(&defaultContext, "default-context", "apps", "Context to use when icon file is at input root")
-	cmd.Flags().BoolVar(&clean, "clean", false, "Delete output directory before generation")
-	cmd.Flags().BoolVar(&noRaster, "no-raster", false, "Only write scalable SVG icons")
-	cmd.Flags().BoolVar(&updateCache, "update-cache", true, "Run gtk-update-icon-cache after generation (if available)")
-	cmd.Flags().StringVar(&jobsRaw, "jobs", "auto", "Number of SVG processing workers (integer or 'auto')")
-	return cmd
+func (g *Generate) Run(ctx context.Context) error {
+	return iconspkg.RunThemeGenerate(ctx, iconspkg.ThemeGenerateOptions{
+		InputDir:       g.InputDir.Value(),
+		OutputDir:      g.OutputDir.Value(),
+		ThemeName:      g.ThemeName.Value(),
+		Jobs:           g.Jobs.Value(),
+		Sizes:          g.Sizes.Value(),
+		Replace:        cmd.Values(g.Replace),
+		MapScheme:      g.MapScheme.Value() && !g.NoMapScheme.Value(),
+		HasMapScheme:   true,
+		Clean:          g.Clean.Value(),
+		NoRaster:       g.NoRaster.Value(),
+		UpdateCache:    g.UpdateCache.Value() && !g.NoUpdateCache.Value(),
+		HasUpdateCache: true,
+		DefaultContext: g.DefaultContext.Value(),
+		UseCache:       false,
+		Stdout:         os.Stdout,
+		Stderr:         os.Stderr,
+	})
 }

@@ -1,16 +1,19 @@
 package shell
 
 import (
-	"github.com/spf13/cobra"
+	"context"
+
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "shell",
-		Short: "Shell integration commands",
-	}
+type Command struct {
+	Init *Init
+}
 
-	cmd.AddCommand(getInitCommand())
+func (Command) Description() string {
+	return "Shell integration commands"
+}
 
-	return cmd
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced utils shell")
 }

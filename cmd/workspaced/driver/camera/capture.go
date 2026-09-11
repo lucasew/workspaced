@@ -1,21 +1,22 @@
 package camera
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/atomicfile"
 	"github.com/lucasew/workspaced/pkg/driver"
 	cameraapi "github.com/lucasew/workspaced/pkg/driver/camera"
-
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -24,35 +25,23 @@ var (
 	ErrCaptureAllFailed = errors.New("capture from any camera")
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "capture",
-			Short: "Capture a still frame",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				id, err := cmd.Flags().GetString("id")
-				if err != nil {
-					return err
-				}
-				outPath, err := cmd.Flags().GetString("output")
-				if err != nil {
-					return err
-				}
-				return capture(cmd, id, outPath)
-			},
-		}
-		cmd.Flags().StringP("id", "i", "", "camera ID or name (defaults to the first camera)")
-		cmd.Flags().StringP("output", "o", "", "output path (use - for stdout; defaults to cache directory)")
-		parent.AddCommand(cmd)
-	})
+type Capture struct {
+	ID     cmd.StringArg `short:"i" long:"id" help:"camera ID or name (defaults to the first camera)"`
+	Output cmd.StringArg `short:"o" long:"output" help:"output path (use - for stdout; defaults to cache directory)"`
 }
 
-func capture(cmd *cobra.Command, id, outPath string) error {
-	drv, err := driver.Get[cameraapi.Driver](cmd.Context())
+func (Capture) Description() string { return "Capture a still frame" }
+
+func (c *Capture) Run(ctx context.Context) error {
+	return capture(ctx, os.Stdout, c.ID.Value(), c.Output.Value())
+}
+
+func capture(ctx context.Context, out io.Writer, id, outPath string) error {
+	drv, err := driver.Get[cameraapi.Driver](ctx)
 	if err != nil {
 		return err
 	}
-	cams, err := drv.List(cmd.Context())
+	cams, err := drv.List(ctx)
 	if err != nil {
 		return err
 	}
@@ -61,14 +50,14 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 		return err
 	}
 
-	usedCam, img, err := captureFromCamera(cmd, cams, cam, id)
+	usedCam, img, err := captureFromCamera(ctx, cams, cam, id)
 	if err != nil {
 		return err
 	}
 	cam = usedCam
 
 	if outPath == "-" {
-		return png.Encode(cmd.OutOrStdout(), img)
+		return png.Encode(out, img)
 	}
 
 	if outPath == "" {
@@ -84,7 +73,7 @@ func capture(cmd *cobra.Command, id, outPath string) error {
 	if err := writePNGAtomic(outPath, img); err != nil {
 		return err
 	}
-	cmd.Println(outPath)
+	fmt.Fprintln(out, outPath)
 	return nil
 }
 
@@ -110,9 +99,9 @@ func selectCamera(cams []cameraapi.Camera, id string) (cameraapi.Camera, error) 
 	return nil, fmt.Errorf("%w: %q", ErrCameraNotFound, id)
 }
 
-func captureFromCamera(cmd *cobra.Command, cams []cameraapi.Camera, preferred cameraapi.Camera, id string) (cameraapi.Camera, image.Image, error) {
+func captureFromCamera(ctx context.Context, cams []cameraapi.Camera, preferred cameraapi.Camera, id string) (cameraapi.Camera, image.Image, error) {
 	if id != "" {
-		img, err := preferred.Capture(cmd.Context())
+		img, err := preferred.Capture(ctx)
 		return preferred, img, err
 	}
 
@@ -123,7 +112,7 @@ func captureFromCamera(cmd *cobra.Command, cams []cameraapi.Camera, preferred ca
 
 	var errs []string
 	for _, cam := range ordered {
-		img, err := cam.Capture(cmd.Context())
+		img, err := cam.Capture(ctx)
 		if err == nil {
 			return cam, img, nil
 		}

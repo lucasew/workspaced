@@ -1,11 +1,11 @@
 package history
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
-	"github.com/spf13/cobra"
-
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/internal/types"
 	"github.com/lucasew/workspaced/pkg/logging"
@@ -13,51 +13,47 @@ import (
 
 var ErrUnknownSource = errors.New("unknown source")
 
-func init() {
-	Registry.Register(func(c *cobra.Command) {
-		c.AddCommand(&cobra.Command{
-			Use:   "ingest [source]",
-			Short: "Ingest history from other sources (bash, atuin)",
-			Args:  cobra.ExactArgs(1),
-			RunE: func(c *cobra.Command, args []string) error {
-				source := args[0]
-				database, ok := db.FromContext(c.Context())
-				if !ok {
-					var err error
-					database, err = db.Open(c.Context())
-					if err != nil {
-						return err
-					}
-					defer logging.Close(c.Context(), database)
-				}
+type Ingest struct {
+	source cmd.StringArg
+}
 
-				var events []types.HistoryEvent
-				var err error
+func (Ingest) Description() string { return "Ingest history from other sources (bash, atuin)" }
 
-				switch source {
-				case "bash":
-					events, err = ingestBash(c.Context())
-				case "atuin":
-					events, err = ingestAtuin(c.Context())
-				default:
-					return fmt.Errorf("%w: %s", ErrUnknownSource, source)
-				}
+func (i *Ingest) Run(ctx context.Context) error {
+	source := i.source.Value()
+	database, ok := db.FromContext(ctx)
+	if !ok {
+		var err error
+		database, err = db.Open(ctx)
+		if err != nil {
+			return err
+		}
+		defer logging.Close(ctx, database)
+	}
 
-				if err != nil {
-					return err
-				}
+	var events []types.HistoryEvent
+	var err error
 
-				if len(events) == 0 {
-					logger := logging.GetLogger(c.Context())
-					logger.Info("No events to ingest")
-					return nil
-				}
+	switch source {
+	case "bash":
+		events, err = ingestBash(ctx)
+	case "atuin":
+		events, err = ingestAtuin(ctx)
+	default:
+		return fmt.Errorf("%w: %s", ErrUnknownSource, source)
+	}
 
-				logger := logging.GetLogger(c.Context())
-				logger.Info("Ingesting events...", "amount", len(events))
-				return database.BatchRecordHistory(c.Context(), events)
-			},
-		})
+	if err != nil {
+		return err
+	}
 
-	})
+	if len(events) == 0 {
+		logger := logging.GetLogger(ctx)
+		logger.Info("No events to ingest")
+		return nil
+	}
+
+	logger := logging.GetLogger(ctx)
+	logger.Info("Ingesting events...", "amount", len(events))
+	return database.BatchRecordHistory(ctx, events)
 }

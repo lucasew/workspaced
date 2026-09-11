@@ -19,20 +19,20 @@ import (
 	pkg_workspace "github.com/lucasew/workspaced/cmd/workspaced/driver/workspace"
 )
 
-func init() {
-	Registry.FromGetter(pkg_audio.GetCommand)
-	Registry.FromGetter(pkg_brightness.GetCommand)
-	Registry.FromGetter(pkg_camera.GetCommand)
-	Registry.FromGetter(pkg_doctor.GetCommand)
-	Registry.FromGetter(pkg_input.GetCommand)
-	Registry.FromGetter(pkg_media.GetCommand)
-	Registry.FromGetter(pkg_notification.GetCommand)
-	Registry.FromGetter(pkg_open.GetCommand)
-	Registry.FromGetter(pkg_power.GetCommand)
-	Registry.FromGetter(pkg_rsync.GetCommand)
-	Registry.FromGetter(pkg_screen.GetCommand)
-	Registry.FromGetter(pkg_screenshot.GetCommand)
-	Registry.FromGetter(pkg_sudo.GetCommand)
-	Registry.FromGetter(pkg_wallpaper.GetCommand)
-	Registry.FromGetter(pkg_workspace.GetCommand)
+type children struct {
+	Audio        *pkg_audio.Command
+	Brightness   *pkg_brightness.Command
+	Camera       *pkg_camera.Command
+	Doctor       *pkg_doctor.Command
+	Input        *pkg_input.Command
+	Media        *pkg_media.Command
+	Notification *pkg_notification.Command
+	Open         *pkg_open.Command
+	Power        *pkg_power.Command
+	Rsync        *pkg_rsync.Command
+	Screen       *pkg_screen.Command
+	Screenshot   *pkg_screenshot.Command
+	Sudo         *pkg_sudo.Command
+	Wallpaper    *pkg_wallpaper.Command
+	Workspace    *pkg_workspace.Command
 }

@@ -10,7 +10,7 @@ Read in this order:
 
 - `pkg/` — import this if you embed workspaced as a library. Keep it small (`api`, `driver`, `filespine`, `logging`, `palette`, `taskgroup`).
 - `internal/` — default. CLI, apply, tools, modules, checks, config, helpers.
-- `cmd/workspaced/` — cobra entrypoints only.
+- `cmd/workspaced/` — x/cmd entrypoints only.
 - New code goes in `internal/<domain>/`. Move to `pkg/` only if another module should import it.
 - Name packages by job. No `utils` / `common` buckets.
 - Outside this module, do not import `workspaced/internal/...`. Inside it, `pkg/` may.

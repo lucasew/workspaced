@@ -1,31 +1,33 @@
 package sudo
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/sudo"
 	"github.com/lucasew/workspaced/internal/types"
-
-	"github.com/spf13/cobra"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		var slug string
-		cmd := &cobra.Command{
-			Use:                "add <command> [args...]",
-			Short:              "Manually add a command to the queue",
-			Args:               cobra.MinimumNArgs(1),
-			DisableFlagParsing: false,
-			RunE: func(cmd *cobra.Command, args []string) error {
-				sc := &types.SudoCommand{
-					Slug:    slug,
-					Command: args[0],
-					Args:    args[1:],
-				}
-				return sudo.Enqueue(cmd.Context(), sc)
-			},
-		}
-		cmd.Flags().SetInterspersed(false)
-		cmd.Flags().StringVarP(&slug, "slug", "s", "", "Slug for the command")
-		parent.AddCommand(cmd)
-	})
+type Add struct {
+	Slug cmd.StringArg `short:"s" long:"slug" help:"Slug for the command"`
+	sep  cmd.Dash
+	rest []cmd.StringArg
+}
+
+func (Add) Description() string {
+	return "Manually add a command to the queue. Use -- to separate flags from the command."
+}
+
+func (c *Add) Run(ctx context.Context) error {
+	args := cmd.Values(c.rest)
+	if len(args) == 0 {
+		return fmt.Errorf("add requires a command after --")
+	}
+	sc := &types.SudoCommand{
+		Slug:    c.Slug.Value(),
+		Command: args[0],
+		Args:    args[1:],
+	}
+	return sudo.Enqueue(ctx, sc)
 }

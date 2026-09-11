@@ -1,19 +1,21 @@
 package mod
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
-	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
+	_ "github.com/lucasew/workspaced/internal/modfile/sourceprovider/prelude"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Lock *Lock
+	Tidy *Tidy
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "mod",
-		Short: "Manage module sources and lockfile",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+func (Command) Description() string {
+	return "Manage module sources and lockfile"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced mod")
 }

@@ -1,22 +1,21 @@
 package plan
 
 import (
+	"context"
+
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/cmd/workspaced/home/apply"
 	"github.com/lucasew/workspaced/internal/cmdwire"
-
-	"github.com/spf13/cobra"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "plan",
-		Short: "Show what would be applied (dry-run)",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmdwire.RunAfterWait(cmd, true, apply.Schedule)
-		},
-	}
+type Command struct {
+	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+}
 
-	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
-	return cmd
+func (Command) Description() string {
+	return "Show what would be applied (dry-run)"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return cmdwire.RunAfterWait(ctx, true, c.ShowNoop.Value(), apply.Schedule)
 }

@@ -18,19 +18,19 @@ import (
 	pkg_utils "github.com/lucasew/workspaced/cmd/workspaced/utils"
 )
 
-func init() {
-	Registry.FromGetter(pkg_codebase.GetCommand)
-	Registry.FromGetter(pkg_driver.GetCommand)
-	Registry.FromGetter(pkg_experiments.GetCommand)
-	Registry.FromGetter(pkg_home.GetCommand)
-	Registry.FromGetter(pkg_init.GetCommand)
-	Registry.FromGetter(pkg_is.GetCommand)
-	Registry.FromGetter(pkg_mod.GetCommand)
-	Registry.FromGetter(pkg_open.GetCommand)
-	Registry.FromGetter(pkg_selfinstall.GetCommand)
-	Registry.FromGetter(pkg_selfupdate.GetCommand)
-	Registry.FromGetter(pkg_svc.GetCommand)
-	Registry.FromGetter(pkg_system.GetCommand)
-	Registry.FromGetter(pkg_tool.GetCommand)
-	Registry.FromGetter(pkg_utils.GetCommand)
+type children struct {
+	Codebase    *pkg_codebase.Command
+	Driver      *pkg_driver.Command
+	Experiments *pkg_experiments.Command
+	Home        *pkg_home.Command
+	Init        *pkg_init.Command
+	Is          *pkg_is.Command
+	Mod         *pkg_mod.Command
+	Open        *pkg_open.Command
+	Selfinstall *pkg_selfinstall.Command `cmd:"self-install"`
+	Selfupdate  *pkg_selfupdate.Command  `cmd:"self-update"`
+	Svc         *pkg_svc.Command
+	System      *pkg_system.Command
+	Tool        *pkg_tool.Command
+	Utils       *pkg_utils.Command
 }

@@ -1,30 +1,26 @@
 package nix
 
 import (
-	"github.com/lucasew/workspaced/internal/nix"
+	"context"
+	"fmt"
+	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/nix"
 )
 
-// Build sub-command
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		var noCache bool
-		cmd := &cobra.Command{
-			Use:   "build <ref>",
-			Short: "Build a Nix flake reference with RAM caching",
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				ref := args[0]
-				path, err := nix.Build(cmd.Context(), ref, !noCache)
-				if err != nil {
-					return err
-				}
-				cmd.Println(path)
-				return nil
-			},
-		}
-		cmd.Flags().BoolVar(&noCache, "no-cache", false, "Disable RAM cache")
-		parent.AddCommand(cmd)
-	})
+type Build struct {
+	NoCache cmd.Flag `long:"no-cache" help:"Disable RAM cache"`
+	ref     cmd.StringArg
+}
+
+func (Build) Description() string { return "Build a Nix flake reference with RAM caching" }
+
+func (b *Build) Run(ctx context.Context) error {
+	path, err := nix.Build(ctx, b.ref.Value(), !b.NoCache.Value())
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(os.Stdout, path)
+	return err
 }

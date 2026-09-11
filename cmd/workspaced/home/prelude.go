@@ -9,10 +9,10 @@ import (
 	pkg_sync "github.com/lucasew/workspaced/cmd/workspaced/home/sync"
 )
 
-func init() {
-	Registry.FromGetter(pkg_apply.GetCommand)
-	Registry.FromGetter(pkg_backup.GetCommand)
-	Registry.FromGetter(pkg_config.GetCommand)
-	Registry.FromGetter(pkg_plan.GetCommand)
-	Registry.FromGetter(pkg_sync.GetCommand)
+type children struct {
+	Apply  *pkg_apply.Command
+	Backup *pkg_backup.Command
+	Config *pkg_config.Command
+	Plan   *pkg_plan.Command
+	Sync   *pkg_sync.Command
 }

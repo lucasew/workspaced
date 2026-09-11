@@ -4,43 +4,34 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/tool"
 	_ "github.com/lucasew/workspaced/internal/tool/prelude"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
-
-	"github.com/spf13/cobra"
 )
 
-func lazyCommand() *cobra.Command {
-	var binName string
-	var homeMode bool
-
-	cmd := &cobra.Command{
-		Use:   "lazy <tool-name> [args...]",
-		Short: "Run a lazy tool resolved from home config and workspaced.lock.json",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			toolName := args[0]
-			toolArgs := args[1:]
-			if len(toolArgs) > 0 && toolArgs[0] == "--" {
-				toolArgs = toolArgs[1:]
-			}
-			if binName == "" {
-				binName = toolName
-			}
-			return runLazyTool(cmd.Context(), homeMode, toolName, binName, toolArgs)
-		},
-	}
-
-	cmd.Flags().StringVar(&binName, "bin", "", "Binary name to resolve inside the tool package")
-	cmd.Flags().BoolVar(&homeMode, "home", false, "Resolve the lazy tool using the home/dotfiles workspace")
-	cmd.Flags().SetInterspersed(false)
-
-	return cmd
+type Lazy struct {
+	Bin  cmd.StringArg `long:"bin" help:"Binary name to resolve inside the tool package"`
+	Home cmd.Flag      `long:"home" help:"Resolve the lazy tool using the home/dotfiles workspace"`
+	tool cmd.StringArg
+	sep  cmd.Dash
+	args []cmd.StringArg
 }
 
-// runLazyTool is the standard open path for any lazy tool (including mise).
+func (Lazy) Description() string {
+	return "Run a lazy tool resolved from home config and workspaced.lock.json"
+}
+
+func (l *Lazy) Run(ctx context.Context) error {
+	toolName := l.tool.Value()
+	binName := l.Bin.Value()
+	if binName == "" {
+		binName = toolName
+	}
+	return runLazyTool(ctx, l.Home.Value(), toolName, binName, cmd.Values(l.args))
+}
+
 func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, toolArgs []string) error {
 	resolver := tool.ResolveLazyTool
 	if homeMode {
@@ -54,13 +45,11 @@ func runLazyTool(ctx context.Context, homeMode bool, toolName, binName string, t
 		if err != nil {
 			return err
 		}
-		// Detach so session teardown does not cancel the child.
 		execCtx := context.WithoutCancel(ctx)
 		c, err := execdriver.Run(execCtx, binPath, toolArgs...)
 		if err != nil {
 			return fmt.Errorf("create command: %w", err)
 		}
-		// Real stdio after the progress UI unmounts (shim/lazy exec).
 		s.AfterWaitRun(c)
 		return nil
 	})

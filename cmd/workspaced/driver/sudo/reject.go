@@ -1,21 +1,18 @@
 package sudo
 
 import (
-	"github.com/lucasew/workspaced/internal/sudo"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/sudo"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "reject <slug>",
-			Short: "Reject a pending command",
-			Args:  cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return sudo.Remove(args[0])
-			},
-		}
-		parent.AddCommand(cmd)
-	})
+type Reject struct {
+	slug cmd.StringArg
+}
+
+func (Reject) Description() string { return "Reject a pending command" }
+
+func (c *Reject) Run(ctx context.Context) error {
+	return sudo.Remove(c.slug.Value())
 }

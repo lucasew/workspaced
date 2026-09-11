@@ -1,18 +1,19 @@
 package driver
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	children `flatten:""`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "driver",
-		Short: "Commands to interact with drivers",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+func (Command) Description() string {
+	return "Commands to interact with drivers"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced driver")
 }

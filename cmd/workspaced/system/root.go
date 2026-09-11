@@ -1,15 +1,19 @@
 package system
 
 import (
-	"github.com/spf13/cobra"
+	"context"
+
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "system",
-		Short: "System apply tools",
-	}
-	cmd.AddCommand(getApplyCommand())
-	return cmd
+type Command struct {
+	Apply *Apply
+}
 
+func (Command) Description() string {
+	return "System apply tools"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced system")
 }

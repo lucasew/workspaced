@@ -1,17 +1,22 @@
 package sudo
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Add     *Add
+	Approve *Approve
+	List    *List
+	Reject  *Reject
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "sudo",
-		Short: "Manage pending privileged commands",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Manage pending privileged commands"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced driver sudo")
 }

@@ -5,6 +5,6 @@ import (
 	pkg_config "github.com/lucasew/workspaced/cmd/workspaced/codebase/config"
 )
 
-func init() {
-	Registry.FromGetter(pkg_config.GetCommand)
+type children struct {
+	Config *pkg_config.Command
 }

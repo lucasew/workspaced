@@ -11,12 +11,12 @@ import (
 	pkg_template "github.com/lucasew/workspaced/cmd/workspaced/utils/template"
 )
 
-func init() {
-	Registry.FromGetter(pkg_demo.GetCommand)
-	Registry.FromGetter(pkg_history.GetCommand)
-	Registry.FromGetter(pkg_icons.GetCommand)
-	Registry.FromGetter(pkg_nix.GetCommand)
-	Registry.FromGetter(pkg_palette.GetCommand)
-	Registry.FromGetter(pkg_shell.GetCommand)
-	Registry.FromGetter(pkg_template.GetCommand)
+type children struct {
+	Demo     *pkg_demo.Command
+	History  *pkg_history.Command
+	Icons    *pkg_icons.Command
+	Nix      *pkg_nix.Command
+	Palette  *pkg_palette.Command
+	Shell    *pkg_shell.Command
+	Template *pkg_template.Command
 }

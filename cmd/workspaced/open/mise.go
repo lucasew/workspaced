@@ -1,20 +1,20 @@
 package open
 
 import (
-	"github.com/spf13/cobra"
+	"context"
+
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-// miseCommand is a short alias for `open lazy --home mise`.
-// Mise itself is not special-cased for install: it is a normal lazy tool
-// (registry:mise, pinned in the lockfile). This subcommand only keeps a
-// convenient argv shape for shell scripts and the PATH shim
-// (DisableFlagParsing for mise's own flags).
-func miseCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:                "mise [args...]",
-		Short:              "Alias for: open lazy --home mise -- …",
-		DisableFlagParsing: true,
-		Long: `Convenience alias for the standard home lazy tool path:
+type Mise struct {
+	sep  cmd.Dash
+	args []cmd.StringArg
+}
+
+func (Mise) Description() string {
+	return `Alias for: open lazy --home mise -- …
+
+Convenience alias for the standard home lazy tool path:
 
   workspaced open lazy --home --bin mise mise -- [args...]
 
@@ -23,12 +23,11 @@ tool store like any other catalog tool. The lockfile pins the version.
 Package installs via the mise: backend still shell out to that binary.
 
 Examples:
-  workspaced open mise version
-  workspaced open mise install node@20
-  workspaced open lazy --home mise -- version`,
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runLazyTool(cmd.Context(), true, "mise", "mise", args)
-		},
-	}
+  workspaced open mise -- version
+  workspaced open mise -- install node@20
+  workspaced open lazy --home mise -- version`
+}
+
+func (m *Mise) Run(ctx context.Context) error {
+	return runLazyTool(ctx, true, "mise", "mise", cmd.Values(m.args))
 }

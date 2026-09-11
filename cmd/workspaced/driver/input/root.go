@@ -1,85 +1,95 @@
 package input
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/cmdregistry"
-	"github.com/lucasew/workspaced/pkg/driver/dialog"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/clirun"
+	"github.com/lucasew/workspaced/pkg/driver/dialog"
 )
 
 var ErrCancelled = errors.New("cancelled")
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Text      *Text
+	Confirm   *Confirm
+	Choose    *Choose
+	Launch    *Launch
+	Window    *Window
+	Workspace *Workspace
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "input",
-		Short: "Interactive user input commands",
+func (Command) Description() string {
+	return "Interactive user input commands"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced driver input")
+}
+
+type Text struct {
+	prompt *cmd.StringArg
+}
+
+func (Text) Description() string { return "Ask for a text string" }
+
+func (c *Text) Run(ctx context.Context) error {
+	prompt := "Input"
+	if c.prompt != nil {
+		prompt = c.prompt.Value()
 	}
+	res, err := dialog.Prompt(ctx, prompt)
+	if err != nil {
+		return err
+	}
+	fmt.Println(res)
+	return nil
+}
 
-	cmd.AddCommand(&cobra.Command{
-		Use:   "text [prompt]",
-		Short: "Ask for a text string",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			prompt := "Input"
-			if len(args) > 0 {
-				prompt = args[0]
-			}
-			res, err := dialog.Prompt(c.Context(), prompt)
-			if err != nil {
-				return err
-			}
-			fmt.Println(res)
-			return nil
-		},
+type Confirm struct {
+	message *cmd.StringArg
+}
+
+func (Confirm) Description() string { return "Ask for a yes/no confirmation" }
+
+func (c *Confirm) Run(ctx context.Context) error {
+	msg := "Confirm?"
+	if c.message != nil {
+		msg = c.message.Value()
+	}
+	ok, err := dialog.Confirm(ctx, msg)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrCancelled
+	}
+	return nil
+}
+
+type Choose struct {
+	prompt  cmd.StringArg
+	options []cmd.StringArg
+}
+
+func (Choose) Description() string { return "Select an item from a list" }
+
+func (c *Choose) Run(ctx context.Context) error {
+	items := make([]dialog.Item, 0, len(c.options))
+	for _, arg := range c.options {
+		items = append(items, dialog.Item{Label: arg.Value(), Value: arg.Value()})
+	}
+	res, err := dialog.Choose(ctx, dialog.ChooseOptions{
+		Prompt: c.prompt.Value(),
+		Items:  items,
 	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "confirm [message]",
-		Short: "Ask for a yes/no confirmation",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			msg := "Confirm?"
-			if len(args) > 0 {
-				msg = args[0]
-			}
-			ok, err := dialog.Confirm(c.Context(), msg)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				return ErrCancelled
-			}
-			return nil
-		},
-	})
-
-	cmd.AddCommand(&cobra.Command{
-		Use:   "choose [prompt] [options...]",
-		Short: "Select an item from a list",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			prompt := args[0]
-			var items []dialog.Item
-			for _, arg := range args[1:] {
-				items = append(items, dialog.Item{Label: arg, Value: arg})
-			}
-			res, err := dialog.Choose(c.Context(), dialog.ChooseOptions{
-				Prompt: prompt,
-				Items:  items,
-			})
-			if err != nil {
-				return err
-			}
-			if res != nil {
-				fmt.Println(res.Value)
-			}
-			return nil
-		},
-	})
-
-	return Registry.FillCommands(cmd)
+	if err != nil {
+		return err
+	}
+	if res != nil {
+		fmt.Println(res.Value)
+	}
+	return nil
 }

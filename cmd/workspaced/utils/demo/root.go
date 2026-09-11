@@ -1,17 +1,20 @@
 package demo
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Debug    *Debug
+	Progress *Progress
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "demo",
-		Short: "Demo commands",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Demo commands"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced utils demo")
 }

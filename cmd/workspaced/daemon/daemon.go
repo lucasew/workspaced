@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"slices"
 	"syscall"
 	"time"
 
@@ -18,7 +16,6 @@ import (
 	_ "image/png"
 	"io"
 
-	"github.com/lucasew/workspaced/cmd/workspaced/utils"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/internal/db"
 	"github.com/lucasew/workspaced/internal/executil"
@@ -30,13 +27,15 @@ import (
 
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/gorilla/websocket"
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
 var (
 	shouldRestartDaemon    bool
 	initialMtime           time.Time
 	ErrNoRunImplementation = errors.New("command has no run implementation")
+	// ExecuteCLI runs a workspaced CLI invocation (set from main).
+	ExecuteCLI func(context.Context, []string) error
 )
 
 // initialMtime is populated early in the daemon command Run (before RunDaemon)
@@ -68,45 +67,36 @@ func (w *StreamPacketWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-var Command = &cobra.Command{
-	Use:   "daemon",
-	Short: "Run the workspaced daemon",
-	Run: func(c *cobra.Command, args []string) {
-		try := false
-		if t, terr := c.Flags().GetBool("try"); terr == nil {
-			try = t
-		}
-		ctx := c.Context()
-		if try {
-			socketPath := types.DaemonSocketPath()
-			conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
-			if err == nil {
-				logging.Close(ctx, conn)
-				logger := logging.GetLogger(ctx)
-				logger.Info("daemon already running, exiting")
-				os.Exit(0)
-			}
-		}
-
-		// Populate initialMtime here (using the connected command ctx) instead
-		// of package init, so we use a ctx that has the logger from the top root.
-		var err error
-		initialMtime, err = executil.GetBinaryMtime()
-		if err != nil {
-			logger := logging.GetLogger(c.Context())
-			logger.Warn("failed to get initial binary mtime", "error", err)
-		}
-
-		if err := RunDaemon(c.Context()); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger := logging.GetLogger(c.Context())
-			logger.Error("daemon failure", "error", err)
-			os.Exit(1)
-		}
-	},
+type Command struct {
+	Try cmd.Flag `long:"try" help:"Exit if daemon is already running"`
 }
 
-func init() {
-	Command.Flags().Bool("try", false, "Exit if daemon is already running")
+func (Command) Description() string {
+	return "Run the workspaced daemon"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	if c.Try.Value() {
+		socketPath := types.DaemonSocketPath()
+		conn, err := net.DialTimeout("unix", socketPath, 200*time.Millisecond)
+		if err == nil {
+			logging.Close(ctx, conn)
+			logging.GetLogger(ctx).Info("daemon already running, exiting")
+			os.Exit(0)
+		}
+	}
+
+	var err error
+	initialMtime, err = executil.GetBinaryMtime()
+	if err != nil {
+		logging.GetLogger(ctx).Warn("failed to get initial binary mtime", "error", err)
+	}
+
+	if err := RunDaemon(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logging.GetLogger(ctx).Error("daemon failure", "error", err)
+		os.Exit(1)
+	}
+	return nil
 }
 
 func RunDaemon(ctx context.Context) error {
@@ -164,7 +154,7 @@ func RunDaemon(ctx context.Context) error {
 					Callback: func() {
 						logger := logging.GetLogger(ctx)
 						logger.Info("tray: triggering apply")
-						_, err := ExecuteViaCobra(ctx, types.Request{Command: "apply", Args: []string{}}, os.Stdout, os.Stderr)
+						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "apply", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
 							logger.Error("tray apply failed", "error", err)
 						}
@@ -180,7 +170,7 @@ func RunDaemon(ctx context.Context) error {
 					Callback: func() {
 						logger := logging.GetLogger(ctx)
 						logger.Info("tray: triggering sync")
-						_, err := ExecuteViaCobra(ctx, types.Request{Command: "sync", Args: []string{}}, os.Stdout, os.Stderr)
+						_, err := ExecuteCLIRequest(ctx, types.Request{Command: "sync", Args: []string{}}, os.Stdout, os.Stderr)
 						if err != nil {
 							logger.Error("tray sync failed", "error", err)
 						}
@@ -407,7 +397,7 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	// Inject DB into context so commands can use it
 	ctx = db.WithDB(ctx, database)
 
-	output, err := ExecuteViaCobra(ctx, req, stdout, stderr)
+	output, err := ExecuteCLIRequest(ctx, req, stdout, stderr)
 
 	resp := types.Response{Output: output}
 	if err != nil {
@@ -427,49 +417,18 @@ func handleRequest(ctx context.Context, req types.Request, outCh chan types.Stre
 	}
 }
 
-func ExecuteViaCobra(ctx context.Context, req types.Request, stdout, stderr io.Writer) (string, error) {
-	targetCmd, targetArgs, err := utils.FindCommand(req.Command, req.Args)
-	if err != nil {
-		return "", err
+func ExecuteCLIRequest(ctx context.Context, req types.Request, stdout, stderr io.Writer) (string, error) {
+	if ExecuteCLI == nil {
+		return "", ErrNoRunImplementation
 	}
-
-	buf := new(bytes.Buffer)
-	targetCmd.SetOut(io.MultiWriter(buf, stdout))
-	targetCmd.SetErr(io.MultiWriter(buf, stderr))
-	targetCmd.SetArgs(targetArgs)
-	targetCmd.SetContext(ctx)
-
-	if err := targetCmd.ParseFlags(targetArgs); err != nil {
-		return buf.String(), err
+	args := append([]string{req.Command}, req.Args...)
+	switch req.Command {
+	case "apply":
+		args = []string{"home", "apply"}
+	case "sync":
+		args = []string{"home", "sync"}
 	}
-	argList := targetCmd.Flags().Args()
-	if targetCmd.DisableFlagParsing {
-		argList = targetArgs
-	}
-
-	var parents []*cobra.Command
-	for curr := targetCmd; curr != nil; curr = curr.Parent() {
-		parents = append(parents, curr)
-	}
-	slices.Reverse(parents)
-
-	for _, p := range parents {
-		if p.PersistentPreRunE != nil {
-			if err := p.PersistentPreRunE(targetCmd, argList); err != nil {
-				return buf.String(), err
-			}
-		} else if p.PersistentPreRun != nil {
-			p.PersistentPreRun(targetCmd, argList)
-		}
-	}
-
-	if targetCmd.RunE != nil {
-		err = targetCmd.RunE(targetCmd, argList)
-	} else if targetCmd.Run != nil {
-		targetCmd.Run(targetCmd, argList)
-	} else {
-		err = ErrNoRunImplementation
-	}
-
-	return buf.String(), err
+	_ = stdout
+	_ = stderr
+	return "", ExecuteCLI(ctx, args)
 }
