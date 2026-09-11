@@ -13,78 +13,69 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "deploy [nodes...]",
-			Short: "Deploy NixOS and Home Manager configurations to remote nodes",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				ctx := cmd.Context()
-				nodes := args
-				if len(nodes) == 0 {
-					nodes = []string{"riverwood", "whiterun"}
-				}
+type Deploy struct {
+	Flake  cmd.StringArg `short:"f" long:"flake" help:"Flake reference to use"`
+	Action cmd.StringArg `short:"a" long:"action" help:"Action to perform (switch, boot, test). If empty, auto-detects."`
+	nodes  []cmd.StringArg
+}
 
-				flake, err := cmd.Flags().GetString("flake")
-				if err != nil {
-					return err
-				}
-				if flake == "" {
-					root, err := envdriver.GetDotfilesRoot(ctx)
-					if err != nil {
-						return err
-					}
-					flake = root
-				}
+func (Deploy) Description() string {
+	return "Deploy NixOS and Home Manager configurations to remote nodes"
+}
 
-				action, err := cmd.Flags().GetString("action")
-				if err != nil {
-					return err
-				}
+func (d *Deploy) Run(ctx context.Context) error {
+	nodes := cmd.Values(d.nodes)
+	if len(nodes) == 0 {
+		nodes = []string{"riverwood", "whiterun"}
+	}
 
-				// Leaf: deployNode is ssh/nix exec, no nested limited-pool tasks.
-				err = taskgroup.Each[string]{
-					Name:     "nix-deploy",
-					Items:    nodes,
-					PoolKind: taskgroup.Internet,
-					TaskName: func(_ int, node string) string { return "deploy:" + node },
-					Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
-						s.Update(node)
-						logger := logging.GetLogger(ctx).With("node", node)
-						logger.Info("Deploying to node")
-						if err := deployNode(ctx, flake, node, action); err != nil {
-							logger.Error("Failed to deploy to node", "error", err)
-							return err
-						}
-						return nil
-					},
-				}.Run(ctx)
-				if err != nil {
-					return err
-				}
-
-				deployed := append([]string(nil), nodes...)
-				taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
-					n := notification.Notification{
-						Title:   "NixOS Deploy",
-						Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),
-						Icon:    "nix-snowflake",
-					}
-					if err := notification.Notify(ctx, &n); err != nil {
-						logging.GetLogger(ctx).Error("failed to send notification", "error", err)
-					}
-					return nil
-				})
-				return nil
-			},
+	flake := d.Flake.Value()
+	if flake == "" {
+		root, err := envdriver.GetDotfilesRoot(ctx)
+		if err != nil {
+			return err
 		}
-		cmd.Flags().StringP("flake", "f", "", "Flake reference to use")
-		cmd.Flags().StringP("action", "a", "", "Action to perform (switch, boot, test). If empty, auto-detects.")
-		parent.AddCommand(cmd)
+		flake = root
+	}
+
+	action := d.Action.Value()
+
+	err := taskgroup.Each[string]{
+		Name:     "nix-deploy",
+		Items:    nodes,
+		PoolKind: taskgroup.Internet,
+		TaskName: func(_ int, node string) string { return "deploy:" + node },
+		Fn: func(ctx context.Context, s *taskgroup.Status, node string) error {
+			s.Update(node)
+			logger := logging.GetLogger(ctx).With("node", node)
+			logger.Info("Deploying to node")
+			if err := deployNode(ctx, flake, node, action); err != nil {
+				logger.Error("Failed to deploy to node", "error", err)
+				return err
+			}
+			return nil
+		},
+	}.Run(ctx)
+	if err != nil {
+		return err
+	}
+
+	deployed := append([]string(nil), nodes...)
+	taskgroup.MustSessionFrom(ctx).AfterWait(func() error {
+		n := notification.Notification{
+			Title:   "NixOS Deploy",
+			Message: fmt.Sprintf("Deploy completed for: %s", strings.Join(deployed, ", ")),
+			Icon:    "nix-snowflake",
+		}
+		if err := notification.Notify(ctx, &n); err != nil {
+			logging.GetLogger(ctx).Error("failed to send notification", "error", err)
+		}
+		return nil
 	})
+	return nil
 }
 
 func deployNode(ctx context.Context, flake, node, action string) error {

@@ -1,14 +1,18 @@
 package config
 
 import (
-	"github.com/lucasew/workspaced/cmd/workspaced/configcmd"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/cmd/workspaced/configcmd"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-func GetCommand() *cobra.Command {
-	return configcmd.New(configcmd.Options{
-		HomeMode: true,
-		Scope:    "home",
-	})
+type Command struct {
+	configcmd.Tree[configcmd.Home] `flatten:""`
+}
+
+func (Command) Description() string { return "Manage configuration" }
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced home config")
 }

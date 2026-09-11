@@ -1,20 +1,20 @@
 package open
 
 import (
-	"github.com/lucasew/workspaced/pkg/driver/opener"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/pkg/driver/opener"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "open [target]",
-		Short: "Open a file or URL using the preferred opener",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			return opener.Open(c.Context(), args[0])
-		},
-	}
+type Command struct {
+	target cmd.StringArg
+}
 
-	return cmd
+func (Command) Description() string {
+	return "Open a file or URL using the preferred opener"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return opener.Open(ctx, c.target.Value())
 }

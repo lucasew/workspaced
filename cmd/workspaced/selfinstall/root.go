@@ -15,43 +15,26 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func GetCommand() *cobra.Command {
-	var force bool
+type Command struct {
+	Force cmd.Flag `short:"f" long:"force" help:"Force reinstall (overwrite existing)"`
+}
 
-	cmd := &cobra.Command{
-		Use:   "self-install",
-		Short: "Install workspaced into tool system (bootstrap)",
-		Long: `Copies the current workspaced binary into the tool management system.
+func (Command) Description() string {
+	return "Install workspaced into tool system (bootstrap)"
+}
 
-This is typically used once during initial setup:
-  curl ... > workspaced && chmod +x workspaced
-  ./workspaced self-install
+func (c *Command) Run(ctx context.Context) error {
+	g := taskgroup.FromContext(ctx)
 
-After this, use 'workspaced self-update' to update.
-
-The binary is installed in:
-  ~/.local/share/workspaced/tools/github-lucasew-workspaced/{version}/workspaced
-
-A shim is created in:
-  ~/.local/bin/workspaced`,
-		RunE: func(c *cobra.Command, args []string) error {
-			ctx := c.Context()
-			g := taskgroup.FromContext(ctx)
-
-			g.Go("self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-				s.Update("self-installing workspaced")
-				defer s.Unit()()
-				return runSelfInstall(ctx, force)
-			})
-			return nil
-		},
-	}
-
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force reinstall (overwrite existing)")
-	return cmd
+	g.Go("self-install", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update("self-installing workspaced")
+		defer s.Unit()()
+		return runSelfInstall(ctx, c.Force.Value())
+	})
+	return nil
 }
 
 func runSelfInstall(ctx context.Context, force bool) error {

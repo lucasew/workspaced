@@ -10,7 +10,7 @@ CUE config (`workspaced.cue`) drives everything.
 - Modules + source pipeline (`internal/module`, `internal/source`): config and templates become real files, streamed in memory.
 - Tool backends (`internal/tool/backend`): github, mise, catalog. Each yields installable, lockable tools.
 - Checks (`internal/checks`): CUE-defined linters/formatters (`lint`/`formatter` tools + codecs); `lint --review` → GHA workflow annotations.
-- CLI packages under `cmd/workspaced/` are small and intention-based.
+- CLI packages under `cmd/workspaced/` are small x/cmd structs.
 
 ## Critical locations
 
@@ -28,9 +28,9 @@ CUE config (`workspaced.cue`) drives everything.
 - Drivers: `driver.Register[T](impl)`
 - Backends: `tool.Register("github", impl)`
 - Curated tools: `catalog.RegisterTool(name, ctor)`
-- CLI subcommands: `GetCommand()` (wired by devtool)
+- CLI subcommands: `type Command struct` fields (wired by generated `children`)
 
-Never import driver prelude except from `cmd/workspaced/root.go`. Tool/check preludes: from the cmd that needs them, not from `pkg/`.
+Never import driver prelude except from `cmd/workspaced/root.go`. Tool/check preludes: from the cmd that needs them, not from `pkg/`. CLI groups export `Command` and embed generated `children`.
 
 ## Common tasks
 

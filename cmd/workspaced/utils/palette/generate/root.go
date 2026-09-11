@@ -1,78 +1,60 @@
 package generate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
-
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/pkg/palette"
 	"github.com/lucasew/workspaced/pkg/palette/api"
 )
 
-func GetCommand() *cobra.Command {
-	var (
-		driverName string
-		polarity   string
-		colorCount int
-	)
+type Command struct {
+	Driver   cmd.StringArg   `long:"driver" help:"Extraction algorithm (see: palette drivers)" default:"genetic"`
+	Polarity cmd.StringArg   `long:"polarity" help:"Theme preference: dark, light, or any" default:"any"`
+	Colors   cmd.IntArg[int] `long:"colors" help:"Number of colors (16 for base16, 24 for base24)" default:"16"`
+	image    cmd.StringArg
+}
 
-	cmd := &cobra.Command{
-		Use:   "generate <image>",
-		Short: "Generate color palette from an image",
-		Long:  generateLongHelp(),
-		Args:  cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			ctx := c.Context()
-			imagePath := args[0]
+func (Command) Description() string { return generateLongHelp() }
 
-			if _, err := palette.GetDriver(ctx, driverName); err != nil {
-				return err
-			}
+func (c *Command) Run(ctx context.Context) error {
+	imagePath := c.image.Value()
 
-			pol, err := parsePolarityFlag(polarity)
-			if err != nil {
-				return err
-			}
-
-			opts := api.Options{
-				Polarity:   pol,
-				ColorCount: colorCount,
-				MaxSamples: 10000,
-			}
-
-			pal, err := palette.ExtractFromFile(ctx, imagePath, driverName, opts)
-			if err != nil {
-				return fmt.Errorf("extract palette: %w", err)
-			}
-
-			encoder := json.NewEncoder(c.OutOrStdout())
-			encoder.SetIndent("", "  ")
-			return encoder.Encode(pal)
-		},
+	if _, err := palette.GetDriver(ctx, c.Driver.Value()); err != nil {
+		return err
 	}
 
-	cmd.Flags().StringVar(&driverName, "driver", "genetic", "Extraction algorithm (see: palette drivers)")
-	cmd.Flags().StringVar(&polarity, "polarity", "any", "Theme preference: dark, light, or any")
-	cmd.Flags().IntVar(&colorCount, "colors", 16, "Number of colors (16 for base16, 24 for base24)")
-	if regErr := cmd.RegisterFlagCompletionFunc("driver", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return palette.DriverNames(), cobra.ShellCompDirectiveNoFileComp
-	}); regErr != nil {
-		// completion registration is best-effort
+	pol, err := parsePolarityFlag(c.Polarity.Value())
+	if err != nil {
+		return err
 	}
-	if regErr := cmd.RegisterFlagCompletionFunc("polarity", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"any", "dark", "light"}, cobra.ShellCompDirectiveNoFileComp
-	}); regErr != nil {
-		// completion registration is best-effort
+
+	opts := api.Options{
+		Polarity:   pol,
+		ColorCount: c.Colors.Value(),
+		MaxSamples: 10000,
 	}
-	return cmd
+
+	pal, err := palette.ExtractFromFile(ctx, imagePath, c.Driver.Value(), opts)
+	if err != nil {
+		return fmt.Errorf("extract palette: %w", err)
+	}
+
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(pal)
 }
 
 func generateLongHelp() string {
 	var b strings.Builder
-	b.WriteString(`Generate a base16 or base24 color palette from an image.
+	b.WriteString(`Generate color palette from an image
+
+Generate a base16 or base24 color palette from an image.
 
 Drivers (see also: workspaced utils palette drivers):
 `)
@@ -93,7 +75,6 @@ Examples:
 	return b.String()
 }
 
-// parsePolarityFlag converts string flag to Polarity enum
 func parsePolarityFlag(s string) (api.Polarity, error) {
 	switch strings.ToLower(s) {
 	case "any":

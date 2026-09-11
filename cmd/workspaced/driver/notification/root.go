@@ -1,39 +1,31 @@
 package notification
 
 import (
-	"github.com/lucasew/workspaced/pkg/driver/notification"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/pkg/driver/notification"
 )
 
-func GetCommand() *cobra.Command {
-	var title string
-	var message string
-	var icon string
-	var urgency string
-	var progress float64
+type Command struct {
+	Title    cmd.StringArg         `short:"t" long:"title" help:"Notification title" default:"Workspaced"`
+	Message  cmd.StringArg         `short:"m" long:"message" help:"Notification message"`
+	Icon     cmd.StringArg         `short:"i" long:"icon" help:"Notification icon"`
+	Urgency  cmd.StringArg         `short:"u" long:"urgency" help:"Notification urgency (low, normal, critical)" default:"normal"`
+	Progress cmd.FloatArg[float64] `short:"p" long:"progress" help:"Notification progress (0.0-1.0)"`
+}
 
-	cmd := &cobra.Command{
-		Use:   "notification",
-		Short: "Send a desktop notification",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			n := &notification.Notification{
-				Title:    title,
-				Message:  message,
-				Icon:     icon,
-				Urgency:  urgency,
-				Progress: progress,
-			}
-			return notification.Notify(ctx, n)
-		},
+func (Command) Description() string {
+	return "Send a desktop notification"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	n := &notification.Notification{
+		Title:    c.Title.Value(),
+		Message:  c.Message.Value(),
+		Icon:     c.Icon.Value(),
+		Urgency:  c.Urgency.Value(),
+		Progress: c.Progress.Value(),
 	}
-
-	cmd.Flags().StringVarP(&title, "title", "t", "Workspaced", "Notification title")
-	cmd.Flags().StringVarP(&message, "message", "m", "", "Notification message")
-	cmd.Flags().StringVarP(&icon, "icon", "i", "", "Notification icon")
-	cmd.Flags().StringVarP(&urgency, "urgency", "u", "normal", "Notification urgency (low, normal, critical)")
-	cmd.Flags().Float64VarP(&progress, "progress", "p", 0, "Notification progress (0.0-1.0)")
-
-	return cmd
+	return notification.Notify(ctx, n)
 }

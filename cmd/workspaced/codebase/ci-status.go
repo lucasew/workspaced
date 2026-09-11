@@ -1,37 +1,37 @@
 package codebase
 
 import (
-	"github.com/lucasew/workspaced/internal/git"
-	"github.com/lucasew/workspaced/internal/tool"
+	"context"
 	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/git"
+	"github.com/lucasew/workspaced/internal/tool"
 )
 
-func init() {
-	Registry.Register(
-		func(parent *cobra.Command) {
-			parent.AddCommand(&cobra.Command{
-				Use:   "ci-status [args]",
-				Short: "Run ci-status from the workspace lazy_tools pin",
-				RunE: func(cmd *cobra.Command, args []string) error {
-					c, err := tool.EnsureAndRunLazy(cmd.Context(), "ci_status", "ci-status", args...)
-					if err != nil {
-						return err
-					}
-					wd, err := os.Getwd()
-					if err != nil {
-						return err
-					}
-					c.Dir, err = git.GetRoot(cmd.Context(), wd)
-					if err != nil {
-						return err
-					}
-					c.Stdin = os.Stdin
-					c.Stdout = os.Stdout
-					c.Stderr = os.Stderr
-					return c.Run()
-				},
-			})
-		})
+type CIStatus struct {
+	args []cmd.StringArg
+}
+
+func (CIStatus) Description() string {
+	return "Run ci-status from the workspace lazy_tools pin"
+}
+
+func (c *CIStatus) Run(ctx context.Context) error {
+	run, err := tool.EnsureAndRunLazy(ctx, "ci_status", "ci-status", cmd.Values(c.args)...)
+	if err != nil {
+		return err
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	run.Dir, err = git.GetRoot(ctx, wd)
+	if err != nil {
+		return err
+	}
+	run.Stdin = os.Stdin
+	run.Stdout = os.Stdout
+	run.Stderr = os.Stderr
+	return run.Run()
 }

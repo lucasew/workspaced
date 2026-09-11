@@ -6,28 +6,21 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/spf13/cobra"
-
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		parent.AddCommand(&cobra.Command{
-			Use:   "vncd",
-			Short: "Start a VNC server (Wayland or X11)",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				ctx := cmd.Context()
-				waylandDisplay := os.Getenv("WAYLAND_DISPLAY")
+type Vncd struct{}
 
-				if waylandDisplay != "" {
-					return runWaylandVNC(ctx)
-				}
-				return runXorgVNC(ctx)
-			},
-		})
-	})
+func (Vncd) Description() string {
+	return "Start a VNC server (Wayland or X11)"
+}
+
+func (*Vncd) Run(ctx context.Context) error {
+	if os.Getenv("WAYLAND_DISPLAY") != "" {
+		return runWaylandVNC(ctx)
+	}
+	return runXorgVNC(ctx)
 }
 
 func runWaylandVNC(ctx context.Context) error {

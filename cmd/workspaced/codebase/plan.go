@@ -1,22 +1,20 @@
 package codebase
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdwire"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/cmdwire"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "plan",
-			Short: "Show what would be applied to the repo root (dry-run)",
-			Args:  cobra.NoArgs,
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return cmdwire.RunAfterWait(cmd, true, Schedule)
-			},
-		}
-		cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
-		parent.AddCommand(cmd)
-	})
+type Plan struct {
+	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+}
+
+func (Plan) Description() string {
+	return "Show what would be applied to the repo root (dry-run)"
+}
+
+func (p *Plan) Run(ctx context.Context) error {
+	return cmdwire.RunAfterWait(ctx, true, p.ShowNoop.Value(), Schedule)
 }

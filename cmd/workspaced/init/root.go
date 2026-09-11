@@ -16,35 +16,22 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
 //go:embed templates
 var templatesFS embed.FS
 
-func GetCommand() *cobra.Command {
-	var force bool
+type Command struct {
+	Force cmd.Flag `short:"f" long:"force" help:"Force overwrite existing config"`
+}
 
-	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Initialize workspaced dotfiles",
-		Long: `Initialize workspaced configuration and modules.
+func (Command) Description() string {
+	return "Initialize workspaced dotfiles"
+}
 
-This command will:
-  1. Generate workspaced.cue in $DOTFILES (or ~/.dotfiles)
-  2. Copy example module to $DOTFILES/modules/
-  3. Auto-detect hostname and local IPs
-
-Before running this, install the binary with:
-  workspaced self-install`,
-		RunE: func(c *cobra.Command, args []string) error {
-			return runInit(c.Context(), force)
-		},
-	}
-
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "Force overwrite existing config")
-
-	return cmd
+func (c *Command) Run(ctx context.Context) error {
+	return runInit(ctx, c.Force.Value())
 }
 
 func runInit(ctx context.Context, force bool) error {

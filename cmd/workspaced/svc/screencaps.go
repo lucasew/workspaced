@@ -7,22 +7,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/lucasew/workspaced/pkg/driver/screen"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		parent.AddCommand(&cobra.Command{
-			Use:   "screencaps",
-			Short: "Monitor CapsLock and toggle screen DPMS",
-			Run: func(cmd *cobra.Command, args []string) {
-				monitorCapsLock(cmd.Context())
-			},
-		})
-	})
+type Screencaps struct{}
+
+func (Screencaps) Description() string {
+	return "Monitor CapsLock and toggle screen DPMS"
+}
+
+func (*Screencaps) Run(ctx context.Context) error {
+	monitorCapsLock(ctx)
+	return nil
 }
 
 func monitorCapsLock(ctx context.Context) {

@@ -1,37 +1,38 @@
 package workspace
 
 import (
-	"github.com/lucasew/workspaced/pkg/driver/wm"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/pkg/driver/wm"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		parent.AddCommand(&cobra.Command{
-			Use:   "rotate",
-			Short: "Rotate workspaces across outputs",
-			RunE: func(c *cobra.Command, args []string) error {
-				return wm.RotateWorkspaces(c.Context())
-			},
-		})
-		parent.AddCommand(&cobra.Command{
-			Use:   "scratchpad",
-			Short: "Toggle scratchpad visibility with status info",
-			RunE: func(c *cobra.Command, args []string) error {
-				return wm.ToggleScratchpadWithInfo(c.Context())
-			},
-		})
-		parent.AddCommand(&cobra.Command{
-			Use:   "next",
-			Short: "Go to the next available workspace",
-			RunE: func(c *cobra.Command, args []string) error {
-				move, err := c.Flags().GetBool("move")
-				if err != nil {
-					return err
-				}
-				return wm.NextWorkspace(c.Context(), move)
-			},
-		})
-	})
+type Rotate struct {
+	Move cmd.Flag `long:"move" help:"Move container to workspace"`
+}
+
+func (Rotate) Description() string { return "Rotate workspaces across outputs" }
+
+func (*Rotate) Run(ctx context.Context) error {
+	return wm.RotateWorkspaces(ctx)
+}
+
+type Scratchpad struct {
+	Move cmd.Flag `long:"move" help:"Move container to workspace"`
+}
+
+func (Scratchpad) Description() string { return "Toggle scratchpad visibility with status info" }
+
+func (*Scratchpad) Run(ctx context.Context) error {
+	return wm.ToggleScratchpadWithInfo(ctx)
+}
+
+type Next struct {
+	Move cmd.Flag `long:"move" help:"Move container to workspace"`
+}
+
+func (Next) Description() string { return "Go to the next available workspace" }
+
+func (c *Next) Run(ctx context.Context) error {
+	return wm.NextWorkspace(ctx, c.Move.Value())
 }

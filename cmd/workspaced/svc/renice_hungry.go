@@ -5,49 +5,44 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		parent.AddCommand(&cobra.Command{
-			Use:   "renice-hungry",
-			Short: "Lowers the priority of the most cpu hungry process periodically",
-			Run: func(cmd *cobra.Command, args []string) {
-				ctx := cmd.Context()
-				ticker := time.NewTicker(30 * time.Second)
-				defer ticker.Stop()
+type ReniceHungry struct{}
 
-				logger := logging.GetLogger(ctx)
-				logger.Info("renice-hungry started")
+func (ReniceHungry) Description() string {
+	return "Lowers the priority of the most cpu hungry process periodically"
+}
 
-				for {
-					select {
-					case <-ctx.Done():
-						return
-					case <-ticker.C:
-						pid, cmdline, err := getHungryPID(ctx)
-						if err != nil {
-							logger.Error("failed to get hungry PID", "error", err)
-							continue
-						}
-						if pid == "" {
-							continue
-						}
+func (*ReniceHungry) Run(ctx context.Context) error {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
 
-						logger.Info("renicing process", "pid", pid, "cmd", cmdline)
-						if err := execdriver.MustRun(ctx, "renice", "7", pid).Run(); err != nil {
-							logger.Error("failed to renice process", "pid", pid, "cmd", cmdline, "error", err)
-							continue
-						}
-					}
-				}
-			},
-		})
-	})
+	logger := logging.GetLogger(ctx)
+	logger.Info("renice-hungry started")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			pid, cmdline, err := getHungryPID(ctx)
+			if err != nil {
+				logger.Error("failed to get hungry PID", "error", err)
+				continue
+			}
+			if pid == "" {
+				continue
+			}
+
+			logger.Info("renicing process", "pid", pid, "cmd", cmdline)
+			if err := execdriver.MustRun(ctx, "renice", "7", pid).Run(); err != nil {
+				logger.Error("failed to renice process", "pid", pid, "cmd", cmdline, "error", err)
+				continue
+			}
+		}
+	}
 }
 
 func getHungryPID(ctx context.Context) (string, string, error) {

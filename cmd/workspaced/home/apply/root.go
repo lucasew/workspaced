@@ -21,27 +21,26 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Declaratively apply system and user configurations",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmdwire.RunAfterWait(cmd, false, Schedule)
-		},
-	}
-	cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
-	return cmd
+type Command struct {
+	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+}
+
+func (Command) Description() string {
+	return "Declaratively apply system and user configurations"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), Schedule)
 }
 
 // Schedule wires the home apply/plan work into the given task Group.
 // Both "home apply" and "home plan" use this so the work always runs in-process
 // under the caller's session. Register the returned func with Session.AfterWait
 // so the plan/apply report prints after tasks finish and the UI/output env is gone.
-func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() error {
+func Schedule(g *taskgroup.Group, ctx context.Context, dryRun, showNoop bool) func() error {
 	taskName := "home:apply"
 	updateMsg := "applying configuration"
 	if dryRun {
@@ -49,7 +48,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		updateMsg = "planning changes"
 	}
 
-	logCtx := cmd.Context()
+	logCtx := ctx
 	var finalResult *dotfiles.ApplyResult
 
 	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {

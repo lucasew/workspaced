@@ -1,62 +1,50 @@
 package history
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/lucasew/workspaced/internal/db"
-	"github.com/lucasew/workspaced/pkg/logging"
+	"os"
 	"time"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/db"
+	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-func init() {
-	Registry.Register(func(c *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "list",
-			Short: "List history entries (internal use)",
-			RunE: func(c *cobra.Command, args []string) error {
-				limit, err := c.Flags().GetInt32("limit")
-				if err != nil {
-					return err
-				}
-				asJSON, err := c.Flags().GetBool("json")
-				if err != nil {
-					return err
-				}
+type List struct {
+	Limit cmd.IntArg[int32] `long:"limit" help:"Limit number of entries" default:"5000"`
+	JSON  cmd.Flag          `long:"json" help:"Output as JSON"`
+}
 
-				database, ok := db.FromContext(c.Context())
-				if !ok {
-					var err error
-					database, err = db.Open(c.Context())
-					if err != nil {
-						return err
-					}
-					defer logging.Close(c.Context(), database)
-				}
+func (List) Description() string { return "List history entries (internal use)" }
 
-				events, err := database.SearchHistory(c.Context(), "", int(limit))
-
-				if err != nil {
-					return err
-				}
-
-				if asJSON {
-					return json.NewEncoder(c.OutOrStdout()).Encode(events)
-				}
-
-				for _, e := range events {
-					t := time.Unix(e.Timestamp, 0).Format("2006-01-02 15:04:05")
-					if _, err := fmt.Fprintf(c.OutOrStdout(), "%s\t%s\n", t, e.Command); err != nil {
-						return err
-					}
-				}
-
-				return nil
-			},
+func (l *List) Run(ctx context.Context) error {
+	database, ok := db.FromContext(ctx)
+	if !ok {
+		var err error
+		database, err = db.Open(ctx)
+		if err != nil {
+			return err
 		}
-		cmd.Flags().Int32("limit", 5000, "Limit number of entries")
-		cmd.Flags().Bool("json", false, "Output as JSON")
-		c.AddCommand(cmd)
-	})
+		defer logging.Close(ctx, database)
+	}
+
+	events, err := database.SearchHistory(ctx, "", int(l.Limit.Value()))
+	if err != nil {
+		return err
+	}
+
+	if l.JSON.Value() {
+		return json.NewEncoder(os.Stdout).Encode(events)
+	}
+
+	for _, e := range events {
+		t := time.Unix(e.Timestamp, 0).Format("2006-01-02 15:04:05")
+		if _, err := fmt.Fprintf(os.Stdout, "%s\t%s\n", t, e.Command); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

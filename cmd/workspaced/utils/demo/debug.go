@@ -1,25 +1,21 @@
 package demo
 
 import (
-	"github.com/spf13/cobra"
+	"context"
+	"fmt"
+
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "debug",
-			Short: "Debug flag passing",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				testFlag, err := cmd.Flags().GetString("test")
-				if err != nil {
-					return err
-				}
-				cmd.Printf("test flag value: %s\n", testFlag)
-				cmd.Printf("args: %v\n", args)
-				return nil
-			},
-		}
-		cmd.Flags().String("test", "default", "a test flag")
-		parent.AddCommand(cmd)
-	})
+type Debug struct {
+	Test cmd.StringArg `long:"test" help:"a test flag" default:"default"`
+	args []cmd.StringArg
+}
+
+func (Debug) Description() string { return "Debug flag passing" }
+
+func (d *Debug) Run(ctx context.Context) error {
+	fmt.Printf("test flag value: %s\n", d.Test.Value())
+	fmt.Printf("args: %v\n", cmd.Values(d.args))
+	return nil
 }

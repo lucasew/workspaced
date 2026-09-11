@@ -1,57 +1,69 @@
 package screenshot
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
 	dapi "github.com/lucasew/workspaced/pkg/api"
 	"github.com/lucasew/workspaced/pkg/driver/screenshot"
-
-	"github.com/spf13/cobra"
 )
 
-func init() {
-	type captureCmd struct {
-		use, short string
-		target     screenshot.TargetType
+func capture(ctx context.Context, target screenshot.TargetType) error {
+	path, err := screenshot.Capture(ctx, target)
+	if err != nil {
+		return err
 	}
-	cmds := []captureCmd{
-		{"all", "Capture all outputs", screenshot.TargetAll},
-		{"full", "Capture full screen (all outputs)", screenshot.TargetAll},
-		{"output", "Capture current output (monitor)", screenshot.TargetOutput},
-		{"window", "Capture current window", screenshot.TargetWindow},
-	}
-	Registry.Register(func(parent *cobra.Command) {
-		for _, cc := range cmds {
-			cc := cc
-			parent.AddCommand(&cobra.Command{
-				Use:   cc.use,
-				Short: cc.short,
-				RunE: func(c *cobra.Command, args []string) error {
-					path, err := screenshot.Capture(c.Context(), cc.target)
-					if err != nil {
-						return err
-					}
-					c.Println(path)
-					return nil
-				},
-			})
+	fmt.Println(path)
+	return nil
+}
+
+type All struct{}
+
+func (All) Description() string { return "Capture all outputs" }
+
+func (*All) Run(ctx context.Context) error {
+	return capture(ctx, screenshot.TargetAll)
+}
+
+type Full struct{}
+
+func (Full) Description() string { return "Capture full screen (all outputs)" }
+
+func (*Full) Run(ctx context.Context) error {
+	return capture(ctx, screenshot.TargetAll)
+}
+
+type Output struct{}
+
+func (Output) Description() string { return "Capture current output (monitor)" }
+
+func (*Output) Run(ctx context.Context) error {
+	return capture(ctx, screenshot.TargetOutput)
+}
+
+type Window struct{}
+
+func (Window) Description() string { return "Capture current window" }
+
+func (*Window) Run(ctx context.Context) error {
+	return capture(ctx, screenshot.TargetWindow)
+}
+
+type Select struct{}
+
+func (Select) Description() string { return "Capture selected area" }
+
+func (*Select) Run(ctx context.Context) error {
+	path, err := screenshot.Capture(ctx, screenshot.TargetSelection)
+	if err != nil {
+		if errors.Is(err, dapi.ErrCanceled) {
+			return nil
 		}
-		parent.AddCommand(&cobra.Command{
-			Use:   "select",
-			Short: "Capture selected area",
-			RunE: func(c *cobra.Command, args []string) error {
-				path, err := screenshot.Capture(c.Context(), screenshot.TargetSelection)
-				if err != nil {
-					if errors.Is(err, dapi.ErrCanceled) {
-						return nil
-					}
-					return err
-				}
-				if path != "" {
-					c.Println(path)
-				}
-				return nil
-			},
-		})
-	})
+		return err
+	}
+	if path != "" {
+		fmt.Println(path)
+	}
+	return nil
 }

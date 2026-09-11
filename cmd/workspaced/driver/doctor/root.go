@@ -1,87 +1,86 @@
 package doctor
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"github.com/lucasew/workspaced/pkg/driver"
 	"os"
 	"reflect"
 	"strings"
 	"text/tabwriter"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/pkg/driver"
+
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func GetCommand() *cobra.Command {
-	c := &cobra.Command{
-		Use:   "doctor",
-		Short: "Check status of all registered drivers",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			verbose, err := cmd.Flags().GetBool("verbose")
-			if err != nil {
-				return err
-			}
-			report := driver.Doctor(cmd.Context())
+type Command struct {
+	Verbose cmd.Flag `short:"v" long:"verbose" help:"Show full interface and driver names"`
+}
 
-			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-			if _, err := fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE"); err != nil {
-				return err
-			}
+func (Command) Description() string {
+	return "Check status of all registered drivers"
+}
 
-			for _, iface := range report {
-				// Use full interface name if verbose, otherwise friendly name
-				typeName := iface.Name
-				if !verbose {
-					typeName = getFriendlyInterfaceName(iface.Name)
-				}
+func (c *Command) Run(ctx context.Context) error {
+	verbose := c.Verbose.Value()
+	report := driver.Doctor(ctx)
 
-				for _, d := range iface.Drivers {
-					status := "❌ Unavailable"
-					msg := ""
-					if d.Available {
-						if d.Selected {
-							status = "🎯 Selected"
-						} else {
-							status = "✅ Available"
-						}
-						if d.Weight == 0 {
-							msg = "Warning: implicit selection (weight 0). Consider setting explicit weight."
-						}
-					} else if d.Error != nil {
-						if errors.Is(d.Error, driver.ErrIncompatible) {
-							status = "❌ Incompatible"
-							// Strip the "driver is incompatible: " prefix if present
-							reason := d.Error.Error()
-							reason = strings.TrimPrefix(reason, driver.ErrIncompatible.Error()+": ")
-							msg = reason
-						} else {
-							msg = d.Error.Error()
-						}
-					}
-
-					// Format ID based on verbose flag
-					providerID := d.ID
-					if verbose && d.FactoryType != nil {
-						// Show full factory struct path
-						providerID = getFactoryTypeName(d.FactoryType)
-					}
-
-					// In verbose mode, show driver name with slug ID
-					driverName := d.Name
-					if verbose {
-						driverName = fmt.Sprintf("%s (%s)", d.Name, d.ID)
-					}
-
-					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg); err != nil {
-						return err
-					}
-				}
-			}
-			return w.Flush()
-		},
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	if _, err := fmt.Fprintln(w, "TYPE\tID\tDRIVER\tWEIGHT\tSTATUS\tMESSAGE"); err != nil {
+		return err
 	}
-	c.Flags().BoolP("verbose", "v", false, "Show full interface and driver names")
-	return c
+
+	for _, iface := range report {
+		// Use full interface name if verbose, otherwise friendly name
+		typeName := iface.Name
+		if !verbose {
+			typeName = getFriendlyInterfaceName(iface.Name)
+		}
+
+		for _, d := range iface.Drivers {
+			status := "❌ Unavailable"
+			msg := ""
+			if d.Available {
+				if d.Selected {
+					status = "🎯 Selected"
+				} else {
+					status = "✅ Available"
+				}
+				if d.Weight == 0 {
+					msg = "Warning: implicit selection (weight 0). Consider setting explicit weight."
+				}
+			} else if d.Error != nil {
+				if errors.Is(d.Error, driver.ErrIncompatible) {
+					status = "❌ Incompatible"
+					// Strip the "driver is incompatible: " prefix if present
+					reason := d.Error.Error()
+					reason = strings.TrimPrefix(reason, driver.ErrIncompatible.Error()+": ")
+					msg = reason
+				} else {
+					msg = d.Error.Error()
+				}
+			}
+
+			// Format ID based on verbose flag
+			providerID := d.ID
+			if verbose && d.FactoryType != nil {
+				// Show full factory struct path
+				providerID = getFactoryTypeName(d.FactoryType)
+			}
+
+			// In verbose mode, show driver name with slug ID
+			driverName := d.Name
+			if verbose {
+				driverName = fmt.Sprintf("%s (%s)", d.Name, d.ID)
+			}
+
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n", typeName, providerID, driverName, d.Weight, status, msg); err != nil {
+				return err
+			}
+		}
+	}
+	return w.Flush()
 }
 
 // getFriendlyInterfaceName extracts a user-friendly type name from the full interface path

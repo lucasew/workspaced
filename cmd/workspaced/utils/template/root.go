@@ -1,18 +1,19 @@
 package template
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	Materialize *Materialize
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "template",
-		Short: "Template management commands",
-	}
-	Registry.FillCommands(cmd)
-	return cmd
+func (Command) Description() string {
+	return "Template management commands"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced utils template")
 }

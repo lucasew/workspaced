@@ -12,7 +12,7 @@ import (
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 	"github.com/lucasew/workspaced/pkg/logging"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
 func RunApply(ctx context.Context, action string) error {
@@ -60,18 +60,18 @@ func RunApply(ctx context.Context, action string) error {
 	return nix.Rebuild(ctx, action, flake)
 }
 
-func getApplyCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "apply [action]",
-		Short: "Apply system-level configuration (NixOS rebuild)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			action := "switch"
-			if len(args) > 0 {
-				action = args[0]
-			}
-			return RunApply(cmd.Context(), action)
-		},
+type Apply struct {
+	action *cmd.StringArg
+}
+
+func (Apply) Description() string {
+	return "Apply system-level configuration (NixOS rebuild)"
+}
+
+func (a *Apply) Run(ctx context.Context) error {
+	action := "switch"
+	if a.action != nil {
+		action = a.action.Value()
 	}
-	return cmd
+	return RunApply(ctx, action)
 }

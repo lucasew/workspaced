@@ -1,17 +1,23 @@
 package screenshot
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	All    *All
+	Full   *Full
+	Output *Output
+	Window *Window
+	Select *Select
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "screenshot",
-		Short: "Screen capture management",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Screen capture management"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced driver screenshot")
 }

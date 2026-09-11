@@ -1,4 +1,4 @@
-// Package configcmd builds the shared "config" cobra subtree used by both
+// Package configcmd is the shared "config" command tree used by both
 // "workspaced home config" and "workspaced codebase config".
 // The only behavioral fork is HomeMode (which layers are discovered / which
 // Load* helper is used) plus the scope name embedded in example text.
@@ -11,10 +11,10 @@ import (
 	"os"
 	"text/tabwriter"
 
+	"github.com/lewtec/lewkit/x/cmd"
+	"github.com/lucasew/workspaced/internal/clirun"
 	"github.com/lucasew/workspaced/internal/configcue"
 	"github.com/lucasew/workspaced/pkg/filespine"
-
-	"github.com/spf13/cobra"
 )
 
 // Options selects home vs codebase config discovery.
@@ -24,6 +24,21 @@ type Options struct {
 	// Scope is the CLI path segment shown in examples ("home" or "codebase").
 	Scope string
 }
+
+// Mode selects home vs codebase behavior for Tree[M].
+type Mode interface {
+	Options() Options
+}
+
+// Home is the home/dotfiles config mode.
+type Home struct{}
+
+func (Home) Options() Options { return Options{HomeMode: true, Scope: "home"} }
+
+// Codebase is the repo-local config mode.
+type Codebase struct{}
+
+func (Codebase) Options() Options { return Options{HomeMode: false, Scope: "codebase"} }
 
 func (o Options) discover() (configcue.DiscoverOptions, error) {
 	cwd, err := os.Getwd()
@@ -44,89 +59,86 @@ func (o Options) load(ctx context.Context) (*configcue.Config, error) {
 	return configcue.Load(ctx)
 }
 
-// New returns the "config" command with dump/get/eval/def/layers children.
-func New(opts Options) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Manage configuration",
-	}
-	cmd.AddCommand(
-		newDumpCommand(opts),
-		newGetCommand(opts),
-		newEvalCommand(opts),
-		newDefCommand(opts),
-		newLayersCommand(opts),
-	)
-	return cmd
+// Tree is the shared config subcommand group.
+type Tree[M Mode] struct {
+	Dump   *Dump[M]
+	Get    *Get[M]
+	Eval   *Eval[M]
+	Def    *Def[M]
+	Layers *Layers[M]
 }
 
-func newDumpCommand(opts Options) *cobra.Command {
-	return &cobra.Command{
-		Use:   "dump",
-		Short: "Dump the full merged configuration as JSON",
-		Long: `Dump the complete merged configuration from all sources:
-- Hardcoded defaults
-- layered workspaced.cue files
+func (Tree[M]) Description() string { return "Manage configuration" }
 
-Outputs the result as JSON format.`,
-		RunE: func(c *cobra.Command, args []string) error {
-			disc, err := opts.discover()
-			if err != nil {
-				return err
-			}
-			result, err := configcue.Evaluate(c.Context(), disc)
-			if err != nil {
-				return fmt.Errorf("load config: %w", err)
-			}
-
-			var raw any
-			if err := json.Unmarshal(result.JSON, &raw); err != nil {
-				return fmt.Errorf("decode evaluated config: %w", err)
-			}
-			enc := json.NewEncoder(c.OutOrStdout())
-			enc.SetIndent("", "  ")
-			return enc.Encode(raw)
-		},
-	}
+func (c *Tree[M]) Run(ctx context.Context) error {
+	var m M
+	return clirun.PrintUsage[Tree[M]]("workspaced " + m.Options().Scope + " config")
 }
 
-func newGetCommand(opts Options) *cobra.Command {
-	scope := opts.Scope
+// Dump prints the full merged configuration as JSON.
+type Dump[M Mode] struct{}
+
+func (Dump[M]) Description() string {
+	return "Dump the full merged configuration as JSON"
+}
+
+func (d *Dump[M]) Run(ctx context.Context) error {
+	var m M
+	disc, err := m.Options().discover()
+	if err != nil {
+		return err
+	}
+	result, err := configcue.Evaluate(ctx, disc)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	var raw any
+	if err := json.Unmarshal(result.JSON, &raw); err != nil {
+		return fmt.Errorf("decode evaluated config: %w", err)
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(raw)
+}
+
+// Get prints one configuration value as JSON.
+type Get[M Mode] struct {
+	key cmd.StringArg
+}
+
+func (Get[M]) Description() string {
+	var m M
+	scope := m.Options().Scope
 	if scope == "" {
 		scope = "config"
 	}
-	return &cobra.Command{
-		Use:   "get <key>",
-		Short: "Get a configuration value (outputs JSON)",
-		Long: fmt.Sprintf(`Get a configuration value using dot notation.
+	return fmt.Sprintf(`Get a configuration value (outputs JSON)
 
 Examples:
   workspaced %s config get workspaces.www
   workspaced %s config get desktop.wallpaper.dir
-  workspaced %s config get desktop.wallpaper
+  workspaced %s config get desktop.wallpaper`, scope, scope, scope)
+}
 
-Outputs the value as JSON for easy parsing.`, scope, scope, scope),
-		Args: cobra.ExactArgs(1),
-		RunE: func(c *cobra.Command, args []string) error {
-			cfg, err := opts.load(c.Context())
-			if err != nil {
-				return fmt.Errorf("load config: %w", err)
-			}
-
-			result, err := lookupConfigValue(cfg, args[0])
-			if err != nil {
-				return err
-			}
-
-			jsonBytes, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return fmt.Errorf("encode JSON: %w", err)
-			}
-
-			c.Println(string(jsonBytes))
-			return nil
-		},
+func (g *Get[M]) Run(ctx context.Context) error {
+	var m M
+	cfg, err := m.Options().load(ctx)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
+
+	result, err := lookupConfigValue(cfg, g.key.Value())
+	if err != nil {
+		return err
+	}
+
+	jsonBytes, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode JSON: %w", err)
+	}
+	_, err = fmt.Fprintln(os.Stdout, string(jsonBytes))
+	return err
 }
 
 func lookupConfigValue(cfg *configcue.Config, key string) (any, error) {
@@ -136,81 +148,80 @@ func lookupConfigValue(cfg *configcue.Config, key string) (any, error) {
 	return cfg.Lookup(key)
 }
 
-func newEvalCommand(opts Options) *cobra.Command {
-	return newExportCommand(opts, cobra.Command{
-		Use:   "eval",
-		Short: "Evaluate merged config (cue eval-like)",
-		Long: `Evaluate the merged configuration, similarly to cue eval.
+// Eval prints the merged config in CUE form.
+type Eval[M Mode] struct{}
 
-Prints the full merged config without filtering.`,
-	}, configcue.ExportCUE)
+func (Eval[M]) Description() string {
+	return "Evaluate merged config (cue eval-like)"
 }
 
-func newDefCommand(opts Options) *cobra.Command {
-	return newExportCommand(opts, cobra.Command{
-		Use:   "def",
-		Short: "Show merged config definitions/types (cue def-like)",
-	}, configcue.ExportDef)
+func (e *Eval[M]) Run(ctx context.Context) error {
+	return runExport[M](ctx, configcue.ExportCUE)
 }
 
-func newExportCommand(opts Options, base cobra.Command, export func(context.Context, configcue.DiscoverOptions) ([]byte, error)) *cobra.Command {
-	cmd := base
-	cmd.Args = cobra.NoArgs
-	cmd.RunE = func(c *cobra.Command, args []string) error {
-		disc, err := opts.discover()
-		if err != nil {
-			return err
-		}
-		out, err := export(c.Context(), disc)
-		if err != nil {
-			return err
-		}
-		_, err = c.OutOrStdout().Write(out)
+// Def prints merged config definitions/types.
+type Def[M Mode] struct{}
+
+func (Def[M]) Description() string {
+	return "Show merged config definitions/types (cue def-like)"
+}
+
+func (d *Def[M]) Run(ctx context.Context) error {
+	return runExport[M](ctx, configcue.ExportDef)
+}
+
+func runExport[M Mode](ctx context.Context, export func(context.Context, configcue.DiscoverOptions) ([]byte, error)) error {
+	var m M
+	disc, err := m.Options().discover()
+	if err != nil {
 		return err
 	}
-	return &cmd
+	out, err := export(ctx, disc)
+	if err != nil {
+		return err
+	}
+	_, err = os.Stdout.Write(out)
+	return err
 }
 
-func newLayersCommand(opts Options) *cobra.Command {
-	var format string
+// Layers lists discovered workspaced.cue layers.
+type Layers[M Mode] struct {
+	Format cmd.StringArg `short:"f" long:"format" help:"Output format (paths, table)" default:"paths"`
+}
 
-	cmd := &cobra.Command{
-		Use:   "layers",
-		Short: "List discovered workspaced.cue layers",
-		RunE: func(c *cobra.Command, args []string) error {
-			disc, err := opts.discover()
-			if err != nil {
-				return err
-			}
-			result, err := configcue.Evaluate(c.Context(), disc)
-			if err != nil {
-				return fmt.Errorf("discover config layers: %w", err)
-			}
+func (Layers[M]) Description() string { return "List discovered workspaced.cue layers" }
 
-			if format == "table" {
-				w := tabwriter.NewWriter(c.OutOrStdout(), 0, 0, 2, ' ', 0)
-				if _, err := fmt.Fprintln(w, "NAME\tPATH"); err != nil {
-					return err
-				}
-				for _, layer := range result.Layers {
-					if _, err := fmt.Fprintf(w, "%s\t%s\n", layer.Name, layer.Path); err != nil {
-						return err
-					}
-				}
-				return w.Flush()
-			}
-			if format != "" && format != "paths" {
-				return fmt.Errorf("unknown format: %s (supported: paths, table)", format)
-			}
-			for _, layer := range result.Layers {
-				if _, err := fmt.Fprintln(c.OutOrStdout(), layer.Path); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
+func (l *Layers[M]) Run(ctx context.Context) error {
+	var m M
+	disc, err := m.Options().discover()
+	if err != nil {
+		return err
+	}
+	result, err := configcue.Evaluate(ctx, disc)
+	if err != nil {
+		return fmt.Errorf("discover config layers: %w", err)
 	}
 
-	cmd.Flags().StringVarP(&format, "format", "f", "paths", "Output format (paths, table)")
-	return cmd
+	format := l.Format.Value()
+	if format == "table" {
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		if _, err := fmt.Fprintln(w, "NAME\tPATH"); err != nil {
+			return err
+		}
+		for _, layer := range result.Layers {
+			if _, err := fmt.Fprintf(w, "%s\t%s\n", layer.Name, layer.Path); err != nil {
+				return err
+			}
+		}
+		return w.Flush()
+	}
+	if format != "" && format != "paths" {
+		return fmt.Errorf("unknown format: %s (supported: paths, table)", format)
+	}
+	for _, layer := range result.Layers {
+		if _, err := fmt.Fprintln(os.Stdout, layer.Path); err != nil {
+			return err
+		}
+	}
+	return nil
 }

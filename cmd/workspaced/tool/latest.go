@@ -1,32 +1,30 @@
 package tool
 
 import (
+	"context"
 	"fmt"
+	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func init() {
-	Registry.Register(func(c *cobra.Command) {
-		c.AddCommand(&cobra.Command{
-			Use:   "latest <tool-spec>",
-			Short: "Print the latest version string for a tool ref",
-			Long: `Resolve and print the latest version for the tool ref (no install performed).
+type Latest struct {
+	spec cmd.StringArg
+}
 
-Equivalent to the first entry returned by "tool versions <tool-spec>".`,
-			Args: cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				specStr := args[0]
-				versions, err := listVersions(cmd.Context(), specStr)
-				if err != nil {
-					return err
-				}
-				if len(versions) == 0 {
-					return fmt.Errorf("no versions found for %s", specStr)
-				}
-				fmt.Fprintln(cmd.OutOrStdout(), versions[0])
-				return nil
-			},
-		})
-	})
+func (Latest) Description() string {
+	return "Print the latest version string for a tool ref"
+}
+
+func (l *Latest) Run(ctx context.Context) error {
+	specStr := l.spec.Value()
+	versions, err := listVersions(ctx, specStr)
+	if err != nil {
+		return err
+	}
+	if len(versions) == 0 {
+		return fmt.Errorf("no versions found for %s", specStr)
+	}
+	fmt.Fprintln(os.Stdout, versions[0])
+	return nil
 }

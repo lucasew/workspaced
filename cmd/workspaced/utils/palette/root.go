@@ -1,18 +1,19 @@
 package palette
 
 import (
-	"github.com/lucasew/workspaced/internal/cmdregistry"
+	"context"
 
-	"github.com/spf13/cobra"
+	"github.com/lucasew/workspaced/internal/clirun"
 )
 
-var Registry cmdregistry.CommandRegistry
+type Command struct {
+	children `flatten:""`
+}
 
-func GetCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "palette",
-		Short: "Color palette generation and management",
-		Long:  "Generate base16/base24 color palettes from images using pluggable extraction drivers",
-	}
-	return Registry.FillCommands(cmd)
+func (Command) Description() string {
+	return "Color palette generation and management"
+}
+
+func (c *Command) Run(ctx context.Context) error {
+	return clirun.PrintUsage[Command]("workspaced utils palette")
 }

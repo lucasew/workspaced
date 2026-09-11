@@ -6,20 +6,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lewtec/lewkit/x/cmd"
 	"github.com/lucasew/workspaced/internal/tool"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
-
-	"github.com/spf13/cobra"
 )
 
-func init() {
-	Registry.FromGetter(
-		func() *cobra.Command {
-			return &cobra.Command{
-				Use:   "with <tool-spec>... -- <command> [args...]",
-				Short: "Execute a command with specific tool version(s)",
-				Long: `Execute a command with specific tool version(s).
+type With struct {
+	Tools []cmd.StringArg
+	Sep   cmd.Dash
+	Cmd   []cmd.StringArg
+}
+
+func (With) Description() string {
+	return `Execute a command with specific tool version(s)
 
 All <tool-spec> arguments before "--" are ensured (installed if missing).
 The <command> is resolved from the first (rightmost) listed tool that provides a binary
@@ -42,111 +42,81 @@ Examples:
   workspaced tool with uv -- uv --version
   workspaced tool with mise:go@1.21.0 -- go version
   workspaced tool with mise:go@1.21.0 mise:node@20 -- node --version
-  workspaced tool with nodejs uv -- node --help`,
-				Args:               cobra.MinimumNArgs(2), // Need at least: tool-spec and command
-				DisableFlagParsing: true,
-				RunE: func(cmd *cobra.Command, args []string) error {
-					// Parse tools before "--" (supports multiple). If no "--" present,
-					// fall back to legacy single-tool mode for compatibility.
-					var toolSpecs []string
-					var cmdLine []string
-					foundDash := false
-					for i, a := range args {
-						if a == "--" {
-							toolSpecs = args[:i]
-							cmdLine = args[i+1:]
-							foundDash = true
-							break
-						}
-					}
-					if !foundDash {
-						if len(args) < 2 {
-							return fmt.Errorf("at least one tool spec and a command are required (use -- to separate multiple tools)")
-						}
-						toolSpecs = args[:1]
-						cmdLine = args[1:]
-					}
-					if len(toolSpecs) == 0 || len(cmdLine) == 0 {
-						return fmt.Errorf("usage: workspaced tool with <tool-spec>... -- <command> [args...]")
-					}
+  workspaced tool with nodejs uv -- node --help`
+}
 
-					command := cmdLine[0]
-					commandArgs := cmdLine[1:]
+func (w *With) Run(ctx context.Context) error {
+	toolSpecs := cmd.Values(w.Tools)
+	cmdLine := cmd.Values(w.Cmd)
+	if len(toolSpecs) == 0 || len(cmdLine) == 0 {
+		return fmt.Errorf("usage: workspaced tool with <tool-spec>... -- <command> [args...]")
+	}
 
-					g := taskgroup.MustFromContext(cmd.Context())
-					g.Go("tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-						// Resolution/install runs under this task's ctx so ^C cancels fetches.
-						// No Unit(): the ensure Map owns the aggregate bar.
-						m, err := tool.NewManager()
-						if err != nil {
-							return err
-						}
+	command := cmdLine[0]
+	commandArgs := cmdLine[1:]
 
-						type specItem struct {
-							index int
-							spec  string
-						}
-						type binOutcome struct {
-							index   int
-							binPath string
-							miss    bool
-						}
-						items := make([]specItem, len(toolSpecs))
-						for i, spec := range toolSpecs {
-							items[i] = specItem{index: i, spec: spec}
-						}
+	g := taskgroup.MustFromContext(ctx)
+	g.Go("tool:with:"+strings.Join(toolSpecs, "+"), taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		m, err := tool.NewManager()
+		if err != nil {
+			return err
+		}
 
-						// Map installs each spec (with command as binary hint). Soft-miss when
-						// the tool tree has no such binary; hard errors fail the map.
-						// Reduce picks the rightmost hit so "with nodejs uv -- node" still
-						// resolves node from nodejs even if uv is listed last.
-						outcomes, err := taskgroup.Map[specItem, binOutcome]{
-							Name:     "tool-with:ensure",
-							Items:    items,
-							PoolKind: taskgroup.Control,
-							TaskName: func(_ int, it specItem) string { return "ensure:" + it.spec },
-							Fn: func(ctx context.Context, st *taskgroup.Status, it specItem) (binOutcome, error) {
-								st.Update(it.spec)
-								bp, err := m.EnsureInstalled(ctx, it.spec, command)
-								if err == nil {
-									return binOutcome{index: it.index, binPath: bp}, nil
-								}
-								if isBinaryNotFound(err) {
-									return binOutcome{index: it.index, miss: true}, nil
-								}
-								return binOutcome{}, fmt.Errorf("ensure tool %s: %w", it.spec, err)
-							},
-						}.Run(ctx)
-						if err != nil {
-							return err
-						}
+		type specItem struct {
+			index int
+			spec  string
+		}
+		type binOutcome struct {
+			index   int
+			binPath string
+			miss    bool
+		}
+		items := make([]specItem, len(toolSpecs))
+		for i, spec := range toolSpecs {
+			items[i] = specItem{index: i, spec: spec}
+		}
 
-						binPath := ""
-						for i := len(outcomes) - 1; i >= 0; i-- {
-							if !outcomes[i].miss && outcomes[i].binPath != "" {
-								binPath = outcomes[i].binPath
-								break
-							}
-						}
-						if binPath == "" {
-							return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
-						}
+		outcomes, err := taskgroup.Map[specItem, binOutcome]{
+			Name:     "tool-with:ensure",
+			Items:    items,
+			PoolKind: taskgroup.Control,
+			TaskName: func(_ int, it specItem) string { return "ensure:" + it.spec },
+			Fn: func(ctx context.Context, st *taskgroup.Status, it specItem) (binOutcome, error) {
+				st.Update(it.spec)
+				bp, err := m.EnsureInstalled(ctx, it.spec, command)
+				if err == nil {
+					return binOutcome{index: it.index, binPath: bp}, nil
+				}
+				if isBinaryNotFound(err) {
+					return binOutcome{index: it.index, miss: true}, nil
+				}
+				return binOutcome{}, fmt.Errorf("ensure tool %s: %w", it.spec, err)
+			},
+		}.Run(ctx)
+		if err != nil {
+			return err
+		}
 
-						// Detach from the task group so Session.Close (Wait + UI teardown)
-						// does not cancel the child via CommandContext.
-						execCtx := context.WithoutCancel(ctx)
-						c, err := execdriver.Run(execCtx, binPath, commandArgs...)
-						if err != nil {
-							return err
-						}
-						// Real stdio after the progress UI unmounts.
-						s.AfterWaitRun(c)
-						return nil
-					})
-					return nil
-				},
+		binPath := ""
+		for i := len(outcomes) - 1; i >= 0; i-- {
+			if !outcomes[i].miss && outcomes[i].binPath != "" {
+				binPath = outcomes[i].binPath
+				break
 			}
-		})
+		}
+		if binPath == "" {
+			return fmt.Errorf("none of the tools (%s) provide a binary named %q", strings.Join(toolSpecs, ", "), command)
+		}
+
+		execCtx := context.WithoutCancel(ctx)
+		c, err := execdriver.Run(execCtx, binPath, commandArgs...)
+		if err != nil {
+			return err
+		}
+		s.AfterWaitRun(c)
+		return nil
+	})
+	return nil
 }
 
 func isBinaryNotFound(err error) bool {

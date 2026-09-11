@@ -16,27 +16,24 @@ import (
 	"github.com/lucasew/workspaced/internal/tool"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		cmd := &cobra.Command{
-			Use:   "apply",
-			Short: "Apply modules + templates to the repo root",
-			Args:  cobra.NoArgs,
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return cmdwire.RunAfterWait(cmd, false, Schedule)
-			},
-		}
-		cmd.Flags().Bool("show-noop", false, "Also show files that would not change")
-		parent.AddCommand(cmd)
-	})
+type Apply struct {
+	ShowNoop cmd.Flag `long:"show-noop" help:"Also show files that would not change"`
+}
+
+func (Apply) Description() string {
+	return "Apply modules + templates to the repo root"
+}
+
+func (c *Apply) Run(ctx context.Context) error {
+	return cmdwire.RunAfterWait(ctx, false, c.ShowNoop.Value(), Schedule)
 }
 
 // Schedule wires codebase plan/apply.
 // target is always the workspace root.
-func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) func() error {
+func Schedule(g *taskgroup.Group, ctx context.Context, dryRun, showNoop bool) func() error {
 	taskName := "codebase:apply"
 	updateMsg := "applying to repo root"
 	if dryRun {
@@ -44,7 +41,7 @@ func Schedule(g *taskgroup.Group, cmd *cobra.Command, dryRun, showNoop bool) fun
 		updateMsg = "planning changes to repo root"
 	}
 
-	logCtx := cmd.Context()
+	logCtx := ctx
 	var finalResult *dotfiles.ApplyResult
 
 	g.Go(taskName, taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {

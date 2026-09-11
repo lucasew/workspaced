@@ -5,6 +5,6 @@ import (
 	pkg_demo "github.com/lucasew/workspaced/cmd/workspaced/experiments/demo"
 )
 
-func init() {
-	Registry.FromGetter(pkg_demo.GetCommand)
+type children struct {
+	Demo *pkg_demo.Command
 }

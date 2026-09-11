@@ -1,25 +1,20 @@
 package is
 
 import (
+	"context"
 	"errors"
-	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 
-	"github.com/spf13/cobra"
+	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
 
 var ErrNotInStore = errors.New("not in store")
 
-func init() {
-	Registry.Register(func(parent *cobra.Command) {
-		parent.AddCommand(&cobra.Command{
-			Use:   "in-store",
-			Short: "Check if dotfiles are in nix store",
-			RunE: func(c *cobra.Command, args []string) error {
-				if !envdriver.IsInStore(c.Context()) {
-					return ErrNotInStore
-				}
-				return nil
-			},
-		})
-	})
+type InStore struct{}
+
+func (InStore) Description() string { return "Check if dotfiles are in nix store" }
+func (*InStore) Run(ctx context.Context) error {
+	if !envdriver.IsInStore(ctx) {
+		return ErrNotInStore
+	}
+	return nil
 }

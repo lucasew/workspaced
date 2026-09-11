@@ -22,7 +22,7 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 	"github.com/lucasew/workspaced/pkg/taskgroup"
 
-	"github.com/spf13/cobra"
+	"github.com/lewtec/lewkit/x/cmd"
 )
 
 var (
@@ -33,46 +33,34 @@ var (
 	ErrNoBinaryFound        = errors.New("no binary found")
 )
 
-func GetCommand() *cobra.Command {
-	var force bool
+type Command struct {
+	Force cmd.Flag `long:"force" help:"Force update even if version matches (GitHub only)"`
+}
 
-	cmd := &cobra.Command{
-		Use:   "self-update",
-		Short: "Update workspaced binary",
-		Long: `Update workspaced to the latest version.
+func (Command) Description() string {
+	return "Update workspaced binary"
+}
 
-Strategy:
-  1. If source code exists → rebuild from source (always)
-  2. Otherwise → download from GitHub using the tool backend
+func (c *Command) Run(ctx context.Context) error {
+	g := taskgroup.FromContext(ctx)
 
-The update is installed in ~/.local/share/workspaced/tools/ and the shim
-in ~/.local/bin/workspaced is updated automatically.`,
-		RunE: func(c *cobra.Command, args []string) error {
-			ctx := c.Context()
-			g := taskgroup.FromContext(ctx)
-
-			msg := "downloading from GitHub"
-			srcPath, err := findSourcePath(ctx)
-			if err != nil {
-				return err
-			}
-			if srcPath != "" {
-				msg = "compiling from source"
-			}
-
-			// Control: github/httpclient and the source build nest limited-pool work.
-			// Do not Unit here — GitHub installs already own a fetch bar.
-			g.Go("self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
-				s.Update(msg)
-				return runSelfUpdate(ctx, force, s)
-			})
-
-			return nil
-		},
+	msg := "downloading from GitHub"
+	srcPath, err := findSourcePath(ctx)
+	if err != nil {
+		return err
+	}
+	if srcPath != "" {
+		msg = "compiling from source"
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "Force update even if version matches (GitHub only)")
-	return cmd
+	// Control: github/httpclient and the source build nest limited-pool work.
+	// Do not Unit here — GitHub installs already own a fetch bar.
+	g.Go("self-update", taskgroup.Control, func(ctx context.Context, s *taskgroup.Status) error {
+		s.Update(msg)
+		return runSelfUpdate(ctx, c.Force.Value(), s)
+	})
+
+	return nil
 }
 
 // ============================================================================
