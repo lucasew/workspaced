@@ -118,8 +118,8 @@ func runSelfInstall(ctx context.Context, force bool) error {
 }
 
 func createMiseShim(ctx context.Context) error {
-	// Integration shim only: re-enters the standard home lazy route for mise.
-	// Does not install mise; open lazy --home resolves registry:mise.
+	// Integration shim only: re-enters the standard lazy route for mise.
+	// Does not install mise; open lazy --home resolves lazy_tools.mise.
 	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		home, homeErr := envdriver.ResolveHomeDir()

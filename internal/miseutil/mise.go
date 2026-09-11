@@ -21,23 +21,11 @@ var (
 	ErrBinaryNotFound = errors.New("binary not found")
 )
 
-// Ensure returns a path to the mise CLI via the standard home lazy tool route
-// (lazy_tools.mise → registry:mise). Not a separate install system: same path
-// as `workspaced open lazy --home mise`.
-//
-// Falls back to a direct registry:mise ensure when home config/lock cannot be
-// used (bootstrap, missing dotfiles root, read-only lock).
+// Ensure returns a path to the mise CLI via lazy_tools.mise (registry:mise).
+// Version comes from the workspace lockfile. Same path as
+// `workspaced open lazy mise`.
 func Ensure(ctx context.Context) (string, error) {
-	if path, err := tool.ResolveHomeLazyTool(ctx, "mise", "mise"); err == nil {
-		return path, nil
-	} else {
-		logging.GetLogger(ctx).Debug("home lazy mise resolve failed; falling back to registry ensure", "error", err)
-	}
-	mgr, err := tool.NewManager()
-	if err != nil {
-		return "", err
-	}
-	return mgr.EnsureInstalled(ctx, "registry:mise", "mise")
+	return tool.ResolveLazyTool(ctx, "mise", "mise")
 }
 
 // Output runs the mise CLI with args and returns combined stdout.

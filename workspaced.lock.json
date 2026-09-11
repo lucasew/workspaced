@@ -16,9 +16,23 @@
     },
     {
       "kind": "tool",
+      "ref": "github:cli/cli",
+      "depName": "cli/cli",
+      "currentValue": "v2.100.0",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
       "ref": "github:golangci/golangci-lint",
       "depName": "golangci/golangci-lint",
       "currentValue": "v2.13.1",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
+      "ref": "github:lucasew/ci-status",
+      "depName": "lucasew/ci-status",
+      "currentValue": "0.3.0",
       "datasource": "github-releases"
     },
     {
@@ -30,6 +44,13 @@
     },
     {
       "kind": "tool",
+      "ref": "mise:go:golang.org/x/vuln/cmd/govulncheck",
+      "depName": "",
+      "currentValue": "1.8.0",
+      "datasource": ""
+    },
+    {
+      "kind": "tool",
       "ref": "registry:biome",
       "depName": "biomejs/biome",
       "currentValue": "2.5.0",
@@ -38,10 +59,24 @@
     },
     {
       "kind": "tool",
+      "ref": "registry:mise",
+      "depName": "jdx/mise",
+      "currentValue": "2026.9.5",
+      "datasource": "github-releases"
+    },
+    {
+      "kind": "tool",
       "ref": "registry:nodejs",
       "depName": "",
       "currentValue": "v26.3.1",
       "datasource": ""
+    },
+    {
+      "kind": "tool",
+      "ref": "registry:resvg",
+      "depName": "linebender/resvg",
+      "currentValue": "0.48.1",
+      "datasource": "github-releases"
     },
     {
       "kind": "tool",

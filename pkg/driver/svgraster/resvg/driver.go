@@ -18,8 +18,6 @@ import (
 	"github.com/lucasew/workspaced/pkg/logging"
 )
 
-const defaultResvgSpec = "registry:resvg"
-
 type Driver struct{}
 
 var (
@@ -29,19 +27,13 @@ var (
 )
 
 // resolveResvg ensures the resvg binary is resolved/installed exactly once
-// (even across many Driver instances created by driver.Get). This prevents
-// repeated "latest" version lookups against GitHub (via registry:resvg) on
-// every RasterizeSVG call during bulk icon processing.
+// (even across many Driver instances created by driver.Get). Version comes
+// from the workspace lockfile via lazy_tools.resvg.
 func resolveResvg(ctx context.Context) (string, error) {
 	resvgOnce.Do(func() {
-		m, err := tool.NewManager()
+		bin, err := tool.ResolveLazyTool(ctx, "resvg", "resvg")
 		if err != nil {
-			resvgErr = fmt.Errorf("create tool manager: %w", err)
-			return
-		}
-		bin, err := m.EnsureInstalled(ctx, defaultResvgSpec, "resvg")
-		if err != nil {
-			resvgErr = fmt.Errorf("resolve resvg via tool (%s): %w", defaultResvgSpec, err)
+			resvgErr = fmt.Errorf("resolve resvg via lazy_tools: %w", err)
 			return
 		}
 		// Verify on first resolution (cheap --version) so Ensure and first
@@ -125,7 +117,7 @@ func (f Factory) Name() string {
 	return "resvg"
 }
 func (f Factory) CheckCompatibility(ctx context.Context) error {
-	// resvg is installed on demand via the tool registry (catalog).
+	// resvg is installed on demand via lazy_tools.resvg (lockfile pin).
 	return nil
 }
 func (f Factory) New(ctx context.Context) (svgraster.Driver, error) {
