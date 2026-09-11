@@ -33,7 +33,7 @@ func init() {
 				database, ok := db.FromContext(ctx)
 				if !ok {
 					var err error
-					database, err = db.OpenDefault(ctx)
+					database, err = db.Open(ctx)
 					if err != nil {
 						return err
 					}

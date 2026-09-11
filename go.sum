@@ -127,6 +127,8 @@ github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3 h1:zcMi8R
 github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3/go.mod h1:RSub3ourNF8Hf+swvw49Catm3s7HVf4hzdFxDUnEzdA=
 github.com/lewtec/lewkit v0.0.0-20260911180403-afcb284f618a h1:X4Khiy0mLEcrdIl9UujE8NFkP2sx3vcZbqL0+M8LDa0=
 github.com/lewtec/lewkit v0.0.0-20260911180403-afcb284f618a/go.mod h1:Tr6uVT3wjWlc2kmXltByUd+Z9EAJm/pPZLT5sVL8u8c=
+github.com/lewtec/lewkit v0.0.0-20260911220008-895580eb3625 h1:G/ImG4Z624vhvrSLZvYeQjqsmF4rF5l8KqrZZx3nKHU=
+github.com/lewtec/lewkit v0.0.0-20260911220008-895580eb3625/go.mod h1:Tr6uVT3wjWlc2kmXltByUd+Z9EAJm/pPZLT5sVL8u8c=
 github.com/lib/pq v1.12.3 h1:tTWxr2YLKwIvK90ZXEw8GP7UFHtcbTtty8zsI+YjrfQ=
 github.com/lib/pq v1.12.3/go.mod h1:/p+8NSbOcwzAEI7wiMXFlgydTwcgTr3OSKMsD2BitpA=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=

@@ -4,6 +4,7 @@ package db
 
 import (
 	"context"
+	"fmt"
 	db "github.com/lewtec/lewkit/x/db"
 	_ "github.com/lewtec/lewkit/x/db/sqlite"
 	sqlite "github.com/lucasew/workspaced/internal/db/sqlite"
@@ -66,6 +67,15 @@ func New(url string) func(db.DBTX) Queries {
 		}
 	}
 }
-func Open(ctx context.Context, a *db.Arg[Queries]) error {
-	return a.Open(ctx, FS, New(a.Value().URL()))
+
+type DBArg struct {
+	db.Arg[Queries]
+}
+
+func (a *DBArg) Open(ctx context.Context) error {
+	c := a.Value()
+	if c == nil {
+		return fmt.Errorf("database url not set")
+	}
+	return a.Arg.Open(ctx, FS, New(c.URL()))
 }

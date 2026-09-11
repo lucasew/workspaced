@@ -1,7 +1,7 @@
 // Package db is the workspaced sqlite store.
 //
 // Queries and migrations live under sqlite/. go generate runs
-// lewkit generate db (sqlc output, FS, Queries, New, Open).
+// lewkit generate db (sqlc output, FS, Queries, New, DBArg).
 package db
 
 //go:generate go tool lewkit generate db .
@@ -35,8 +35,8 @@ type DB struct {
 	Queries Queries
 }
 
-// OpenDefault opens the user-data-dir workspaced.db.
-func OpenDefault(ctx context.Context) (*DB, error) {
+// Open opens the user-data-dir workspaced.db.
+func Open(ctx context.Context) (*DB, error) {
 	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
@@ -51,11 +51,11 @@ func OpenDefault(ctx context.Context) (*DB, error) {
 // OpenURL opens a sqlite URL (bare path, file:, sqlite:, or :memory:)
 // and applies sqlite/migrations.
 func OpenURL(ctx context.Context, url string) (*DB, error) {
-	var a xdb.Arg[Queries]
+	var a DBArg
 	if err := a.Parse(url); err != nil {
 		return nil, err
 	}
-	if err := Open(ctx, &a); err != nil {
+	if err := a.Open(ctx); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 	conn := a.Value()

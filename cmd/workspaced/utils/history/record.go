@@ -65,7 +65,7 @@ func init() {
 				}
 
 				// Fallback: write to database directly if daemon is not available
-				database, err := db.OpenDefault(c.Context())
+				database, err := db.Open(c.Context())
 				if err != nil {
 					return err
 				}

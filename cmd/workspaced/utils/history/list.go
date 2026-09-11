@@ -28,7 +28,7 @@ func init() {
 				database, ok := db.FromContext(c.Context())
 				if !ok {
 					var err error
-					database, err = db.OpenDefault(c.Context())
+					database, err = db.Open(c.Context())
 					if err != nil {
 						return err
 					}
