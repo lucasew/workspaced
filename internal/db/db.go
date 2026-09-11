@@ -1,27 +1,19 @@
 // Package db is the workspaced sqlite store.
 //
-// Layout matches lewkit x/db:
-//
-//	sqlite/*.sql              // sqlc queries
-//	sqlite/migrations/*.sql   // golang-migrate
+// Queries and migrations live under sqlite/. `lewkit generate db internal/db`
+// writes sqlc output, FS, Queries, New, and Open.
 package db
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/lewtec/lewkit/x/db"
-	_ "github.com/lewtec/lewkit/x/db/sqlite"
-	"github.com/lucasew/workspaced/internal/db/sqlc"
+	xdb "github.com/lewtec/lewkit/x/db"
 	"github.com/lucasew/workspaced/internal/types"
 	envdriver "github.com/lucasew/workspaced/pkg/driver/env"
 )
-
-//go:embed sqlite
-var FS embed.FS
 
 type dbKey struct{}
 
@@ -37,15 +29,12 @@ func FromContext(ctx context.Context) (*DB, bool) {
 }
 
 type DB struct {
-	conn    *db.Conn[*sqlc.Queries]
-	Queries *sqlc.Queries
+	conn    *xdb.Conn[Queries]
+	Queries Queries
 }
 
-func newQueries(tx db.DBTX) *sqlc.Queries {
-	return sqlc.New(tx)
-}
-
-func Open(ctx context.Context) (*DB, error) {
+// OpenDefault opens the user-data-dir workspaced.db.
+func OpenDefault(ctx context.Context) (*DB, error) {
 	dataDir, err := envdriver.GetUserDataDir(ctx)
 	if err != nil {
 		return nil, err
@@ -60,11 +49,11 @@ func Open(ctx context.Context) (*DB, error) {
 // OpenURL opens a sqlite URL (bare path, file:, sqlite:, or :memory:)
 // and applies sqlite/migrations.
 func OpenURL(ctx context.Context, url string) (*DB, error) {
-	var a db.Arg[*sqlc.Queries]
+	var a xdb.Arg[Queries]
 	if err := a.Parse(url); err != nil {
 		return nil, err
 	}
-	if err := a.Open(ctx, FS, newQueries); err != nil {
+	if err := Open(ctx, &a); err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 	conn := a.Value()
@@ -79,7 +68,7 @@ func (d *DB) Close() error {
 }
 
 func (d *DB) RecordHistory(ctx context.Context, event types.HistoryEvent) error {
-	return d.Queries.RecordHistory(ctx, sqlc.RecordHistoryParams{
+	return d.Queries.RecordHistory(ctx, RecordHistoryParams{
 		Command:    event.Command,
 		Cwd:        event.Cwd,
 		Timestamp:  event.Timestamp,
@@ -89,9 +78,9 @@ func (d *DB) RecordHistory(ctx context.Context, event types.HistoryEvent) error 
 }
 
 func (d *DB) BatchRecordHistory(ctx context.Context, events []types.HistoryEvent) error {
-	return d.conn.Tx(ctx, func(q *sqlc.Queries) error {
+	return d.conn.Tx(ctx, func(q Queries) error {
 		for _, event := range events {
-			if err := q.RecordHistory(ctx, sqlc.RecordHistoryParams{
+			if err := q.RecordHistory(ctx, RecordHistoryParams{
 				Command:    event.Command,
 				Cwd:        event.Cwd,
 				Timestamp:  event.Timestamp,
@@ -106,13 +95,13 @@ func (d *DB) BatchRecordHistory(ctx context.Context, events []types.HistoryEvent
 }
 
 func (d *DB) SearchHistory(ctx context.Context, query string, limit int) ([]types.HistoryEvent, error) {
-	var rows []sqlc.History
+	var rows []History
 	var err error
 	limit64 := int64(limit)
 	if query == "" {
 		rows, err = d.Queries.GetHistory(ctx, limit64)
 	} else {
-		rows, err = d.Queries.SearchHistory(ctx, sqlc.SearchHistoryParams{
+		rows, err = d.Queries.SearchHistory(ctx, SearchHistoryParams{
 			Command: "%" + query + "%",
 			Limit:   limit64,
 		})

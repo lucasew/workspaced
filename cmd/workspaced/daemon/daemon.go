@@ -126,7 +126,7 @@ func RunDaemon(ctx context.Context) error {
 		logger.Info("config loaded successfully")
 	}
 
-	database, err := db.Open(ctx)
+	database, err := db.OpenDefault(ctx)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

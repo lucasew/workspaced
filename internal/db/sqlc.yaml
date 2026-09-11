@@ -1,0 +1,12 @@
+version: "2"
+sql:
+    - engine: sqlite
+      schema: sqlite/migrations
+      queries:
+        - sqlite/history.sql
+      gen:
+        go:
+            package: sqlite
+            out: sqlite
+            sql_package: database/sql
+            emit_interface: true

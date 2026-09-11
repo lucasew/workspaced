@@ -13,8 +13,8 @@ run = "go run ./cmd/workspaced codebase lint --review"
 run = "go run ./cmd/workspaced codebase format"
 
 [tasks."codegen:sqlc"]
-description = "Generate Go from internal/db/sqlite queries (sqlc.yaml)"
-run = "sqlc generate"
+description = "Generate sqlc + Queries via lewkit generate db"
+run = "go run github.com/lewtec/lewkit/cmd/lewkit generate db internal/db"
 
 [tasks."codegen:autoregistry"]
 description = "Regenerate cmd/workspaced/**/prelude.go files for CLI subcommand wiring"
