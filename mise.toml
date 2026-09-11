@@ -13,7 +13,7 @@ run = "go run ./cmd/workspaced codebase lint --review"
 run = "go run ./cmd/workspaced codebase format"
 
 [tasks."codegen:sqlc"]
-description = "Generate Go code from SQL using sqlc"
+description = "Generate Go from internal/db/sqlite queries (sqlc.yaml)"
 run = "sqlc generate"
 
 [tasks."codegen:autoregistry"]
