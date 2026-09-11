@@ -2,7 +2,7 @@ package feh
 
 import (
 	"context"
-	"fmt"
+
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/wallpaper"
@@ -28,13 +28,5 @@ func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) SetStatic(ctx context.Context, path string) error {
-	feh, err := execdriver.Which(ctx, "feh")
-	if err != nil {
-		return err
-	}
-	cmd := execdriver.MustRun(ctx, "systemd-run", "--user", "-u", "wallpaper-change", "--collect", feh, "--bg-fill", path)
-	if err = cmd.Run(); err != nil {
-		return fmt.Errorf("can't run feh in systemd unit: %w", err)
-	}
-	return nil
+	return wallpaper.SetStaticViaSystemdUnit(ctx, "feh", "--bg-fill", path)
 }

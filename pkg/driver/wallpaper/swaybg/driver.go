@@ -2,7 +2,7 @@ package swaybg
 
 import (
 	"context"
-	"fmt"
+
 	"github.com/lucasew/workspaced/pkg/driver"
 	execdriver "github.com/lucasew/workspaced/pkg/driver/exec"
 	"github.com/lucasew/workspaced/pkg/driver/wallpaper"
@@ -28,13 +28,5 @@ func (f *Factory) New(ctx context.Context) (wallpaper.Driver, error) {
 type Driver struct{}
 
 func (d *Driver) SetStatic(ctx context.Context, path string) error {
-	swaybg, err := execdriver.Which(ctx, "swaybg")
-	if err != nil {
-		return err
-	}
-
-	if err = execdriver.MustRun(ctx, "systemd-run", "--user", "-u", "wallpaper-change", "--collect", swaybg, "-i", path).Run(); err != nil {
-		return fmt.Errorf("can't run swaybg in systemd unit: %w", err)
-	}
-	return nil
+	return wallpaper.SetStaticViaSystemdUnit(ctx, "swaybg", "-i", path)
 }
