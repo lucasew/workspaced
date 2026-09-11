@@ -4,7 +4,6 @@ go = "1.26.4"
 "go:golang.org/x/tools/gopls" = "0.22.0"
 goreleaser = "2.17.0"
 svu = "3.3.0"
-sqlc = "1.31.1"
 
 [tasks.lint]
 run = "go run ./cmd/workspaced codebase lint --review"
@@ -12,17 +11,9 @@ run = "go run ./cmd/workspaced codebase lint --review"
 [tasks.format]
 run = "go run ./cmd/workspaced codebase format"
 
-[tasks."codegen:sqlc"]
-description = "Generate sqlc + Queries via lewkit generate db"
-run = "go run github.com/lewtec/lewkit/cmd/lewkit generate db internal/db"
-
-[tasks."codegen:autoregistry"]
-description = "Regenerate cmd/workspaced/**/prelude.go files for CLI subcommand wiring"
-run = "go run ./internal/devtools/autoregistry"
-
 [tasks.codegen]
 description = "Run all code generators"
-depends = ["codegen:*"]
+run = "go generate ./..."
 
 [tasks.ci]
 depends = ["lint"]

@@ -1,8 +1,10 @@
 // Package db is the workspaced sqlite store.
 //
-// Queries and migrations live under sqlite/. `lewkit generate db internal/db`
-// writes sqlc output, FS, Queries, New, and Open.
+// Queries and migrations live under sqlite/. go generate runs
+// lewkit generate db (sqlc output, FS, Queries, New, Open).
 package db
+
+//go:generate go tool lewkit generate db .
 
 import (
 	"context"
