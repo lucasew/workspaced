@@ -13,9 +13,9 @@ func init() {
 		func(parent *cobra.Command) {
 			parent.AddCommand(&cobra.Command{
 				Use:   "ci-status [args]",
-				Short: "Lazily downloads ci-status and run passing the args",
+				Short: "Run ci-status from the workspace lazy_tools pin",
 				RunE: func(cmd *cobra.Command, args []string) error {
-					c, err := tool.EnsureAndRun(cmd.Context(), "github:lucasew/ci-status@latest", "ci-status", args...)
+					c, err := tool.EnsureAndRunLazy(cmd.Context(), "ci_status", "ci-status", args...)
 					if err != nil {
 						return err
 					}

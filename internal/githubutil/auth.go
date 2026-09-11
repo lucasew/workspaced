@@ -30,8 +30,9 @@ const (
 )
 
 // GHLocator returns an absolute path to a real gh binary (typically via
-// tool ensure of github:cli/cli). Used when `gh` is not on PATH. Must not
-// import githubutil call sites that would cycle; register from internal/tool.
+// lazy_tools.gh / the workspace lockfile). Used when `gh` is not on PATH.
+// Must not import githubutil call sites that would cycle; register from
+// internal/tool.
 type GHLocator func(ctx context.Context) (string, error)
 
 var (
@@ -127,7 +128,7 @@ func resolveToken(ctx context.Context) string {
 }
 
 // resolveGHBinary finds a gh executable: PATH first, then the optional tool
-// locator (ensure github:cli/cli) when PATH has no gh.
+// locator (lazy_tools.gh) when PATH has no gh.
 func resolveGHBinary(ctx context.Context) (string, error) {
 	logger := logging.GetLogger(ctx)
 	if execdriver.IsBinaryAvailable(ctx, "gh") {

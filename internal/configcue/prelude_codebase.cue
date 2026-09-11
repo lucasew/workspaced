@@ -27,6 +27,14 @@ workspaced: {
 			ref:  *"registry:nodejs" | string
 			bins: *["node", "npm", "npx"] | [...string]
 		}
+		ci_status: {
+			ref:  *"github:lucasew/ci-status" | string
+			bins: *["ci-status"] | [...string]
+		}
+		govulncheck: {
+			ref:  *"mise:go:golang.org/x/vuln/cmd/govulncheck" | string
+			bins: *["govulncheck"] | [...string]
+		}
 	}
 
 	lint: {
@@ -48,8 +56,9 @@ workspaced: {
 				detect: {
 					"00-go-mod": {path: "go.mod", enable: true}
 				}
+				needs: {govulncheck: true}
 				cmd: [
-					"go", "run", "golang.org/x/vuln/cmd/govulncheck@v1.1.4",
+					"govulncheck",
 					"--format", "sarif", "./...",
 				]
 				output: "sarif"

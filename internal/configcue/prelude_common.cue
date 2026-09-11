@@ -5,6 +5,23 @@ workspaced: {
 	inputs: self: {
 		from: *"self" | string
 	}
+	// Pins live in the workspace lockfile, not here. Product code must
+	// resolve these via lazy_tools (ResolveLazyTool / needs), never a
+	// hardcoded spec@version.
+	lazy_tools: {
+		mise: {
+			ref:  *"registry:mise" | string
+			bins: *["mise"] | [...string]
+		}
+		gh: {
+			ref:  *"github:cli/cli" | string
+			bins: *["gh"] | [...string]
+		}
+		resvg: {
+			ref:  *"registry:resvg" | string
+			bins: *["resvg"] | [...string]
+		}
+	}
 	drivers: {
 		"github.com/lucasew/workspaced/pkg/driver/clipboard.Driver": {
 			"clipboard_termux": *60 | int

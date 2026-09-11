@@ -30,8 +30,8 @@ func EnsureAndRunLazyAt(ctx context.Context, wd, lazyName, binName string, args 
 
 // EnsureAndRunLazyWithFallback attempts to resolve a tool via workspace configuration first.
 // If the tool alias is unmapped in the workspace, it falls back to installing and executing
-// an explicitly provided universal tool spec (e.g. "github:cli/cli@latest"), bridging dynamic
-// environments with global defaults.
+// an explicitly provided spec. Prefer adding the tool to lazy_tools so the lockfile
+// owns the version instead of passing a spec here.
 func EnsureAndRunLazyWithFallback(ctx context.Context, lazyName, binName, fallbackSpec string, args ...string) (*exec.Cmd, error) {
 	cmd, err := EnsureAndRunLazy(ctx, lazyName, binName, args...)
 	if err == nil {

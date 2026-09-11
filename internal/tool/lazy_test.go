@@ -42,7 +42,11 @@ workspaced: {
     {"kind": "tool", "ref": "github:astral-sh/ruff", "currentValue": "0.1.0", "depName": "astral-sh/ruff", "datasource": "github-releases"},
     {"kind": "tool", "ref": "github:rhysd/actionlint", "currentValue": "0.1.0", "depName": "rhysd/actionlint", "datasource": "github-releases"},
     {"kind": "tool", "ref": "registry:biome", "currentValue": "0.1.0", "depName": "biome", "datasource": "github-releases"},
-    {"kind": "tool", "ref": "registry:nodejs", "currentValue": "0.1.0", "depName": "nodejs", "datasource": "github-releases"}
+    {"kind": "tool", "ref": "registry:nodejs", "currentValue": "0.1.0", "depName": "nodejs", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "registry:mise", "currentValue": "0.1.0", "depName": "jdx/mise", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "registry:resvg", "currentValue": "0.1.0", "depName": "linebender/resvg", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "github:lucasew/ci-status", "currentValue": "0.1.0", "depName": "lucasew/ci-status", "datasource": "github-releases"},
+    {"kind": "tool", "ref": "mise:go:golang.org/x/vuln/cmd/govulncheck", "currentValue": "0.1.0"}
   ]
 }
 `)
