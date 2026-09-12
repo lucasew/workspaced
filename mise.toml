@@ -1,10 +1,9 @@
 # Warning: Do not unify this file with others. Keep tool definitions localized.
 [tools]
-go = "1.26.4"
+go = "1.27.0"
 "go:golang.org/x/tools/gopls" = "0.22.0"
 goreleaser = "2.17.0"
 svu = "3.3.0"
-sqlc = "1.31.1"
 
 [tasks.lint]
 run = "go run ./cmd/workspaced codebase lint --review"
@@ -12,17 +11,9 @@ run = "go run ./cmd/workspaced codebase lint --review"
 [tasks.format]
 run = "go run ./cmd/workspaced codebase format"
 
-[tasks."codegen:sqlc"]
-description = "Generate Go code from SQL using sqlc"
-run = "sqlc generate"
-
-[tasks."codegen:autoregistry"]
-description = "Regenerate cmd/workspaced/**/prelude.go files for CLI subcommand wiring"
-run = "go run ./internal/devtools/autoregistry"
-
 [tasks.codegen]
 description = "Run all code generators"
-depends = ["codegen:*"]
+run = "go generate ./..."
 
 [tasks.ci]
 depends = ["lint"]

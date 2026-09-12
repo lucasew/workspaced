@@ -1,5 +1,7 @@
 package main
 
+//go:generate go run github.com/lucasew/workspaced/internal/devtools/autoregistry
+
 import (
 	"context"
 	"crypto/sha256"
