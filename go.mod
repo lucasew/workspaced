@@ -14,6 +14,7 @@ require (
 	github.com/ktr0731/go-fuzzyfinder v0.9.0
 	github.com/lewtec/lewkit v0.0.0-20260916232321-ed6072c4389d
 	github.com/owenrumney/go-sarif/v2 v2.3.3
+	github.com/owenrumney/go-sarif/v3 v3.3.1
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/stretchr/testify v1.12.1
